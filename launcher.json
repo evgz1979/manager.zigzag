@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "id": "zigzag-manager",
+  "name": "Менеджер заказов",
+  "enabled": true,
+  "services": [
+    {
+      "id": "web",
+      "name": "Веб-интерфейс",
+      "command": ["/usr/bin/python3", "server.py", "8765"],
+      "port": 8765,
+      "url": "http://127.0.0.1:8765",
+      "autoStart": false
+    }
+  ]
+}

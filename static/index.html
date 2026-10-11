@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Менеджер заказов</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <div class="title-row">
+            <h1>Заказы</h1>
+            <label class="year-control">
+              <span>Год</span>
+              <select id="yearSelect" aria-label="Год"></select>
+            </label>
+          </div>
+          <p id="rootPath"></p>
+        </div>
+        <button id="refreshButton" class="icon-button" title="Обновить список">↻</button>
+      </header>
+
+      <section class="workspace">
+        <aside class="sidebar">
+          <label class="search">
+            <span>Поиск</span>
+            <input id="searchInput" type="search" placeholder="клиент, объект, файл, этап">
+          </label>
+          <div class="filter-block">
+            <span>Статус</span>
+            <div class="status-filters" id="statusFilters"></div>
+          </div>
+          <div class="client-list" id="clientList"></div>
+        </aside>
+
+        <section class="project-pane">
+          <div class="pane-head">
+            <div>
+              <h2 id="resultTitle">Проекты</h2>
+              <p id="resultSubtitle"></p>
+            </div>
+            <select id="sortSelect" aria-label="Сортировка">
+              <option value="modified">Сначала свежие</option>
+              <option value="client">По клиенту</option>
+              <option value="name">По названию</option>
+              <option value="files">Больше файлов</option>
+            </select>
+          </div>
+          <div id="projectList" class="project-list"></div>
+        </section>
+      </section>
+    </main>
+
+    <template id="projectTemplate">
+      <article class="project-card">
+        <div class="card-main">
+          <div class="project-title">
+            <span class="client"></span>
+            <h3></h3>
+          </div>
+          <p class="path"></p>
+          <div class="chips"></div>
+          <div class="stages"></div>
+          <div class="latest"></div>
+        </div>
+        <div class="card-side">
+          <select class="status-select" aria-label="Статус проекта"></select>
+          <textarea class="note" rows="3" placeholder="Заметка"></textarea>
+          <div class="actions">
+            <button class="open-folder">Папка</button>
+            <button class="save-status">Сохранить</button>
+          </div>
+          <span class="updated"></span>
+        </div>
+      </article>
+    </template>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
