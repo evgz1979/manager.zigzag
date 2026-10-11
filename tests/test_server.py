@@ -2,6 +2,7 @@ import http.client
 import importlib.util
 import json
 import os
+import plistlib
 import sys
 import tempfile
 import threading
@@ -151,6 +152,135 @@ class ManagerTests(unittest.TestCase):
         self.assertTrue(headers["Content-Disposition"].startswith("attachment"))
         status, headers, body = self.http(self.url("/api/text", "Клиент/Без года/Фото/файл%2F #.txt"))
         self.assertEqual(json.loads(body)["text"], "0123456789")
+
+    def print_folder(self, work="# work", printing="# print"):
+        relative = work + "/" + printing
+        self.folder(relative)
+        return relative
+
+    def test_print_view_accepts_hash_names_with_or_without_spaces(self):
+        for work, printing in (("#work", "#print"), ("# work", "#print"), ("#work", "# print"), ("# work", "#  print")):
+            with self.subTest(work=work, printing=printing):
+                relative = self.print_folder(work, printing)
+                self.file(relative + "/задание.txt", b"task")
+                self.file(relative + "/не текст.png", b"not text")
+                folder = manager.read_folder(relative)
+                self.assertEqual(folder["view"], "print")
+                self.assertEqual([file["name"] for file in folder["files"]], ["задание.txt"])
+        self.assertEqual(manager.read_folder("Клиент")["view"], "files")
+
+    def test_print_clipping_reads_rtf_and_keeps_original_on_unchanged_save(self):
+        folder = self.print_folder()
+        path = folder + "/print - 2000-01-01.textClipping"
+        original = plistlib.dumps({"UTI-Data": {"public.rtf": manager.text_to_rtf("Баннер 3×2 м\nТираж 2 шт.")}, "fixture": True}, fmt=plistlib.FMT_BINARY)
+        self.file(path, original)
+        task = manager.read_print_task(path)
+        self.assertEqual(task["link"], "")
+        self.assertIn("Баннер 3×2 м", task["description"])
+        manager.save_print_task(path, task["link"], task["description"], task["revision"])
+        self.assertEqual((self.root / path).read_bytes(), original)
+
+    def test_legacy_print_link_after_heading_is_separate_without_rewriting(self):
+        folder = self.print_folder()
+        path = folder + "/print - 2000-01-01.textClipping"
+        text = "В печать\n\nhttps://example.com/files\n\nБаннер 3×2 м\n"
+        original = plistlib.dumps({"UTI-Data": {"public.utf8-plain-text": text}}, fmt=plistlib.FMT_BINARY)
+        self.file(path, original)
+        task = manager.read_print_task(path)
+        self.assertEqual(task["link"], "https://example.com/files")
+        self.assertEqual(task["title"], "В печать")
+        self.assertEqual(task["description"], "Баннер 3×2 м\n")
+        manager.save_print_task(path, task["link"], task["description"], task["revision"], task["title"])
+        self.assertEqual((self.root / path).read_bytes(), original)
+
+    def test_print_save_stores_link_first_and_backs_up_original_clipping(self):
+        folder = self.print_folder()
+        path = folder + "/print - 2000-01-01.textClipping"
+        original = plistlib.dumps({"UTI-Data": {"public.rtf": manager.text_to_rtf("Старое задание")}}, fmt=plistlib.FMT_BINARY)
+        self.file(path, original)
+        before = manager.read_print_task(path)
+        title, link, description = "Баннеры для клиента", "https://example.com/banner", "Баннер 3×2 м\n2 шт. 🙂 {проверить}"
+        after = manager.save_print_task(path, link, description, before["revision"], title)
+        expected = link + "\n\nНазвание: " + title + "\n\n" + description
+        representations = plistlib.loads((self.root / path).read_bytes())["UTI-Data"]
+        self.assertEqual(representations["public.utf8-plain-text"], expected)
+        self.assertEqual(manager.text_from_rtf(representations["public.rtf"]).rstrip("\n"), expected)
+        self.assertEqual((after["title"], after["link"], after["description"]), (title, link, description))
+        self.assertNotEqual(before["revision"], after["revision"])
+        backup = next((manager.DATA_DIR / "text-history").rglob("*.textClipping"))
+        self.assertEqual(backup.read_bytes(), original)
+
+    def test_new_print_tasks_follow_sample_and_do_not_overwrite_today(self):
+        folder = self.print_folder()
+        self.file(folder + "/print - 2000-01-01.textClipping", plistlib.dumps({"UTI-Data": {"public.utf8-plain-text": "Образец"}}, fmt=plistlib.FMT_BINARY))
+        expected = manager.next_print_name(self.root / folder)
+        first = manager.create_print_task(folder, "https://example.com/files", "Первый баннер")
+        second = manager.create_print_task(folder, "", "Второй баннер")
+        self.assertEqual(first["name"], expected)
+        self.assertEqual(second["name"], expected.replace(".textClipping", " (2).textClipping"))
+        self.assertRegex(first["name"], r"^print - \d{4}-\d{2}-\d{2}\.textClipping$")
+        self.assertEqual(manager.read_print_task(first["path"])["description"], "Первый баннер")
+
+    def test_print_http_conflict_keeps_external_edits(self):
+        folder = self.print_folder()
+        task = manager.create_print_task(folder, "", "Исходное задание")
+        external = plistlib.dumps({"UTI-Data": {"public.utf8-plain-text": "Изменено в другой программе"}}, fmt=plistlib.FMT_BINARY)
+        (self.root / task["path"]).write_bytes(external)
+        status, _, body = self.http("/api/print-save", "POST", json.dumps({"path": task["path"], "revision": task["revision"], "link": "", "description": "Устаревшая правка"}))
+        self.assertEqual(status, 409)
+        self.assertIn("другой программе", json.loads(body)["error"])
+        self.assertEqual((self.root / task["path"]).read_bytes(), external)
+
+    def test_print_writes_are_restricted_and_link_is_validated(self):
+        folder = self.print_folder()
+        for path in ("Клиент", "# docs", "../outside", folder + "/missing"):
+            with self.subTest(path=path), self.assertRaises((ValueError, FileNotFoundError)):
+                manager.create_print_task(path, "", "test")
+        with self.assertRaises(ValueError):
+            manager.create_print_task(folder, "javascript:alert(1)", "test")
+        (self.root / folder / "alias").symlink_to(self.root / "Клиент")
+        with self.assertRaises(ValueError):
+            manager.create_print_task(folder + "/alias", "", "test")
+
+    def test_plain_text_print_files_keep_unicode_encoding_and_api_fields(self):
+        folder = self.print_folder("#work", "#print")
+        path = folder + "/print - 2000-01-01.txt"
+        self.file(path, "https://example.com/files\n\nПлакат 60×90 см".encode("utf-16"))
+        status, _, body = self.http(self.url("/api/print-task", path))
+        task = json.loads(body)
+        self.assertEqual(status, 200)
+        self.assertEqual(task["link"], "https://example.com/files")
+        self.assertEqual(task["title"], "")
+        self.assertEqual(task["description"], "Плакат 60×90 см")
+        manager.save_print_task(path, task["link"], "Плакат 60×90 см, 3 шт.", task["revision"])
+        self.assertEqual((self.root / path).read_text(encoding="utf-16"), "https://example.com/files\n\nНазвание: \n\nПлакат 60×90 см, 3 шт.")
+
+    def test_print_title_round_trip_keeps_description_urls_and_blank_lines(self):
+        folder = self.print_folder()
+        description = "\nНазвание: это часть описания\n\nhttps://example.com/extra\n\n"
+        for link in ("", "https://example.com/files"):
+            for title in ("", "Плакаты 🙂"):
+                with self.subTest(link=link, title=title):
+                    task = manager.create_print_task(folder, link, description, title)
+                    self.assertEqual((task["title"], task["link"], task["description"]), (title, link, description))
+                    cleared = manager.save_print_task(task["path"], link, description, task["revision"], "")
+                    self.assertEqual(cleared["title"], "")
+                    self.assertEqual(cleared["description"], description)
+
+    def test_print_title_http_create_and_edit_preserves_filename(self):
+        folder = self.print_folder()
+        status, _, body = self.http("/api/print-create", "POST", json.dumps({"path": folder, "title": "Плакаты", "link": "", "description": "2 шт."}))
+        self.assertEqual(status, 201)
+        task = json.loads(body)
+        self.assertEqual(task["title"], "Плакаты")
+        status, _, body = self.http("/api/print-save", "POST", json.dumps({**task, "title": "Новые плакаты"}))
+        self.assertEqual(status, 200)
+        saved = json.loads(body)
+        self.assertEqual(saved["title"], "Новые плакаты")
+        self.assertEqual(saved["name"], task["name"])
+        self.assertEqual(saved["description"], "2 шт.")
+        with self.assertRaises(ValueError):
+            manager.create_print_task(folder, "", "описание", "Название\nвторая строка")
 
     @unittest.skipUnless(sys.platform == "darwin", "PDFKit requires macOS")
     def test_pdf_pages_render_without_browser_pdf_plugin(self):

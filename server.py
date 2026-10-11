@@ -4,14 +4,17 @@ import hashlib
 import json
 import mimetypes
 import os
+import plistlib
 import re
 import subprocess
 import sys
 import threading
 import unicodedata
 import urllib.parse
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 APP_DIR = Path(__file__).resolve().parent
 CONFIG_FILE = APP_DIR / "manager.ini"
@@ -23,6 +26,9 @@ PREVIEW_LOCKS = [threading.Lock() for _ in range(32)]
 PREVIEW_SLOTS = threading.BoundedSemaphore(4)
 PDF_BUILD_LOCK = threading.Lock()
 PDF_INFO_CACHE = {}
+PRINT_LOCK = threading.RLock()
+PRINT_TEXT_EXTENSIONS = {".txt", ".text", ".md", ".rtf", ".textclipping", ""}
+MAX_PRINT_BYTES = 2 * 1024 * 1024
 
 
 def read_config(path=CONFIG_FILE):
@@ -70,12 +76,243 @@ def normalized(value):
     return unicodedata.normalize("NFC", value).casefold()
 
 
+def hash_folder_name(name):
+    return normalized(name[1:].strip()) if name.startswith("#") else None
+
+
+def search_text(value):
+    return re.sub(r"#\s*", "#", normalized(value))
+
+
+def is_print_folder(relative):
+    parts = Path(relative).parts
+    return len(parts) >= 2 and hash_folder_name(parts[0]) == "work" and hash_folder_name(parts[1]) == "print"
+
+
+def print_target(relative, file=False):
+    target = safe_path(relative)
+    if any((DATA_ROOT / Path(*Path(relative).parts[:index + 1])).is_symlink() for index in range(len(Path(relative).parts))):
+        raise ValueError("Символические ссылки не редактируются")
+    folder = relative_path(target.parent) if file else relative_path(target)
+    if not is_print_folder(folder):
+        raise ValueError("Редактирование доступно только в # work/# print")
+    if file:
+        if not target.is_file():
+            raise FileNotFoundError("Задание не найдено")
+        if target.is_symlink() or target.suffix.lower() not in PRINT_TEXT_EXTENSIONS:
+            raise ValueError("Выберите текстовый файл задания")
+    elif not target.is_dir():
+        raise FileNotFoundError("Папка заданий не найдена")
+    return target
+
+
+class PrintConflict(ValueError):
+    pass
+
+
+def text_from_rtf(value):
+    raw = value.encode("utf-8") if isinstance(value, str) else value
+    try:
+        result = subprocess.run(["/usr/bin/textutil", "-convert", "txt", "-stdin", "-stdout", "-format", "rtf"],
+                                input=raw, capture_output=True, check=True, timeout=15)
+        return result.stdout.decode("utf-8")
+    except (OSError, subprocess.SubprocessError, UnicodeDecodeError):
+        raise ValueError("Не удалось прочитать текст задания")
+
+
+def text_to_rtf(text):
+    escaped = []
+    units = text.encode("utf-16-le")
+    for offset in range(0, len(units), 2):
+        unit = int.from_bytes(units[offset:offset + 2], "little")
+        if unit in (ord("\\"), ord("{"), ord("}")):
+            escaped.append("\\" + chr(unit))
+        elif unit == 10:
+            escaped.append("\\par\n")
+        elif unit == 9:
+            escaped.append("\\tab ")
+        elif 32 <= unit < 127:
+            escaped.append(chr(unit))
+        else:
+            escaped.append(f"\\u{unit if unit < 32768 else unit - 65536}?")
+    return "{\\rtf1\\ansi\\ansicpg1251\\uc1 " + "".join(escaped) + "}"
+
+
+def decode_print_document(target, raw):
+    extension = target.suffix.lower()
+    if extension == ".textclipping":
+        try:
+            representations = plistlib.loads(raw)["UTI-Data"]
+            for key, encoding in (("public.utf8-plain-text", "utf-8"), ("public.utf16-plain-text", "utf-16"), ("public.plain-text", "utf-8")):
+                if key in representations:
+                    value = representations[key]
+                    return (value.decode(encoding) if isinstance(value, bytes) else value), "clipping"
+            if "public.rtf" in representations:
+                return text_from_rtf(representations["public.rtf"]), "clipping"
+        except (plistlib.InvalidFileException, KeyError, TypeError, UnicodeDecodeError, ValueError):
+            raise ValueError("Не удалось прочитать текстовое вырезание macOS")
+        raise ValueError("В вырезании нет текста")
+    if extension == ".rtf":
+        return text_from_rtf(raw), "rtf"
+    encoding = "utf-8-sig" if raw.startswith(b"\xef\xbb\xbf") else "utf-16" if raw.startswith((b"\xff\xfe", b"\xfe\xff")) else "utf-8"
+    try:
+        text = raw.decode(encoding)
+    except UnicodeDecodeError:
+        encoding = "cp1251"
+        text = raw.decode(encoding)
+    if "\x00" in text:
+        raise ValueError("Файл не является текстовым")
+    return text, encoding
+
+
+def encode_print_document(target, text, encoding="utf-8", original=None):
+    if target.suffix.lower() == ".textclipping":
+        document = plistlib.loads(original) if original else {}
+        document["UTI-Data"] = {"public.utf8-plain-text": text, "public.rtf": text_to_rtf(text)}
+        return plistlib.dumps(document, fmt=plistlib.FMT_BINARY)
+    if target.suffix.lower() == ".rtf":
+        return text_to_rtf(text).encode("ascii")
+    try:
+        return text.encode(encoding)
+    except UnicodeEncodeError:
+        raise ValueError("Этот файл не поддерживает введённые символы")
+
+
+def split_print_text(text):
+    lines = text.replace("\r\n", "\n").split("\n")
+
+    def is_link(line):
+        parsed = urllib.parse.urlparse(line)
+        return parsed.scheme.lower() in {"http", "https"} and bool(parsed.netloc) and not any(char.isspace() for char in line)
+
+    # A labelled title keeps the description unambiguous, including URLs in it.
+    header_index = 2 if len(lines) > 2 and is_link(lines[0].strip()) and not lines[1] else 0
+    if lines[header_index].startswith("Название: ") or lines[header_index] == "Название:":
+        title = lines[header_index].partition(":")[2].strip()
+        remaining = lines[header_index + 1:]
+        if remaining and not remaining[0]:
+            remaining.pop(0)
+        return lines[0].strip() if header_index else "", title, "\n".join(remaining)
+
+    for index, line in enumerate(lines):
+        link = line.strip()
+        if not is_link(link):
+            continue
+        if index > 0 and lines[0].strip() and all(not item.strip() for item in lines[1:index]):
+            remaining = lines[index + 1:]
+            if remaining and not remaining[0]:
+                remaining.pop(0)
+            return link, lines[0].strip(), "\n".join(remaining)
+        remaining = lines[:index] + lines[index + 1:]
+        if index == 0 and remaining and not remaining[0]:
+            remaining.pop(0)
+        elif index > 0 and not lines[index - 1] and index + 1 < len(lines) and not lines[index + 1]:
+            remaining.pop(index - 1)
+        return link, "", "\n".join(remaining)
+    return "", "", text
+
+
+def compose_print_text(link, description, title=""):
+    if not all(isinstance(value, str) for value in (link, description, title)):
+        raise ValueError("Укажите название, ссылку и описание текстом")
+    if any(char in title for char in "\r\n\x00"):
+        raise ValueError("Название должно быть одной строкой")
+    link = link.strip()
+    parsed = urllib.parse.urlparse(link)
+    if link and (parsed.scheme.lower() not in {"http", "https"} or not parsed.netloc or any(char.isspace() for char in link)):
+        raise ValueError("Ссылка должна начинаться с http:// или https://")
+    text = (link + "\n\n" if link else "") + "Название: " + title.strip() + "\n\n" + description
+    if len(text.encode("utf-8")) > MAX_PRINT_BYTES:
+        raise ValueError("Задание слишком большое")
+    return text
+
+
+def read_print_task(relative):
+    target = print_target(relative, file=True)
+    raw = target.read_bytes()
+    if len(raw) > MAX_PRINT_BYTES:
+        raise ValueError("Задание слишком большое для редактора")
+    text, encoding = decode_print_document(target, raw)
+    link, title, description = split_print_text(text)
+    return {"path": relative_path(target), "name": target.name, "title": title, "link": link, "description": description,
+            "revision": hashlib.sha256(raw).hexdigest(), "modified": target.stat().st_mtime}
+
+
+def next_print_name(folder):
+    templates = [item for item in folder.iterdir() if visible(item) and item.is_file()
+                 and item.suffix.lower() in PRINT_TEXT_EXTENSIONS and re.match(r"^print\s*-\s*\d{4}-\d{2}-\d{2}", item.name, re.I)]
+    extension = max(templates, key=lambda item: item.stat().st_mtime).suffix if templates else ".textClipping"
+    date = datetime.now(ZoneInfo("Europe/Moscow")).date().isoformat()
+    stem = f"print - {date}"
+    name, number = stem + extension, 2
+    while (folder / name).exists():
+        name = f"{stem} ({number}){extension}"
+        number += 1
+    return name
+
+
+def create_print_task(relative, link, description, title=""):
+    folder = print_target(relative)
+    text = compose_print_text(link, description, title)
+    with PRINT_LOCK:
+        while True:
+            target = folder / next_print_name(folder)
+            body = encode_print_document(target, text)
+            if len(body) > MAX_PRINT_BYTES:
+                raise ValueError("Задание слишком большое")
+            try:
+                descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+            except FileExistsError:
+                continue
+            try:
+                with os.fdopen(descriptor, "wb") as stream:
+                    stream.write(body)
+            except OSError:
+                target.unlink(missing_ok=True)
+                raise
+            return read_print_task(relative_path(target))
+
+
+def save_print_task(relative, link, description, revision, title=None):
+    target = print_target(relative, file=True)
+    with PRINT_LOCK:
+        original = target.read_bytes()
+        if hashlib.sha256(original).hexdigest() != revision:
+            raise PrintConflict("Файл изменён в другой программе. Перезагрузите задание перед сохранением.")
+        old_text, encoding = decode_print_document(target, original)
+        old_link, old_title, old_description = split_print_text(old_text)
+        if title is None:
+            title = old_title
+        text = compose_print_text(link, description, title)
+        if text == old_text or (link.strip() == old_link and title.strip() == old_title and description == old_description):
+            return read_print_task(relative)
+        body = encode_print_document(target, text, encoding, original)
+        if len(body) > MAX_PRINT_BYTES:
+            raise ValueError("Задание слишком большое")
+        history = DATA_DIR / "text-history" / hashlib.sha256(relative.encode()).hexdigest()
+        history.mkdir(parents=True, exist_ok=True)
+        backup = history / (hashlib.sha256(original).hexdigest() + target.suffix)
+        if not backup.exists():
+            backup.write_bytes(original)
+        temporary = target.with_name(".manager-" + target.name + ".tmp")
+        try:
+            temporary.write_bytes(body)
+            temporary.chmod(target.stat().st_mode & 0o777)
+            if target.read_bytes() != original:
+                raise PrintConflict("Файл изменён в другой программе. Перезагрузите задание перед сохранением.")
+            temporary.replace(target)
+        finally:
+            temporary.unlink(missing_ok=True)
+        return read_print_task(relative)
+
+
 def sort_key(path):
     return [(1, int(part)) if part.isdigit() else (0, normalized(part)) for part in re.split(r"(\d+)", path.name)]
 
 
 def directory_sort_key(path):
-    return (not path.name.startswith("#"), sort_key(path))
+    name = "#" + path.name[1:].strip() if path.name.startswith("#") else path.name
+    return (not path.name.startswith("#"), sort_key(Path(name)))
 
 
 def folder_sort_key(relative_folder):
@@ -127,7 +364,7 @@ def read_tree(relative="", query=""):
         auxiliary = [folder_node(item) for item in children if item.name.startswith("#")]
         children = [item for item in children if not item.name.startswith("#")]
     if query:
-        needle = normalized(query.strip())
+        needle = search_text(query.strip())
 
         def matching_node(path):
             node = folder_node(path)
@@ -135,7 +372,7 @@ def read_tree(relative="", query=""):
                 descendants = [result for child in directory_children(path) if (result := matching_node(child))]
             except OSError:
                 descendants = []
-            if needle in normalized(relative_path(path)) or descendants:
+            if needle in search_text(relative_path(path)) or descendants:
                 node["children"] = descendants
                 return node
             return None
@@ -222,6 +459,9 @@ def read_folder(relative=""):
                           "size": stat.st_size, "modified": stat.st_mtime,
                           "type": file_group(file), "preview": preview_kind(file),
                           "extension": file.suffix.lstrip(".").upper() or "ФАЙЛ"})
+    print_view = is_print_folder(relative)
+    if print_view:
+        files = [file for file in files if Path(file["name"]).suffix.lower() in PRINT_TEXT_EXTENSIONS]
     files.sort(key=lambda file: (folder_sort_key(file["folder"]), sort_key(Path(file["name"]))))
     counts = {group: sum(file["type"] == group for file in files) for group in [*EXT_GROUPS, "other"]}
     parts = Path(relative).parts
@@ -232,7 +472,9 @@ def read_folder(relative=""):
             "directories": [folder_node(item) for item in directories], "files": files,
             "fileCount": len(files), "folderCount": folder_count,
             "totalSize": sum(file["size"] for file in files), "counts": counts,
-            "warnings": warnings, **folder_status(target, directories)}
+            "warnings": warnings, "view": "print" if print_view else "files",
+            "newFileName": next_print_name(target) if print_view else "",
+            **folder_status(target, directories)}
 
 
 def save_status(relative, status, note):
@@ -408,6 +650,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(read_tree(relative, query.get("q", [""])[0]), head=head)
             elif parsed.path == "/api/folder":
                 self.send_json(read_folder(relative), head=head)
+            elif parsed.path == "/api/print-task":
+                self.send_json(read_print_task(relative), head=head)
             elif parsed.path in {"/api/file", "/api/preview", "/api/text", "/api/pdf", "/api/pdf-page"}:
                 target = safe_path(relative)
                 if not target.is_file():
@@ -463,7 +707,13 @@ class ManagerHandler(BaseHTTPRequestHandler):
             if not isinstance(payload, dict):
                 raise ValueError("Некорректный запрос")
             route = urllib.parse.urlparse(self.path).path
-            if route == "/api/status":
+            if route == "/api/print-create":
+                self.send_json(create_print_task(payload.get("path", ""), payload.get("link", ""), payload.get("description", ""), payload.get("title", "")), 201)
+                return
+            elif route == "/api/print-save":
+                self.send_json(save_print_task(payload.get("path", ""), payload.get("link", ""), payload.get("description", ""), payload.get("revision"), payload.get("title")))
+                return
+            elif route == "/api/status":
                 save_status(payload.get("path", ""), payload.get("status"), payload.get("note", ""))
             elif route == "/api/open":
                 target = safe_path(payload.get("path", ""))
@@ -476,6 +726,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": True})
         except FileNotFoundError as error:
             self.send_json({"error": str(error)}, 404)
+        except PrintConflict as error:
+            self.send_json({"error": str(error)}, 409)
         except (ValueError, UnicodeDecodeError) as error:
             self.send_json({"error": str(error)}, 400)
         except OSError as error:

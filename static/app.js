@@ -6,8 +6,9 @@ const state = {
   treeQuery: "", searchTree: null, folder: null, selected: "",
   fileQuery: "", fileType: "all", fileSort: "folders", limit: 120,
   folderRequest: null, navigation: 0, preview: null, dirty: false, saving: null,
+  printTask: null, printSaving: null, printQuery: "",
 };
-let searchTimer, toastTimer, previewVersion = 0, treeSearchVersion = 0;
+let searchTimer, toastTimer, previewVersion = 0, treeSearchVersion = 0, printReadVersion = 0;
 const icon = (name) => '<svg aria-hidden="true"><use href="#icon-' + name + '"/></svg>';
 const escapeHtml = (value) => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 const normalize = (value) => String(value).normalize("NFC").toLocaleLowerCase("ru");
@@ -19,6 +20,7 @@ const formatSize = (bytes) => {
   return (bytes / 1024 ** 3).toFixed(1) + " ГБ";
 };
 const formatDate = (seconds) => new Date(seconds * 1000).toLocaleDateString("ru", { day: "numeric", month: "short", year: "numeric" });
+const printCountLabel = (count) => count + " " + ({ one: "задание", few: "задания", many: "заданий", other: "задания" }[new Intl.PluralRules("ru").select(count)]);
 const folderParent = (path) => path.split("/").slice(0, -1).join("/");
 
 async function request(url, payload) {
@@ -138,14 +140,15 @@ async function loadTree() {
 
 function renderFolder() {
   const folder = state.folder;
+  const printView = folder.view === "print";
   $("breadcrumbs").innerHTML = folder.breadcrumbs.map((part, index) =>
     (index ? '<span class="breadcrumb-divider">/</span>' : "") +
     '<button data-path="' + escapeHtml(part.path) + '"' + (index === folder.breadcrumbs.length - 1 ? ' aria-current="page"' : "") + ">" +
     escapeHtml(part.name) + "</button>").join("");
-  $("folderTitle").textContent = folder.path ? folder.name : "Клиенты и заказы";
+  $("folderTitle").textContent = printView ? "Задания на печать" : folder.path ? folder.name : "Клиенты и заказы";
   const auxiliary = folder.client.startsWith("#");
-  $("clientLabel").textContent = auxiliary ? "ОБЩИЕ ПАПКИ" : folder.client || folder.name;
-  $("folderSummary").textContent = folder.path
+  $("clientLabel").textContent = printView ? "ШИРОКОФОРМАТНАЯ ПРОДУКЦИЯ" : auxiliary ? "ОБЩИЕ ПАПКИ" : folder.client || folder.name;
+  $("folderSummary").textContent = printView ? printCountLabel(folder.fileCount) + " · название, ссылка и описание" : folder.path
     ? folder.fileCount + " файлов · " + folder.folderCount + " папок · " + formatSize(folder.totalSize)
     : "Выберите клиента или заказ в дереве слева";
   $("folderSection").hidden = !folder.directories.length;
@@ -162,7 +165,19 @@ function renderFolder() {
   $("notice").hidden = !folder.warnings.length;
   $("notice").textContent = folder.warnings.join(" · ");
   $("fileSearch").value = state.fileQuery;
-  renderFiles();
+  $("filesSection").hidden = printView;
+  $("printWorkspace").hidden = !printView;
+  if (printView) {
+    state.printQuery = "";
+    $("printTaskSearch").value = "";
+    renderPrintList();
+    $("printEditorForm").hidden = true;
+    $("printEditorEmpty").hidden = false;
+    $("printEditorEmpty").textContent = "Выберите задание или создайте новое";
+    const requested = new URLSearchParams(location.search).get("task");
+    const first = printFiles().find((file) => file.path === requested) || printFiles()[0];
+    if (first) run(() => openPrintTask(first.path));
+  } else renderFiles();
 }
 
 function renderStatus() {
@@ -228,6 +243,121 @@ function renderFiles() {
   }, { once: true }));
 }
 
+function printFiles() {
+  const needle = normalize(state.printQuery.trim());
+  return state.folder.files.filter((file) => !needle || normalize(file.name + " " + file.folder).includes(needle))
+    .sort((a, b) => b.modified - a.modified || b.name.localeCompare(a.name, "ru", { numeric: true }));
+}
+
+function renderPrintList() {
+  $("printTaskCount").textContent = state.folder.fileCount;
+  const files = printFiles();
+  $("printTaskList").innerHTML = files.map((file) => '<button class="print-task-button' +
+    (state.printTask?.path === file.path ? " active" : "") + '" data-task="' + escapeHtml(file.path) +
+    '" title="' + escapeHtml(file.name) + '"><span>' + icon("file") + '<strong>' +
+    escapeHtml(file.name.replace(/\.(textClipping|txt|text|md|rtf)$/i, "")) + '</strong></span><small>' +
+    formatDate(file.modified) + (file.folder ? " · " + escapeHtml(file.folder) : "") + '</small></button>').join("") ||
+    '<p class="tree-empty">' + (state.folder.fileCount ? "Задания не найдены" : "Заданий пока нет") + "</p>";
+}
+
+function renderPrintSaveState() {
+  const task = state.printTask;
+  if (!task) return;
+  $("printTaskName").textContent = task.name;
+  $("printSaveState").textContent = state.printSaving ? "Сохраняю…" : task.isNew ? "Новое задание · файл появится после сохранения" : task.dirty ? "Есть несохранённые изменения" : "Все изменения сохранены";
+  $("printSaveState").classList.toggle("unsaved", Boolean(task.dirty));
+  $("savePrintTask").textContent = task.isNew ? "Создать задание" : "Сохранить";
+  $("savePrintTask").disabled = Boolean(state.printSaving);
+  const link = $("printLink").value.trim();
+  try {
+    const url = new URL(link);
+    const valid = ["http:", "https:"].includes(url.protocol);
+    $("openPrintLink").hidden = !valid;
+    if (valid) $("openPrintLink").href = url.href;
+  } catch { $("openPrintLink").hidden = true; }
+}
+
+function showPrintTask(task) {
+  state.printTask = { ...task, dirty: false };
+  $("printTitle").value = task.title;
+  $("printLink").value = task.link;
+  $("printDescription").value = task.description;
+  $("printEditorForm").hidden = false;
+  $("printEditorEmpty").hidden = true;
+  renderPrintList();
+  renderPrintSaveState();
+}
+
+async function openPrintTask(path) {
+  await saveCurrentPrintTask();
+  const version = ++printReadVersion;
+  $("printEditorForm").hidden = true;
+  $("printEditorEmpty").hidden = false;
+  $("printEditorEmpty").textContent = "Загрузка задания…";
+  try {
+    const task = await request(apiUrl("/api/print-task", path));
+    if (version !== printReadVersion || state.folder.view !== "print") return;
+    showPrintTask(task);
+    const url = new URL(location.href);
+    url.searchParams.set("task", task.path);
+    window.history.replaceState(null, "", url.pathname + url.search);
+  } catch (error) {
+    if (version === printReadVersion) {
+      $("printEditorEmpty").textContent = error.message;
+      if (state.printTask) $("printEditorForm").hidden = false;
+    }
+    throw error;
+  }
+}
+
+async function newPrintTask() {
+  await saveCurrentPrintTask();
+  ++printReadVersion;
+  showPrintTask({ path: "", name: state.folder.newFileName, title: "", link: "", description: "", isNew: true });
+  const url = new URL(location.href);
+  url.searchParams.delete("task");
+  window.history.replaceState(null, "", url.pathname + url.search);
+  $("printTitle").focus();
+}
+
+async function saveCurrentPrintTask(force = false) {
+  if (state.printSaving) {
+    await state.printSaving;
+    if (state.printTask?.dirty) return saveCurrentPrintTask(force);
+    return;
+  }
+  const task = state.printTask;
+  if (!task || (!task.dirty && !(force && task.isNew))) return;
+  if (!$("printLink").checkValidity()) {
+    $("printLink").reportValidity();
+    throw new Error("Проверьте ссылку на файлы");
+  }
+  const title = $("printTitle").value.trim(), link = $("printLink").value.trim(), description = $("printDescription").value;
+  const folder = state.folder.path;
+  state.printSaving = (async () => {
+    const saved = await request(task.isNew ? "/api/print-create" : "/api/print-save", {
+      path: task.isNew ? folder : task.path, revision: task.revision, title, link, description,
+    });
+    if (state.printTask === task) {
+      Object.assign(task, saved, { isNew: false });
+      task.dirty = $("printTitle").value.trim() !== saved.title || $("printLink").value.trim() !== saved.link || $("printDescription").value !== saved.description;
+      const url = new URL(location.href);
+      url.searchParams.set("task", saved.path);
+      window.history.replaceState(null, "", url.pathname + url.search);
+    }
+    state.folder = await request(apiUrl("/api/folder", folder));
+    $("folderSummary").textContent = printCountLabel(state.folder.fileCount) + " · название, ссылка и описание";
+    renderPrintList();
+  })();
+  renderPrintSaveState();
+  try {
+    await state.printSaving;
+  } finally {
+    state.printSaving = null;
+    renderPrintSaveState();
+  }
+}
+
 async function saveCurrentStatus() {
   if (state.saving) {
     await state.saving;
@@ -255,7 +385,9 @@ async function saveCurrentStatus() {
 }
 
 async function navigate(path, { history = true } = {}) {
+  await saveCurrentPrintTask();
   await saveCurrentStatus();
+  ++printReadVersion;
   const navigation = ++state.navigation;
   state.folderRequest?.abort();
   state.folderRequest = new AbortController();
@@ -267,6 +399,7 @@ async function navigate(path, { history = true } = {}) {
     if (!response.ok) throw new Error(data.error || "Не удалось открыть папку");
     if (navigation !== state.navigation) return;
     state.folder = data;
+    state.printTask = null;
     state.selected = data.path;
     state.fileType = "all";
     state.fileQuery = "";
@@ -515,6 +648,29 @@ $("refreshButton").addEventListener("click", () => run(async () => {
 $("statusSelect").addEventListener("change", () => { state.dirty = true; renderStatus(); });
 $("orderNote").addEventListener("input", () => { state.dirty = true; renderStatus(); });
 $("statusForm").addEventListener("submit", (event) => { event.preventDefault(); run(async () => { await saveCurrentStatus(); notify("Статус и заметка сохранены"); }); });
+$("newPrintTask").addEventListener("click", () => run(newPrintTask));
+$("printTaskList").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-task]");
+  if (button) run(() => openPrintTask(button.dataset.task));
+});
+$("printTaskSearch").addEventListener("input", (event) => { state.printQuery = event.target.value; renderPrintList(); });
+for (const id of ["printTitle", "printLink", "printDescription"]) {
+  $(id).addEventListener("input", () => {
+    if (!state.printTask) return;
+    state.printTask.dirty = $("printTitle").value.trim() !== state.printTask.title || $("printLink").value.trim() !== state.printTask.link || $("printDescription").value !== state.printTask.description;
+    renderPrintSaveState();
+  });
+}
+$("printEditorForm").addEventListener("submit", (event) => {
+  event.preventDefault();
+  run(async () => { await saveCurrentPrintTask(true); notify("Задание сохранено"); });
+});
+window.addEventListener("keydown", (event) => {
+  if (!$("printWorkspace").hidden && state.printTask && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+    event.preventDefault();
+    run(async () => { await saveCurrentPrintTask(true); notify("Задание сохранено"); });
+  }
+});
 $("previewClose").addEventListener("click", () => $("previewDialog").close());
 $("previewDialog").addEventListener("close", () => { ++previewVersion; $("previewBody").replaceChildren(); state.preview = null; });
 $("previewPrevious").addEventListener("click", () => stepPreview(-1));
@@ -526,7 +682,7 @@ $("previewDialog").addEventListener("keydown", (event) => {
   if (event.key === "ArrowRight") { event.preventDefault(); stepPreview(1); }
 });
 window.addEventListener("popstate", () => run(() => navigate(new URLSearchParams(location.search).get("path") || "", { history: false })));
-window.addEventListener("beforeunload", (event) => { if (state.dirty) { event.preventDefault(); event.returnValue = ""; } });
+window.addEventListener("beforeunload", (event) => { if (state.dirty || state.printTask?.dirty || state.printSaving) { event.preventDefault(); event.returnValue = ""; } });
 
 run(async () => {
   try {
