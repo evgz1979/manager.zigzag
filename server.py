@@ -74,6 +74,14 @@ def sort_key(path):
     return [(1, int(part)) if part.isdigit() else (0, normalized(part)) for part in re.split(r"(\d+)", path.name)]
 
 
+def directory_sort_key(path):
+    return (not path.name.startswith("#"), sort_key(path))
+
+
+def folder_sort_key(relative_folder):
+    return tuple(directory_sort_key(Path(part)) for part in Path(relative_folder).parts)
+
+
 def visible(path):
     return not path.name.startswith(".") and not path.is_symlink()
 
@@ -98,7 +106,7 @@ def relative_path(path):
 
 
 def directory_children(path):
-    return sorted((item for item in path.iterdir() if visible(item) and item.is_dir()), key=sort_key)
+    return sorted((item for item in path.iterdir() if visible(item) and item.is_dir()), key=directory_sort_key)
 
 
 def folder_node(path):
@@ -214,7 +222,7 @@ def read_folder(relative=""):
                           "size": stat.st_size, "modified": stat.st_mtime,
                           "type": file_group(file), "preview": preview_kind(file),
                           "extension": file.suffix.lstrip(".").upper() or "ФАЙЛ"})
-    files.sort(key=lambda file: (normalized(file["folder"]), sort_key(Path(file["name"]))))
+    files.sort(key=lambda file: (folder_sort_key(file["folder"]), sort_key(Path(file["name"]))))
     counts = {group: sum(file["type"] == group for file in files) for group in [*EXT_GROUPS, "other"]}
     parts = Path(relative).parts
     breadcrumbs = [{"name": DATA_ROOT.name, "path": ""}]
