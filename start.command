@@ -1,4 +1,5 @@
 #!/bin/zsh
 cd "$(dirname "$0")"
-open "http://127.0.0.1:8765"
-python3 server.py 8765
+port=$(/usr/bin/python3 -c 'import server; print(server.SERVER_PORT)')
+open "http://127.0.0.1:$port"
+exec /usr/bin/python3 server.py

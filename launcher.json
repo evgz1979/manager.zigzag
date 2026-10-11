@@ -7,7 +7,10 @@
     {
       "id": "web",
       "name": "Веб-интерфейс",
-      "command": ["/usr/bin/python3", "server.py", "8765"],
+      "command": [
+        "/usr/bin/python3",
+        "server.py"
+      ],
       "port": 8765,
       "url": "http://127.0.0.1:8765",
       "autoStart": false

@@ -3,80 +3,37 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Менеджер заказов</title>
+    <title>Зигзаг · Заказы</title>
     <link rel="stylesheet" href="/styles.css">
   </head>
   <body>
-    <main class="shell">
-      <header class="topbar">
-        <div>
-          <div class="title-row">
-            <h1>Заказы</h1>
-            <label class="year-control">
-              <span>Год</span>
-              <select id="yearSelect" aria-label="Год"></select>
-            </label>
-          </div>
-          <p id="rootPath"></p>
-        </div>
-        <button id="refreshButton" class="icon-button" title="Обновить список">↻</button>
-      </header>
-
-      <section class="workspace">
-        <aside class="sidebar">
-          <label class="search">
-            <span>Поиск</span>
-            <input id="searchInput" type="search" placeholder="клиент, объект, файл, этап">
-          </label>
-          <div class="filter-block">
-            <span>Статус</span>
-            <div class="status-filters" id="statusFilters"></div>
-          </div>
-          <div class="client-list" id="clientList"></div>
-        </aside>
-
-        <section class="project-pane">
-          <div class="pane-head">
-            <div>
-              <h2 id="resultTitle">Проекты</h2>
-              <p id="resultSubtitle"></p>
-            </div>
-            <select id="sortSelect" aria-label="Сортировка">
-              <option value="modified">Сначала свежие</option>
-              <option value="client">По клиенту</option>
-              <option value="name">По названию</option>
-              <option value="files">Больше файлов</option>
-            </select>
-          </div>
-          <div id="projectList" class="project-list"></div>
-        </section>
+    <svg class="icon-definitions" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <symbol id="icon-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10H3Z"/></symbol>
+      <symbol id="icon-file" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6Z"/><path d="M14 3v5h4M9 12h6M9 16h6"/></symbol>
+      <symbol id="icon-chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+      <symbol id="icon-search" viewBox="0 0 24 24"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></symbol>
+      <symbol id="icon-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 6M4 12l2 6a7 7 0 0 0 12-1"/></symbol>
+    </svg>
+    <main class="workspace">
+      <aside class="sidebar" aria-label="Папки">
+        <header class="brand"><button id="homeButton" class="brand-button" title="Все клиенты"><span class="brand-mark">З</span><span>Зигзаг<small>Менеджер заказов</small></span></button><button id="refreshButton" class="icon-button" title="Обновить" aria-label="Обновить"><svg><use href="#icon-refresh"/></svg></button></header>
+        <div id="auxiliaryButtons" class="auxiliary-buttons" aria-label="Общие папки"></div>
+        <div class="tree-heading"><span>Клиенты</span><span id="clientCount"></span></div>
+        <label class="search-field tree-search"><svg><use href="#icon-search"/></svg><input id="treeSearch" type="search" placeholder="Найти папку…" aria-label="Поиск папок клиентов"></label>
+        <nav id="folderTree" class="folder-tree" aria-label="Дерево клиентов" role="tree"></nav>
+        <footer class="sidebar-footer"><span class="connection-dot"></span><span id="rootLabel" title="">Папка данных</span></footer>
+      </aside>
+      <section class="content-pane" aria-label="Содержимое заказа" aria-busy="true">
+        <div class="content-topbar"><nav id="breadcrumbs" class="breadcrumbs" aria-label="Путь"></nav><span id="scanState" class="scan-state"></span></div>
+        <header class="order-heading"><div><p id="clientLabel" class="eyebrow">КЛИЕНТЫ И ЗАКАЗЫ</p><h1 id="folderTitle">Зигзаг</h1><p id="folderSummary" class="folder-summary">Загрузка папок…</p></div><button id="openFolderButton" class="secondary-button"><svg><use href="#icon-folder"/></svg>Открыть в Finder</button></header>
+        <div id="notice" class="notice" role="status" hidden></div>
+        <details id="orderDetails" class="order-details" hidden><summary><span id="statusBadge" class="status-badge">Новый</span><span>Статус и заметка</span><span class="details-chevron">⌄</span></summary><form id="statusForm" class="status-form"><label>Статус<select id="statusSelect" name="status"><option value="new">Новый</option><option value="measure">Замеры</option><option value="process">В работе</option><option value="workshop">В цех</option><option value="install">Монтаж</option><option value="done">Готово</option></select></label><label class="note-label">Заметка<textarea id="orderNote" name="note" rows="2" placeholder="Что важно по этому заказу"></textarea></label><button id="saveStatusButton" class="primary-button" type="submit">Сохранить</button></form></details>
+        <section id="folderSection" class="folder-section" aria-label="Подпапки"><div class="section-heading"><h2 id="foldersTitle">Папки</h2><span id="directoryCount"></span></div><div id="subfolders" class="subfolders"></div></section>
+        <section class="files-section" aria-label="Файлы"><div class="files-toolbar"><div><h2>Файлы <span id="fileCount" class="count-badge">0</span></h2><span class="files-scope">Из выбранной папки и всех подпапок</span></div><label class="search-field file-search"><svg><use href="#icon-search"/></svg><input id="fileSearch" type="search" placeholder="Найти файл…" aria-label="Поиск файлов заказа"></label><select id="fileSort" aria-label="Сортировка файлов"><option value="folders">По папкам</option><option value="modified">Сначала новые</option><option value="name">По имени</option></select></div><div id="fileFilters" class="file-filters" aria-label="Тип файла"></div><div id="files" class="files"></div></section>
       </section>
     </main>
-
-    <template id="projectTemplate">
-      <article class="project-card">
-        <div class="card-main">
-          <div class="project-title">
-            <span class="client"></span>
-            <h3></h3>
-          </div>
-          <p class="path"></p>
-          <div class="chips"></div>
-          <div class="stages"></div>
-          <div class="latest"></div>
-        </div>
-        <div class="card-side">
-          <select class="status-select" aria-label="Статус проекта"></select>
-          <textarea class="note" rows="3" placeholder="Заметка"></textarea>
-          <div class="actions">
-            <button class="open-folder">Папка</button>
-            <button class="save-status">Сохранить</button>
-          </div>
-          <span class="updated"></span>
-        </div>
-      </article>
-    </template>
-
+    <dialog id="previewDialog" class="preview-dialog"><header class="preview-header"><div><strong id="previewTitle"></strong><span id="previewPath"></span></div><div class="preview-actions"><button id="previewPrevious" title="Предыдущий файл" aria-label="Предыдущий файл">←</button><button id="previewNext" title="Следующий файл" aria-label="Следующий файл">→</button><button id="previewNative">Открыть на Mac</button><a id="previewDownload" class="secondary-button">Скачать</a><button id="previewClose" title="Закрыть" aria-label="Закрыть">✕</button></div></header><div id="previewBody" class="preview-body"></div><footer id="previewMeta" class="preview-meta"></footer></dialog>
+    <div id="toast" class="toast" role="status" hidden></div>
     <script src="/app.js"></script>
   </body>
 </html>
