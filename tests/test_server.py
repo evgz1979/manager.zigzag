@@ -110,15 +110,75 @@ class ManagerTests(unittest.TestCase):
         self.assertEqual(root, self.base / "папка # 100%")
         self.assertEqual((host, port), ("127.0.0.1", 9876))
 
-    def test_notes_keep_existing_records_and_read_legacy_year_keys(self):
+    def test_notes_migrate_legacy_year_keys_into_folder_and_archive_original(self):
         manager.DATA_DIR.mkdir()
         old = {"2025/Клиент/Без года": {"status": "done", "note": "Старая заметка"}}
         manager.STATUSES_FILE.write_text(json.dumps(old))
+        result = manager.migrate_statuses()
+        self.assertEqual(result["migrated"], 1)
+        self.assertEqual(json.loads(Path(result["archive"]).read_text()), old)
+        self.assertFalse(manager.STATUSES_FILE.exists())
         self.assertEqual(manager.read_folder("Клиент/Без года")["note"], "Старая заметка")
         manager.save_status("Клиент/Без года", "process", "Новая заметка")
-        records = json.loads(manager.STATUSES_FILE.read_text())
-        self.assertEqual(records["2025/Клиент/Без года"], old["2025/Клиент/Без года"])
+        self.assertEqual(json.loads(Path(result["archive"]).read_text()), old)
         self.assertEqual(manager.read_folder("Клиент/Без года")["note"], "Новая заметка")
+        self.assertIsNone(manager.migrate_statuses())
+
+    def test_status_and_multiline_note_are_readable_portable_and_editable_without_app(self):
+        relative = "Клиент/Без года"
+        note = "Позвонить клиенту\n\nРазмеры: 3×2 м\nЗаметка:\nДополнение\n"
+        manager.save_status(relative, "process", note)
+        document = self.root / relative / manager.STATUS_DOCUMENT_NAME
+        self.assertEqual(document.read_text(), "Статус: В работе\n\nЗаметка:\n" + note)
+        self.assertFalse(manager.DATA_DIR.exists())
+        self.assertEqual(manager.read_folder(relative)["note"], note)
+        document.write_text("Статус: Готово\n\nЗаметка:\nИзменено в текстовом редакторе", encoding="utf-8")
+        folder = manager.read_folder(relative)
+        self.assertEqual((folder["status"], folder["note"], folder["statusSource"]), ("done", "Изменено в текстовом редакторе", "manual"))
+        copied_root = self.base / "Скопированные документы"
+        import shutil
+        shutil.copytree(self.root, copied_root)
+        with patch.object(manager, "DATA_ROOT", copied_root):
+            self.assertEqual(manager.read_folder(relative)["note"], folder["note"])
+
+    def test_status_migration_preserves_local_edits_and_unresolved_records(self):
+        manager.save_status("Клиент", "process", "Правка в папке")
+        manager.DATA_DIR.mkdir()
+        old = {"Клиент": {"status": "new", "note": "Прежняя правка"}, "Пропавшая папка": {"status": "done", "note": "Не потерять"}}
+        manager.STATUSES_FILE.write_text(json.dumps(old))
+        archive = self.root / ".legacy-statuses.json"
+        archive.write_text("Предыдущий архив")
+        result = manager.migrate_statuses()
+        self.assertEqual(result["migrated"], 0)
+        self.assertEqual(result["unresolved"], ["Пропавшая папка"])
+        self.assertEqual(manager.read_folder("Клиент")["note"], "Правка в папке")
+        self.assertEqual(archive.read_text(), "Предыдущий архив")
+        self.assertEqual(json.loads(Path(result["archive"]).read_text()), old)
+
+    def test_ambiguous_legacy_year_records_are_archived_without_guessing(self):
+        manager.DATA_DIR.mkdir()
+        old = {"2024/Клиент": {"status": "done", "note": "Первый год"}, "2025/Клиент": {"status": "new", "note": "Второй год"}}
+        manager.STATUSES_FILE.write_text(json.dumps(old))
+        result = manager.migrate_statuses()
+        self.assertEqual(result["migrated"], 0)
+        self.assertCountEqual(result["unresolved"], old.keys())
+        self.assertFalse((self.root / "Клиент" / manager.STATUS_DOCUMENT_NAME).exists())
+        self.assertEqual(json.loads(Path(result["archive"]).read_text()), old)
+
+    def test_status_save_rejects_symlinks_and_does_not_create_files_on_read(self):
+        relative = "Клиент/Без года"
+        manager.read_folder(relative)
+        document = self.root / relative / manager.STATUS_DOCUMENT_NAME
+        self.assertFalse(document.exists())
+        outside = self.base / "outside-status.txt"
+        outside.write_text("Не изменять")
+        document.symlink_to(outside)
+        with self.assertRaises(ValueError):
+            manager.save_status(relative, "done", "test")
+        self.assertEqual(outside.read_text(), "Не изменять")
+        (self.root / "alias").symlink_to(self.root / "Клиент")
+        with self.assertRaises(ValueError):
+            manager.save_status("alias", "done", "test")
 
     def test_http_literal_percent_hash_unicode_and_byte_ranges(self):
         path = "Клиент/Без года/Фото/файл%2F #.txt"
@@ -207,8 +267,11 @@ class ManagerTests(unittest.TestCase):
         self.assertEqual(manager.text_from_rtf(representations["public.rtf"]).rstrip("\n"), expected)
         self.assertEqual((after["title"], after["link"], after["description"]), (title, link, description))
         self.assertNotEqual(before["revision"], after["revision"])
-        backup = next((manager.DATA_DIR / "text-history").rglob("*.textClipping"))
+        backup = next(path for path in (self.root / folder / manager.PRINT_HISTORY_DIR).rglob("*.textClipping") if path.is_file())
         self.assertEqual(backup.read_bytes(), original)
+        self.assertFalse(manager.DATA_DIR.exists())
+        self.assertEqual(manager.read_folder(folder)["fileCount"], 1)
+        self.assertEqual(manager.read_tree(folder)["children"], [])
 
     def test_new_print_tasks_follow_sample_and_do_not_overwrite_today(self):
         folder = self.print_folder()

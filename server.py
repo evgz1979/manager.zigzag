@@ -6,8 +6,10 @@ import mimetypes
 import os
 import plistlib
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import unicodedata
 import urllib.parse
@@ -21,6 +23,8 @@ CONFIG_FILE = APP_DIR / "manager.ini"
 STATIC_DIR = APP_DIR / "static"
 DATA_DIR = APP_DIR / "data"
 STATUSES_FILE = DATA_DIR / "statuses.json"
+STATUS_DOCUMENT_NAME = ".status.txt"
+PRINT_HISTORY_DIR = ".print-history"
 STATUS_LOCK = threading.Lock()
 PREVIEW_LOCKS = [threading.Lock() for _ in range(32)]
 PREVIEW_SLOTS = threading.BoundedSemaphore(4)
@@ -289,9 +293,13 @@ def save_print_task(relative, link, description, revision, title=None):
         body = encode_print_document(target, text, encoding, original)
         if len(body) > MAX_PRINT_BYTES:
             raise ValueError("Задание слишком большое")
-        history = DATA_DIR / "text-history" / hashlib.sha256(relative.encode()).hexdigest()
+        history = target.parent / PRINT_HISTORY_DIR / target.name
+        if history.parent.is_symlink() or history.is_symlink():
+            raise ValueError("Папка истории не должна быть символической ссылкой")
         history.mkdir(parents=True, exist_ok=True)
         backup = history / (hashlib.sha256(original).hexdigest() + target.suffix)
+        if backup.is_symlink():
+            raise ValueError("Файл истории не должен быть символической ссылкой")
         if not backup.exists():
             backup.write_bytes(original)
         temporary = target.with_name(".manager-" + target.name + ".tmp")
@@ -403,7 +411,7 @@ def preview_kind(path):
     return "native"
 
 
-def load_statuses():
+def load_legacy_statuses():
     if not STATUSES_FILE.exists():
         return {}
     records = json.loads(STATUSES_FILE.read_text(encoding="utf-8"))
@@ -412,16 +420,97 @@ def load_statuses():
     return records
 
 
+def status_document(folder):
+    document = folder / STATUS_DOCUMENT_NAME
+    if document.is_symlink() or (document.exists() and not document.is_file()):
+        raise ValueError(f"Вместо {STATUS_DOCUMENT_NAME} должен быть обычный текстовый файл")
+    return document
+
+
+def read_status_document(folder):
+    document = status_document(folder)
+    if not document.exists():
+        return {}
+    text = document.read_text(encoding="utf-8-sig").replace("\r\n", "\n")
+    heading, separator, note = text.partition("\n\nЗаметка:\n")
+    if not separator or not heading.startswith("Статус: "):
+        raise ValueError(f"Проверьте формат файла {document}: Статус: …, пустая строка, Заметка:")
+    value = heading.removeprefix("Статус: ").strip()
+    status = next((key for key, label in STATUS_LABELS.items() if normalized(label) == normalized(value)), value)
+    if status not in STATUS_LABELS:
+        raise ValueError(f"Неизвестный статус в файле {document}")
+    return {"status": status, "note": note}
+
+
+def write_status_document(folder, status, note):
+    document = status_document(folder)
+    body = f"Статус: {STATUS_LABELS[status]}\n\nЗаметка:\n{note}"
+    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", prefix=".manager-status-", suffix=".tmp", dir=folder, delete=False) as stream:
+        temporary = Path(stream.name)
+        stream.write(body)
+    try:
+        temporary.chmod(document.stat().st_mode & 0o777 if document.exists() else 0o644)
+        temporary.replace(document)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def editable_status_folder(relative):
+    target = safe_path(relative)
+    if not relative or not target.is_dir():
+        raise ValueError("Выберите папку заказа")
+    if any((DATA_ROOT / Path(*Path(relative).parts[:index + 1])).is_symlink() for index in range(len(Path(relative).parts))):
+        raise ValueError("Символические ссылки не редактируются")
+    return target
+
+
+def migrate_statuses():
+    """Move old app-local records into readable files without replacing local edits."""
+    with STATUS_LOCK:
+        if not STATUSES_FILE.exists():
+            return None
+        records = load_legacy_statuses()
+        migrated, unresolved = 0, []
+        pending = {}
+        for relative, record in records.items():
+            if not isinstance(relative, str) or not isinstance(record, dict):
+                unresolved.append(str(relative))
+                continue
+            candidates = [relative]
+            if re.match(r"^\d{4}/", relative):
+                candidates.append(relative[5:])
+            folder = None
+            for candidate in candidates:
+                try:
+                    folder = editable_status_folder(candidate)
+                    break
+                except (ValueError, OSError):
+                    continue
+            status, note = record.get("status"), record.get("note", "")
+            if folder is None or not isinstance(status, str) or status not in STATUS_LABELS or not isinstance(note, str):
+                unresolved.append(relative)
+                continue
+            pending.setdefault(relative_path(folder), []).append((relative, folder, status, note))
+        for key, entries in pending.items():
+            direct = next((entry for entry in entries if entry[0] == key), None)
+            if direct is None and len(entries) != 1:
+                unresolved.extend(entry[0] for entry in entries)
+                continue
+            _, folder, status, note = direct or entries[0]
+            if not status_document(folder).exists():
+                write_status_document(folder, status, note)
+                migrated += 1
+        archive = DATA_ROOT / ".legacy-statuses.json"
+        number = 2
+        while archive.exists() or archive.is_symlink():
+            archive = DATA_ROOT / f".legacy-statuses-{number}.json"
+            number += 1
+        shutil.move(str(STATUSES_FILE), str(archive))
+        return {"migrated": migrated, "unresolved": unresolved, "archive": str(archive)}
+
+
 def folder_status(path, directories):
-    key = relative_path(path)
-    records = load_statuses()
-    record = records.get(key)
-    if record is None:
-        # Read old year-prefixed records without changing the saved file.
-        matches = [value for old_key, value in records.items()
-                   if re.match(r"^\d{4}/", old_key) and old_key[5:] == key]
-        record = matches[0] if len(matches) == 1 else None
-    record = record or {}
+    record = read_status_document(path)
     haystack = normalized(" ".join([path.name] + [item.name for item in directories]))
     guessed = next((status for status, words in STATUS_KEYWORDS if any(word in haystack for word in words)), "new")
     return {"status": record.get("status", guessed), "note": record.get("note", ""),
@@ -461,7 +550,7 @@ def read_folder(relative=""):
                           "extension": file.suffix.lstrip(".").upper() or "ФАЙЛ"})
     print_view = is_print_folder(relative)
     if print_view:
-        files = [file for file in files if Path(file["name"]).suffix.lower() in PRINT_TEXT_EXTENSIONS]
+        files = [file for file in files if file["name"] != STATUS_DOCUMENT_NAME and Path(file["name"]).suffix.lower() in PRINT_TEXT_EXTENSIONS]
     files.sort(key=lambda file: (folder_sort_key(file["folder"]), sort_key(Path(file["name"]))))
     counts = {group: sum(file["type"] == group for file in files) for group in [*EXT_GROUPS, "other"]}
     parts = Path(relative).parts
@@ -478,18 +567,11 @@ def read_folder(relative=""):
 
 
 def save_status(relative, status, note):
-    target = safe_path(relative)
-    if not relative or not target.is_dir():
-        raise ValueError("Выберите папку заказа")
+    target = editable_status_folder(relative)
     if not isinstance(status, str) or status not in STATUS_LABELS or not isinstance(note, str):
         raise ValueError("Некорректный статус или заметка")
     with STATUS_LOCK:
-        records = load_statuses()
-        records[relative_path(target)] = {"status": status, "note": note}
-        DATA_DIR.mkdir(exist_ok=True)
-        temporary = STATUSES_FILE.with_suffix(".tmp")
-        temporary.write_text(json.dumps(records, ensure_ascii=False, indent=2), encoding="utf-8")
-        temporary.replace(STATUSES_FILE)
+        write_status_document(target, status, note)
 
 
 def image_preview(target):
@@ -736,6 +818,11 @@ class ManagerHandler(BaseHTTPRequestHandler):
 
 def main():
     port = int(sys.argv[1]) if len(sys.argv) > 1 else SERVER_PORT
+    migration = migrate_statuses()
+    if migration:
+        print(f"Статусы перенесены в папки: {migration['migrated']}. Архив: {migration['archive']}", flush=True)
+        if migration["unresolved"]:
+            print("Папки не сопоставлены; записи сохранены в архиве: " + ", ".join(migration["unresolved"]), flush=True)
     server = ThreadingHTTPServer((SERVER_HOST, port), ManagerHandler)
     print(f"Менеджер заказов: http://127.0.0.1:{port}", flush=True)
     print(f"Адрес сервера: {SERVER_HOST}:{port}", flush=True)
