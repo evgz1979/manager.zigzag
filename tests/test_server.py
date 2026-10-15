@@ -129,6 +129,7 @@ class ManagerTests(unittest.TestCase):
         note = "Позвонить клиенту\n\nРазмеры: 3×2 м\nЗаметка:\nДополнение\n"
         manager.save_status(relative, "process", note)
         document = self.root / relative / manager.STATUS_DOCUMENT_NAME
+        self.assertEqual(document.name, "status.txt")
         self.assertEqual(document.read_text(), "Статус: В работе\n\nЗаметка:\n" + note)
         self.assertFalse(manager.DATA_DIR.exists())
         self.assertEqual(manager.read_folder(relative)["note"], note)
@@ -140,6 +141,32 @@ class ManagerTests(unittest.TestCase):
         shutil.copytree(self.root, copied_root)
         with patch.object(manager, "DATA_ROOT", copied_root):
             self.assertEqual(manager.read_folder(relative)["note"], folder["note"])
+
+    def test_hidden_status_is_renamed_and_visible_without_changing_content(self):
+        relative = "Клиент/Без года"
+        folder = self.root / relative
+        original = "Статус: В работе\n\nЗаметка:\nДля просмотра с iPhone\n".encode("utf-8")
+        hidden = folder / ".status.txt"
+        hidden.write_bytes(original)
+        result = manager.read_folder(relative)
+        visible = folder / "status.txt"
+        self.assertFalse(hidden.exists())
+        self.assertEqual(visible.read_bytes(), original)
+        self.assertEqual((result["status"], result["note"]), ("process", "Для просмотра с iPhone\n"))
+        self.assertIn("status.txt", [file["name"] for file in result["files"]])
+
+    def test_hidden_status_preserves_existing_visible_file_and_backups(self):
+        relative = "Клиент/Без года"
+        folder = self.root / relative
+        manager.save_status(relative, "done", "Основная версия")
+        hidden_content = "Статус: Новый\n\nЗаметка:\nПрежняя версия"
+        (folder / ".status.txt").write_text(hidden_content)
+        (folder / "status.previous.txt").write_text("Существующая копия")
+        result = manager.read_folder(relative)
+        self.assertEqual((result["status"], result["note"]), ("done", "Основная версия"))
+        self.assertEqual((folder / "status.previous.txt").read_text(), "Существующая копия")
+        self.assertEqual((folder / "status.previous-2.txt").read_text(), hidden_content)
+        self.assertFalse((folder / ".status.txt").exists())
 
     def test_status_migration_preserves_local_edits_and_unresolved_records(self):
         manager.save_status("Клиент", "process", "Правка в папке")

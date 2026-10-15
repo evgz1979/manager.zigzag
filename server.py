@@ -23,9 +23,10 @@ CONFIG_FILE = APP_DIR / "manager.ini"
 STATIC_DIR = APP_DIR / "static"
 DATA_DIR = APP_DIR / "data"
 STATUSES_FILE = DATA_DIR / "statuses.json"
-STATUS_DOCUMENT_NAME = ".status.txt"
+STATUS_DOCUMENT_NAME = "status.txt"
+LEGACY_STATUS_DOCUMENT_NAME = ".status.txt"
 PRINT_HISTORY_DIR = ".print-history"
-STATUS_LOCK = threading.Lock()
+STATUS_LOCK = threading.RLock()
 PREVIEW_LOCKS = [threading.Lock() for _ in range(32)]
 PREVIEW_SLOTS = threading.BoundedSemaphore(4)
 PDF_BUILD_LOCK = threading.Lock()
@@ -422,8 +423,24 @@ def load_legacy_statuses():
 
 def status_document(folder):
     document = folder / STATUS_DOCUMENT_NAME
-    if document.is_symlink() or (document.exists() and not document.is_file()):
-        raise ValueError(f"Вместо {STATUS_DOCUMENT_NAME} должен быть обычный текстовый файл")
+    with STATUS_LOCK:
+        if document.is_symlink() or (document.exists() and not document.is_file()):
+            raise ValueError(f"Вместо {STATUS_DOCUMENT_NAME} должен быть обычный текстовый файл")
+        legacy = folder / LEGACY_STATUS_DOCUMENT_NAME
+        if legacy.is_symlink() or (legacy.exists() and not legacy.is_file()):
+            raise ValueError(f"Вместо {LEGACY_STATUS_DOCUMENT_NAME} должен быть обычный текстовый файл")
+        if legacy.exists():
+            relative = folder.relative_to(DATA_ROOT)
+            if any((DATA_ROOT / Path(*relative.parts[:index + 1])).is_symlink() for index in range(len(relative.parts))):
+                raise ValueError("Символические ссылки не редактируются")
+            destination = document
+            if document.exists():
+                destination = folder / "status.previous.txt"
+                number = 2
+                while destination.exists() or destination.is_symlink():
+                    destination = folder / f"status.previous-{number}.txt"
+                    number += 1
+            legacy.rename(destination)
     return document
 
 
@@ -522,6 +539,7 @@ def read_folder(relative=""):
     if not target.is_dir():
         raise FileNotFoundError("Папка не найдена")
     directories = directory_children(target)
+    status = folder_status(target, directories)
     files, warnings = [], []
     folder_count = 0
 
@@ -563,7 +581,7 @@ def read_folder(relative=""):
             "totalSize": sum(file["size"] for file in files), "counts": counts,
             "warnings": warnings, "view": "print" if print_view else "files",
             "newFileName": next_print_name(target) if print_view else "",
-            **folder_status(target, directories)}
+            **status}
 
 
 def save_status(relative, status, note):
