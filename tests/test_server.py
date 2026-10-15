@@ -129,7 +129,7 @@ class ManagerTests(unittest.TestCase):
         note = "Позвонить клиенту\n\nРазмеры: 3×2 м\nЗаметка:\nДополнение\n"
         manager.save_status(relative, "process", note)
         document = self.root / relative / manager.STATUS_DOCUMENT_NAME
-        self.assertEqual(document.name, "status.txt")
+        self.assertEqual(document.name, "!status.txt")
         self.assertEqual(document.read_text(), "Статус: В работе\n\nЗаметка:\n" + note)
         self.assertFalse(manager.DATA_DIR.exists())
         self.assertEqual(manager.read_folder(relative)["note"], note)
@@ -142,18 +142,31 @@ class ManagerTests(unittest.TestCase):
         with patch.object(manager, "DATA_ROOT", copied_root):
             self.assertEqual(manager.read_folder(relative)["note"], folder["note"])
 
-    def test_hidden_status_is_renamed_and_visible_without_changing_content(self):
+    def test_hidden_status_is_renamed_without_changing_content_and_hidden_in_manager(self):
         relative = "Клиент/Без года"
         folder = self.root / relative
         original = "Статус: В работе\n\nЗаметка:\nДля просмотра с iPhone\n".encode("utf-8")
         hidden = folder / ".status.txt"
         hidden.write_bytes(original)
         result = manager.read_folder(relative)
-        visible = folder / "status.txt"
+        visible = folder / "!status.txt"
         self.assertFalse(hidden.exists())
         self.assertEqual(visible.read_bytes(), original)
         self.assertEqual((result["status"], result["note"]), ("process", "Для просмотра с iPhone\n"))
-        self.assertIn("status.txt", [file["name"] for file in result["files"]])
+        self.assertNotIn("!status.txt", [file["name"] for file in result["files"]])
+        self.assertFalse(visible.name.startswith('.'))
+
+    def test_plain_status_is_renamed_and_excluded_from_recursive_file_lists(self):
+        relative = "Клиент/Без года"
+        folder = self.root / relative
+        content = "Статус: Готово\n\nЗаметка:\nСохранить текст"
+        (folder / "status.txt").write_text(content)
+        parent = manager.read_folder("Клиент")
+        self.assertFalse(any(file["name"] in {"status.txt", "!status.txt"} for file in parent["files"]))
+        result = manager.read_folder(relative)
+        self.assertEqual((folder / "!status.txt").read_text(), content)
+        self.assertEqual(result["note"], "Сохранить текст")
+        self.assertEqual(result["fileCount"], 1)
 
     def test_hidden_status_preserves_existing_visible_file_and_backups(self):
         relative = "Клиент/Без года"

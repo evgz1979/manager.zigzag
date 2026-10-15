@@ -23,8 +23,8 @@ CONFIG_FILE = APP_DIR / "manager.ini"
 STATIC_DIR = APP_DIR / "static"
 DATA_DIR = APP_DIR / "data"
 STATUSES_FILE = DATA_DIR / "statuses.json"
-STATUS_DOCUMENT_NAME = "status.txt"
-LEGACY_STATUS_DOCUMENT_NAME = ".status.txt"
+STATUS_DOCUMENT_NAME = "!status.txt"
+LEGACY_STATUS_DOCUMENT_NAMES = ("status.txt", ".status.txt")
 PRINT_HISTORY_DIR = ".print-history"
 STATUS_LOCK = threading.RLock()
 PREVIEW_LOCKS = [threading.Lock() for _ in range(32)]
@@ -426,21 +426,22 @@ def status_document(folder):
     with STATUS_LOCK:
         if document.is_symlink() or (document.exists() and not document.is_file()):
             raise ValueError(f"Вместо {STATUS_DOCUMENT_NAME} должен быть обычный текстовый файл")
-        legacy = folder / LEGACY_STATUS_DOCUMENT_NAME
-        if legacy.is_symlink() or (legacy.exists() and not legacy.is_file()):
-            raise ValueError(f"Вместо {LEGACY_STATUS_DOCUMENT_NAME} должен быть обычный текстовый файл")
-        if legacy.exists():
-            relative = folder.relative_to(DATA_ROOT)
-            if any((DATA_ROOT / Path(*relative.parts[:index + 1])).is_symlink() for index in range(len(relative.parts))):
-                raise ValueError("Символические ссылки не редактируются")
-            destination = document
-            if document.exists():
-                destination = folder / "status.previous.txt"
-                number = 2
-                while destination.exists() or destination.is_symlink():
-                    destination = folder / f"status.previous-{number}.txt"
-                    number += 1
-            legacy.rename(destination)
+        for name in LEGACY_STATUS_DOCUMENT_NAMES:
+            legacy = folder / name
+            if legacy.is_symlink() or (legacy.exists() and not legacy.is_file()):
+                raise ValueError(f"Вместо {name} должен быть обычный текстовый файл")
+            if legacy.exists():
+                relative = folder.relative_to(DATA_ROOT)
+                if any((DATA_ROOT / Path(*relative.parts[:index + 1])).is_symlink() for index in range(len(relative.parts))):
+                    raise ValueError("Символические ссылки не редактируются")
+                destination = document
+                if document.exists():
+                    destination = folder / "status.previous.txt"
+                    number = 2
+                    while destination.exists() or destination.is_symlink():
+                        destination = folder / f"status.previous-{number}.txt"
+                        number += 1
+                legacy.rename(destination)
     return document
 
 
@@ -553,6 +554,8 @@ def read_folder(relative=""):
         if target == DATA_ROOT:
             dirs[:] = []  # List clients at home without scanning all their orders.
         for name in names:
+            if name in (STATUS_DOCUMENT_NAME, *LEGACY_STATUS_DOCUMENT_NAMES):
+                continue
             file = current_path / name
             if not visible(file) or not file.is_file():
                 continue
