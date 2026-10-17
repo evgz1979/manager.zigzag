@@ -17,6 +17,7 @@
     <main class="workspace">
       <aside class="sidebar" aria-label="Папки">
         <header class="brand"><button id="homeButton" class="brand-button" title="Все клиенты"><span class="brand-mark">З</span><span>Зигзаг<small>Менеджер заказов</small></span></button><button id="refreshButton" class="icon-button" title="Обновить" aria-label="Обновить"><svg><use href="#icon-refresh"/></svg></button></header>
+        <button id="ordersButton" class="orders-nav" aria-current="page">Все заказы <span id="ordersNavCount" class="count-badge">0</span></button>
         <div id="auxiliaryButtons" class="auxiliary-buttons" aria-label="Общие папки"></div>
         <div class="tree-heading"><span>Клиенты</span><span id="clientCount"></span></div>
         <label class="search-field tree-search"><svg><use href="#icon-search"/></svg><input id="treeSearch" type="search" placeholder="Найти папку…" aria-label="Поиск папок клиентов"></label>
@@ -25,9 +26,35 @@
       </aside>
       <section class="content-pane" aria-label="Содержимое заказа" aria-busy="true">
         <div class="content-topbar"><nav id="breadcrumbs" class="breadcrumbs" aria-label="Путь"></nav><span id="scanState" class="scan-state"></span></div>
-        <header class="order-heading"><div><p id="clientLabel" class="eyebrow">КЛИЕНТЫ И ЗАКАЗЫ</p><h1 id="folderTitle">Зигзаг</h1><p id="folderSummary" class="folder-summary">Загрузка папок…</p></div><button id="openFolderButton" class="secondary-button"><svg><use href="#icon-folder"/></svg>Открыть в Finder</button></header>
+        <header class="order-heading"><div><p id="clientLabel" class="eyebrow">КЛИЕНТЫ И ЗАКАЗЫ</p><h1 id="folderTitle">Зигзаг</h1><p id="folderSummary" class="folder-summary">Загрузка папок…</p></div><button id="openFolderButton" class="secondary-button"><svg><use href="#icon-folder"/></svg>Открыть в Finder</button><button id="addOrderButton" class="primary-button" hidden>+ Добавить в список заказов</button></header>
         <div id="notice" class="notice" role="status" hidden></div>
-        <details id="orderDetails" class="order-details" hidden><summary><span id="statusBadge" class="status-badge">Новый</span><span>Статус и заметка</span><span class="details-chevron">⌄</span></summary><form id="statusForm" class="status-form"><label>Статус<select id="statusSelect" name="status"><option value="new">Новый</option><option value="measure">Замеры</option><option value="process">В работе</option><option value="workshop">В цех</option><option value="install">Монтаж</option><option value="done">Готово</option></select></label><label class="note-label">Заметка<textarea id="orderNote" name="note" rows="2" placeholder="Что важно по этому заказу"></textarea></label><button id="saveStatusButton" class="primary-button" type="submit">Сохранить</button></form></details>
+        <button id="loadOrderFilesButton" class="secondary-button" hidden>Повторить загрузку файлов</button>
+        <section id="ordersWorkspace" class="orders-workspace" aria-label="Все заказы" hidden>
+          <div id="orderStatusFilters" class="order-status-filters" aria-label="Фильтр по статусу"></div>
+          <div id="orderTotals" class="order-totals" aria-label="Финансовые итоги"></div>
+          <div class="orders-toolbar">
+            <label class="search-field orders-search"><svg><use href="#icon-search"/></svg><input id="orderSearch" type="search" placeholder="Найти заказ, клиента или заметку…" aria-label="Поиск заказов"></label>
+            <button id="discoverOrdersButton" class="secondary-button">Найти заказы в папках</button>
+            <button id="syncOrdersButton" class="secondary-button">Выгрузить в папки</button>
+          </div>
+          <p id="ordersSyncState" class="orders-sync-state" role="status"></p>
+          <div class="orders-table-scroll"><table class="orders-table"><caption class="visually-hidden">Заказы и финансовые показатели в рублях</caption><thead><tr>
+            <th scope="col"><button data-sort="title">Заказ ↕</button></th><th scope="col"><button data-sort="status">Статус ↕</button></th>
+            <th scope="col"><button data-sort="amount">Сумма ↕</button></th><th scope="col"><button data-sort="costs">Затраты ↕</button></th>
+            <th scope="col"><button data-sort="profit">Прибыль ↕</button></th><th scope="col"><button data-sort="paid">Оплачено ↕</button></th>
+            <th scope="col"><button data-sort="debt">Остаток ↕</button></th><th scope="col"><button data-sort="updated">Обновлён ↓</button></th>
+          </tr></thead><tbody id="ordersTableBody"></tbody></table></div>
+          <div id="ordersEmpty" class="empty-state" hidden><h3 id="ordersEmptyTitle">Заказов пока нет</h3><p id="ordersEmptyHint">Откройте папку в дереве слева и нажмите «Добавить в список заказов». Кнопка «Найти заказы в папках» восстановит карточки из !.txt и прежних файлов статуса.</p></div>
+          <p class="orders-hint">Итоги рассчитаны по текущему фильтру. Прибыль = сумма − затраты, остаток = сумма − оплачено. Прочерк означает, что сумма ещё не указана; отрицательный остаток — переплата.</p>
+        </section>
+        <div id="folderView">
+        <details id="orderDetails" class="order-details" hidden><summary><span id="statusBadge" class="status-badge">Новый</span><span>Карточка заказа</span><span class="details-chevron">⌄</span></summary><form id="statusForm" class="status-form"><label id="orderTitleLabel" class="order-title-label" hidden>Название заказа<input id="orderTitleInput" type="text" maxlength="500" autocomplete="off"></label><label>Статус<select id="statusSelect" name="status"><option value="new">Новый</option><option value="measure">Замеры</option><option value="process">В работе</option><option value="workshop">В цех</option><option value="install">Монтаж</option><option value="payment">На оплате</option><option value="done">Готово</option><option value="cancelled">Отменён</option></select></label><label class="note-label">Заметка<textarea id="orderNote" name="note" rows="2" placeholder="Что важно по этому заказу"></textarea></label><div id="financialFields" class="financial-fields" hidden>
+          <label>Сумма заказа, ₽<input id="orderAmount" type="text" inputmode="decimal" placeholder="Не указано" autocomplete="off"></label>
+          <label>Затраты, ₽<input id="orderCosts" type="text" inputmode="decimal" placeholder="Не указано" autocomplete="off"></label>
+          <label>Оплачено, ₽<input id="orderPaid" type="text" inputmode="decimal" placeholder="Не указано" autocomplete="off"></label>
+          <div class="order-calculated"><span>Прибыль: <strong id="orderProfit">—</strong></span><span>Остаток оплаты: <strong id="orderDebt">—</strong></span></div>
+          <p id="orderExportState" class="order-export-state" role="status"></p>
+        </div><button id="saveStatusButton" class="primary-button" type="submit">Сохранить</button></form></details>
         <section id="folderSection" class="folder-section" aria-label="Подпапки"><div class="section-heading"><h2 id="foldersTitle">Папки</h2><span id="directoryCount"></span></div><div id="subfolders" class="subfolders"></div></section>
         <section id="printWorkspace" class="print-workspace" aria-label="Задания на широкоформатную печать" hidden>
           <div class="print-toolbar"><div><h2>Задания на печать <span id="printTaskCount" class="count-badge"></span></h2><p>Широкоформатная продукция</p></div><button id="newPrintTask" class="primary-button">+ Новое задание</button></div>
@@ -48,6 +75,7 @@
           </div>
         </section>
         <section id="filesSection" class="files-section" aria-label="Файлы"><div class="files-toolbar"><div><h2>Файлы <span id="fileCount" class="count-badge">0</span></h2><span class="files-scope">Из выбранной папки и всех подпапок</span></div><label class="search-field file-search"><svg><use href="#icon-search"/></svg><input id="fileSearch" type="search" placeholder="Найти файл…" aria-label="Поиск файлов заказа"></label><select id="fileSort" aria-label="Сортировка файлов"><option value="folders">По папкам</option><option value="modified">Сначала новые</option><option value="name">По имени</option></select></div><div id="fileFilters" class="file-filters" aria-label="Тип файла"></div><div id="files" class="files"></div></section>
+        </div>
       </section>
     </main>
     <dialog id="previewDialog" class="preview-dialog"><header class="preview-header"><div><strong id="previewTitle"></strong><span id="previewPath"></span></div><div class="preview-actions"><button id="previewPrevious" title="Предыдущий файл" aria-label="Предыдущий файл">←</button><button id="previewNext" title="Следующий файл" aria-label="Следующий файл">→</button><button id="previewNative">Открыть на Mac</button><a id="previewDownload" class="secondary-button">Скачать</a><button id="previewClose" title="Закрыть" aria-label="Закрыть">✕</button></div></header><div id="previewBody" class="preview-body"></div><footer id="previewMeta" class="preview-meta"></footer></dialog>

@@ -1,5 +1,5 @@
 const $ = (id) => document.getElementById(id);
-const statusLabels = { new: "Новый", measure: "Замеры", process: "В работе", workshop: "В цех", install: "Монтаж", done: "Готово" };
+const statusLabels = { new: "Новый", measure: "Замеры", process: "В работе", workshop: "В цех", install: "Монтаж", payment: "На оплате", done: "Готово", cancelled: "Отменён" };
 const typeLabels = { all: "Все", images: "Фото", pdf: "PDF", design: "Макеты", docs: "Документы", video: "Видео", audio: "Аудио", other: "Другое" };
 const state = {
   tree: [], auxiliary: [], nodes: new Map(), children: new Map(), expanded: new Set(),
@@ -7,6 +7,7 @@ const state = {
   fileQuery: "", fileType: "all", fileSort: "folders", limit: 120,
   folderRequest: null, navigation: 0, preview: null, dirty: false, saving: null,
   printTask: null, printSaving: null, printQuery: "",
+  view: "orders", orders: [], orderFilter: "all", orderQuery: "", orderSort: "updated", orderDirection: -1, scan: null, ordersRequest: 0,
 };
 let searchTimer, toastTimer, previewVersion = 0, treeSearchVersion = 0, printReadVersion = 0;
 const icon = (name) => '<svg aria-hidden="true"><use href="#icon-' + name + '"/></svg>';
@@ -28,7 +29,11 @@ async function request(url, payload) {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
   });
   const result = await response.json();
-  if (!response.ok) throw new Error(result.error || "Не удалось выполнить действие");
+  if (!response.ok) {
+    const error = new Error(result.error || "Не удалось выполнить действие");
+    error.status = response.status;
+    throw error;
+  }
   return result;
 }
 
@@ -138,17 +143,17 @@ async function loadTree() {
   renderTree();
 }
 
-function renderFolder() {
+function renderFolder(preserveForm = false) {
   const folder = state.folder;
   const printView = folder.view === "print";
   $("breadcrumbs").innerHTML = folder.breadcrumbs.map((part, index) =>
     (index ? '<span class="breadcrumb-divider">/</span>' : "") +
     '<button data-path="' + escapeHtml(part.path) + '"' + (index === folder.breadcrumbs.length - 1 ? ' aria-current="page"' : "") + ">" +
     escapeHtml(part.name) + "</button>").join("");
-  $("folderTitle").textContent = printView ? "Задания на печать" : folder.path ? folder.name : "Клиенты и заказы";
+  $("folderTitle").textContent = printView ? "Задания на печать" : folder.path ? folder.order?.title || folder.name : "Клиенты и заказы";
   const auxiliary = folder.client.startsWith("#");
   $("clientLabel").textContent = printView ? "ШИРОКОФОРМАТНАЯ ПРОДУКЦИЯ" : auxiliary ? "ОБЩИЕ ПАПКИ" : folder.client || folder.name;
-  $("folderSummary").textContent = printView ? printCountLabel(folder.fileCount) + " · название, ссылка и описание" : folder.path
+  $("folderSummary").textContent = printView ? printCountLabel(folder.fileCount) + " · название, ссылка и описание" : folder.filesLoading ? "Карточка из локальной базы · файлы загружаются…" : folder.filesUnavailable ? "Карточка из локальной базы · папка сейчас недоступна" : folder.path
     ? folder.fileCount + " файлов · " + folder.folderCount + " папок · " + formatSize(folder.totalSize)
     : "Выберите клиента или заказ в дереве слева";
   $("folderSection").hidden = !folder.directories.length;
@@ -158,14 +163,26 @@ function renderFolder() {
     '<button class="subfolder" data-path="' + escapeHtml(item.path) + '" title="' + escapeHtml(item.name) + '">' +
     icon("folder") + '<span>' + escapeHtml(item.name) + "</span>" + icon("chevron") + "</button>").join("");
   $("orderDetails").hidden = !folder.path || auxiliary;
-  $("orderDetails").open = Boolean(folder.note);
-  $("statusSelect").value = folder.status;
-  $("orderNote").value = folder.note;
-  renderStatus();
+  if (!preserveForm) {
+    $("orderDetails").open = Boolean(folder.note || folder.order);
+    $("orderTitleLabel").hidden = !folder.order;
+    $("financialFields").hidden = !folder.order;
+    $("orderTitleInput").value = folder.order?.title || folder.name;
+    for (const [field, key] of [["orderAmount", "amount"], ["orderCosts", "costs"], ["orderPaid", "paid"]]) {
+      $(field).value = folder.order?.[key] == null ? "" : (folder.order[key] / 100).toFixed(2);
+    }
+    $("addOrderButton").hidden = !folder.path || auxiliary || Boolean(folder.order);
+    renderOrderCalculated();
+    renderExportState();
+    $("statusSelect").value = folder.status;
+    $("orderNote").value = folder.note;
+    renderStatus();
+  }
+  $("loadOrderFilesButton").hidden = !folder.filesUnavailable;
   $("notice").hidden = !folder.warnings.length;
   $("notice").textContent = folder.warnings.join(" · ");
   $("fileSearch").value = state.fileQuery;
-  $("filesSection").hidden = printView;
+  $("filesSection").hidden = printView || Boolean(folder.filesLoading || folder.filesUnavailable);
   $("printWorkspace").hidden = !printView;
   if (printView) {
     state.printQuery = "";
@@ -366,22 +383,131 @@ async function saveCurrentStatus() {
   }
   if (!state.dirty || !state.folder) return;
   const folder = state.folder;
-  const status = $("statusSelect").value, note = $("orderNote").value;
+  const values = currentOrderValues();
+  const status = values.status, note = values.note;
   $("saveStatusButton").disabled = true;
   $("saveStatusButton").textContent = "Сохраняю…";
-  state.saving = request("/api/status", { path: folder.path, status, note });
+  state.saving = request(folder.order ? "/api/order-save" : "/api/status", folder.order
+    ? { path: folder.path, revision: folder.order.revision, ...values }
+    : { path: folder.path, status, note });
   try {
-    await state.saving;
+    const saved = await state.saving;
     folder.status = status;
     folder.note = note;
-    folder.statusSource = "manual";
-    state.dirty = $("statusSelect").value !== status || $("orderNote").value !== note;
+    folder.statusSource = folder.order ? "database" : "manual";
+    if (folder.order) folder.order = saved;
+    state.dirty = JSON.stringify(currentOrderValues()) !== JSON.stringify(values);
+    renderExportState();
     renderStatus();
   } finally {
     state.saving = null;
     $("saveStatusButton").disabled = false;
     renderStatus();
   }
+}
+
+const rubles = (value) => value == null ? "—" : new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB", maximumFractionDigits: 2 }).format(value / 100);
+
+function currentOrderValues() {
+  return { status: $("statusSelect").value, note: $("orderNote").value, title: $("orderTitleInput").value,
+    amount: $("orderAmount").value, costs: $("orderCosts").value, paid: $("orderPaid").value };
+}
+
+function renderOrderCalculated() {
+  const read = (id) => {
+    const text = $(id).value.replace(/[\s\u00a0]/g, "").replace(",", ".");
+    return text && /^\d+(\.\d{1,2})?$/.test(text) ? Math.round(Number(text) * 100) : null;
+  };
+  const amount = read("orderAmount"), costs = read("orderCosts"), paid = read("orderPaid");
+  $("orderProfit").textContent = rubles(amount != null && costs != null ? amount - costs : null);
+  $("orderDebt").textContent = rubles(amount != null && paid != null ? amount - paid : null);
+}
+
+function renderExportState() {
+  const order = state.folder?.order;
+  $("orderExportState").textContent = !order ? "" : order.sync_error ? "Сохранено в базе. Не удалось выгрузить в папку: " + order.sync_error : order.sync_pending ? "Сохранено в базе · ожидает выгрузки в папку" : "Выгружено в !.txt";
+}
+
+async function loadOrders() {
+  const version = ++state.ordersRequest;
+  const result = await request("/api/orders");
+  if (version !== state.ordersRequest) return;
+  state.orders = result.orders;
+  state.scan = result.scan;
+  $("ordersNavCount").textContent = result.orders.length;
+  if (state.view === "orders") renderOrders();
+}
+
+function renderOrders() {
+  const needle = normalize(state.orderQuery.trim());
+  const matching = state.orders.filter((order) => !needle || normalize([order.title, order.path, order.note].join(" ")).includes(needle));
+  const filtered = matching.filter((order) => state.orderFilter === "all" || order.status === state.orderFilter);
+  const { orderSort: key, orderDirection: direction } = state;
+  filtered.sort((a, b) => {
+    if (a[key] == null) return b[key] == null ? 0 : 1;
+    if (b[key] == null) return -1;
+    const first = key === "status" ? statusLabels[a[key]] : a[key];
+    const second = key === "status" ? statusLabels[b[key]] : b[key];
+    return direction * (typeof first === "string" ? first.localeCompare(second, "ru", { numeric: true }) : first - second);
+  });
+  $("folderSummary").textContent = filtered.length + " из " + state.orders.length + " заказов · данные из локальной базы";
+  $("orderStatusFilters").innerHTML = Object.entries({ all: "Все", ...statusLabels }).map(([status, label]) =>
+    '<button data-status="' + status + '" aria-pressed="' + (state.orderFilter === status) + '" class="file-filter' + (state.orderFilter === status ? " active" : "") + '">' + label + '<span>' + matching.filter((order) => status === "all" || order.status === status).length + '</span></button>').join("");
+  $("orderTotals").innerHTML = [["amount", "Сумма заказов"], ["costs", "Затраты"], ["profit", "Расчётная прибыль"], ["paid", "Оплачено"], ["debt", "Остаток оплаты"]].map(([field, label]) => {
+    const known = filtered.filter((order) => order[field] != null);
+    const total = known.reduce((sum, order) => sum + order[field], 0);
+    return '<div class="order-total"><span>' + label + '</span><strong>' + rubles(known.length ? total : null) + '</strong><small>' + (known.length === filtered.length && filtered.length ? "По всем выбранным заказам" : "Указано: " + known.length + " из " + filtered.length) + '</small></div>';
+  }).join("");
+  $("ordersTableBody").innerHTML = filtered.map((order) => '<tr><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button><span class="order-row-path">' + escapeHtml(order.path) + '</span></td><td><span class="status-badge" data-status="' + escapeHtml(order.status) + '">' + escapeHtml(statusLabels[order.status] || order.status) + '</span></td>' +
+    ["amount", "costs", "profit", "paid", "debt"].map((field) => '<td class="order-money' + (order[field] < 0 ? " negative" : "") + '">' + rubles(order[field]) + '</td>').join("") +
+    '<td class="order-updated">' + formatDate(order.updated) + (order.sync_pending ? '<span class="sync-pending" title="' + escapeHtml(order.sync_error || "Ожидает выгрузки в папку") + '">' + (order.sync_error ? "Ошибка выгрузки" : "Ожидает выгрузки") + '</span>' : '<span class="sync-complete">Выгружено</span>') + '</td></tr>').join("");
+  $("ordersEmpty").hidden = Boolean(filtered.length);
+  $("ordersEmptyTitle").textContent = state.orders.length ? "Нет заказов по этому фильтру" : "Заказов пока нет";
+  $("ordersEmptyHint").textContent = state.orders.length ? "Выберите другой статус или измените поисковый запрос." : "Откройте папку в дереве слева и нажмите «Добавить в список заказов». Кнопка «Найти заказы в папках» восстановит карточки из !.txt и прежних файлов статуса.";
+  const pending = state.orders.filter((order) => order.sync_pending), errors = pending.filter((order) => order.sync_error);
+  const scan = state.scan;
+  $("discoverOrdersButton").disabled = Boolean(scan?.running);
+  $("ordersSyncState").textContent = scan?.running ? "Поиск карточек в фоне · просмотрено папок: " + scan.folders + " · добавлено: " + scan.added :
+    [scan?.folders ? "Поиск завершён: добавлено " + scan.added + (scan.errors.length ? ", ошибок: " + scan.errors.length : "") : "", errors.length ? "Не выгружено из-за ошибки: " + errors.length : pending.length ? "Ожидает выгрузки: " + pending.length : "Изменения выгружены в папки"].filter(Boolean).join(" · ");
+  if (scan?.errors.length) $("ordersSyncState").textContent += " · " + scan.errors.slice(0, 3).join(" · ");
+  $("ordersWorkspace").querySelectorAll("th").forEach((th) => {
+    const button = th.querySelector("button"), selected = button.dataset.sort === key;
+    th.setAttribute("aria-sort", selected ? direction === 1 ? "ascending" : "descending" : "none");
+    button.textContent = button.textContent.replace(/ [↕↑↓]$/, "") + (selected ? direction === 1 ? " ↑" : " ↓" : " ↕");
+  });
+}
+
+async function showOrders({ history = true } = {}) {
+  await saveCurrentPrintTask();
+  await saveCurrentStatus();
+  ++printReadVersion;
+  ++state.navigation;
+  state.folderRequest?.abort();
+  state.view = "orders";
+  state.folder = null;
+  state.printTask = null;
+  state.selected = "";
+  $("folderView").hidden = true;
+  $("ordersWorkspace").hidden = false;
+  $("openFolderButton").hidden = true;
+  $("addOrderButton").hidden = true;
+  $("notice").hidden = true;
+  $("loadOrderFilesButton").hidden = true;
+  $("breadcrumbs").innerHTML = '<button aria-current="page">Все заказы</button>';
+  $("folderTitle").textContent = "Все заказы";
+  $("clientLabel").textContent = "ЗИГЗАГ · ОБЩИЙ СПИСОК";
+  $("scanState").textContent = "";
+  $("ordersButton").setAttribute("aria-current", "page");
+  document.querySelector(".content-pane").setAttribute("aria-busy", "false");
+  if (history) window.history.pushState(null, "", "?view=orders");
+  renderTree();
+  renderOrders();
+  await loadOrders();
+}
+
+function openLocation() {
+  const params = new URLSearchParams(location.search);
+  return params.has("path") ? navigate(params.get("path"), { history: false }) : showOrders({ history: false });
 }
 
 async function navigate(path, { history = true } = {}) {
@@ -394,10 +520,28 @@ async function navigate(path, { history = true } = {}) {
   $("scanState").textContent = "Загрузка…";
   document.querySelector(".content-pane").setAttribute("aria-busy", "true");
   try {
-    const response = await fetch(apiUrl("/api/folder", path), { signal: state.folderRequest.signal });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "Не удалось открыть папку");
+    let order = null;
+    if (path) {
+      try { order = await request(apiUrl("/api/order", path)); }
+      catch (error) { if (error.status !== 404) throw error; }
+    }
+    let data;
+    if (order) {
+      const parts = path.split("/");
+      data = { path, name: parts.at(-1), client: parts[0], status: order.status, note: order.note, order,
+        breadcrumbs: [{ name: $("rootLabel").textContent, path: "" }, ...parts.map((name, index) => ({ name, path: parts.slice(0, index + 1).join("/") }))],
+        directories: [], files: [], counts: {}, warnings: [], fileCount: 0, folderCount: 0, totalSize: 0, view: "files", filesLoading: true };
+    } else {
+      const response = await fetch(apiUrl("/api/folder", path), { signal: state.folderRequest.signal });
+      data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Не удалось открыть папку");
+    }
     if (navigation !== state.navigation) return;
+    state.view = "folder";
+    $("folderView").hidden = false;
+    $("ordersWorkspace").hidden = true;
+    $("openFolderButton").hidden = false;
+    $("ordersButton").removeAttribute("aria-current");
     state.folder = data;
     state.printTask = null;
     state.selected = data.path;
@@ -411,6 +555,7 @@ async function navigate(path, { history = true } = {}) {
     document.querySelector(".content-pane").scrollTop = 0;
     $("scanState").textContent = "";
     revealPath(data.path, navigation).catch((error) => notify(error.message, true));
+    if (order) run(() => loadOrderFiles(data.path, navigation));
   } catch (error) {
     if (error.name !== "AbortError" && navigation === state.navigation) {
       $("scanState").textContent = "Ошибка загрузки";
@@ -420,6 +565,28 @@ async function navigate(path, { history = true } = {}) {
     }
   } finally {
     if (navigation === state.navigation) document.querySelector(".content-pane").setAttribute("aria-busy", "false");
+  }
+}
+
+async function loadOrderFiles(path, navigation) {
+  $("loadOrderFilesButton").hidden = true;
+  $("scanState").textContent = "Загрузка файлов…";
+  try {
+    const response = await fetch(apiUrl("/api/folder", path), { signal: state.folderRequest.signal });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Не удалось открыть папку");
+    if (navigation !== state.navigation) return;
+    const { order, status, note } = state.folder;
+    Object.assign(state.folder, data, { order, status, note, filesLoading: false, filesUnavailable: false });
+    renderFolder(true);
+  } catch (error) {
+    if (error.name === "AbortError" || navigation !== state.navigation) return;
+    state.folder.filesLoading = false;
+    state.folder.filesUnavailable = true;
+    state.folder.warnings = ["Карточка доступна из базы. Не удалось загрузить файлы: " + error.message];
+    renderFolder(true);
+  } finally {
+    if (navigation === state.navigation) $("scanState").textContent = "";
   }
 }
 
@@ -630,7 +797,60 @@ $("fileFilters").addEventListener("click", (event) => {
 });
 $("fileSearch").addEventListener("input", (event) => { state.fileQuery = event.target.value; state.limit = 120; renderFiles(); });
 $("fileSort").addEventListener("change", (event) => { state.fileSort = event.target.value; state.limit = 120; renderFiles(); });
-$("homeButton").addEventListener("click", () => run(() => navigate("")));
+$("orderStatusFilters").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-status]");
+  if (button) { state.orderFilter = button.dataset.status; renderOrders(); }
+});
+$("orderSearch").addEventListener("input", (event) => { state.orderQuery = event.target.value; renderOrders(); });
+$("ordersTableBody").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-order]");
+  if (button) run(() => navigate(button.dataset.order));
+});
+$("ordersWorkspace").querySelector("thead").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-sort]");
+  if (!button) return;
+  state.orderDirection = state.orderSort === button.dataset.sort ? -state.orderDirection : 1;
+  state.orderSort = button.dataset.sort;
+  renderOrders();
+});
+$("discoverOrdersButton").addEventListener("click", () => run(async () => {
+  state.scan = await request("/api/orders-discover", {});
+  await loadOrders();
+}));
+$("syncOrdersButton").addEventListener("click", () => run(async () => {
+  await request("/api/orders-sync", {});
+  notify("Выгрузка в папки запущена");
+  await loadOrders();
+}));
+$("loadOrderFilesButton").addEventListener("click", () => run(() => loadOrderFiles(state.selected, state.navigation)));
+$("addOrderButton").addEventListener("click", () => run(async () => {
+  $("addOrderButton").disabled = true;
+  try {
+    await saveCurrentStatus();
+    state.folder.order = await request("/api/order-add", { path: state.folder.path });
+    renderFolder();
+    notify("Заказ добавлен в общий список");
+    await loadOrders();
+  } finally { $("addOrderButton").disabled = false; }
+}));
+for (const id of ["orderTitleInput", "orderAmount", "orderCosts", "orderPaid"]) {
+  $(id).addEventListener("input", () => { state.dirty = true; renderStatus(); renderOrderCalculated(); });
+}
+setInterval(() => {
+  if (document.hidden) return;
+  if (state.view === "orders") loadOrders().catch(() => { $("ordersSyncState").textContent = "Нет связи с сервером · показаны последние загруженные данные"; });
+  else if (state.folder?.order && !state.dirty && !state.saving) {
+    const folder = state.folder;
+    request(apiUrl("/api/order", folder.path)).then((order) => {
+      if (state.folder === folder && !state.dirty && !state.saving && order.revision === folder.order.revision) {
+        folder.order = order;
+        renderExportState();
+      }
+    }).catch(() => {});
+  }
+}, 5000);
+$("homeButton").addEventListener("click", () => run(() => showOrders()));
+$("ordersButton").addEventListener("click", () => run(() => showOrders()));
 $("openFolderButton").addEventListener("click", () => run(() => openNative(state.selected)));
 $("refreshButton").addEventListener("click", () => run(async () => {
   $("refreshButton").disabled = true;
@@ -641,13 +861,13 @@ $("refreshButton").addEventListener("click", () => run(async () => {
     state.searchTree = null;
     state.treeQuery = "";
     $("treeSearch").value = "";
-    await loadTree();
-    await navigate(state.selected, { history: false });
+    if (state.view === "orders") await loadOrders();
+    else { await loadTree(); await navigate(state.selected, { history: false }); }
   } finally { $("refreshButton").disabled = false; }
 }));
 $("statusSelect").addEventListener("change", () => { state.dirty = true; renderStatus(); });
 $("orderNote").addEventListener("input", () => { state.dirty = true; renderStatus(); });
-$("statusForm").addEventListener("submit", (event) => { event.preventDefault(); run(async () => { await saveCurrentStatus(); notify("Статус и заметка сохранены"); }); });
+$("statusForm").addEventListener("submit", (event) => { event.preventDefault(); run(async () => { await saveCurrentStatus(); notify(state.folder?.order ? "Карточка сохранена в базе, выгрузка в папку поставлена в очередь" : "Статус и заметка сохранены"); }); });
 $("newPrintTask").addEventListener("click", () => run(newPrintTask));
 $("printTaskList").addEventListener("click", (event) => {
   const button = event.target.closest("[data-task]");
@@ -681,13 +901,13 @@ $("previewDialog").addEventListener("keydown", (event) => {
   if (event.key === "ArrowLeft") { event.preventDefault(); stepPreview(-1); }
   if (event.key === "ArrowRight") { event.preventDefault(); stepPreview(1); }
 });
-window.addEventListener("popstate", () => run(() => navigate(new URLSearchParams(location.search).get("path") || "", { history: false })));
+window.addEventListener("popstate", () => run(() => openLocation()));
 window.addEventListener("beforeunload", (event) => { if (state.dirty || state.printTask?.dirty || state.printSaving) { event.preventDefault(); event.returnValue = ""; } });
 
 run(async () => {
   try {
-    await loadTree();
-    await navigate(new URLSearchParams(location.search).get("path") || "", { history: false });
+    run(loadTree);
+    await openLocation();
   } catch (error) {
     $("notice").textContent = error.message;
     $("notice").hidden = false;

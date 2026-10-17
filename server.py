@@ -17,14 +17,16 @@ from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from zoneinfo import ZoneInfo
+from orders import OrderStore, OrderConflict, CARD, SNAPSHOT
+import order_document
 
 APP_DIR = Path(__file__).resolve().parent
 CONFIG_FILE = APP_DIR / "manager.ini"
 STATIC_DIR = APP_DIR / "static"
 DATA_DIR = APP_DIR / "data"
 STATUSES_FILE = DATA_DIR / "statuses.json"
-STATUS_DOCUMENT_NAME = "!status.txt"
-LEGACY_STATUS_DOCUMENT_NAMES = ("status.txt", ".status.txt")
+STATUS_DOCUMENT_NAME = order_document.DOCUMENT
+LEGACY_STATUS_DOCUMENT_NAMES = order_document.LEGACY_STATUSES
 PRINT_HISTORY_DIR = ".print-history"
 STATUS_LOCK = threading.RLock()
 PREVIEW_LOCKS = [threading.Lock() for _ in range(32)]
@@ -56,7 +58,8 @@ def read_config(path=CONFIG_FILE):
 DATA_ROOT, SERVER_HOST, SERVER_PORT = read_config()
 STATUS_LABELS = {
     "new": "Новый", "measure": "Замеры", "process": "В работе",
-    "workshop": "В цех", "install": "Монтаж", "done": "Готово",
+    "workshop": "В цех", "install": "Монтаж", "payment": "На оплате",
+    "done": "Готово", "cancelled": "Отменён",
 }
 STATUS_KEYWORDS = [
     ("done", ("готово", "итоги", "заверш")),
@@ -422,55 +425,37 @@ def load_legacy_statuses():
 
 
 def status_document(folder):
-    document = folder / STATUS_DOCUMENT_NAME
+    target = folder / STATUS_DOCUMENT_NAME
     with STATUS_LOCK:
-        if document.is_symlink() or (document.exists() and not document.is_file()):
+        if target.is_symlink() or (target.exists() and not target.is_file()):
             raise ValueError(f"Вместо {STATUS_DOCUMENT_NAME} должен быть обычный текстовый файл")
-        for name in LEGACY_STATUS_DOCUMENT_NAMES:
-            legacy = folder / name
-            if legacy.is_symlink() or (legacy.exists() and not legacy.is_file()):
-                raise ValueError(f"Вместо {name} должен быть обычный текстовый файл")
-            if legacy.exists():
-                relative = folder.relative_to(DATA_ROOT)
-                if any((DATA_ROOT / Path(*relative.parts[:index + 1])).is_symlink() for index in range(len(relative.parts))):
-                    raise ValueError("Символические ссылки не редактируются")
-                destination = document
-                if document.exists():
-                    destination = folder / "status.previous.txt"
-                    number = 2
-                    while destination.exists() or destination.is_symlink():
-                        destination = folder / f"status.previous-{number}.txt"
-                        number += 1
-                legacy.rename(destination)
-    return document
+        legacy = any((folder / name).exists() or (folder / name).is_symlink() for name in order_document.LEGACY_DOCUMENTS)
+        if legacy:
+            relative = folder.relative_to(DATA_ROOT)
+            if any((DATA_ROOT / Path(*relative.parts[:index + 1])).is_symlink() for index in range(len(relative.parts))):
+                raise ValueError("Символические ссылки не редактируются")
+            record = order_document.load(folder, STATUS_LABELS)
+            if not target.exists() and record:
+                order_document.atomic_write(target, order_document.render(record, STATUS_LABELS))
+            if target.exists():
+                order_document.archive_legacy(folder)
+    return target
 
 
 def read_status_document(folder):
-    document = status_document(folder)
-    if not document.exists():
+    target = status_document(folder)
+    if not target.exists():
         return {}
-    text = document.read_text(encoding="utf-8-sig").replace("\r\n", "\n")
-    heading, separator, note = text.partition("\n\nЗаметка:\n")
-    if not separator or not heading.startswith("Статус: "):
-        raise ValueError(f"Проверьте формат файла {document}: Статус: …, пустая строка, Заметка:")
-    value = heading.removeprefix("Статус: ").strip()
-    status = next((key for key, label in STATUS_LABELS.items() if normalized(label) == normalized(value)), value)
-    if status not in STATUS_LABELS:
-        raise ValueError(f"Неизвестный статус в файле {document}")
-    return {"status": status, "note": note}
+    record = order_document.load(folder, STATUS_LABELS)
+    return {"status": record["status"], "note": record["note"]}
 
 
 def write_status_document(folder, status, note):
-    document = status_document(folder)
-    body = f"Статус: {STATUS_LABELS[status]}\n\nЗаметка:\n{note}"
-    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", prefix=".manager-status-", suffix=".tmp", dir=folder, delete=False) as stream:
-        temporary = Path(stream.name)
-        stream.write(body)
-    try:
-        temporary.chmod(document.stat().st_mode & 0o777 if document.exists() else 0o644)
-        temporary.replace(document)
-    finally:
-        temporary.unlink(missing_ok=True)
+    with STATUS_LOCK:
+        target = status_document(folder)
+        record = order_document.load(folder, STATUS_LABELS)
+        record.update(status=status, note=note)
+        order_document.atomic_write(target, order_document.render(record, STATUS_LABELS))
 
 
 def editable_status_folder(relative):
@@ -527,7 +512,50 @@ def migrate_statuses():
         return {"migrated": migrated, "unresolved": unresolved, "archive": str(archive)}
 
 
+def order_store():
+    return OrderStore(DATA_ROOT, DATA_DIR, STATUS_LABELS)
+
+
+SCAN_LOCK = threading.Lock()
+SCAN_STATE = {"running": False, "folders": 0, "added": 0, "errors": []}
+
+
+def discover_orders():
+    with SCAN_LOCK:
+        if SCAN_STATE["running"]:
+            return dict(SCAN_STATE)
+        SCAN_STATE.update(running=True, folders=0, added=0, errors=[])
+
+    def work():
+        try:
+            order_store().discover(read_status_document, SCAN_STATE)
+        except Exception as error:
+            SCAN_STATE["errors"].append(str(error))
+        finally:
+            SCAN_STATE["running"] = False
+            schedule_order_sync()
+
+    threading.Thread(target=work, daemon=True).start()
+    return dict(SCAN_STATE)
+
+
+def schedule_order_sync():
+    threading.Thread(target=order_store().sync, daemon=True).start()
+
+
+def order_sync_worker():
+    while True:
+        try:
+            order_store().sync()
+        except Exception as error:
+            print(f"Выгрузка заказов: {error}", flush=True)
+        threading.Event().wait(15)
+
+
 def folder_status(path, directories):
+    order = order_store().get(relative_path(path))
+    if order:
+        return {"status": order["status"], "note": order["note"], "statusSource": "database", "order": order}
     record = read_status_document(path)
     haystack = normalized(" ".join([path.name] + [item.name for item in directories]))
     guessed = next((status for status, words in STATUS_KEYWORDS if any(word in haystack for word in words)), "new")
@@ -554,7 +582,7 @@ def read_folder(relative=""):
         if target == DATA_ROOT:
             dirs[:] = []  # List clients at home without scanning all their orders.
         for name in names:
-            if name in (STATUS_DOCUMENT_NAME, *LEGACY_STATUS_DOCUMENT_NAMES):
+            if name in (STATUS_DOCUMENT_NAME, "!order.txt", *LEGACY_STATUS_DOCUMENT_NAMES):
                 continue
             file = current_path / name
             if not visible(file) or not file.is_file():
@@ -591,6 +619,9 @@ def save_status(relative, status, note):
     target = editable_status_folder(relative)
     if not isinstance(status, str) or status not in STATUS_LABELS or not isinstance(note, str):
         raise ValueError("Некорректный статус или заметка")
+    record = order_store().get(relative)
+    if record:
+        raise OrderConflict("Заказ ведётся в базе. Откройте его заново и сохраните карточку целиком.")
     with STATUS_LOCK:
         write_status_document(target, status, note)
 
@@ -749,7 +780,14 @@ class ManagerHandler(BaseHTTPRequestHandler):
         query = urllib.parse.parse_qs(parsed.query)
         relative = query.get("path", [""])[0]
         try:
-            if parsed.path == "/api/tree":
+            if parsed.path == "/api/orders":
+                self.send_json({"orders": order_store().list(), "scan": dict(SCAN_STATE)}, head=head)
+            elif parsed.path == "/api/order":
+                record = order_store().get(relative)
+                if not record:
+                    raise FileNotFoundError("Заказ не найден в списке")
+                self.send_json(record, head=head)
+            elif parsed.path == "/api/tree":
                 self.send_json(read_tree(relative, query.get("q", [""])[0]), head=head)
             elif parsed.path == "/api/folder":
                 self.send_json(read_folder(relative), head=head)
@@ -810,7 +848,30 @@ class ManagerHandler(BaseHTTPRequestHandler):
             if not isinstance(payload, dict):
                 raise ValueError("Некорректный запрос")
             route = urllib.parse.urlparse(self.path).path
-            if route == "/api/print-create":
+            if route == "/api/order-add":
+                relative = payload.get("path", "")
+                target = editable_status_folder(relative)
+                relative = relative_path(target)
+                store = order_store()
+                if not store.get(relative):
+                    fallback = folder_status(target, directory_children(target))
+                    store.import_folder(relative, fallback)
+                self.send_json(store.get(relative), 201)
+                schedule_order_sync()
+                return
+            elif route == "/api/order-save":
+                record = order_store().save(payload)
+                self.send_json(record)
+                schedule_order_sync()
+                return
+            elif route == "/api/orders-discover":
+                self.send_json(discover_orders(), 202)
+                return
+            elif route == "/api/orders-sync":
+                schedule_order_sync()
+                self.send_json({"ok": True})
+                return
+            elif route == "/api/print-create":
                 self.send_json(create_print_task(payload.get("path", ""), payload.get("link", ""), payload.get("description", ""), payload.get("title", "")), 201)
                 return
             elif route == "/api/print-save":
@@ -829,7 +890,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": True})
         except FileNotFoundError as error:
             self.send_json({"error": str(error)}, 404)
-        except PrintConflict as error:
+        except (PrintConflict, OrderConflict) as error:
             self.send_json({"error": str(error)}, 409)
         except (ValueError, UnicodeDecodeError) as error:
             self.send_json({"error": str(error)}, 400)
@@ -844,6 +905,7 @@ def main():
         print(f"Статусы перенесены в папки: {migration['migrated']}. Архив: {migration['archive']}", flush=True)
         if migration["unresolved"]:
             print("Папки не сопоставлены; записи сохранены в архиве: " + ", ".join(migration["unresolved"]), flush=True)
+    threading.Thread(target=order_sync_worker, daemon=True).start()
     server = ThreadingHTTPServer((SERVER_HOST, port), ManagerHandler)
     print(f"Менеджер заказов: http://127.0.0.1:{port}", flush=True)
     print(f"Адрес сервера: {SERVER_HOST}:{port}", flush=True)

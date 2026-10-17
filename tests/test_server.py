@@ -129,8 +129,9 @@ class ManagerTests(unittest.TestCase):
         note = "Позвонить клиенту\n\nРазмеры: 3×2 м\nЗаметка:\nДополнение\n"
         manager.save_status(relative, "process", note)
         document = self.root / relative / manager.STATUS_DOCUMENT_NAME
-        self.assertEqual(document.name, "!status.txt")
-        self.assertEqual(document.read_text(), "Статус: В работе\n\nЗаметка:\n" + note)
+        self.assertEqual(document.name, "!.txt")
+        self.assertIn("Статус: В работе", document.read_text())
+        self.assertEqual(manager.order_document.load(document.parent, manager.STATUS_LABELS)["note"], note)
         self.assertFalse(manager.DATA_DIR.exists())
         self.assertEqual(manager.read_folder(relative)["note"], note)
         document.write_text("Статус: Готово\n\nЗаметка:\nИзменено в текстовом редакторе", encoding="utf-8")
@@ -149,11 +150,11 @@ class ManagerTests(unittest.TestCase):
         hidden = folder / ".status.txt"
         hidden.write_bytes(original)
         result = manager.read_folder(relative)
-        visible = folder / "!status.txt"
+        visible = folder / "!.txt"
         self.assertFalse(hidden.exists())
-        self.assertEqual(visible.read_bytes(), original)
+        self.assertEqual(next((folder / ".order-history").rglob(".status.txt")).read_bytes(), original)
         self.assertEqual((result["status"], result["note"]), ("process", "Для просмотра с iPhone\n"))
-        self.assertNotIn("!status.txt", [file["name"] for file in result["files"]])
+        self.assertNotIn("!.txt", [file["name"] for file in result["files"]])
         self.assertFalse(visible.name.startswith('.'))
 
     def test_plain_status_is_renamed_and_excluded_from_recursive_file_lists(self):
@@ -162,9 +163,9 @@ class ManagerTests(unittest.TestCase):
         content = "Статус: Готово\n\nЗаметка:\nСохранить текст"
         (folder / "status.txt").write_text(content)
         parent = manager.read_folder("Клиент")
-        self.assertFalse(any(file["name"] in {"status.txt", "!status.txt"} for file in parent["files"]))
+        self.assertFalse(any(file["name"] in {"status.txt", "!status.txt", "!.txt"} for file in parent["files"]))
         result = manager.read_folder(relative)
-        self.assertEqual((folder / "!status.txt").read_text(), content)
+        self.assertEqual(next((folder / ".order-history").rglob("status.txt")).read_text(), content)
         self.assertEqual(result["note"], "Сохранить текст")
         self.assertEqual(result["fileCount"], 1)
 
@@ -178,7 +179,7 @@ class ManagerTests(unittest.TestCase):
         result = manager.read_folder(relative)
         self.assertEqual((result["status"], result["note"]), ("done", "Основная версия"))
         self.assertEqual((folder / "status.previous.txt").read_text(), "Существующая копия")
-        self.assertEqual((folder / "status.previous-2.txt").read_text(), hidden_content)
+        self.assertEqual(next((folder / ".order-history").rglob(".status.txt")).read_text(), hidden_content)
         self.assertFalse((folder / ".status.txt").exists())
 
     def test_status_migration_preserves_local_edits_and_unresolved_records(self):
