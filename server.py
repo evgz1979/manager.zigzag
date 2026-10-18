@@ -20,6 +20,7 @@ from zoneinfo import ZoneInfo
 from orders import OrderStore, OrderConflict, CARD, SNAPSHOT, is_service_folder
 import order_document
 import file_comments
+from mobile_sync import MobileBridge
 import image_reports
 import file_trash
 from file_comments import FileCommentConflict
@@ -580,6 +581,19 @@ def order_store():
     return OrderStore(DATA_ROOT, DATA_DIR, STATUS_LABELS)
 
 
+def schedule_mobile_sync():
+    threading.Thread(target=MobileBridge(order_store()).run, daemon=True).start()
+
+
+def mobile_sync_worker():
+    while True:
+        try:
+            MobileBridge(order_store()).run()
+        except Exception as error:
+            print(f"Обмен с iPhone: {error}", flush=True)
+        threading.Event().wait(60)
+
+
 SCAN_LOCK = threading.Lock()
 SCAN_STATE = {"running": False, "folders": 0, "added": 0, "errors": []}
 
@@ -894,6 +908,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
             if parsed.path == "/api/orders":
                 store = order_store()
                 self.send_json({"orders": store.list(), "unregistrations": store.pending_unregistrations(), "scan": dict(SCAN_STATE)}, head=head)
+            elif parsed.path == "/api/mobile-status":
+                self.send_json(MobileBridge(order_store()).status(), head=head)
             elif parsed.path == "/api/order":
                 record = order_store().get(relative)
                 if not record:
@@ -974,6 +990,13 @@ class ManagerHandler(BaseHTTPRequestHandler):
                     store.import_folder(relative, fallback)
                 self.send_json(store.get(relative), 201)
                 schedule_order_sync()
+                return
+            elif route == "/api/mobile-sync":
+                bridge = MobileBridge(order_store())
+                if "enabled" in payload:
+                    bridge.configure(payload["enabled"])
+                schedule_mobile_sync()
+                self.send_json(bridge.status(), 202)
                 return
             elif route == "/api/order-save":
                 record = order_store().save(payload)
@@ -1057,6 +1080,7 @@ def main():
         if migration["unresolved"]:
             print("Папки не сопоставлены; записи сохранены в архиве: " + ", ".join(migration["unresolved"]), flush=True)
     threading.Thread(target=order_sync_worker, daemon=True).start()
+    threading.Thread(target=mobile_sync_worker, daemon=True).start()
     server = ThreadingHTTPServer((SERVER_HOST, port), ManagerHandler)
     print(f"Менеджер заказов: http://127.0.0.1:{port}", flush=True)
     print(f"Адрес сервера: {SERVER_HOST}:{port}", flush=True)

@@ -75,6 +75,21 @@ class ManagerTests(unittest.TestCase):
         self.assertEqual([node["name"] for node in tree["auxiliary"]], ["# docs"])
         self.assertEqual(manager.read_tree("Клиент/2026/2026-01-00 - Заказ")["children"][0]["name"], "# счета")
 
+    def test_mobile_status_is_local_and_bridge_can_be_enabled_or_paused(self):
+        status, _, body = self.http("/api/mobile-status")
+        self.assertEqual(status, 200)
+        self.assertFalse(json.loads(body)["enabled"])
+        self.assertFalse((self.root / ".mobile-sync").exists())
+        with patch.object(manager, "schedule_mobile_sync") as schedule:
+            status, _, body = self.http("/api/mobile-sync", "POST", json.dumps({"enabled": True}))
+            self.assertEqual(status, 202)
+            self.assertTrue(json.loads(body)["enabled"])
+            schedule.assert_called_once()
+            status, _, body = self.http("/api/mobile-sync", "POST", json.dumps({"enabled": False}))
+            self.assertEqual(status, 202)
+            self.assertFalse(json.loads(body)["enabled"])
+        self.assertFalse((self.root / ".mobile-sync").exists())
+
     def test_mixed_years_and_arbitrary_depth_follow_disk(self):
         nodes = manager.read_tree("Клиент")["children"]
         self.assertEqual({node["name"] for node in nodes}, {"2026", "2026-00-00 - Заказ"})

@@ -174,6 +174,15 @@ class OrderStore:
             blocks = json.loads(current["extra_blocks"])
             if "todo_items" in payload:
                 blocks = document.write_todos(blocks, payload["todo_items"])
+                # Update phone identities in this same transaction, including an
+                # empty list. A deletion/re-add between syncs must get a new ID.
+                if db.execute("SELECT 1 FROM sqlite_master WHERE name='mobile_tasks'").fetchone():
+                    from mobile_sync import reconcile_tasks
+                    row = db.execute("SELECT id FROM orders WHERE path=?", (relative,)).fetchone()
+                    previous = db.execute("SELECT items FROM mobile_tasks WHERE order_id=?", (row["id"],)).fetchone()
+                    if previous:
+                        items = reconcile_tasks(json.loads(previous[0]), document.read_todos(blocks))
+                        db.execute("UPDATE mobile_tasks SET items=? WHERE order_id=?", (json.dumps(items, ensure_ascii=False), row["id"]))
             result = db.execute("""UPDATE orders SET title=?,status=?,financial_status=COALESCE(?,financial_status),note=?,amount=?,costs=?,paid=?,
                 extra_blocks=?,revision=revision+1,updated=?,sync_error='' WHERE path=? AND revision=? AND registered=1""",
                 (title.strip(), status, financial_status, note, *values, json.dumps(blocks, ensure_ascii=False), time.time(), relative, revision))

@@ -6,3 +6,6 @@ venv/
 .env
 .env.*
 /data/
+mobile/.build/
+mobile/**/xcuserdata/
+mobile/**/DerivedData/
