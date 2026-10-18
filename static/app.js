@@ -23,6 +23,7 @@ const formatSize = (bytes) => {
 const formatDate = (seconds) => new Date(seconds * 1000).toLocaleDateString("ru", { day: "numeric", month: "short", year: "numeric" });
 const printCountLabel = (count) => count + " " + ({ one: "задание", few: "задания", many: "заданий", other: "задания" }[new Intl.PluralRules("ru").select(count)]);
 const folderParent = (path) => path.split("/").slice(0, -1).join("/");
+const isServiceFolder = (path) => path.split("/").some((part) => part.startsWith("#"));
 
 async function request(url, payload) {
   const response = await fetch(url, payload === undefined ? {} : {
@@ -146,13 +147,13 @@ async function loadTree() {
 function renderFolder(preserveForm = false) {
   const folder = state.folder;
   const printView = folder.view === "print";
+  const service = folder.service = isServiceFolder(folder.path);
   $("breadcrumbs").innerHTML = folder.breadcrumbs.map((part, index) =>
     (index ? '<span class="breadcrumb-divider">/</span>' : "") +
     '<button data-path="' + escapeHtml(part.path) + '"' + (index === folder.breadcrumbs.length - 1 ? ' aria-current="page"' : "") + ">" +
     escapeHtml(part.name) + "</button>").join("");
   $("folderTitle").textContent = printView ? "Задания на печать" : folder.path ? folder.order?.title || folder.name : "Клиенты и заказы";
-  const auxiliary = folder.client.startsWith("#");
-  $("clientLabel").textContent = printView ? "ШИРОКОФОРМАТНАЯ ПРОДУКЦИЯ" : auxiliary ? "ОБЩИЕ ПАПКИ" : folder.client || folder.name;
+  $("clientLabel").textContent = printView ? "ШИРОКОФОРМАТНАЯ ПРОДУКЦИЯ" : service ? "СЛУЖЕБНАЯ ПАПКА" : folder.client || folder.name;
   $("folderSummary").textContent = printView ? printCountLabel(folder.fileCount) + " · название, ссылка и описание" : folder.filesLoading ? "Карточка из локальной базы · файлы загружаются…" : folder.filesUnavailable ? "Карточка из локальной базы · папка сейчас недоступна" : folder.path
     ? folder.fileCount + " файлов · " + folder.folderCount + " папок · " + formatSize(folder.totalSize)
     : "Выберите клиента или заказ в дереве слева";
@@ -162,19 +163,24 @@ function renderFolder(preserveForm = false) {
   $("subfolders").innerHTML = folder.directories.map((item) =>
     '<button class="subfolder" data-path="' + escapeHtml(item.path) + '" title="' + escapeHtml(item.name) + '">' +
     icon("folder") + '<span>' + escapeHtml(item.name) + "</span>" + icon("chevron") + "</button>").join("");
-  $("orderDetails").hidden = !folder.path || auxiliary;
+  $("orderDetails").hidden = !folder.path;
+  $("folderDetailsTitle").textContent = service ? "Заметка" : "Карточка заказа";
+  $("statusBadge").hidden = service;
+  $("statusLabel").hidden = service;
+  $("statusForm").classList.toggle("note-only", service);
+  $("orderNote").placeholder = service ? "Заметка к этой папке" : "Что важно по этому заказу";
   if (!preserveForm) {
-    $("orderDetails").open = Boolean(folder.note || folder.order);
-    $("orderTitleLabel").hidden = !folder.order;
-    $("financialFields").hidden = !folder.order;
+    $("orderDetails").open = service || Boolean(folder.note || folder.order);
+    $("orderTitleLabel").hidden = service || !folder.order;
+    $("financialFields").hidden = service || !folder.order;
     $("orderTitleInput").value = folder.order?.title || folder.name;
     for (const [field, key] of [["orderAmount", "amount"], ["orderCosts", "costs"], ["orderPaid", "paid"]]) {
       $(field).value = folder.order?.[key] == null ? "" : (folder.order[key] / 100).toFixed(2);
     }
-    $("addOrderButton").hidden = !folder.path || auxiliary || Boolean(folder.order);
+    $("addOrderButton").hidden = !folder.path || service || Boolean(folder.order);
     renderOrderCalculated();
     renderExportState();
-    $("statusSelect").value = folder.status;
+    $("statusSelect").value = folder.status || "new";
     $("orderNote").value = folder.note;
     renderStatus();
   }
@@ -362,7 +368,8 @@ async function saveCurrentPrintTask(force = false) {
       url.searchParams.set("task", saved.path);
       window.history.replaceState(null, "", url.pathname + url.search);
     }
-    state.folder = await request(apiUrl("/api/folder", folder));
+    const refreshed = await request(apiUrl("/api/folder", folder));
+    Object.assign(state.folder, refreshed, { note: state.folder.note });
     $("folderSummary").textContent = printCountLabel(state.folder.fileCount) + " · название, ссылка и описание";
     renderPrintList();
   })();
@@ -387,12 +394,13 @@ async function saveCurrentStatus() {
   const status = values.status, note = values.note;
   $("saveStatusButton").disabled = true;
   $("saveStatusButton").textContent = "Сохраняю…";
-  state.saving = request(folder.order ? "/api/order-save" : "/api/status", folder.order
-    ? { path: folder.path, revision: folder.order.revision, ...values }
-    : { path: folder.path, status, note });
+  state.saving = request(folder.service ? "/api/note" : folder.order ? "/api/order-save" : "/api/status", folder.service
+    ? { path: folder.path, note }
+    : folder.order ? { path: folder.path, revision: folder.order.revision, ...values }
+      : { path: folder.path, status, note });
   try {
     const saved = await state.saving;
-    folder.status = status;
+    if (!folder.service) folder.status = status;
     folder.note = note;
     folder.statusSource = folder.order ? "database" : "manual";
     if (folder.order) folder.order = saved;
@@ -409,6 +417,7 @@ async function saveCurrentStatus() {
 const rubles = (value) => value == null ? "—" : new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB", maximumFractionDigits: 2 }).format(value / 100);
 
 function currentOrderValues() {
+  if (state.folder?.service) return { note: $("orderNote").value };
   return { status: $("statusSelect").value, note: $("orderNote").value, title: $("orderTitleInput").value,
     amount: $("orderAmount").value, costs: $("orderCosts").value, paid: $("orderPaid").value };
 }
@@ -521,7 +530,7 @@ async function navigate(path, { history = true } = {}) {
   document.querySelector(".content-pane").setAttribute("aria-busy", "true");
   try {
     let order = null;
-    if (path) {
+    if (path && !isServiceFolder(path)) {
       try { order = await request(apiUrl("/api/order", path)); }
       catch (error) { if (error.status !== 404) throw error; }
     }
@@ -537,6 +546,11 @@ async function navigate(path, { history = true } = {}) {
       if (!response.ok) throw new Error(data.error || "Не удалось открыть папку");
     }
     if (navigation !== state.navigation) return;
+    data.service = isServiceFolder(data.path);
+    if (data.service) {
+      delete data.order;
+      delete data.status;
+    }
     state.view = "folder";
     $("folderView").hidden = false;
     $("ordersWorkspace").hidden = true;
@@ -867,7 +881,7 @@ $("refreshButton").addEventListener("click", () => run(async () => {
 }));
 $("statusSelect").addEventListener("change", () => { state.dirty = true; renderStatus(); });
 $("orderNote").addEventListener("input", () => { state.dirty = true; renderStatus(); });
-$("statusForm").addEventListener("submit", (event) => { event.preventDefault(); run(async () => { await saveCurrentStatus(); notify(state.folder?.order ? "Карточка сохранена в базе, выгрузка в папку поставлена в очередь" : "Статус и заметка сохранены"); }); });
+$("statusForm").addEventListener("submit", (event) => { event.preventDefault(); run(async () => { await saveCurrentStatus(); notify(state.folder?.service ? "Заметка сохранена" : state.folder?.order ? "Карточка сохранена в базе, выгрузка в папку поставлена в очередь" : "Статус и заметка сохранены"); }); });
 $("newPrintTask").addEventListener("click", () => run(newPrintTask));
 $("printTaskList").addEventListener("click", (event) => {
   const button = event.target.closest("[data-task]");

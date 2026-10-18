@@ -17,7 +17,7 @@ from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from zoneinfo import ZoneInfo
-from orders import OrderStore, OrderConflict, CARD, SNAPSHOT
+from orders import OrderStore, OrderConflict, CARD, SNAPSHOT, is_service_folder
 import order_document
 
 APP_DIR = Path(__file__).resolve().parent
@@ -430,12 +430,16 @@ def status_document(folder):
         if target.is_symlink() or (target.exists() and not target.is_file()):
             raise ValueError(f"Вместо {STATUS_DOCUMENT_NAME} должен быть обычный текстовый файл")
         legacy = any((folder / name).exists() or (folder / name).is_symlink() for name in order_document.LEGACY_DOCUMENTS)
-        if legacy:
+        service = is_service_folder(relative_path(folder))
+        if legacy or (service and target.exists()):
             relative = folder.relative_to(DATA_ROOT)
             if any((DATA_ROOT / Path(*relative.parts[:index + 1])).is_symlink() for index in range(len(relative.parts))):
                 raise ValueError("Символические ссылки не редактируются")
             record = order_document.load(folder, STATUS_LABELS)
-            if not target.exists() and record:
+            clean_service_card = service and bool(order_document.ORDER_FIELDS.intersection(record))
+            if service:
+                record = order_document.folder_note(record)
+            if record and (not target.exists() or clean_service_card):
                 order_document.atomic_write(target, order_document.render(record, STATUS_LABELS))
             if target.exists():
                 order_document.archive_legacy(folder)
@@ -447,14 +451,18 @@ def read_status_document(folder):
     if not target.exists():
         return {}
     record = order_document.load(folder, STATUS_LABELS)
-    return {"status": record["status"], "note": record["note"]}
+    return {key: record[key] for key in ("status", "note") if key in record}
 
 
 def write_status_document(folder, status, note):
     with STATUS_LOCK:
         target = status_document(folder)
         record = order_document.load(folder, STATUS_LABELS)
-        record.update(status=status, note=note)
+        if is_service_folder(relative_path(folder)):
+            record = order_document.folder_note(record)
+        else:
+            record["status"] = status
+        record["note"] = note
         order_document.atomic_write(target, order_document.render(record, STATUS_LABELS))
 
 
@@ -553,13 +561,16 @@ def order_sync_worker():
 
 
 def folder_status(path, directories):
+    relative = relative_path(path)
+    if is_service_folder(relative):
+        return {"service": True, "note": read_status_document(path).get("note", ""), "statusSource": "manual"}
     order = order_store().get(relative_path(path))
     if order:
-        return {"status": order["status"], "note": order["note"], "statusSource": "database", "order": order}
+        return {"service": False, "status": order["status"], "note": order["note"], "statusSource": "database", "order": order}
     record = read_status_document(path)
     haystack = normalized(" ".join([path.name] + [item.name for item in directories]))
     guessed = next((status for status, words in STATUS_KEYWORDS if any(word in haystack for word in words)), "new")
-    return {"status": record.get("status", guessed), "note": record.get("note", ""),
+    return {"service": False, "status": record.get("status", guessed), "note": record.get("note", ""),
             "statusSource": "manual" if record.get("status") else "auto"}
 
 
@@ -617,6 +628,8 @@ def read_folder(relative=""):
 
 def save_status(relative, status, note):
     target = editable_status_folder(relative)
+    if is_service_folder(relative_path(target)):
+        raise ValueError("У служебной папки нет статуса заказа. Сохраните заметку.")
     if not isinstance(status, str) or status not in STATUS_LABELS or not isinstance(note, str):
         raise ValueError("Некорректный статус или заметка")
     record = order_store().get(relative)
@@ -624,6 +637,14 @@ def save_status(relative, status, note):
         raise OrderConflict("Заказ ведётся в базе. Откройте его заново и сохраните карточку целиком.")
     with STATUS_LOCK:
         write_status_document(target, status, note)
+
+
+def save_note(relative, note):
+    target = editable_status_folder(relative)
+    relative = relative_path(target)
+    if not is_service_folder(relative) or not isinstance(note, str) or len(note) > 100_000:
+        raise ValueError("Выберите служебную папку и укажите заметку")
+    write_status_document(target, None, note)
 
 
 def image_preview(target):
@@ -853,6 +874,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 target = editable_status_folder(relative)
                 relative = relative_path(target)
                 store = order_store()
+                store.path(relative)
                 if not store.get(relative):
                     fallback = folder_status(target, directory_children(target))
                     store.import_folder(relative, fallback)
@@ -879,6 +901,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 return
             elif route == "/api/status":
                 save_status(payload.get("path", ""), payload.get("status"), payload.get("note", ""))
+            elif route == "/api/note":
+                save_note(payload.get("path", ""), payload.get("note", ""))
             elif route == "/api/open":
                 target = safe_path(payload.get("path", ""))
                 if not target.exists():
@@ -900,6 +924,9 @@ class ManagerHandler(BaseHTTPRequestHandler):
 
 def main():
     port = int(sys.argv[1]) if len(sys.argv) > 1 else SERVER_PORT
+    discarded = order_store().discard_service_orders()
+    if discarded:
+        print(f"Тестовые регистрации служебных папок убраны: {discarded}", flush=True)
     migration = migrate_statuses()
     if migration:
         print(f"Статусы перенесены в папки: {migration['migrated']}. Архив: {migration['archive']}", flush=True)

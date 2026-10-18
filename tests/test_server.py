@@ -83,6 +83,70 @@ class ManagerTests(unittest.TestCase):
         self.assertEqual(folder["folderCount"], 5)
         self.assertEqual({file["folder"] for file in folder["files"]}, {"2026/Заказ/# счета", "Без года/Фото"})
 
+    def test_service_folders_have_only_portable_notes_at_any_depth(self):
+        note = "Оплатить счёт\n\n[Заказ]\n> текст\n"
+        for relative in ("# docs", "# docs/Внутри", "Клиент/2026/Заказ/# bills",
+                         "Клиент/2026/Заказ/#cdr", "Клиент/2026/Заказ/#bills/2026"):
+            with self.subTest(relative=relative):
+                self.folder(relative)
+                document = self.root / relative / "!.txt"
+                folder = manager.read_folder(relative)
+                self.assertTrue(folder["service"])
+                self.assertNotIn("status", folder)
+                self.assertNotIn("order", folder)
+                self.assertFalse(document.exists())
+                status, _, _ = self.http("/api/note", "POST", json.dumps({"path": relative, "note": note}))
+                self.assertEqual(status, 200)
+                self.assertEqual(manager.read_folder(relative)["note"], note)
+                self.assertTrue(document.read_text().startswith("ЗАМЕТКА ПАПКИ\n\n[Заметка]\n"))
+                self.assertNotIn("[Финансы]\n", document.read_text())
+                self.assertNotIn("!.txt", [file["name"] for file in manager.read_folder(relative)["files"]])
+                document.write_text(manager.order_document.render({"note": "Правка с iPhone"}, manager.STATUS_LABELS))
+                self.assertEqual(manager.read_folder(relative)["note"], "Правка с iPhone")
+                for route in ("/api/status", "/api/order-add"):
+                    status, _, _ = self.http(route, "POST", json.dumps({"path": relative, "status": "done", "note": "Нельзя"}))
+                    self.assertEqual(status, 400)
+                self.assertEqual(manager.read_folder(relative)["note"], "Правка с iPhone")
+        self.assertFalse(manager.DATA_DIR.exists())
+
+    def test_service_note_discards_test_order_fields_and_keeps_note_and_additional_blocks(self):
+        relative = "Клиент/2026/Заказ/# счета"
+        folder = self.root / relative
+        original = "Статус: На оплате\n\nЗаметка:\nПрежняя заметка".encode()
+        (folder / "!status.txt").write_bytes(original)
+        manager.save_note(relative, "Счёт оплачен")
+        self.assertEqual(next((folder / ".order-history").rglob("!status.txt")).read_bytes(), original)
+        document = manager.order_document
+        record = document.load(folder, manager.STATUS_LABELS)
+        record.update(status="payment", amount=123456, extra_blocks={"Реквизиты": "ИНН: 123"})
+        (folder / "!.txt").write_text(document.render(record, manager.STATUS_LABELS))
+        self.assertEqual(manager.read_folder(relative)["note"], "Счёт оплачен")
+        self.assertFalse(document.ORDER_FIELDS.intersection(document.load(folder, manager.STATUS_LABELS)))
+        manager.save_note(relative, "Новая заметка")
+        saved = document.load(folder, manager.STATUS_LABELS)
+        self.assertFalse(document.ORDER_FIELDS.intersection(saved))
+        self.assertEqual(saved["extra_blocks"], {"Реквизиты": "ИНН: 123"})
+        self.assertNotIn("КАРТОЧКА ЗАКАЗА", (folder / "!.txt").read_text())
+        self.assertNotIn("[Финансы]", (folder / "!.txt").read_text())
+        self.assertEqual(manager.read_folder(relative)["note"], "Новая заметка")
+
+    def test_failed_service_note_write_keeps_legacy_bytes_and_rejects_symlinks(self):
+        relative = "Клиент/2026/Заказ/# счета"
+        folder = self.root / relative
+        original = b"\xef\xbb\xbf" + "Статус: Новый\n\nЗаметка:\nНе потерять".encode()
+        (folder / "!status.txt").write_bytes(original)
+        with patch.object(manager.order_document, "atomic_write", side_effect=OSError("Нет места")):
+            with self.assertRaises(OSError):
+                manager.save_note(relative, "Правка")
+        self.assertEqual((folder / "!status.txt").read_bytes(), original)
+        self.assertFalse((folder / "!.txt").exists())
+        outside = self.base / "outside.txt"
+        outside.write_text("Не изменять")
+        (folder / "!.txt").symlink_to(outside)
+        with self.assertRaises(ValueError):
+            manager.save_note(relative, "Правка")
+        self.assertEqual(outside.read_text(), "Не изменять")
+
     def test_root_home_does_not_scan_all_orders(self):
         self.assertEqual(manager.read_folder()["fileCount"], 0)
         self.assertEqual(manager.read_folder("# docs")["fileCount"], 1)

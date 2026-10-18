@@ -20,6 +20,10 @@ class OrderConflict(ValueError):
     pass
 
 
+def is_service_folder(relative):
+    return any(part.startswith("#") for part in Path(relative).parts)
+
+
 class OrderStore:
     def __init__(self, root, data_dir, labels):
         self.root = Path(root)
@@ -56,8 +60,10 @@ class OrderStore:
         if not isinstance(relative, str) or not relative or relative == ".":
             raise ValueError("Выберите папку заказа")
         parts = Path(relative).parts
-        if Path(relative).is_absolute() or any(part.startswith(".") for part in parts) or parts[0].startswith("#"):
+        if Path(relative).is_absolute() or any(part.startswith(".") for part in parts):
             raise ValueError("Выберите папку внутри клиента")
+        if is_service_folder(relative):
+            raise ValueError("Служебные папки с # не являются заказами")
         return Path(*parts).as_posix()
 
     def target(self, relative):
@@ -83,7 +89,7 @@ class OrderStore:
         return result
 
     def get(self, relative):
-        if not self.database.exists():
+        if is_service_folder(relative) or not self.database.exists():
             return None
         with self.connect() as db:
             return self.record(db.execute("SELECT * FROM orders WHERE path=?", (relative,)).fetchone())
@@ -92,7 +98,17 @@ class OrderStore:
         if not self.database.exists():
             return []
         with self.connect() as db:
-            return [self.record(row) for row in db.execute("SELECT * FROM orders ORDER BY updated DESC, path")]
+            return [self.record(row) for row in db.execute("SELECT * FROM orders ORDER BY updated DESC, path")
+                    if not is_service_folder(row["path"])]
+
+    def discard_service_orders(self):
+        """Service-folder registrations were test data; folder files are authoritative."""
+        if not self.database.exists():
+            return 0
+        with self.connect() as db:
+            paths = [row["path"] for row in db.execute("SELECT path FROM orders") if is_service_folder(row["path"])]
+            db.executemany("DELETE FROM orders WHERE path=?", [(path,) for path in paths])
+        return len(paths)
 
     def add(self, relative, initial):
         relative = self.path(relative)
@@ -201,8 +217,7 @@ class OrderStore:
         for current, dirs, names in os.walk(self.root, followlinks=False,
                 onerror=lambda error: progress["errors"].append(str(error))):
             folder = Path(current)
-            dirs[:] = [name for name in dirs if not name.startswith(".") and not (folder / name).is_symlink()
-                       and not (folder == self.root and name.startswith("#"))]
+            dirs[:] = [name for name in dirs if not name.startswith((".", "#")) and not (folder / name).is_symlink()]
             progress["folders"] += 1
             relative = folder.relative_to(self.root).as_posix()
             if folder == self.root or self.get(relative):

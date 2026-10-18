@@ -87,6 +87,8 @@ h1 { font-size: clamp(22px, 2.5vw, 32px); line-height: 1.23; letter-spacing: -.8
 .status-form label { display: grid; gap: 6px; font-size: 11px; color: var(--muted); }
 .status-form select, .status-form textarea { padding: 7px 9px; width: 100%; font-size: 12px; }
 .status-form textarea { resize: vertical; }
+.status-form.note-only { grid-template-columns: 1fr auto; }
+.status-form.note-only > button { grid-column: auto; }
 .section-heading { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .section-heading > span { color: #91a098; font-size: 11px; }
 h2 { font-size: 13px; font-weight: 600; }

@@ -95,6 +95,52 @@ class OrderTests(unittest.TestCase):
             store.save(self.payload(original, note="Старая вкладка"))
         self.assertEqual(store.get(saved["path"])["note"], "Новая версия")
 
+    def test_service_subtrees_cannot_be_registered_or_discovered(self):
+        parent = "Клиент/2026/Заказ"
+        manager.save_status(parent, "process", "Заказ")
+        for suffix in ("#bills", "# bills", "#cdr", "# cdr/Макеты"):
+            relative = parent + "/" + suffix
+            self.folder(relative)
+            self.file(relative + "/!status.txt", "Статус: Новый\n\nЗаметка:\nСлужебная папка".encode())
+            with self.subTest(relative=relative), self.assertRaises(ValueError):
+                manager.order_store().add(relative, {})
+        progress = {"folders": 0, "added": 0, "errors": []}
+        store = manager.order_store()
+        store.discover(manager.read_status_document, progress)
+        self.assertEqual((progress["added"], progress["errors"]), (1, []))
+        self.assertEqual([record["path"] for record in store.list()], [parent])
+        self.assertEqual(manager.read_folder(parent)["fileCount"], 1)
+
+    def test_previous_service_registration_is_discarded_and_folder_note_wins(self):
+        store = manager.order_store()
+        record = store.save(self.payload(self.add()))
+        relative = "Клиент/2026/Заказ/# счета"
+        # Simulate an order registered before service folders were excluded.
+        with store.connect() as db:
+            db.execute("UPDATE orders SET path=? WHERE path=?", (relative, record["path"]))
+        self.assertEqual(store.list(), [])
+        self.assertIsNone(store.get(relative))
+        document = manager.order_document
+        folder = self.root / relative
+        (folder / "!.txt").write_text(document.render({"note": "Реальная заметка из папки"}, manager.STATUS_LABELS))
+        self.assertEqual(manager.read_folder(relative)["note"], "Реальная заметка из папки")
+        status, _, _ = self.http(self.url("/api/order", relative))
+        self.assertEqual(status, 404)
+        store.sync()
+        self.assertEqual(manager.read_folder(relative)["note"], "Реальная заметка из папки")
+        manager.save_note(relative, "Заметка к счетам")
+        saved = document.load(folder, manager.STATUS_LABELS)
+        self.assertFalse(document.ORDER_FIELDS.intersection(saved))
+        ordinary = self.add("Клиент/2026/Заказ")
+        self.assertEqual(store.discard_service_orders(), 1)
+        self.assertEqual(store.discard_service_orders(), 0)
+        with store.connect() as db:
+            self.assertIsNone(db.execute("SELECT 1 FROM orders WHERE path=?", (relative,)).fetchone())
+        self.assertEqual(store.get(ordinary["path"])["note"], ordinary["note"])
+        self.assertEqual(manager.read_folder(relative)["note"], "Заметка к счетам")
+        with self.assertRaises(ValueError):
+            store.save(self.payload(record, path=relative))
+
     def test_changes_during_export_stay_pending(self):
         store = manager.order_store()
         record = self.add()

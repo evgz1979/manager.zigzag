@@ -14,7 +14,12 @@ FORMAT = 2
 LEGACY_STATUSES = ("!status.txt", "status.txt", ".status.txt")
 LEGACY_DOCUMENTS = (*LEGACY_STATUSES, "!order.txt", ".order.json")
 KNOWN_BLOCKS = {"Заказ", "Финансы", "Заметка", "Служебное"}
+ORDER_FIELDS = {"status", "title", "client", "path", "amount", "costs", "paid", "id", "revision", "updated"}
 MAX_MONEY = 999_999_999_999_99
+
+
+def folder_note(record):
+    return {"note": record.get("note", ""), "extra_blocks": record.get("extra_blocks", {})}
 
 
 def validate_blocks(blocks):
@@ -72,8 +77,8 @@ def parse(text, labels):
             raise ValueError(f"Раздел [{name}] повторяется в {DOCUMENT}")
         body = text[heading.end():headings[index + 1].start() if index + 1 < len(headings) else len(text)]
         blocks[name] = body.removesuffix("\n\n")
-    if "Заказ" not in blocks or "Заметка" not in blocks:
-        raise ValueError(f"Проверьте разделы [Заказ] и [Заметка] в {DOCUMENT}")
+    if "Заметка" not in blocks:
+        raise ValueError(f"Проверьте раздел [Заметка] в {DOCUMENT}")
 
     def fields(name):
         result = {}
@@ -87,12 +92,16 @@ def parse(text, labels):
     note_lines = blocks["Заметка"].split("\n")
     if any(not line.startswith("> ") for line in note_lines):
         raise ValueError(f"Строки заметки в {DOCUMENT} должны начинаться с '> '")
-    record = {"schema": FORMAT, "status": status_key(main.get("Статус", ""), labels),
+    record = {"schema": FORMAT,
               "note": "\n".join(line[2:] for line in note_lines),
               "extra_blocks": {name: body for name, body in blocks.items() if name not in KNOWN_BLOCKS}}
+    if "Заказ" in blocks:
+        record["status"] = status_key(main.get("Статус", ""), labels)
     if main.get("Название"):
         record["title"] = main["Название"]
     for key, label in (("amount", "Сумма заказа"), ("costs", "Затраты"), ("paid", "Оплачено")):
+        if "Заказ" not in blocks and "Финансы" not in blocks:
+            continue
         value = finance.get(label, "Не указано")
         record[key] = None if value == "Не указано" else money(value.removesuffix(" ₽"))
     if metadata:
@@ -111,8 +120,10 @@ def render(record, labels):
     for key, label in (("title", "Название"), ("client", "Клиент"), ("path", "Папка")):
         if record.get(key):
             main.append(f"{label}: {record[key]}")
-    main.append("Статус: " + labels[record["status"]])
-    blocks = [("Заказ", "\n".join(main))]
+    blocks = []
+    if record.get("status"):
+        main.append("Статус: " + labels[record["status"]])
+        blocks.append(("Заказ", "\n".join(main)))
     if any(key in record for key in ("amount", "costs", "paid")):
         amount, costs, paid = (record.get(key) for key in ("amount", "costs", "paid"))
         profit = amount - costs if amount is not None and costs is not None else None
@@ -128,7 +139,8 @@ def render(record, labels):
                      "Обновлено: " + time.strftime("%Y-%m-%d %H:%M:%S %z", time.localtime(record["updated"])),
                      "Изменено (Unix): " + str(record["updated"])]
     blocks.append(("Служебное", "\n".join(metadata)))
-    text = "КАРТОЧКА ЗАКАЗА\n\n" + "\n\n".join(f"[{name}]\n{body}" for name, body in blocks) + "\n\n"
+    title = "КАРТОЧКА ЗАКАЗА" if record.get("status") else "ЗАМЕТКА ПАПКИ"
+    text = title + "\n\n" + "\n\n".join(f"[{name}]\n{body}" for name, body in blocks) + "\n\n"
     if len(text.encode("utf-8")) > 1024 * 1024:
         raise ValueError("Карточка заказа превышает 1 МБ")
     return text
