@@ -13,6 +13,7 @@ from folder_layout import rename_exclusive
 BUILD_LOCK = threading.Lock()
 SLOTS = threading.BoundedSemaphore(2)
 MAX_IMAGES = 200
+IMAGES_PER_PAGE = 4
 
 
 def renderer(app_dir, data_dir):
@@ -46,7 +47,7 @@ def create(folder, items, app_dir, data_dir):
             pages = json.loads(result.stdout)["pages"]
             with output.open("rb") as stream:
                 valid_pdf = stream.read(5) == b"%PDF-"
-            if not isinstance(pages, int) or pages < len(items) or not valid_pdf:
+            if not isinstance(pages, int) or pages < (len(items) + IMAGES_PER_PAGE - 1) // IMAGES_PER_PAGE or not valid_pdf:
                 raise ValueError("Не удалось проверить созданный PDF")
         except subprocess.CalledProcessError as error:
             message = error.stderr.decode("utf-8", errors="replace").strip()
