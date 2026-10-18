@@ -40,6 +40,73 @@ class OrderTests(unittest.TestCase):
         self.assertEqual(cleared["paid"], 0)
         self.assertIsNone(cleared["debt"])
 
+    def test_todos_survive_offline_edits_export_and_full_database_rebuild(self):
+        store = manager.order_store()
+        initial = [{"text": "Уточнить размеры", "done": False}]
+        record = store.save(self.payload(self.add(), todo_items=initial))
+        store.sync()
+        folder = self.root / record["path"]
+        body = (folder / "!.txt").read_text().replace("[Служебное]", "[Доставка]\nКо входу\n\n[Служебное]")
+        (folder / "!.txt").write_text(body)
+        self.root.rename(self.base / "offline")
+        updated = [{"text": "Уточнить размеры", "done": True}, {"text": "Передать [Финансы] в цех", "done": False}]
+        with patch.object(store, "target", side_effect=AssertionError("No iCloud access while saving")):
+            record = store.save(self.payload(record, todo_items=updated))
+        self.assertEqual(manager.order_store().get(record["path"])["todo_items"], updated)
+        (self.base / "offline").rename(self.root)
+        store.sync()
+        self.assertEqual(store.get(record["path"])["todo_items"], updated)
+        self.assertIn("- [x] Уточнить размеры", (folder / "!.txt").read_text())
+        self.assertEqual(store.get(record["path"])["extra_blocks"]["Доставка"], "Ко входу")
+        shutil.rmtree(manager.DATA_DIR)
+        record = manager.order_store().import_folder(record["path"])
+        self.assertEqual(record["todo_items"], updated)
+        self.assertEqual((record["status"], record["financial_status"], record["amount"]), ("process", "unspecified", 10000050))
+        record = store.save(self.payload(record, todo_items=[]))
+        store.sync()
+        self.assertEqual(manager.order_document.read_todos(manager.order_document.load(folder, manager.STATUS_LABELS)["extra_blocks"]), [])
+        self.assertEqual(store.get(record["path"])["todo_items"], [])
+
+    def test_unregistered_todos_and_external_checkboxes_are_imported(self):
+        path = "Клиент/2026-00-00 - Заказ"
+        manager.save_status(path, "install", "Заметка", "payment", [{"text": "Согласовать монтаж", "done": False}])
+        folder = self.root / path
+        (folder / "!.txt").write_text((folder / "!.txt").read_text().replace("- [ ] Согласовать", "- [X] Согласовать"))
+        self.assertEqual(manager.read_folder(path)["todo_items"], [{"text": "Согласовать монтаж", "done": True}])
+        record = manager.order_store().import_folder(path)
+        self.assertTrue(record["todo_items"][0]["done"])
+        self.assertEqual((record["status"], record["financial_status"]), ("install", "payment"))
+
+    def test_todo_validation_and_stale_edits_cannot_erase_tasks(self):
+        store = manager.order_store()
+        items = [{"text": "Не потерять", "done": True}]
+        record = store.save(self.payload(self.add(), todo_items=items))
+        for invalid in (None, {}, [{"text": "", "done": False}], [{"text": "Строка\nЕщё", "done": False}],
+                        [{"text": "Задача", "done": "false"}], [{"text": "x" * 1001, "done": True}]):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                store.save(self.payload(record, todo_items=invalid))
+        saved = store.save(self.payload(record, note="Меняется только заметка"))
+        self.assertEqual(saved["todo_items"], items)
+        with self.assertRaises(manager.OrderConflict):
+            store.save(self.payload(record, todo_items=[]))
+        self.assertEqual(store.get(record["path"])["todo_items"], items)
+        with patch.object(manager, "schedule_order_sync"):
+            status, _, body = self.http("/api/order-save", "POST", json.dumps(self.payload(saved, todo_items=[{"text": "Новая задача", "done": False}])))
+            self.assertEqual((status, json.loads(body)["todo_items"]), (200, [{"text": "Новая задача", "done": False}]))
+
+    def test_existing_free_form_task_section_is_preserved_when_editing_card(self):
+        path = "Клиент/2026-00-00 - Заказ"
+        opaque = "Произвольный текст\n\nНе превращать в пустой список"
+        self.file(path + "/!.txt", manager.order_document.render({"status": "process", "note": "Заметка",
+            "extra_blocks": {"Задачи": opaque}}, manager.STATUS_LABELS).encode())
+        store = manager.order_store()
+        record = store.import_folder(path)
+        self.assertIsNone(record["todo_items"])
+        record = store.save(self.payload(record, note="Изменить заметку"))
+        store.sync()
+        self.assertEqual(record["extra_blocks"]["Задачи"], opaque)
+        self.assertEqual(manager.order_document.load(self.root / path, manager.STATUS_LABELS)["extra_blocks"]["Задачи"], opaque)
+
     def test_financial_and_production_statuses_are_independent_even_offline(self):
         store = manager.order_store()
         record = self.add()

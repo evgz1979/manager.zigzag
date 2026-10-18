@@ -49,6 +49,7 @@
           <p class="orders-hint">Итоги рассчитаны по текущему фильтру. Прибыль = сумма − затраты, остаток = сумма − оплачено. Прочерк означает, что сумма ещё не указана; отрицательный остаток — переплата.</p>
         </section>
         <div id="folderView">
+        <div id="orderOverview" class="order-overview">
         <details id="orderDetails" class="order-details" hidden><summary><span id="statusBadge" class="status-badge">Новый</span><span id="financialStatusBadge" class="status-badge" hidden></span><span id="folderDetailsTitle">Карточка заказа</span><span class="details-chevron">⌄</span></summary><form id="statusForm" class="status-form"><label id="orderTitleLabel" class="order-title-label" hidden>Название заказа<input id="orderTitleInput" type="text" maxlength="500" autocomplete="off"></label><div id="orderStatusFields" class="order-status-fields"><label id="statusLabel">Производственный статус<select id="statusSelect" name="status"><option value="new">Новый</option><option value="measure">Замеры</option><option value="process">В работе</option><option value="workshop">В цех</option><option value="install">Монтаж</option><option value="rework">Переделка/доделка</option><option value="unspecified">Не указан</option><option value="done">Готово</option><option value="done_but">Готово, но…</option><option value="cancelled">Отменён</option></select></label><label id="financialStatusLabel">Финансовый статус<select id="financialStatusSelect" name="financial_status"><option value="unspecified">Не указан</option><option value="payment">На оплате</option><option value="partial">Частично оплачен</option><option value="paid">Оплачен</option></select></label></div><label class="note-label">Заметка<textarea id="orderNote" name="note" rows="2" placeholder="Что важно по этому заказу"></textarea></label><div id="financialFields" class="financial-fields" hidden>
           <label>Сумма заказа, ₽<input id="orderAmount" type="text" inputmode="decimal" placeholder="Не указано" autocomplete="off"></label>
           <label>Затраты, ₽<input id="orderCosts" type="text" inputmode="decimal" placeholder="Не указано" autocomplete="off"></label>
@@ -56,6 +57,15 @@
           <div class="order-calculated"><span>Прибыль: <strong id="orderProfit">—</strong></span><span>Остаток оплаты: <strong id="orderDebt">—</strong></span></div>
           <p id="orderExportState" class="order-export-state" role="status"></p>
         </div><button id="saveStatusButton" class="primary-button" type="submit">Сохранить</button></form></details>
+        <section id="todoPanel" class="todo-panel" aria-label="Список дел заказа" hidden>
+          <header class="todo-heading"><h2>To-do</h2><span id="todoCount"></span></header>
+          <div id="todoList" class="todo-list"></div>
+          <p id="todoEmpty" class="todo-empty">Добавьте, что нужно сделать по заказу.</p>
+          <div id="todoLegacy" class="todo-legacy" hidden><p>В разделе «Задачи» уже есть записи:</p><pre id="todoLegacyText"></pre></div>
+          <form id="todoAddForm" class="todo-add-form"><input id="todoNewText" type="text" maxlength="1000" placeholder="Новая задача…" aria-label="Новая задача" autocomplete="off" required><button class="primary-button" type="submit">Добавить</button></form>
+          <p id="todoSaveState" class="todo-save-state" role="status"></p>
+        </section>
+        </div>
         <section id="folderSection" class="folder-section" aria-label="Подпапки"><div class="section-heading"><h2 id="foldersTitle">Папки</h2><span id="directoryCount"></span></div><div id="subfolders" class="subfolders"></div></section>
         <section id="printWorkspace" class="print-workspace" aria-label="Задания на широкоформатную печать" hidden>
           <div class="print-toolbar"><div><h2>Задания на печать <span id="printTaskCount" class="count-badge"></span></h2><p>Широкоформатная продукция</p></div><button id="newPrintTask" class="primary-button">+ Новое задание</button></div>
@@ -79,7 +89,12 @@
         </div>
       </section>
     </main>
-    <dialog id="previewDialog" class="preview-dialog"><header class="preview-header"><div><strong id="previewTitle"></strong><span id="previewPath"></span></div><div class="preview-actions"><button id="previewPrevious" title="Предыдущий файл" aria-label="Предыдущий файл">←</button><button id="previewNext" title="Следующий файл" aria-label="Следующий файл">→</button><button id="previewNative">Открыть на Mac</button><a id="previewDownload" class="secondary-button">Скачать</a><button id="previewClose" title="Закрыть" aria-label="Закрыть">✕</button></div></header><div id="previewBody" class="preview-body"></div><footer id="previewMeta" class="preview-meta"></footer></dialog>
+    <dialog id="previewDialog" class="preview-dialog">
+      <header class="preview-header"><div><strong id="previewTitle"></strong><span id="previewPath"></span></div><div class="preview-actions"><button id="previewPrevious" title="Предыдущий файл" aria-label="Предыдущий файл">←</button><button id="previewNext" title="Следующий файл" aria-label="Следующий файл">→</button><button id="previewNative">Открыть на Mac</button><a id="previewDownload" class="secondary-button">Скачать</a><button id="previewClose" title="Закрыть" aria-label="Закрыть">✕</button></div></header>
+      <div class="preview-content"><div id="previewBody" class="preview-body"></div>
+        <form id="fileCommentForm" class="file-comment-form"><label for="fileCommentText">Комментарий к файлу</label><textarea id="fileCommentText" maxlength="100000" placeholder="Замечания, согласование, что нужно поправить…" disabled></textarea><p id="fileCommentState" class="file-comment-state" role="status"></p><div class="file-comment-actions"><button id="saveFileComment" class="primary-button" type="submit" disabled>Сохранить</button><button id="cancelFileComment" class="secondary-button" type="button" hidden>Отменить</button><button id="reloadFileComment" class="secondary-button" type="button" hidden>Повторить</button></div></form>
+      </div><footer id="previewMeta" class="preview-meta"></footer>
+    </dialog>
     <dialog id="removeOrderDialog" class="confirm-dialog" aria-labelledby="removeOrderTitle" aria-describedby="removeOrderDescription">
       <form id="removeOrderForm">
         <h2 id="removeOrderTitle">Убрать из списка заказов?</h2>

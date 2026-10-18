@@ -19,6 +19,8 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 from orders import OrderStore, OrderConflict, CARD, SNAPSHOT, is_service_folder
 import order_document
+import file_comments
+from file_comments import FileCommentConflict
 from folder_structure import folder_role
 
 APP_DIR = Path(__file__).resolve().parent
@@ -357,6 +359,15 @@ def relative_path(path):
     return path.relative_to(DATA_ROOT).as_posix() if path != DATA_ROOT else ""
 
 
+def comment_file(relative):
+    target = safe_path(relative)
+    if any((DATA_ROOT / Path(*Path(relative).parts[:index + 1])).is_symlink() for index in range(len(Path(relative).parts))):
+        raise ValueError("Комментарии к символическим ссылкам не редактируются")
+    if not target.is_file():
+        raise FileNotFoundError("Файл не найден")
+    return target
+
+
 def directory_children(path):
     return sorted((item for item in path.iterdir() if visible(item) and item.is_dir()), key=directory_sort_key)
 
@@ -449,16 +460,19 @@ def status_document(folder):
     return target
 
 
-def read_status_document(folder, *, include_registration=False):
+def read_status_document(folder, *, include_registration=False, include_todos=False):
     target = status_document(folder)
     if not target.exists():
         return {}
     record = order_document.load(folder, STATUS_LABELS)
     keys = ("status", "financial_status", "note", "registered") if include_registration else ("status", "financial_status", "note")
-    return {key: record[key] for key in keys if key in record}
+    result = {key: record[key] for key in keys if key in record}
+    if include_todos:
+        result.update(extra_blocks=record.get("extra_blocks", {}), todo_items=order_document.read_todos(record.get("extra_blocks", {})))
+    return result
 
 
-def write_status_document(folder, status, note, financial_status=None):
+def write_status_document(folder, status, note, financial_status=None, todo_items=order_document.UNSET_TODOS):
     with STATUS_LOCK:
         target = status_document(folder)
         record = order_document.load(folder, STATUS_LABELS)
@@ -468,6 +482,8 @@ def write_status_document(folder, status, note, financial_status=None):
             record["status"] = status
             if financial_status is not None:
                 record["financial_status"] = financial_status
+            if todo_items is not order_document.UNSET_TODOS:
+                record["extra_blocks"] = order_document.write_todos(record.get("extra_blocks", {}), todo_items)
         record["note"] = note
         if record.get("schema", 0) < order_document.FORMAT:
             order_document.archive_current(folder)
@@ -580,16 +596,18 @@ def folder_status(path, directories):
         return {**role, "service": True, "note": read_status_document(path).get("note", ""), "statusSource": "manual"}
     order = order_store().get(relative, include_unregistered=True)
     if order and order["registered"]:
-        return {**role, "service": False, "status": order["status"], "financial_status": order["financial_status"], "note": order["note"], "statusSource": "database", "order": order}
+        return {**role, "service": False, "status": order["status"], "financial_status": order["financial_status"], "note": order["note"],
+                "todo_items": order["todo_items"], "extra_blocks": order["extra_blocks"], "statusSource": "database", "order": order}
     if order and order["sync_pending"]:
         return {**role, "service": False, "noteOnly": True, "note": order["note"], "statusSource": "database",
                 "registrationPending": True, "registrationError": order["sync_error"]}
-    record = read_status_document(path, include_registration=True)
+    record = read_status_document(path, include_registration=True, include_todos=True)
     haystack = normalized(" ".join([path.name] + [item.name for item in directories]))
     guessed = next((status for status, words in STATUS_KEYWORDS if any(word in haystack for word in words)), "new")
     return {**role, "service": False, "noteOnly": not role["canRegisterOrder"] or bool(order) or record.get("registered") is False,
             "status": record.get("status", guessed), "note": record.get("note", ""),
             "financial_status": record.get("financial_status", "unspecified"),
+            "todo_items": record.get("todo_items", []), "extra_blocks": record.get("extra_blocks", {}),
             "statusSource": "manual" if record.get("status") else "auto"}
 
 
@@ -645,7 +663,7 @@ def read_folder(relative=""):
             **status}
 
 
-def save_status(relative, status, note, financial_status=None):
+def save_status(relative, status, note, financial_status=None, todo_items=order_document.UNSET_TODOS):
     target = editable_status_folder(relative)
     if is_service_folder(relative_path(target)):
         raise ValueError("У служебной папки нет статуса заказа. Сохраните заметку.")
@@ -660,7 +678,7 @@ def save_status(relative, status, note, financial_status=None):
             raise OrderConflict("Папка убрана из списка заказов. Обновите её и сохраните заметку.")
         raise OrderConflict("Заказ ведётся в базе. Откройте его заново и сохраните карточку целиком.")
     with STATUS_LOCK:
-        write_status_document(target, status, note, financial_status)
+        write_status_document(target, status, note, financial_status, todo_items)
 
 
 def save_note(relative, note):
@@ -855,6 +873,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(read_folder(relative), head=head)
             elif parsed.path == "/api/print-task":
                 self.send_json(read_print_task(relative), head=head)
+            elif parsed.path == "/api/file-comment":
+                self.send_json({"path": relative, **file_comments.read(comment_file(relative))}, head=head)
             elif parsed.path in {"/api/file", "/api/preview", "/api/text", "/api/pdf", "/api/pdf-page"}:
                 target = safe_path(relative)
                 if not target.is_file():
@@ -903,13 +923,13 @@ class ManagerHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         try:
+            route = urllib.parse.urlparse(self.path).path
             length = int(self.headers.get("Content-Length", "0"))
-            if length < 0 or length > 256 * 1024:
+            if length < 0 or length > (1024 * 1024 if route == "/api/file-comment" else 256 * 1024):
                 raise ValueError("Слишком большой запрос")
             payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
             if not isinstance(payload, dict):
                 raise ValueError("Некорректный запрос")
-            route = urllib.parse.urlparse(self.path).path
             if route == "/api/order-add":
                 relative = payload.get("path", "")
                 target = editable_status_folder(relative)
@@ -946,8 +966,13 @@ class ManagerHandler(BaseHTTPRequestHandler):
             elif route == "/api/print-save":
                 self.send_json(save_print_task(payload.get("path", ""), payload.get("link", ""), payload.get("description", ""), payload.get("revision"), payload.get("title")))
                 return
+            elif route == "/api/file-comment":
+                relative = payload.get("path", "")
+                record = file_comments.save(comment_file(relative), payload.get("comment"), payload.get("revision"))
+                self.send_json({"path": relative, **record})
+                return
             elif route == "/api/status":
-                save_status(payload.get("path", ""), payload.get("status"), payload.get("note", ""), payload.get("financial_status"))
+                save_status(payload.get("path", ""), payload.get("status"), payload.get("note", ""), payload.get("financial_status"), payload.get("todo_items", order_document.UNSET_TODOS))
             elif route == "/api/note":
                 save_note(payload.get("path", ""), payload.get("note", ""))
             elif route == "/api/open":
@@ -961,7 +986,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": True})
         except FileNotFoundError as error:
             self.send_json({"error": str(error)}, 404)
-        except (PrintConflict, OrderConflict) as error:
+        except (PrintConflict, OrderConflict, FileCommentConflict) as error:
             self.send_json({"error": str(error)}, 409)
         except (ValueError, UnicodeDecodeError) as error:
             self.send_json({"error": str(error)}, 400)

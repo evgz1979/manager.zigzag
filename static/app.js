@@ -10,8 +10,9 @@ const state = {
   printTask: null, printSaving: null, printQuery: "",
   view: "orders", orders: [], orderFilter: "all", financialFilter: "all", orderQuery: "", orderSort: "updated", orderDirection: -1, scan: null, ordersRequest: 0,
   unregistrations: [], removeOrder: null, removingOrder: false,
+  fileComment: null, fileCommentSaving: null,
 };
-let searchTimer, toastTimer, previewVersion = 0, treeSearchVersion = 0, printReadVersion = 0;
+let searchTimer, toastTimer, todoSaveTimer, previewVersion = 0, treeSearchVersion = 0, printReadVersion = 0;
 const icon = (name) => '<svg aria-hidden="true"><use href="#icon-' + name + '"/></svg>';
 const escapeHtml = (value) => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 const normalize = (value) => String(value).normalize("NFC").toLocaleLowerCase("ru");
@@ -151,6 +152,10 @@ function renderFolder(preserveForm = false) {
   const printView = folder.view === "print";
   const service = folder.service = isServiceFolder(folder.path);
   const noteOnly = service || Boolean(folder.noteOnly);
+  const hasTodo = Boolean(folder.path) && !noteOnly && !printView;
+  $("orderOverview").hidden = !folder.path || printView;
+  $("orderOverview").classList.toggle("with-todos", hasTodo);
+  $("todoPanel").hidden = !hasTodo;
   $("breadcrumbs").innerHTML = folder.breadcrumbs.map((part, index) =>
     (index ? '<span class="breadcrumb-divider">/</span>' : "") +
     '<button data-path="' + escapeHtml(part.path) + '"' + (index === folder.breadcrumbs.length - 1 ? ' aria-current="page"' : "") + ">" +
@@ -176,6 +181,8 @@ function renderFolder(preserveForm = false) {
   $("orderNote").placeholder = noteOnly ? "Заметка к этой папке" : "Что важно по этому заказу";
   $("removeOrderButton").hidden = !folder.order;
   if (!preserveForm) {
+    folder.todo_items = folder.order ? folder.order.todo_items : folder.todo_items === undefined ? [] : folder.todo_items;
+    if (hasTodo) { $("todoNewText").value = ""; renderTodos(); }
     $("orderDetails").open = noteOnly || Boolean(folder.note || folder.order);
     $("orderTitleLabel").hidden = noteOnly || !folder.order;
     $("financialFields").hidden = noteOnly || !folder.order;
@@ -221,6 +228,29 @@ function renderStatus() {
   $("financialStatusBadge").dataset.financialStatus = financial;
   $("financialStatusBadge").hidden = state.folder.service || state.folder.noteOnly || financial === "unspecified";
   $("saveStatusButton").textContent = state.dirty ? "Сохранить изменения" : "Сохранить";
+  $("todoSaveState").textContent = state.saving ? "Сохраняю…" : state.dirty ? "Есть несохранённые изменения" : "Сохранено";
+}
+
+function renderTodos() {
+  const items = state.folder.todo_items;
+  const editable = Array.isArray(items);
+  $("todoLegacy").hidden = editable;
+  $("todoLegacyText").textContent = editable ? "" : (state.folder.order?.extra_blocks || state.folder.extra_blocks || {})["Задачи"] || "";
+  $("todoAddForm").hidden = !editable;
+  $("todoEmpty").hidden = !editable || Boolean(items.length);
+  $("todoCount").textContent = editable ? items.filter((item) => item.done).length + " / " + items.length : "";
+  $("todoList").innerHTML = editable ? items.map((item, index) => '<div class="todo-row' + (item.done ? ' done' : '') + '" data-todo-index="' + index + '">' +
+    '<input class="todo-check" type="checkbox" aria-label="Выполнено: ' + escapeHtml(item.text) + '"' + (item.done ? ' checked' : '') + '>' +
+    '<input class="todo-text" type="text" maxlength="1000" aria-label="Текст задачи" value="' + escapeHtml(item.text) + '">' +
+    '<button class="todo-delete" type="button" aria-label="Удалить задачу: ' + escapeHtml(item.text) + '">×</button></div>').join("") : "";
+}
+
+function saveTodosSoon(delay = 0) {
+  clearTimeout(todoSaveTimer);
+  state.dirty = true;
+  renderStatus();
+  const folder = state.folder;
+  todoSaveTimer = setTimeout(() => { if (state.folder === folder) run(saveCurrentStatus); }, delay);
 }
 
 function filteredFiles() {
@@ -412,7 +442,8 @@ async function saveCurrentStatus() {
   state.saving = request(noteOnly ? "/api/note" : folder.order ? "/api/order-save" : "/api/status", noteOnly
     ? { path: folder.path, note }
     : folder.order ? { path: folder.path, revision: folder.order.revision, ...values }
-      : { path: folder.path, status, financial_status: values.financial_status, note });
+      : { path: folder.path, status, financial_status: values.financial_status, note, ...(values.todo_items ? { todo_items: values.todo_items } : {}) });
+  renderStatus();
   try {
     const saved = await state.saving;
     if (!noteOnly) { folder.status = status; folder.financial_status = values.financial_status; }
@@ -434,6 +465,7 @@ const rubles = (value) => value == null ? "—" : new Intl.NumberFormat("ru-RU",
 function currentOrderValues() {
   if (state.folder?.service || state.folder?.noteOnly) return { note: $("orderNote").value };
   return { status: $("statusSelect").value, financial_status: $("financialStatusSelect").value, note: $("orderNote").value, title: $("orderTitleInput").value,
+    ...(Array.isArray(state.folder?.todo_items) ? { todo_items: state.folder.todo_items.map((item) => ({ ...item })) } : {}),
     amount: $("orderAmount").value, costs: $("orderCosts").value, paid: $("orderPaid").value };
 }
 
@@ -510,6 +542,7 @@ function renderOrders() {
 }
 
 async function showOrders({ history = true } = {}) {
+  if ($("previewDialog").open) await closePreview();
   await saveCurrentPrintTask();
   await saveCurrentStatus();
   ++printReadVersion;
@@ -544,6 +577,7 @@ function openLocation() {
 }
 
 async function navigate(path, { history = true } = {}) {
+  if ($("previewDialog").open) await closePreview();
   await saveCurrentPrintTask();
   await saveCurrentStatus();
   ++printReadVersion;
@@ -561,7 +595,7 @@ async function navigate(path, { history = true } = {}) {
     let data;
     if (order) {
       const parts = path.split("/");
-      data = { path, name: parts.at(-1), client: parts[0], status: order.status, financial_status: order.financial_status, note: order.note, order,
+      data = { path, name: parts.at(-1), client: parts[0], status: order.status, financial_status: order.financial_status, note: order.note, todo_items: order.todo_items, order,
         breadcrumbs: [{ name: $("rootLabel").textContent, path: "" }, ...parts.map((name, index) => ({ name, path: parts.slice(0, index + 1).join("/") }))],
         directories: [], files: [], counts: {}, warnings: [], fileCount: 0, folderCount: 0, totalSize: 0, view: "files", filesLoading: true };
     } else {
@@ -614,8 +648,8 @@ async function loadOrderFiles(path, navigation) {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Не удалось открыть папку");
     if (navigation !== state.navigation) return;
-    const { order, status, financial_status, note, noteOnly, registrationPending, registrationError } = state.folder;
-    Object.assign(state.folder, data, { order, status, financial_status, note, noteOnly, registrationPending, registrationError, filesLoading: false, filesUnavailable: false });
+    const { order, status, financial_status, note, todo_items, noteOnly, registrationPending, registrationError } = state.folder;
+    Object.assign(state.folder, data, { order, status, financial_status, note, todo_items, noteOnly, registrationPending, registrationError, filesLoading: false, filesUnavailable: false });
     renderFolder(true);
   } catch (error) {
     if (error.name === "AbortError" || navigation !== state.navigation) return;
@@ -633,6 +667,7 @@ async function openNative(path, reveal = false) {
 }
 
 async function showPreview(path) {
+  await saveFileComment();
   const file = state.folder.files.find((item) => item.path === path);
   if (!file) return;
   const version = ++previewVersion;
@@ -647,6 +682,7 @@ async function showPreview(path) {
   $("previewNext").disabled = index < 0 || index === files.length - 1;
   $("previewBody").replaceChildren();
   if (!$("previewDialog").open) $("previewDialog").showModal();
+  run(() => loadFileComment(path, version));
   const source = apiUrl("/api/file", path);
   let media;
   if (file.preview === "image") {
@@ -692,6 +728,66 @@ async function showPreview(path) {
     return;
   }
   if (version === previewVersion) $("previewBody").appendChild(media);
+}
+
+function renderFileComment() {
+  const comment = state.fileComment;
+  const saving = Boolean(state.fileCommentSaving);
+  $("fileCommentText").disabled = !comment?.loaded || comment.loading;
+  $("saveFileComment").disabled = !comment?.loaded || !comment.dirty || saving;
+  $("saveFileComment").textContent = saving ? "Сохраняю…" : "Сохранить";
+  $("cancelFileComment").hidden = !comment?.dirty;
+  $("cancelFileComment").disabled = saving;
+  $("reloadFileComment").hidden = !comment?.error || comment.dirty;
+  $("fileCommentState").classList.toggle("error", Boolean(comment?.error));
+  $("fileCommentState").textContent = comment?.error || (comment?.loading ? "Загрузка комментария…" : saving ? "Сохраняю…" : comment?.dirty ? "Есть несохранённые изменения" : comment?.comment ? "Комментарий сохранён" : "Комментария пока нет");
+}
+
+async function loadFileComment(path, version) {
+  const comment = state.fileComment = { path, comment: "", draft: "", loaded: false, loading: true, dirty: false, error: "" };
+  $("fileCommentText").value = "";
+  renderFileComment();
+  try {
+    const result = await request(apiUrl("/api/file-comment", path));
+    if (version !== previewVersion || state.fileComment !== comment) return;
+    Object.assign(comment, result, { loaded: true, loading: false, draft: result.comment });
+    $("fileCommentText").value = result.comment;
+  } catch (error) {
+    if (version !== previewVersion || state.fileComment !== comment) return;
+    comment.loading = false;
+    comment.error = "Не удалось прочитать комментарий: " + error.message;
+  }
+  if (state.fileComment === comment) renderFileComment();
+}
+
+async function saveFileComment() {
+  if (state.fileCommentSaving) {
+    await state.fileCommentSaving;
+    if (state.fileComment?.dirty) return saveFileComment();
+    return;
+  }
+  const comment = state.fileComment;
+  if (!comment?.loaded || !comment.dirty) return;
+  const draft = comment.draft;
+  state.fileCommentSaving = request("/api/file-comment", { path: comment.path, comment: draft, revision: comment.revision });
+  comment.error = "";
+  renderFileComment();
+  try {
+    const saved = await state.fileCommentSaving;
+    Object.assign(comment, { comment: saved.comment, revision: saved.revision, dirty: comment.draft !== saved.comment });
+  } catch (error) {
+    comment.error = error.message;
+    throw error;
+  } finally {
+    state.fileCommentSaving = null;
+    if (state.fileComment === comment) renderFileComment();
+  }
+  if (comment.dirty) return saveFileComment();
+}
+
+async function closePreview() {
+  await saveFileComment();
+  $("previewDialog").close();
 }
 
 function showPdfPages(file, pages, version) {
@@ -870,6 +966,7 @@ $("addOrderButton").addEventListener("click", () => run(async () => {
     state.folder.note = state.folder.order.note;
     state.folder.status = state.folder.order.status;
     state.folder.financial_status = state.folder.order.financial_status;
+    state.folder.todo_items = state.folder.order.todo_items;
     state.folder.noteOnly = false;
     state.folder.registrationPending = false;
     renderFolder();
@@ -955,6 +1052,39 @@ $("refreshButton").addEventListener("click", () => run(async () => {
 $("statusSelect").addEventListener("change", () => { state.dirty = true; renderStatus(); });
 $("financialStatusSelect").addEventListener("change", () => { state.dirty = true; renderStatus(); });
 $("orderNote").addEventListener("input", () => { state.dirty = true; renderStatus(); });
+$("todoAddForm").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const text = $("todoNewText").value.trim();
+  if (!text || !Array.isArray(state.folder?.todo_items)) return;
+  state.folder.todo_items.push({ text, done: false });
+  $("todoNewText").value = "";
+  renderTodos(); saveTodosSoon(); $("todoNewText").focus();
+});
+$("todoList").addEventListener("input", (event) => {
+  if (!event.target.matches(".todo-text")) return;
+  const row = event.target.closest("[data-todo-index]");
+  const item = state.folder.todo_items[Number(row.dataset.todoIndex)];
+  item.text = event.target.value;
+  row.querySelector(".todo-check").setAttribute("aria-label", "Выполнено: " + item.text);
+  row.querySelector(".todo-delete").setAttribute("aria-label", "Удалить задачу: " + item.text);
+  saveTodosSoon(700);
+});
+$("todoList").addEventListener("change", (event) => {
+  const row = event.target.closest("[data-todo-index]");
+  if (!row) return;
+  if (event.target.matches(".todo-check")) {
+    state.folder.todo_items[Number(row.dataset.todoIndex)].done = event.target.checked;
+    renderTodos(); saveTodosSoon();
+  }
+});
+$("todoList").addEventListener("click", (event) => {
+  if (!event.target.closest(".todo-delete")) return;
+  state.folder.todo_items.splice(Number(event.target.closest("[data-todo-index]").dataset.todoIndex), 1);
+  renderTodos(); saveTodosSoon();
+});
+$("todoList").addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && event.target.matches(".todo-text")) { event.preventDefault(); event.target.blur(); saveTodosSoon(); }
+});
 $("statusForm").addEventListener("submit", (event) => { event.preventDefault(); run(async () => { await saveCurrentStatus(); notify(state.folder?.service || state.folder?.noteOnly ? "Заметка сохранена" : state.folder?.order ? "Карточка сохранена в базе, выгрузка в папку поставлена в очередь" : "Статус и заметка сохранены"); }); });
 $("newPrintTask").addEventListener("click", () => run(newPrintTask));
 $("printTaskList").addEventListener("click", (event) => {
@@ -974,13 +1104,26 @@ $("printEditorForm").addEventListener("submit", (event) => {
   run(async () => { await saveCurrentPrintTask(true); notify("Задание сохранено"); });
 });
 window.addEventListener("keydown", (event) => {
+  if ($("previewDialog").open && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+    event.preventDefault(); run(saveFileComment); return;
+  }
   if (!$("printWorkspace").hidden && state.printTask && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
     event.preventDefault();
     run(async () => { await saveCurrentPrintTask(true); notify("Задание сохранено"); });
   }
 });
-$("previewClose").addEventListener("click", () => $("previewDialog").close());
-$("previewDialog").addEventListener("close", () => { ++previewVersion; $("previewBody").replaceChildren(); state.preview = null; });
+$("previewClose").addEventListener("click", () => run(closePreview));
+$("previewDialog").addEventListener("cancel", (event) => { event.preventDefault(); run(closePreview); });
+$("previewDialog").addEventListener("close", () => { ++previewVersion; $("previewBody").replaceChildren(); state.preview = null; state.fileComment = null; });
+$("fileCommentText").addEventListener("input", () => {
+  if (!state.fileComment?.loaded) return;
+  state.fileComment.draft = $("fileCommentText").value;
+  state.fileComment.dirty = state.fileComment.draft !== state.fileComment.comment;
+  renderFileComment();
+});
+$("fileCommentForm").addEventListener("submit", (event) => { event.preventDefault(); run(saveFileComment); });
+$("cancelFileComment").addEventListener("click", () => run(() => loadFileComment(state.preview.path, previewVersion)));
+$("reloadFileComment").addEventListener("click", () => run(() => loadFileComment(state.preview.path, previewVersion)));
 $("previewPrevious").addEventListener("click", () => stepPreview(-1));
 $("previewNext").addEventListener("click", () => stepPreview(1));
 $("previewNative").addEventListener("click", () => run(() => openNative(state.preview.path)));
@@ -990,7 +1133,7 @@ $("previewDialog").addEventListener("keydown", (event) => {
   if (event.key === "ArrowRight") { event.preventDefault(); stepPreview(1); }
 });
 window.addEventListener("popstate", () => run(() => openLocation()));
-window.addEventListener("beforeunload", (event) => { if (state.dirty || state.printTask?.dirty || state.printSaving) { event.preventDefault(); event.returnValue = ""; } });
+window.addEventListener("beforeunload", (event) => { if (state.dirty || state.printTask?.dirty || state.printSaving || state.fileComment?.dirty || state.fileCommentSaving) { event.preventDefault(); event.returnValue = ""; } });
 
 run(async () => {
   try {

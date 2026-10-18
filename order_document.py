@@ -17,6 +17,44 @@ LEGACY_DOCUMENTS = (*LEGACY_STATUSES, "!order.txt", ".order.json")
 KNOWN_BLOCKS = {"Заказ", "Финансы", "Заметка", "Служебное"}
 ORDER_FIELDS = {"status", "financial_status", "title", "client", "path", "amount", "costs", "paid", "id", "revision", "updated"}
 MAX_MONEY = 999_999_999_999_99
+TODO_BLOCK = "Задачи"
+UNSET_TODOS = object()
+
+
+def validate_todos(items):
+    if not isinstance(items, list) or len(items) > 200:
+        raise ValueError("В списке может быть не более 200 задач")
+    result = []
+    for item in items:
+        if not isinstance(item, dict) or not isinstance(item.get("text"), str) or type(item.get("done")) is not bool:
+            raise ValueError("Некорректная задача")
+        text = item["text"].strip()
+        if not text or len(text) > 1000 or any(char in text for char in "\r\n\x00"):
+            raise ValueError("Укажите задачу одной строкой, до 1000 символов")
+        result.append({"text": text, "done": item["done"]})
+    return result
+
+
+def read_todos(blocks):
+    body = blocks.get(TODO_BLOCK, "")
+    items = []
+    for line in body.splitlines():
+        if not line.strip():
+            continue
+        match = re.fullmatch(r"- \[([ xX])\] (.+)", line)
+        if not match:
+            return None  # Preserve an existing free-form section without rewriting it.
+        items.append({"text": match[2], "done": match[1].lower() == "x"})
+    try:
+        return validate_todos(items)
+    except ValueError:
+        return None
+
+
+def write_todos(blocks, items):
+    result = dict(blocks)
+    result[TODO_BLOCK] = "\n".join("- [" + ("x" if item["done"] else " ") + "] " + item["text"] for item in validate_todos(items))
+    return result
 
 
 def folder_note(record):

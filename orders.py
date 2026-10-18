@@ -93,6 +93,7 @@ class OrderStore:
         result["profit"] = result["amount"] - result["costs"] if result["amount"] is not None and result["costs"] is not None else None
         result["debt"] = result["amount"] - result["paid"] if result["amount"] is not None and result["paid"] is not None else None
         result["extra_blocks"] = json.loads(result["extra_blocks"])
+        result["todo_items"] = document.read_todos(result["extra_blocks"])
         exported_revision, export_format = result.pop("exported_revision"), result.pop("export_format")
         result["sync_pending"] = result["revision"] != exported_revision or (result["registered"] and export_format < document.FORMAT)
         return result
@@ -167,9 +168,15 @@ class OrderStore:
         if type(revision) is not int:
             raise ValueError("Не указана версия заказа. Откройте заказ заново.")
         with self.connect() as db:
+            current = db.execute("SELECT extra_blocks FROM orders WHERE path=? AND revision=? AND registered=1", (relative, revision)).fetchone()
+            if current is None:
+                raise OrderConflict("Заказ изменён в другой вкладке. Откройте его заново перед сохранением.")
+            blocks = json.loads(current["extra_blocks"])
+            if "todo_items" in payload:
+                blocks = document.write_todos(blocks, payload["todo_items"])
             result = db.execute("""UPDATE orders SET title=?,status=?,financial_status=COALESCE(?,financial_status),note=?,amount=?,costs=?,paid=?,
-                revision=revision+1,updated=?,sync_error='' WHERE path=? AND revision=? AND registered=1""",
-                (title.strip(), status, financial_status, note, *values, time.time(), relative, revision))
+                extra_blocks=?,revision=revision+1,updated=?,sync_error='' WHERE path=? AND revision=? AND registered=1""",
+                (title.strip(), status, financial_status, note, *values, json.dumps(blocks, ensure_ascii=False), time.time(), relative, revision))
             if not result.rowcount:
                 raise OrderConflict("Заказ изменён в другой вкладке. Откройте его заново перед сохранением.")
         return self.get(relative)
@@ -202,7 +209,8 @@ class OrderStore:
                 try:
                     folder = self.target(record["path"])
                     existing = document.load(folder, self.labels)
-                    record["extra_blocks"].update(existing.get("extra_blocks", {}))
+                    record["extra_blocks"].update({key: value for key, value in existing.get("extra_blocks", {}).items()
+                        if key != document.TODO_BLOCK or key not in record["extra_blocks"]})
                     if existing.get("schema", 0) < document.FORMAT:
                         document.archive_current(folder)
                     self.atomic_write(folder / CARD, document.render(record, self.labels))
