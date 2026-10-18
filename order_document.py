@@ -112,6 +112,10 @@ def parse(text, labels):
             record["revision"] = int(metadata.get("Версия", "0"))
         if metadata.get("Изменено (Unix)"):
             record["updated"] = float(metadata["Изменено (Unix)"])
+        if "В списке заказов" in metadata:
+            if metadata["В списке заказов"] not in ("да", "нет"):
+                raise ValueError("Проверьте поле «В списке заказов» в карточке")
+            record["registered"] = metadata["В списке заказов"] == "да"
     return record
 
 
@@ -134,6 +138,8 @@ def render(record, labels):
     blocks.append(("Заметка", "> " + record.get("note", "").replace("\n", "\n> ")))
     blocks.extend(validate_blocks(record.get("extra_blocks", {})).items())
     metadata = [f"Формат: {FORMAT}"]
+    if "registered" in record:
+        metadata.append("В списке заказов: " + ("да" if record["registered"] else "нет"))
     if record.get("id"):
         metadata += ["Идентификатор: " + record["id"], "Версия: " + str(record["revision"]),
                      "Обновлено: " + time.strftime("%Y-%m-%d %H:%M:%S %z", time.localtime(record["updated"])),

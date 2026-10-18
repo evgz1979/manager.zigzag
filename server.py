@@ -446,12 +446,13 @@ def status_document(folder):
     return target
 
 
-def read_status_document(folder):
+def read_status_document(folder, *, include_registration=False):
     target = status_document(folder)
     if not target.exists():
         return {}
     record = order_document.load(folder, STATUS_LABELS)
-    return {key: record[key] for key in ("status", "note") if key in record}
+    keys = ("status", "note", "registered") if include_registration else ("status", "note")
+    return {key: record[key] for key in keys if key in record}
 
 
 def write_status_document(folder, status, note):
@@ -564,13 +565,17 @@ def folder_status(path, directories):
     relative = relative_path(path)
     if is_service_folder(relative):
         return {"service": True, "note": read_status_document(path).get("note", ""), "statusSource": "manual"}
-    order = order_store().get(relative_path(path))
-    if order:
+    order = order_store().get(relative, include_unregistered=True)
+    if order and order["registered"]:
         return {"service": False, "status": order["status"], "note": order["note"], "statusSource": "database", "order": order}
-    record = read_status_document(path)
+    if order and order["sync_pending"]:
+        return {"service": False, "noteOnly": True, "note": order["note"], "statusSource": "database",
+                "registrationPending": True, "registrationError": order["sync_error"]}
+    record = read_status_document(path, include_registration=True)
     haystack = normalized(" ".join([path.name] + [item.name for item in directories]))
     guessed = next((status for status, words in STATUS_KEYWORDS if any(word in haystack for word in words)), "new")
-    return {"service": False, "status": record.get("status", guessed), "note": record.get("note", ""),
+    return {"service": False, "noteOnly": bool(order) or record.get("registered") is False,
+            "status": record.get("status", guessed), "note": record.get("note", ""),
             "statusSource": "manual" if record.get("status") else "auto"}
 
 
@@ -632,8 +637,10 @@ def save_status(relative, status, note):
         raise ValueError("У служебной папки нет статуса заказа. Сохраните заметку.")
     if not isinstance(status, str) or status not in STATUS_LABELS or not isinstance(note, str):
         raise ValueError("Некорректный статус или заметка")
-    record = order_store().get(relative)
+    record = order_store().get(relative, include_unregistered=True)
     if record:
+        if not record["registered"]:
+            raise OrderConflict("Папка убрана из списка заказов. Обновите её и сохраните заметку.")
         raise OrderConflict("Заказ ведётся в базе. Откройте его заново и сохраните карточку целиком.")
     with STATUS_LOCK:
         write_status_document(target, status, note)
@@ -642,9 +649,23 @@ def save_status(relative, status, note):
 def save_note(relative, note):
     target = editable_status_folder(relative)
     relative = relative_path(target)
-    if not is_service_folder(relative) or not isinstance(note, str) or len(note) > 100_000:
-        raise ValueError("Выберите служебную папку и укажите заметку")
-    write_status_document(target, None, note)
+    if not isinstance(note, str) or len(note) > 100_000:
+        raise ValueError("Укажите заметку")
+    if is_service_folder(relative):
+        write_status_document(target, None, note)
+        return
+    removed = order_store().get(relative, include_unregistered=True)
+    if removed and removed["registered"]:
+        raise OrderConflict("Заказ ведётся в базе. Откройте карточку заново.")
+    if removed and removed["sync_pending"]:
+        raise OrderConflict("Карточка ещё сохраняется в папку. Повторите сохранение заметки после выгрузки.")
+    with STATUS_LOCK:
+        status_document(target)
+        record = order_document.load(target, STATUS_LABELS)
+        if not removed and record.get("registered") is not False:
+            raise ValueError("Сохранение заметки доступно для служебной папки или папки, убранной из списка заказов")
+        record["note"] = note
+        order_document.atomic_write(target / STATUS_DOCUMENT_NAME, order_document.render(record, STATUS_LABELS))
 
 
 def image_preview(target):
@@ -802,7 +823,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
         relative = query.get("path", [""])[0]
         try:
             if parsed.path == "/api/orders":
-                self.send_json({"orders": order_store().list(), "scan": dict(SCAN_STATE)}, head=head)
+                store = order_store()
+                self.send_json({"orders": store.list(), "unregistrations": store.pending_unregistrations(), "scan": dict(SCAN_STATE)}, head=head)
             elif parsed.path == "/api/order":
                 record = order_store().get(relative)
                 if not record:
@@ -883,6 +905,11 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 return
             elif route == "/api/order-save":
                 record = order_store().save(payload)
+                self.send_json(record)
+                schedule_order_sync()
+                return
+            elif route == "/api/order-remove":
+                record = order_store().remove(payload)
                 self.send_json(record)
                 schedule_order_sync()
                 return

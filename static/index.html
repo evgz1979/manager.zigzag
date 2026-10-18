@@ -26,7 +26,7 @@
       </aside>
       <section class="content-pane" aria-label="Содержимое заказа" aria-busy="true">
         <div class="content-topbar"><nav id="breadcrumbs" class="breadcrumbs" aria-label="Путь"></nav><span id="scanState" class="scan-state"></span></div>
-        <header class="order-heading"><div><p id="clientLabel" class="eyebrow">КЛИЕНТЫ И ЗАКАЗЫ</p><h1 id="folderTitle">Зигзаг</h1><p id="folderSummary" class="folder-summary">Загрузка папок…</p></div><button id="openFolderButton" class="secondary-button"><svg><use href="#icon-folder"/></svg>Открыть в Finder</button><button id="addOrderButton" class="primary-button" hidden>+ Добавить в список заказов</button></header>
+        <header class="order-heading"><div><p id="clientLabel" class="eyebrow">КЛИЕНТЫ И ЗАКАЗЫ</p><h1 id="folderTitle">Зигзаг</h1><p id="folderSummary" class="folder-summary">Загрузка папок…</p></div><button id="openFolderButton" class="secondary-button"><svg><use href="#icon-folder"/></svg>Открыть в Finder</button><button id="addOrderButton" class="primary-button" hidden>+ Добавить в список заказов</button><button id="removeOrderButton" class="secondary-button" hidden>Убрать из списка заказов</button></header>
         <div id="notice" class="notice" role="status" hidden></div>
         <button id="loadOrderFilesButton" class="secondary-button" hidden>Повторить загрузку файлов</button>
         <section id="ordersWorkspace" class="orders-workspace" aria-label="Все заказы" hidden>
@@ -79,6 +79,14 @@
       </section>
     </main>
     <dialog id="previewDialog" class="preview-dialog"><header class="preview-header"><div><strong id="previewTitle"></strong><span id="previewPath"></span></div><div class="preview-actions"><button id="previewPrevious" title="Предыдущий файл" aria-label="Предыдущий файл">←</button><button id="previewNext" title="Следующий файл" aria-label="Следующий файл">→</button><button id="previewNative">Открыть на Mac</button><a id="previewDownload" class="secondary-button">Скачать</a><button id="previewClose" title="Закрыть" aria-label="Закрыть">✕</button></div></header><div id="previewBody" class="preview-body"></div><footer id="previewMeta" class="preview-meta"></footer></dialog>
+    <dialog id="removeOrderDialog" class="confirm-dialog" aria-labelledby="removeOrderTitle" aria-describedby="removeOrderDescription">
+      <form id="removeOrderForm">
+        <h2 id="removeOrderTitle">Убрать из списка заказов?</h2>
+        <p><strong id="removeOrderName"></strong></p><p id="removeOrderPath" class="confirm-path"></p>
+        <p id="removeOrderDescription">Папка, вложения и данные карточки сохранятся. Вложенные заказы останутся в списке. Добавить эту папку обратно можно вручную.</p>
+        <div class="confirm-actions"><button id="cancelRemoveOrder" class="secondary-button" type="button">Отмена</button><button id="confirmRemoveOrder" class="danger-button" type="submit">Убрать из списка</button></div>
+      </form>
+    </dialog>
     <div id="toast" class="toast" role="status" hidden></div>
     <script src="/app.js"></script>
   </body>

@@ -223,19 +223,27 @@ h2 { font-size: 13px; font-weight: 600; }
 .orders-table-scroll { overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
 .orders-table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; }
 .orders-table th { background: #f7f9f6; border-bottom: 1px solid var(--line); white-space: nowrap; }
-.orders-table th button { padding: 12px 13px; width: 100%; border: 0; background: none; font-size: 11px; text-align: inherit; color: var(--muted); }
+.orders-table th button { padding: 8px 10px; width: 100%; border: 0; background: none; font-size: 11px; text-align: inherit; color: var(--muted); }
 .orders-table th[aria-sort="ascending"] button, .orders-table th[aria-sort="descending"] button { color: var(--accent); }
-.orders-table td { padding: 16px 13px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.orders-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
 .orders-table tr:last-child td { border-bottom: 0; }
 .orders-table tbody tr:hover { background: #fafcf9; }
 .orders-table th:first-child { min-width: 220px; }
 .orders-table th:nth-child(n+3):nth-child(-n+7) { text-align: right; }
 .order-row-link { display: block; padding: 0; border: 0; background: none; color: var(--accent); text-align: left; font-weight: 550; overflow-wrap: anywhere; }
-.order-row-path { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
+.order-row-path { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
+.confirm-dialog { max-width: min(480px, 92vw); padding: 25px; border: 1px solid var(--line); border-radius: 12px; color: var(--text); }
+.confirm-dialog::backdrop { background: #1d33365c; }
+.confirm-dialog h2 { font-size: 20px; margin: 0 0 20px; }
+.confirm-dialog p { line-height: 1.6; }
+.confirm-path { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.confirm-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px; }
+.danger-button { padding: 9px 13px; border-color: #9b5146; background: #9b5146; color: white; }
+.danger-button:hover:not(:disabled) { background: #86463c; }
 .order-money { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .negative { color: #a25d49; }
 .order-updated { font-size: 10px; white-space: nowrap; color: var(--muted); }
-.sync-pending, .sync-complete { display: block; margin-top: 5px; font-size: 9px; }
+.sync-pending, .sync-complete { display: block; margin-top: 2px; font-size: 9px; }
 .sync-pending { color: #a57532; }
 .sync-complete { color: #78917f; }
 .orders-hint { color: var(--muted); font-size: 10px; line-height: 1.6; margin-top: 15px; }

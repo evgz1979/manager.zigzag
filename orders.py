@@ -51,6 +51,8 @@ class OrderStore:
                     db.execute("ALTER TABLE orders ADD COLUMN extra_blocks TEXT NOT NULL DEFAULT '{}'")
                 if "export_format" not in columns:
                     db.execute("ALTER TABLE orders ADD COLUMN export_format INTEGER NOT NULL DEFAULT 0")
+                if "registered" not in columns:
+                    db.execute("ALTER TABLE orders ADD COLUMN registered INTEGER NOT NULL DEFAULT 1")
             with db:
                 yield db
         finally:
@@ -80,26 +82,32 @@ class OrderStore:
         if row is None:
             return None
         result = dict(row)
+        result["registered"] = bool(result["registered"])
         result["client"] = Path(result["path"]).parts[0]
         result["profit"] = result["amount"] - result["costs"] if result["amount"] is not None and result["costs"] is not None else None
         result["debt"] = result["amount"] - result["paid"] if result["amount"] is not None and result["paid"] is not None else None
         result["extra_blocks"] = json.loads(result["extra_blocks"])
         exported_revision, export_format = result.pop("exported_revision"), result.pop("export_format")
-        result["sync_pending"] = result["revision"] != exported_revision or export_format < document.FORMAT
+        result["sync_pending"] = result["revision"] != exported_revision or (result["registered"] and export_format < document.FORMAT)
         return result
 
-    def get(self, relative):
+    def get(self, relative, *, include_unregistered=False):
         if is_service_folder(relative) or not self.database.exists():
             return None
         with self.connect() as db:
-            return self.record(db.execute("SELECT * FROM orders WHERE path=?", (relative,)).fetchone())
+            row = db.execute("SELECT * FROM orders WHERE path=?", (relative,)).fetchone()
+            return self.record(row) if row and (include_unregistered or row["registered"]) else None
 
-    def list(self):
+    def list(self, *, include_unregistered=False):
         if not self.database.exists():
             return []
         with self.connect() as db:
             return [self.record(row) for row in db.execute("SELECT * FROM orders ORDER BY updated DESC, path")
-                    if not is_service_folder(row["path"])]
+                    if not is_service_folder(row["path"]) and (include_unregistered or row["registered"])]
+
+    def pending_unregistrations(self):
+        return [{"path": record["path"], "sync_error": record["sync_error"]}
+                for record in self.list(include_unregistered=True) if not record["registered"] and record["sync_pending"]]
 
     def discard_service_orders(self):
         """Service-folder registrations were test data; folder files are authoritative."""
@@ -117,9 +125,13 @@ class OrderStore:
         if not isinstance(status, str) or status not in self.labels or not isinstance(note, str):
             raise ValueError("Некорректный статус или заметка")
         with self.connect() as db:
-            db.execute("""INSERT OR IGNORE INTO orders
+            db.execute("""INSERT INTO orders
                 (path,id,title,status,note,amount,costs,paid,revision,updated,extra_blocks)
-                VALUES (?,?,?,?,?,?,?,?,1,?,?)""", (relative, str(uuid.uuid4()), initial.get("title", Path(relative).name),
+                VALUES (?,?,?,?,?,?,?,?,1,?,?) ON CONFLICT(path) DO UPDATE SET
+                id=excluded.id,title=excluded.title,status=excluded.status,note=excluded.note,
+                amount=excluded.amount,costs=excluded.costs,paid=excluded.paid,registered=1,
+                revision=orders.revision+1,updated=excluded.updated,extra_blocks=excluded.extra_blocks,sync_error=''
+                WHERE orders.registered=0""", (relative, str(uuid.uuid4()), initial.get("title", Path(relative).name),
                 status, note, initial.get("amount"), initial.get("costs"), initial.get("paid"), time.time(),
                 json.dumps(initial.get("extra_blocks", {}), ensure_ascii=False)))
         return self.get(relative)
@@ -137,11 +149,25 @@ class OrderStore:
             raise ValueError("Не указана версия заказа. Откройте заказ заново.")
         with self.connect() as db:
             result = db.execute("""UPDATE orders SET title=?,status=?,note=?,amount=?,costs=?,paid=?,
-                revision=revision+1,updated=?,sync_error='' WHERE path=? AND revision=?""",
+                revision=revision+1,updated=?,sync_error='' WHERE path=? AND revision=? AND registered=1""",
                 (title.strip(), status, note, *values, time.time(), relative, revision))
             if not result.rowcount:
                 raise OrderConflict("Заказ изменён в другой вкладке. Откройте его заново перед сохранением.")
         return self.get(relative)
+
+    def remove(self, payload):
+        if payload.get("confirmed") is not True:
+            raise ValueError("Подтвердите снятие регистрации заказа")
+        relative = self.path(payload.get("path"))
+        revision = payload.get("revision")
+        if type(revision) is not int:
+            raise ValueError("Откройте заказ заново перед снятием регистрации")
+        with self.connect() as db:
+            result = db.execute("""UPDATE orders SET registered=0,revision=revision+1,updated=?,sync_error=''
+                WHERE path=? AND revision=? AND registered=1""", (time.time(), relative, revision))
+            if not result.rowcount:
+                raise OrderConflict("Заказ изменён или уже убран из списка. Обновите данные перед подтверждением.")
+        return self.get(relative, include_unregistered=True)
 
     def atomic_write(self, target, body):
         document.atomic_write(target, body)
@@ -150,7 +176,7 @@ class OrderStore:
         if not SYNC_LOCK.acquire(blocking=False):
             return
         try:
-            for record in self.list():
+            for record in self.list(include_unregistered=True):
                 if not record["sync_pending"]:
                     continue
                 error = ""
@@ -173,6 +199,12 @@ class OrderStore:
 
     def import_folder(self, relative, fallback=None):
         folder = self.target(relative)
+        previous = self.get(relative, include_unregistered=True)
+        if previous and not previous["registered"] and previous["sync_pending"]:
+            with self.connect() as db:
+                db.execute("UPDATE orders SET registered=1,revision=revision+1,updated=?,sync_error='' WHERE path=? AND registered=0",
+                           (time.time(), relative))
+            return self.get(relative)
         initial = document.load(folder, self.labels) or fallback or {"status": "new", "note": ""}
         if initial.get("id"):
             self.restore(relative, initial)
@@ -205,9 +237,13 @@ class OrderStore:
         with self.connect() as db:
             if db.execute("SELECT 1 FROM orders WHERE id=? AND path<>?", (identity, relative)).fetchone():
                 identity = str(uuid.uuid4())
-            db.execute("""INSERT OR IGNORE INTO orders
+            db.execute("""INSERT INTO orders
                 (path,id,title,status,note,amount,costs,paid,revision,exported_revision,updated,extra_blocks)
-                VALUES (?,?,?,?,?,?,?,?,?,0,?,?)""", (relative, identity, title, status, note,
+                VALUES (?,?,?,?,?,?,?,?,?,0,?,?) ON CONFLICT(path) DO UPDATE SET
+                id=excluded.id,title=excluded.title,status=excluded.status,note=excluded.note,
+                amount=excluded.amount,costs=excluded.costs,paid=excluded.paid,registered=1,
+                revision=MAX(orders.revision+1,excluded.revision),updated=excluded.updated,
+                extra_blocks=excluded.extra_blocks,sync_error='' WHERE orders.registered=0""", (relative, identity, title, status, note,
                 *values, revision, time.time(), json.dumps(snapshot.get("extra_blocks", {}), ensure_ascii=False)))
 
     def discover(self, read_status, progress):
@@ -220,10 +256,12 @@ class OrderStore:
             dirs[:] = [name for name in dirs if not name.startswith((".", "#")) and not (folder / name).is_symlink()]
             progress["folders"] += 1
             relative = folder.relative_to(self.root).as_posix()
-            if folder == self.root or self.get(relative):
+            if folder == self.root or self.get(relative, include_unregistered=True):
                 continue
             try:
                 if not any(name in names for name in (CARD, SNAPSHOT, *document.LEGACY_STATUSES)):
+                    continue
+                if document.load(folder, self.labels).get("registered") is False:
                     continue
                 self.import_folder(relative)
                 progress["added"] += 1

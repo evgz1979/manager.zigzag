@@ -95,6 +95,123 @@ class OrderTests(unittest.TestCase):
             store.save(self.payload(original, note="Старая вкладка"))
         self.assertEqual(store.get(saved["path"])["note"], "Новая версия")
 
+    def test_removal_requires_confirmation_and_current_revision(self):
+        store = manager.order_store()
+        original = self.add()
+        payload = {"path": original["path"], "revision": original["revision"]}
+        for confirmed in (None, False, "true", 1):
+            with self.subTest(confirmed=confirmed), self.assertRaises(ValueError):
+                store.remove({**payload, "confirmed": confirmed})
+        saved = store.save(self.payload(original))
+        with self.assertRaises(manager.OrderConflict):
+            store.remove({**payload, "confirmed": True})
+        removed = store.remove({**payload, "revision": saved["revision"], "confirmed": True})
+        self.assertFalse(removed["registered"])
+        self.assertIsNone(store.get(original["path"]))
+        with self.assertRaises(manager.OrderConflict):
+            store.save(self.payload(saved))
+
+    def test_removal_is_local_durable_and_does_not_remove_child_orders(self):
+        store = manager.order_store()
+        parent = store.save(self.payload(self.add(), note="Последняя заметка"))
+        child = self.add("Клиент/Без года/Фото")
+        original_file = self.root / "Клиент/Без года/Фото/файл%2F #.txt"
+        original_bytes = original_file.read_bytes()
+        self.root.rename(self.base / "offline")
+        with patch.object(store, "target", side_effect=AssertionError("No cloud access")), \
+                patch.object(manager.os, "walk", side_effect=AssertionError("No cloud scan")):
+            removed = store.remove({"path": parent["path"], "revision": parent["revision"], "confirmed": True})
+            self.assertEqual([record["path"] for record in store.list()], [child["path"]])
+        store.sync()
+        restarted = manager.order_store()
+        pending = restarted.get(parent["path"], include_unregistered=True)
+        self.assertTrue(pending["sync_pending"])
+        self.assertTrue(pending["sync_error"])
+        self.assertEqual((pending["note"], pending["amount"]), (parent["note"], parent["amount"]))
+        self.assertEqual(restarted.pending_unregistrations()[0]["path"], parent["path"])
+        (self.base / "offline").rename(self.root)
+        restarted.sync()
+        self.assertEqual(restarted.pending_unregistrations(), [])
+        self.assertEqual(original_file.read_bytes(), original_bytes)
+        self.assertIsNotNone(restarted.get(child["path"]))
+        card = manager.order_document.load(self.root / parent["path"], manager.STATUS_LABELS)
+        self.assertFalse(card["registered"])
+        self.assertEqual((card["note"], card["amount"]), (parent["note"], parent["amount"]))
+
+    def test_removed_card_does_not_reappear_on_scan_or_database_rebuild(self):
+        store = manager.order_store()
+        original = store.save(self.payload(self.add()))
+        store.remove({"path": original["path"], "revision": original["revision"], "confirmed": True})
+        progress = {"folders": 0, "added": 0, "errors": []}
+        store.discover(manager.read_status_document, progress)
+        self.assertEqual(store.list(), [])
+        store.sync()
+        shutil.rmtree(manager.DATA_DIR)
+        store.discover(manager.read_status_document, progress)
+        self.assertEqual((store.list(), progress["added"], progress["errors"]), ([], 0, []))
+        restored = store.import_folder(original["path"])
+        self.assertTrue(restored["registered"])
+        self.assertEqual((restored["amount"], restored["note"]), (original["amount"], original["note"]))
+        store.sync()
+        self.assertTrue(manager.order_document.load(self.root / original["path"], manager.STATUS_LABELS)["registered"])
+
+    def test_manual_readdition_before_export_keeps_newest_database_values(self):
+        store = manager.order_store()
+        original = self.add()
+        store.sync()
+        newest = store.save(self.payload(original, note="Ещё не выгружено"))
+        store.remove({"path": newest["path"], "revision": newest["revision"], "confirmed": True})
+        restored = store.import_folder(newest["path"])
+        self.assertTrue(restored["registered"])
+        self.assertEqual((restored["note"], restored["amount"]), (newest["note"], newest["amount"]))
+        self.assertGreater(restored["revision"], newest["revision"])
+
+    def test_removed_folder_note_keeps_finances_extra_blocks_and_file_edits(self):
+        store = manager.order_store()
+        record = store.save(self.payload(self.add()))
+        folder = self.root / record["path"]
+        document = manager.order_document
+        (folder / "!.txt").write_text(document.render({"status": "new", "note": "Прежнее", "extra_blocks": {"Материалы": "Стекло"}}, manager.STATUS_LABELS))
+        store.remove({"path": record["path"], "revision": record["revision"], "confirmed": True})
+        with self.assertRaises(manager.OrderConflict):
+            manager.save_note(record["path"], "Подождать выгрузку")
+        store.sync()
+        manager.save_note(record["path"], "Заметка объекта")
+        card = document.load(folder, manager.STATUS_LABELS)
+        self.assertFalse(card["registered"])
+        self.assertEqual((card["note"], card["amount"], card["extra_blocks"]), ("Заметка объекта", record["amount"], {"Материалы": "Стекло"}))
+        self.assertTrue(manager.read_folder(record["path"])["noteOnly"])
+        store.sync()
+        self.assertEqual(document.load(folder, manager.STATUS_LABELS)["note"], "Заметка объекта")
+        restored = store.import_folder(record["path"])
+        self.assertEqual((restored["note"], restored["amount"]), ("Заметка объекта", record["amount"]))
+
+    def test_http_remove_confirmation_pending_note_and_manual_readdition(self):
+        original = self.add()
+        payload = {"path": original["path"], "revision": original["revision"]}
+        with patch.object(manager, "schedule_order_sync"):
+            status, _, _ = self.http("/api/order-remove", "POST", json.dumps(payload))
+            self.assertEqual(status, 400)
+            status, _, body = self.http("/api/order-remove", "POST", json.dumps({**payload, "confirmed": True}))
+            self.assertEqual(status, 200)
+            self.assertFalse(json.loads(body)["registered"])
+            status, _, _ = self.http(self.url("/api/order", original["path"]))
+            self.assertEqual(status, 404)
+            status, _, body = self.http("/api/orders")
+            self.assertEqual(json.loads(body)["orders"], [])
+            self.assertEqual(json.loads(body)["unregistrations"][0]["path"], original["path"])
+            status, _, body = self.http(self.url("/api/folder", original["path"]))
+            folder = json.loads(body)
+            self.assertTrue(folder["noteOnly"])
+            self.assertTrue(folder["registrationPending"])
+            self.assertNotIn("order", folder)
+            manager.order_store().sync()
+            status, _, _ = self.http("/api/note", "POST", json.dumps({"path": original["path"], "note": "Заметка объекта"}))
+            self.assertEqual(status, 200)
+            status, _, body = self.http("/api/order-add", "POST", json.dumps({"path": original["path"]}))
+            self.assertEqual(status, 201)
+            self.assertEqual(json.loads(body)["note"], "Заметка объекта")
+
     def test_service_subtrees_cannot_be_registered_or_discovered(self):
         parent = "Клиент/2026/Заказ"
         manager.save_status(parent, "process", "Заказ")
