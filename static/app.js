@@ -735,6 +735,8 @@ async function showPreview(path) {
   $("previewPath").textContent = file.folder || state.folder.name;
   $("previewMeta").textContent = file.extension + " · " + formatSize(file.size) + " · " + formatDate(file.modified);
   $("previewDownload").href = apiUrl("/api/file", path, { download: "1" });
+  $("previewFolderNotePath").textContent = state.folder.path || state.folder.name;
+  $("previewFolderNote").value = $("orderNote").value;
   const files = filteredFiles();
   const index = files.findIndex((item) => item.path === path);
   $("previewPrevious").disabled = index <= 0;

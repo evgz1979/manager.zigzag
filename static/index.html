@@ -100,7 +100,9 @@
     </main>
     <dialog id="previewDialog" class="preview-dialog">
       <header class="preview-header"><div><strong id="previewTitle"></strong><span id="previewPath"></span></div><div class="preview-actions"><button id="previewPrevious" title="Предыдущий файл" aria-label="Предыдущий файл">←</button><button id="previewNext" title="Следующий файл" aria-label="Следующий файл">→</button><button id="previewNative">Открыть на Mac</button><a id="previewDownload" class="secondary-button">Скачать</a><button id="previewClose" title="Закрыть" aria-label="Закрыть">✕</button></div></header>
-      <div class="preview-content"><div id="previewBody" class="preview-body"></div>
+      <div class="preview-content">
+        <aside class="preview-folder-note" aria-labelledby="previewFolderNoteLabel"><label id="previewFolderNoteLabel" for="previewFolderNote">Комментарий к папке</label><p id="previewFolderNotePath" class="preview-folder-note-path"></p><textarea id="previewFolderNote" readonly spellcheck="false" placeholder="Комментария к папке пока нет"></textarea></aside>
+        <div id="previewBody" class="preview-body"></div>
         <form id="fileCommentForm" class="file-comment-form"><label for="fileCommentText">Комментарий к файлу</label><textarea id="fileCommentText" maxlength="100000" placeholder="Замечания, согласование, что нужно поправить…" disabled></textarea><p id="fileCommentState" class="file-comment-state" role="status"></p><div class="file-comment-actions"><button id="saveFileComment" class="primary-button" type="submit" disabled>Сохранить</button><button id="cancelFileComment" class="secondary-button" type="button" hidden>Отменить</button><button id="reloadFileComment" class="secondary-button" type="button" hidden>Повторить</button></div></form>
       </div><footer id="previewMeta" class="preview-meta"></footer>
     </dialog>
