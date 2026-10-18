@@ -20,6 +20,7 @@ from zoneinfo import ZoneInfo
 from orders import OrderStore, OrderConflict, CARD, SNAPSHOT, is_service_folder
 import order_document
 import file_comments
+import image_reports
 from file_comments import FileCommentConflict
 from folder_structure import folder_role
 
@@ -368,6 +369,31 @@ def comment_file(relative):
     return target
 
 
+def create_image_report(relative, selected):
+    folder = safe_path(relative)
+    if not folder.is_dir():
+        raise FileNotFoundError("Папка для отчёта не найдена")
+    if any((DATA_ROOT / Path(*Path(relative).parts[:index + 1])).is_symlink() for index in range(len(Path(relative).parts))):
+        raise ValueError("Отчёт нельзя сохранять через символическую ссылку")
+    if not isinstance(selected, list) or not selected or len(selected) > 1000 or any(not isinstance(path, str) for path in selected):
+        raise ValueError("Выберите файлы для отчёта")
+    items, skipped = [], 0
+    for path in dict.fromkeys(selected):
+        target = comment_file(path)
+        if folder not in target.parents:
+            raise ValueError("Выбранный файл находится вне открытой папки")
+        if file_group(target) != "images":
+            skipped += 1
+            continue
+        items.append({"path": str(target), "comment": file_comments.read(target)["comment"]})
+    if not items:
+        raise ValueError("Для PDF-отчёта выберите хотя бы одно изображение")
+    if len(items) > image_reports.MAX_IMAGES:
+        raise ValueError(f"В один отчёт можно включить до {image_reports.MAX_IMAGES} изображений")
+    target, pages = image_reports.create(folder, items, APP_DIR, DATA_DIR)
+    return {"path": relative_path(target), "name": target.name, "imageCount": len(items), "skippedCount": skipped, "pages": pages}
+
+
 def directory_children(path):
     return sorted((item for item in path.iterdir() if visible(item) and item.is_dir()), key=directory_sort_key)
 
@@ -640,11 +666,16 @@ def read_folder(relative=""):
             except OSError:
                 warnings.append(f"Не удалось прочитать файл: {name}")
                 continue
+            try:
+                comment = file_comments.read(file)["comment"]
+            except (OSError, ValueError):
+                comment = ""
+                warnings.append(f"Не удалось прочитать комментарий: {name}")
             files.append({"name": name, "path": relative_path(file),
                           "folder": current_path.relative_to(target).as_posix() if current_path != target else "",
                           "size": stat.st_size, "modified": stat.st_mtime,
                           "type": file_group(file), "preview": preview_kind(file),
-                          "extension": file.suffix.lstrip(".").upper() or "ФАЙЛ"})
+                          "extension": file.suffix.lstrip(".").upper() or "ФАЙЛ", "comment": comment})
     print_view = is_print_folder(relative)
     if print_view:
         files = [file for file in files if file["name"] != STATUS_DOCUMENT_NAME and Path(file["name"]).suffix.lower() in PRINT_TEXT_EXTENSIONS]
@@ -970,6 +1001,9 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 relative = payload.get("path", "")
                 record = file_comments.save(comment_file(relative), payload.get("comment"), payload.get("revision"))
                 self.send_json({"path": relative, **record})
+                return
+            elif route == "/api/image-report":
+                self.send_json(create_image_report(payload.get("path", ""), payload.get("files")), 201)
                 return
             elif route == "/api/status":
                 save_status(payload.get("path", ""), payload.get("status"), payload.get("note", ""), payload.get("financial_status"), payload.get("todo_items", order_document.UNSET_TODOS))

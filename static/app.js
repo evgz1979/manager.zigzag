@@ -11,6 +11,7 @@ const state = {
   view: "orders", orders: [], orderFilter: "all", financialFilter: "all", orderQuery: "", orderSort: "updated", orderDirection: -1, scan: null, ordersRequest: 0,
   unregistrations: [], removeOrder: null, removingOrder: false,
   fileComment: null, fileCommentSaving: null,
+  selectedFiles: new Set(), imageReport: null,
 };
 let searchTimer, toastTimer, todoSaveTimer, previewVersion = 0, treeSearchVersion = 0, printReadVersion = 0;
 const icon = (name) => '<svg aria-hidden="true"><use href="#icon-' + name + '"/></svg>';
@@ -269,16 +270,31 @@ function fileCard(file) {
   const media = file.preview === "image"
     ? '<img src="' + escapeHtml(url) + '" alt="" loading="lazy" decoding="async"><span class="thumbnail-fallback">' + icon("file") + '<small>' + escapeHtml(file.extension) + "</small></span>"
     : '<span class="file-symbol">' + icon("file") + '<span>' + escapeHtml(file.extension) + "</span></span>";
-  return '<article class="file-card type-' + file.type + '"><button class="file-main" data-file="' + escapeHtml(file.path) + '" title="' +
-    escapeHtml(file.name + (file.folder ? "\n" + file.folder : "")) + '"><div class="file-thumbnail">' + media +
-    '</div><span class="file-name">' + escapeHtml(file.name) + '</span><span class="file-meta">' + formatSize(file.size) +
-    " · " + formatDate(file.modified) + '</span>' +
-    (state.fileSort !== "folders" && file.folder ? '<span class="file-location">' + escapeHtml(file.folder) + "</span>" : "") +
-    '</button><button class="file-open" data-native="' + escapeHtml(file.path) + '" title="Открыть в установленной программе">Открыть на Mac ↗</button></article>';
+  return '<article class="file-card type-' + file.type + (state.selectedFiles.has(file.path) ? ' selected' : '') + '"><label class="file-select-label"><input type="checkbox" class="file-select" data-select-file="' + escapeHtml(file.path) + '" aria-label="Выбрать файл: ' + escapeHtml(file.name) + '"' + (state.selectedFiles.has(file.path) ? ' checked' : '') + '></label><button class="file-main" data-file="' + escapeHtml(file.path) + '" title="' +
+    escapeHtml(file.name + (file.folder ? "\n" + file.folder : "")) + '" aria-label="' + escapeHtml(file.name) + '"><div class="file-thumbnail">' + media +
+    '</div>' + (file.comment?.trim() ? '<span class="file-comment-caption">' + escapeHtml(file.comment) + '</span>' : '') + '</button></article>';
+}
+
+function updateFileCommentCaption(path, text) {
+  const file = state.folder?.files.find((item) => item.path === path);
+  if (file) file.comment = text;
+  const button = [...$("files").querySelectorAll("[data-file]")].find((item) => item.dataset.file === path);
+  if (!button) return;
+  let caption = button.querySelector(".file-comment-caption");
+  if (!text.trim()) { caption?.remove(); return; }
+  if (!caption) {
+    caption = document.createElement("span");
+    caption.className = "file-comment-caption";
+    button.appendChild(caption);
+  }
+  caption.textContent = text;
 }
 
 function renderFiles() {
   const files = filteredFiles();
+  const available = new Set(state.folder.files.map((file) => file.path));
+  for (const path of state.selectedFiles) if (!available.has(path)) state.selectedFiles.delete(path);
+  renderFileActions();
   $("fileCount").textContent = files.length;
   $("fileFilters").innerHTML = Object.entries(typeLabels)
     .filter(([type]) => type === "all" || state.folder.counts[type] > 0)
@@ -308,6 +324,45 @@ function renderFiles() {
     image.hidden = true;
     image.parentElement.classList.add("preview-unavailable");
   }, { once: true }));
+}
+
+function renderFileActions() {
+  const selected = state.folder.files.filter((file) => state.selectedFiles.has(file.path));
+  const images = selected.filter((file) => file.type === "images");
+  const visible = filteredFiles();
+  const visibleSelected = visible.filter((file) => state.selectedFiles.has(file.path)).length;
+  $("selectAllFiles").checked = visible.length > 0 && visibleSelected === visible.length;
+  $("selectAllFiles").indeterminate = visibleSelected > 0 && visibleSelected < visible.length;
+  $("selectAllFiles").disabled = !visible.length;
+  $("fileSelectionCount").textContent = "Выбрано: " + selected.length + (selected.length ? " · изображений: " + images.length : "");
+  $("clearFileSelection").hidden = !selected.length;
+  const report = state.imageReport?.folder === state.folder ? state.imageReport : null;
+  $("createImageReport").disabled = !images.length || Boolean(report?.busy);
+  $("createImageReport").textContent = report?.busy ? "Формирую PDF…" : "PDF-отчёт";
+  $("fileReportState").classList.toggle("error", Boolean(report?.error));
+  $("fileReportState").textContent = report?.error || (report?.result ? "Сохранён: " + report.result.name + (report.result.skippedCount ? " · пропущено файлов других типов: " + report.result.skippedCount : "") : "");
+  $("openImageReport").hidden = !report?.result;
+}
+
+async function createImageReport() {
+  const folder = state.folder;
+  if (!folder || state.imageReport?.busy) return;
+  const files = filteredFiles();
+  const ordered = [...files, ...folder.files.filter((file) => !files.includes(file))].filter((file) => state.selectedFiles.has(file.path)).map((file) => file.path);
+  if (!ordered.length) return;
+  const report = state.imageReport = { folder, busy: true, result: null, error: "" };
+  renderFileActions();
+  try {
+    report.result = await request("/api/image-report", { path: folder.path, files: ordered });
+    if (state.folder === folder) await loadOrderFiles(folder.path, state.navigation);
+    notify("PDF-отчёт сохранён: " + report.result.name);
+  } catch (error) {
+    report.error = error.message;
+    throw error;
+  } finally {
+    report.busy = false;
+    if (state.folder === folder) renderFileActions();
+  }
 }
 
 function printFiles() {
@@ -550,6 +605,8 @@ async function showOrders({ history = true } = {}) {
   state.folderRequest?.abort();
   state.view = "orders";
   state.folder = null;
+  state.selectedFiles.clear();
+  state.imageReport = null;
   state.printTask = null;
   state.selected = "";
   $("folderView").hidden = true;
@@ -615,6 +672,8 @@ async function navigate(path, { history = true } = {}) {
     $("openFolderButton").hidden = false;
     $("ordersButton").removeAttribute("aria-current");
     state.folder = data;
+    state.selectedFiles.clear();
+    state.imageReport = null;
     state.printTask = null;
     state.selected = data.path;
     state.fileType = "all";
@@ -751,6 +810,7 @@ async function loadFileComment(path, version) {
     const result = await request(apiUrl("/api/file-comment", path));
     if (version !== previewVersion || state.fileComment !== comment) return;
     Object.assign(comment, result, { loaded: true, loading: false, draft: result.comment });
+    updateFileCommentCaption(path, result.comment);
     $("fileCommentText").value = result.comment;
   } catch (error) {
     if (version !== previewVersion || state.fileComment !== comment) return;
@@ -775,6 +835,7 @@ async function saveFileComment() {
   try {
     const saved = await state.fileCommentSaving;
     Object.assign(comment, { comment: saved.comment, revision: saved.revision, dirty: comment.draft !== saved.comment });
+    updateFileCommentCaption(comment.path, saved.comment);
   } catch (error) {
     comment.error = error.message;
     throw error;
@@ -925,6 +986,24 @@ $("files").addEventListener("click", (event) => {
   else if (folder) run(() => navigate(folder.dataset.path));
   else if (event.target.closest("#loadMoreFiles")) { state.limit += 120; renderFiles(); }
 });
+$("files").addEventListener("change", (event) => {
+  const input = event.target.closest("[data-select-file]");
+  if (!input) return;
+  if (input.checked) state.selectedFiles.add(input.dataset.selectFile);
+  else state.selectedFiles.delete(input.dataset.selectFile);
+  input.closest(".file-card").classList.toggle("selected", input.checked);
+  renderFileActions();
+});
+$("selectAllFiles").addEventListener("change", (event) => {
+  for (const file of filteredFiles()) {
+    if (event.target.checked) state.selectedFiles.add(file.path);
+    else state.selectedFiles.delete(file.path);
+  }
+  renderFiles();
+});
+$("clearFileSelection").addEventListener("click", () => { state.selectedFiles.clear(); renderFiles(); });
+$("createImageReport").addEventListener("click", () => run(createImageReport));
+$("openImageReport").addEventListener("click", () => run(() => showPreview(state.imageReport.result.path)));
 $("fileFilters").addEventListener("click", (event) => {
   const button = event.target.closest("[data-type]");
   if (button) { state.fileType = button.dataset.type; state.limit = 120; renderFiles(); }

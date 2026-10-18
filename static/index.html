@@ -85,7 +85,16 @@
             <div id="printEditorEmpty" class="print-editor-empty">Выберите задание или создайте новое</div>
           </div>
         </section>
-        <section id="filesSection" class="files-section" aria-label="Файлы"><div class="files-toolbar"><div><h2>Файлы <span id="fileCount" class="count-badge">0</span></h2><span class="files-scope">Из выбранной папки и всех подпапок</span></div><label class="search-field file-search"><svg><use href="#icon-search"/></svg><input id="fileSearch" type="search" placeholder="Найти файл…" aria-label="Поиск файлов заказа"></label><select id="fileSort" aria-label="Сортировка файлов"><option value="folders">По папкам</option><option value="modified">Сначала новые</option><option value="name">По имени</option></select></div><div id="fileFilters" class="file-filters" aria-label="Тип файла"></div><div id="files" class="files"></div></section>
+        <section id="filesSection" class="files-section" aria-label="Файлы"><div class="files-toolbar"><div><h2>Файлы <span id="fileCount" class="count-badge">0</span></h2><span class="files-scope">Из выбранной папки и всех подпапок</span></div><label class="search-field file-search"><svg><use href="#icon-search"/></svg><input id="fileSearch" type="search" placeholder="Найти файл…" aria-label="Поиск файлов заказа"></label><select id="fileSort" aria-label="Сортировка файлов"><option value="folders">По папкам</option><option value="modified">Сначала новые</option><option value="name">По имени</option></select></div><div id="fileFilters" class="file-filters" aria-label="Тип файла"></div>
+          <div id="fileActions" class="file-actions" aria-label="Групповые действия с файлами">
+            <label class="select-all-files" title="Выбрать все файлы текущего фильтра"><input id="selectAllFiles" type="checkbox">Выбрать все</label>
+            <span id="fileSelectionCount" class="file-selection-count">Выбрано: 0</span>
+            <button id="clearFileSelection" class="secondary-button" type="button" hidden>Снять выбор</button>
+            <button id="createImageReport" class="primary-button" type="button" title="Изображения и комментарии к ним; сохранить PDF в открытой папке" disabled>PDF-отчёт</button>
+            <span id="fileReportState" class="file-report-state" role="status"></span>
+            <button id="openImageReport" class="secondary-button" type="button" hidden>Открыть PDF</button>
+          </div>
+          <div id="files" class="files"></div></section>
         </div>
       </section>
     </main>

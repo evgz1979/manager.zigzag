@@ -33,7 +33,29 @@ class FileCommentTests(unittest.TestCase):
             self.assertIn(json.dumps(name, ensure_ascii=False), document.read_text())
             self.assertEqual(target.read_bytes(), b"original bytes")
             self.assertEqual(target.stat().st_mtime_ns, before.st_mtime_ns)
-            self.assertEqual(manager.read_folder("Клиент/2026-00-00 - Заказ")["fileCount"], original_count)
+            listing = manager.read_folder("Клиент/2026-00-00 - Заказ")
+            self.assertEqual(listing["fileCount"], original_count)
+            self.assertEqual(next(file["comment"] for file in listing["files"] if file["path"] == path), note)
+
+    def test_folder_captions_follow_external_changes_and_invalid_comment_keeps_file_visible(self):
+        path = "# docs/Внутри/readme.txt"
+        target = self.root / path
+        listing = lambda: manager.read_folder("# docs/Внутри")
+        self.assertEqual(listing()["files"][0]["comment"], "")
+        comments.save(target, "Подпись к превью", "missing")
+        self.assertEqual(listing()["files"][0]["comment"], "Подпись к превью")
+        _, _, _, document = comments.paths(target)
+        document.write_text(document.read_text().replace("Подпись к превью", "Изменено извне"))
+        self.assertEqual(listing()["files"][0]["comment"], "Изменено извне")
+        record = comments.read(target)
+        comments.save(target, "", record["revision"])
+        self.assertEqual(listing()["files"][0]["comment"], "")
+        document.write_text("Нераспознанный комментарий")
+        broken = listing()
+        self.assertEqual(broken["fileCount"], 1)
+        self.assertEqual(broken["files"][0]["path"], path)
+        self.assertEqual(broken["files"][0]["comment"], "")
+        self.assertTrue(any("комментарий" in warning for warning in broken["warnings"]))
 
     def test_versions_external_edits_history_and_clear_do_not_lose_data(self):
         target = self.root / "# docs/Внутри/readme.txt"
