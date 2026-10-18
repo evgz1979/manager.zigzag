@@ -19,6 +19,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 from orders import OrderStore, OrderConflict, CARD, SNAPSHOT, is_service_folder
 import order_document
+from folder_structure import folder_role
 
 APP_DIR = Path(__file__).resolve().parent
 CONFIG_FILE = APP_DIR / "manager.ini"
@@ -57,10 +58,12 @@ def read_config(path=CONFIG_FILE):
 
 DATA_ROOT, SERVER_HOST, SERVER_PORT = read_config()
 STATUS_LABELS = {
+    "unspecified": "Не указан",
     "new": "Новый", "measure": "Замеры", "process": "В работе",
-    "workshop": "В цех", "install": "Монтаж", "payment": "На оплате",
-    "done": "Готово", "cancelled": "Отменён",
+    "workshop": "В цех", "install": "Монтаж", "rework": "Переделка/доделка",
+    "done": "Готово", "done_but": "Готово, но…", "cancelled": "Отменён",
 }
+FINANCIAL_STATUS_LABELS = order_document.FINANCIAL_STATUS_LABELS
 STATUS_KEYWORDS = [
     ("done", ("готово", "итоги", "заверш")),
     ("install", ("монтаж", "установка")),
@@ -451,11 +454,11 @@ def read_status_document(folder, *, include_registration=False):
     if not target.exists():
         return {}
     record = order_document.load(folder, STATUS_LABELS)
-    keys = ("status", "note", "registered") if include_registration else ("status", "note")
+    keys = ("status", "financial_status", "note", "registered") if include_registration else ("status", "financial_status", "note")
     return {key: record[key] for key in keys if key in record}
 
 
-def write_status_document(folder, status, note):
+def write_status_document(folder, status, note, financial_status=None):
     with STATUS_LOCK:
         target = status_document(folder)
         record = order_document.load(folder, STATUS_LABELS)
@@ -463,7 +466,11 @@ def write_status_document(folder, status, note):
             record = order_document.folder_note(record)
         else:
             record["status"] = status
+            if financial_status is not None:
+                record["financial_status"] = financial_status
         record["note"] = note
+        if record.get("schema", 0) < order_document.FORMAT:
+            order_document.archive_current(folder)
         order_document.atomic_write(target, order_document.render(record, STATUS_LABELS))
 
 
@@ -498,19 +505,24 @@ def migrate_statuses():
                     break
                 except (ValueError, OSError):
                     continue
+            try:
+                record = order_document.split_statuses(record, STATUS_LABELS)
+            except (ValueError, TypeError):
+                unresolved.append(relative)
+                continue
             status, note = record.get("status"), record.get("note", "")
             if folder is None or not isinstance(status, str) or status not in STATUS_LABELS or not isinstance(note, str):
                 unresolved.append(relative)
                 continue
-            pending.setdefault(relative_path(folder), []).append((relative, folder, status, note))
+            pending.setdefault(relative_path(folder), []).append((relative, folder, status, note, record.get("financial_status", "unspecified")))
         for key, entries in pending.items():
             direct = next((entry for entry in entries if entry[0] == key), None)
             if direct is None and len(entries) != 1:
                 unresolved.extend(entry[0] for entry in entries)
                 continue
-            _, folder, status, note = direct or entries[0]
+            _, folder, status, note, financial_status = direct or entries[0]
             if not status_document(folder).exists():
-                write_status_document(folder, status, note)
+                write_status_document(folder, status, note, financial_status)
                 migrated += 1
         archive = DATA_ROOT / ".legacy-statuses.json"
         number = 2
@@ -563,19 +575,21 @@ def order_sync_worker():
 
 def folder_status(path, directories):
     relative = relative_path(path)
+    role = folder_role(DATA_ROOT, relative)
     if is_service_folder(relative):
-        return {"service": True, "note": read_status_document(path).get("note", ""), "statusSource": "manual"}
+        return {**role, "service": True, "note": read_status_document(path).get("note", ""), "statusSource": "manual"}
     order = order_store().get(relative, include_unregistered=True)
     if order and order["registered"]:
-        return {"service": False, "status": order["status"], "note": order["note"], "statusSource": "database", "order": order}
+        return {**role, "service": False, "status": order["status"], "financial_status": order["financial_status"], "note": order["note"], "statusSource": "database", "order": order}
     if order and order["sync_pending"]:
-        return {"service": False, "noteOnly": True, "note": order["note"], "statusSource": "database",
+        return {**role, "service": False, "noteOnly": True, "note": order["note"], "statusSource": "database",
                 "registrationPending": True, "registrationError": order["sync_error"]}
     record = read_status_document(path, include_registration=True)
     haystack = normalized(" ".join([path.name] + [item.name for item in directories]))
     guessed = next((status for status, words in STATUS_KEYWORDS if any(word in haystack for word in words)), "new")
-    return {"service": False, "noteOnly": bool(order) or record.get("registered") is False,
+    return {**role, "service": False, "noteOnly": not role["canRegisterOrder"] or bool(order) or record.get("registered") is False,
             "status": record.get("status", guessed), "note": record.get("note", ""),
+            "financial_status": record.get("financial_status", "unspecified"),
             "statusSource": "manual" if record.get("status") else "auto"}
 
 
@@ -631,19 +645,22 @@ def read_folder(relative=""):
             **status}
 
 
-def save_status(relative, status, note):
+def save_status(relative, status, note, financial_status=None):
     target = editable_status_folder(relative)
     if is_service_folder(relative_path(target)):
         raise ValueError("У служебной папки нет статуса заказа. Сохраните заметку.")
+    order_store().require_order_folder(relative_path(target))
     if not isinstance(status, str) or status not in STATUS_LABELS or not isinstance(note, str):
         raise ValueError("Некорректный статус или заметка")
+    if financial_status is not None and (not isinstance(financial_status, str) or financial_status not in FINANCIAL_STATUS_LABELS):
+        raise ValueError("Некорректный финансовый статус")
     record = order_store().get(relative, include_unregistered=True)
     if record:
         if not record["registered"]:
             raise OrderConflict("Папка убрана из списка заказов. Обновите её и сохраните заметку.")
         raise OrderConflict("Заказ ведётся в базе. Откройте его заново и сохраните карточку целиком.")
     with STATUS_LOCK:
-        write_status_document(target, status, note)
+        write_status_document(target, status, note, financial_status)
 
 
 def save_note(relative, note):
@@ -662,9 +679,11 @@ def save_note(relative, note):
     with STATUS_LOCK:
         status_document(target)
         record = order_document.load(target, STATUS_LABELS)
-        if not removed and record.get("registered") is not False:
-            raise ValueError("Сохранение заметки доступно для служебной папки или папки, убранной из списка заказов")
+        if not removed and record.get("registered") is not False and folder_role(DATA_ROOT, relative)["canRegisterOrder"]:
+            raise ValueError("У папки заказа сохраните карточку целиком")
         record["note"] = note
+        if record.get("schema", 0) < order_document.FORMAT:
+            order_document.archive_current(target)
         order_document.atomic_write(target / STATUS_DOCUMENT_NAME, order_document.render(record, STATUS_LABELS))
 
 
@@ -897,6 +916,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 relative = relative_path(target)
                 store = order_store()
                 store.path(relative)
+                store.require_order_folder(relative)
                 if not store.get(relative):
                     fallback = folder_status(target, directory_children(target))
                     store.import_folder(relative, fallback)
@@ -927,7 +947,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(save_print_task(payload.get("path", ""), payload.get("link", ""), payload.get("description", ""), payload.get("revision"), payload.get("title")))
                 return
             elif route == "/api/status":
-                save_status(payload.get("path", ""), payload.get("status"), payload.get("note", ""))
+                save_status(payload.get("path", ""), payload.get("status"), payload.get("note", ""), payload.get("financial_status"))
             elif route == "/api/note":
                 save_note(payload.get("path", ""), payload.get("note", ""))
             elif route == "/api/open":

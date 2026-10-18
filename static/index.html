@@ -30,16 +30,17 @@
         <div id="notice" class="notice" role="status" hidden></div>
         <button id="loadOrderFilesButton" class="secondary-button" hidden>Повторить загрузку файлов</button>
         <section id="ordersWorkspace" class="orders-workspace" aria-label="Все заказы" hidden>
-          <div id="orderStatusFilters" class="order-status-filters" aria-label="Фильтр по статусу"></div>
+          <div id="orderStatusFilters" class="order-status-filters" aria-label="Фильтр по производственному статусу"></div>
           <div id="orderTotals" class="order-totals" aria-label="Финансовые итоги"></div>
           <div class="orders-toolbar">
             <label class="search-field orders-search"><svg><use href="#icon-search"/></svg><input id="orderSearch" type="search" placeholder="Найти заказ, клиента или заметку…" aria-label="Поиск заказов"></label>
+            <label class="financial-filter">Оплата<select id="financialStatusFilter" aria-label="Фильтр по финансовому статусу"></select></label>
             <button id="discoverOrdersButton" class="secondary-button">Найти заказы в папках</button>
             <button id="syncOrdersButton" class="secondary-button">Выгрузить в папки</button>
           </div>
           <p id="ordersSyncState" class="orders-sync-state" role="status"></p>
           <div class="orders-table-scroll"><table class="orders-table"><caption class="visually-hidden">Заказы и финансовые показатели в рублях</caption><thead><tr>
-            <th scope="col"><button data-sort="title">Заказ ↕</button></th><th scope="col"><button data-sort="status">Статус ↕</button></th>
+            <th scope="col"><button data-sort="title">Заказ ↕</button></th><th scope="col"><button data-sort="status">Производство ↕</button></th><th scope="col"><button data-sort="financial_status">Оплата ↕</button></th>
             <th scope="col"><button data-sort="amount">Сумма ↕</button></th><th scope="col"><button data-sort="costs">Затраты ↕</button></th>
             <th scope="col"><button data-sort="profit">Прибыль ↕</button></th><th scope="col"><button data-sort="paid">Оплачено ↕</button></th>
             <th scope="col"><button data-sort="debt">Остаток ↕</button></th><th scope="col"><button data-sort="updated">Обновлён ↓</button></th>
@@ -48,7 +49,7 @@
           <p class="orders-hint">Итоги рассчитаны по текущему фильтру. Прибыль = сумма − затраты, остаток = сумма − оплачено. Прочерк означает, что сумма ещё не указана; отрицательный остаток — переплата.</p>
         </section>
         <div id="folderView">
-        <details id="orderDetails" class="order-details" hidden><summary><span id="statusBadge" class="status-badge">Новый</span><span id="folderDetailsTitle">Карточка заказа</span><span class="details-chevron">⌄</span></summary><form id="statusForm" class="status-form"><label id="orderTitleLabel" class="order-title-label" hidden>Название заказа<input id="orderTitleInput" type="text" maxlength="500" autocomplete="off"></label><label id="statusLabel">Статус<select id="statusSelect" name="status"><option value="new">Новый</option><option value="measure">Замеры</option><option value="process">В работе</option><option value="workshop">В цех</option><option value="install">Монтаж</option><option value="payment">На оплате</option><option value="done">Готово</option><option value="cancelled">Отменён</option></select></label><label class="note-label">Заметка<textarea id="orderNote" name="note" rows="2" placeholder="Что важно по этому заказу"></textarea></label><div id="financialFields" class="financial-fields" hidden>
+        <details id="orderDetails" class="order-details" hidden><summary><span id="statusBadge" class="status-badge">Новый</span><span id="financialStatusBadge" class="status-badge" hidden></span><span id="folderDetailsTitle">Карточка заказа</span><span class="details-chevron">⌄</span></summary><form id="statusForm" class="status-form"><label id="orderTitleLabel" class="order-title-label" hidden>Название заказа<input id="orderTitleInput" type="text" maxlength="500" autocomplete="off"></label><div id="orderStatusFields" class="order-status-fields"><label id="statusLabel">Производственный статус<select id="statusSelect" name="status"><option value="new">Новый</option><option value="measure">Замеры</option><option value="process">В работе</option><option value="workshop">В цех</option><option value="install">Монтаж</option><option value="rework">Переделка/доделка</option><option value="unspecified">Не указан</option><option value="done">Готово</option><option value="done_but">Готово, но…</option><option value="cancelled">Отменён</option></select></label><label id="financialStatusLabel">Финансовый статус<select id="financialStatusSelect" name="financial_status"><option value="unspecified">Не указан</option><option value="payment">На оплате</option><option value="partial">Частично оплачен</option><option value="paid">Оплачен</option></select></label></div><label class="note-label">Заметка<textarea id="orderNote" name="note" rows="2" placeholder="Что важно по этому заказу"></textarea></label><div id="financialFields" class="financial-fields" hidden>
           <label>Сумма заказа, ₽<input id="orderAmount" type="text" inputmode="decimal" placeholder="Не указано" autocomplete="off"></label>
           <label>Затраты, ₽<input id="orderCosts" type="text" inputmode="decimal" placeholder="Не указано" autocomplete="off"></label>
           <label>Оплачено, ₽<input id="orderPaid" type="text" inputmode="decimal" placeholder="Не указано" autocomplete="off"></label>

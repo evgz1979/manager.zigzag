@@ -10,6 +10,7 @@ from contextlib import contextmanager
 from pathlib import Path
 import order_document as document
 from order_document import money, MAX_MONEY
+from folder_structure import folder_role
 
 SNAPSHOT = ".order.json"  # Read-only compatibility with the previous export.
 CARD = document.DOCUMENT
@@ -53,6 +54,11 @@ class OrderStore:
                     db.execute("ALTER TABLE orders ADD COLUMN export_format INTEGER NOT NULL DEFAULT 0")
                 if "registered" not in columns:
                     db.execute("ALTER TABLE orders ADD COLUMN registered INTEGER NOT NULL DEFAULT 1")
+                if "financial_status" not in columns:
+                    db.execute("ALTER TABLE orders ADD COLUMN financial_status TEXT NOT NULL DEFAULT 'unspecified'")
+                    db.execute("""UPDATE orders SET financial_status=CASE WHEN status='payment' THEN 'payment' ELSE 'unspecified' END,
+                        status=CASE WHEN status='payment' THEN 'unspecified' ELSE status END,
+                        revision=revision+CASE WHEN registered=1 THEN 1 ELSE 0 END""")
             with db:
                 yield db
         finally:
@@ -121,24 +127,37 @@ class OrderStore:
     def add(self, relative, initial):
         relative = self.path(relative)
         self.target(relative)
+        self.require_order_folder(relative)
+        initial = document.split_statuses(initial, self.labels)
         status, note = initial.get("status", "new"), initial.get("note", "")
+        financial_status = initial.get("financial_status", "unspecified")
         if not isinstance(status, str) or status not in self.labels or not isinstance(note, str):
             raise ValueError("Некорректный статус или заметка")
         with self.connect() as db:
             db.execute("""INSERT INTO orders
-                (path,id,title,status,note,amount,costs,paid,revision,updated,extra_blocks)
-                VALUES (?,?,?,?,?,?,?,?,1,?,?) ON CONFLICT(path) DO UPDATE SET
+                (path,id,title,status,financial_status,note,amount,costs,paid,revision,updated,extra_blocks)
+                VALUES (?,?,?,?,?,?,?,?,?,1,?,?) ON CONFLICT(path) DO UPDATE SET
                 id=excluded.id,title=excluded.title,status=excluded.status,note=excluded.note,
+                financial_status=excluded.financial_status,
                 amount=excluded.amount,costs=excluded.costs,paid=excluded.paid,registered=1,
                 revision=orders.revision+1,updated=excluded.updated,extra_blocks=excluded.extra_blocks,sync_error=''
                 WHERE orders.registered=0""", (relative, str(uuid.uuid4()), initial.get("title", Path(relative).name),
-                status, note, initial.get("amount"), initial.get("costs"), initial.get("paid"), time.time(),
+                status, financial_status, note, initial.get("amount"), initial.get("costs"), initial.get("paid"), time.time(),
                 json.dumps(initial.get("extra_blocks", {}), ensure_ascii=False)))
         return self.get(relative)
+
+    def require_order_folder(self, relative):
+        role = folder_role(self.root, relative)
+        if not role["canRegisterOrder"]:
+            raise ValueError(role["registrationHint"])
+        return role
 
     def save(self, payload):
         relative = self.path(payload.get("path"))
         status, note, title = payload.get("status"), payload.get("note"), payload.get("title")
+        financial_status = payload.get("financial_status")
+        if "financial_status" in payload and (not isinstance(financial_status, str) or financial_status not in document.FINANCIAL_STATUS_LABELS):
+            raise ValueError("Некорректный финансовый статус")
         if not isinstance(status, str) or status not in self.labels or not isinstance(note, str) or len(note) > 100_000:
             raise ValueError("Некорректный статус или заметка")
         if not isinstance(title, str) or not title.strip() or len(title) > 500 or any(c in title for c in "\r\n\x00"):
@@ -148,9 +167,9 @@ class OrderStore:
         if type(revision) is not int:
             raise ValueError("Не указана версия заказа. Откройте заказ заново.")
         with self.connect() as db:
-            result = db.execute("""UPDATE orders SET title=?,status=?,note=?,amount=?,costs=?,paid=?,
+            result = db.execute("""UPDATE orders SET title=?,status=?,financial_status=COALESCE(?,financial_status),note=?,amount=?,costs=?,paid=?,
                 revision=revision+1,updated=?,sync_error='' WHERE path=? AND revision=? AND registered=1""",
-                (title.strip(), status, note, *values, time.time(), relative, revision))
+                (title.strip(), status, financial_status, note, *values, time.time(), relative, revision))
             if not result.rowcount:
                 raise OrderConflict("Заказ изменён в другой вкладке. Откройте его заново перед сохранением.")
         return self.get(relative)
@@ -184,6 +203,8 @@ class OrderStore:
                     folder = self.target(record["path"])
                     existing = document.load(folder, self.labels)
                     record["extra_blocks"].update(existing.get("extra_blocks", {}))
+                    if existing.get("schema", 0) < document.FORMAT:
+                        document.archive_current(folder)
                     self.atomic_write(folder / CARD, document.render(record, self.labels))
                     document.archive_legacy(folder)
                 except (OSError, ValueError) as problem:
@@ -199,6 +220,7 @@ class OrderStore:
 
     def import_folder(self, relative, fallback=None):
         folder = self.target(relative)
+        self.require_order_folder(relative)
         previous = self.get(relative, include_unregistered=True)
         if previous and not previous["registered"] and previous["sync_pending"]:
             with self.connect() as db:
@@ -215,8 +237,11 @@ class OrderStore:
     def restore(self, relative, snapshot):
         """Import only missing records. Existing database values always win."""
         relative = self.path(relative)
-        if not isinstance(snapshot, dict) or snapshot.get("schema") not in (1, document.FORMAT):
+        self.target(relative)
+        self.require_order_folder(relative)
+        if not isinstance(snapshot, dict) or snapshot.get("schema") not in (1, 2, document.FORMAT):
             raise ValueError("Неподдерживаемый формат карточки заказа")
+        snapshot = document.split_statuses(snapshot, self.labels)
         status, title, note = (snapshot.get(key) for key in ("status", "title", "note"))
         if (not isinstance(status, str) or status not in self.labels or not isinstance(title, str)
                 or not title.strip() or len(title) > 500 or any(char in title for char in "\r\n\x00")
@@ -238,12 +263,13 @@ class OrderStore:
             if db.execute("SELECT 1 FROM orders WHERE id=? AND path<>?", (identity, relative)).fetchone():
                 identity = str(uuid.uuid4())
             db.execute("""INSERT INTO orders
-                (path,id,title,status,note,amount,costs,paid,revision,exported_revision,updated,extra_blocks)
-                VALUES (?,?,?,?,?,?,?,?,?,0,?,?) ON CONFLICT(path) DO UPDATE SET
+                (path,id,title,status,financial_status,note,amount,costs,paid,revision,exported_revision,updated,extra_blocks)
+                VALUES (?,?,?,?,?,?,?,?,?,?,0,?,?) ON CONFLICT(path) DO UPDATE SET
                 id=excluded.id,title=excluded.title,status=excluded.status,note=excluded.note,
+                financial_status=excluded.financial_status,
                 amount=excluded.amount,costs=excluded.costs,paid=excluded.paid,registered=1,
                 revision=MAX(orders.revision+1,excluded.revision),updated=excluded.updated,
-                extra_blocks=excluded.extra_blocks,sync_error='' WHERE orders.registered=0""", (relative, identity, title, status, note,
+                extra_blocks=excluded.extra_blocks,sync_error='' WHERE orders.registered=0""", (relative, identity, title, status, snapshot.get("financial_status", "unspecified"), note,
                 *values, revision, time.time(), json.dumps(snapshot.get("extra_blocks", {}), ensure_ascii=False)))
 
     def discover(self, read_status, progress):
@@ -256,9 +282,12 @@ class OrderStore:
             dirs[:] = [name for name in dirs if not name.startswith((".", "#")) and not (folder / name).is_symlink()]
             progress["folders"] += 1
             relative = folder.relative_to(self.root).as_posix()
-            if folder == self.root or self.get(relative, include_unregistered=True):
-                continue
             try:
+                role = folder_role(self.root, relative)
+                if role["folderKind"] in ("order", "event"):
+                    dirs[:] = []
+                if not role["canRegisterOrder"] or self.get(relative, include_unregistered=True):
+                    continue
                 if not any(name in names for name in (CARD, SNAPSHOT, *document.LEGACY_STATUSES)):
                     continue
                 if document.load(folder, self.labels).get("registered") is False:

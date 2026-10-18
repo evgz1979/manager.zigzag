@@ -79,12 +79,14 @@ h1 { font-size: clamp(22px, 2.5vw, 32px); line-height: 1.23; letter-spacing: -.8
 .details-chevron { margin-left: auto; }
 .order-details[open] .details-chevron { transform: rotate(180deg); }
 .status-badge { border-radius: 4px; padding: 3px 7px; color: #677775; background: #e9efeb; font-size: 10px; font-weight: 550; }
+.status-badge[data-status="done_but"] { color: #876d2f; background: #f8f1d8; }
 .status-badge[data-status="done"] { color: #2f7d46; background: #e1f1e5; }
 .status-badge[data-status="measure"] { color: #456c97; background: #e6eef8; }
 .status-badge[data-status="process"], .status-badge[data-status="workshop"] { color: #aa712f; background: #fff1df; }
 .status-badge[data-status="install"] { color: #71479a; background: #eadff7; }
 .status-form { display: grid; grid-template-columns: 160px 1fr auto; gap: 14px; align-items: end; padding: 0 13px 14px; }
 .status-form label { display: grid; gap: 6px; font-size: 11px; color: var(--muted); }
+.order-status-fields { display: grid; gap: 10px; }
 .status-form select, .status-form textarea { padding: 7px 9px; width: 100%; font-size: 12px; }
 .status-form textarea { resize: vertical; }
 .status-form.note-only { grid-template-columns: 1fr auto; }
@@ -219,6 +221,8 @@ h2 { font-size: 13px; font-weight: 600; }
 .order-total small { color: var(--muted); font-size: 10px; }
 .orders-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
 .orders-search { flex: 1; min-width: 180px; }
+.financial-filter { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; }
+.financial-filter select { padding: 8px; font-size: 11px; max-width: 190px; }
 .orders-sync-state { margin: 12px 0 18px; font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
 .orders-table-scroll { overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
 .orders-table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; }
@@ -229,7 +233,7 @@ h2 { font-size: 13px; font-weight: 600; }
 .orders-table tr:last-child td { border-bottom: 0; }
 .orders-table tbody tr:hover { background: #fafcf9; }
 .orders-table th:first-child { min-width: 220px; }
-.orders-table th:nth-child(n+3):nth-child(-n+7) { text-align: right; }
+.orders-table th:nth-child(n+4):nth-child(-n+8) { text-align: right; }
 .order-row-link { display: block; padding: 0; border: 0; background: none; color: var(--accent); text-align: left; font-weight: 550; overflow-wrap: anywhere; }
 .order-row-path { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
 .confirm-dialog { max-width: min(480px, 92vw); padding: 25px; border: 1px solid var(--line); border-radius: 12px; color: var(--text); }
@@ -247,7 +251,10 @@ h2 { font-size: 13px; font-weight: 600; }
 .sync-pending { color: #a57532; }
 .sync-complete { color: #78917f; }
 .orders-hint { color: var(--muted); font-size: 10px; line-height: 1.6; margin-top: 15px; }
-.status-badge[data-status="payment"] { color: #a26b26; background: #fff0ce; }
+.status-badge[data-status="rework"] { color: #9a5537; background: #fce9dc; }
+.status-badge[data-financial-status="payment"] { color: #a26b26; background: #fff0ce; }
+.status-badge[data-financial-status="partial"] { color: #456c97; background: #e6eef8; }
+.status-badge[data-financial-status="paid"] { color: #2f7d46; background: #e1f1e5; }
 .status-badge[data-status="cancelled"] { color: #916b68; background: #f5e8e7; }
 .status-form .order-title-label, .financial-fields { grid-column: 1 / -1; }
 .status-form input { width: 100%; padding: 8px 10px; font-size: 12px; }

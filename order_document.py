@@ -10,11 +10,12 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 DOCUMENT = "!.txt"
-FORMAT = 2
+FORMAT = 3
+FINANCIAL_STATUS_LABELS = {"unspecified": "Не указан", "payment": "На оплате", "partial": "Частично оплачен", "paid": "Оплачен"}
 LEGACY_STATUSES = ("!status.txt", "status.txt", ".status.txt")
 LEGACY_DOCUMENTS = (*LEGACY_STATUSES, "!order.txt", ".order.json")
 KNOWN_BLOCKS = {"Заказ", "Финансы", "Заметка", "Служебное"}
-ORDER_FIELDS = {"status", "title", "client", "path", "amount", "costs", "paid", "id", "revision", "updated"}
+ORDER_FIELDS = {"status", "financial_status", "title", "client", "path", "amount", "costs", "paid", "id", "revision", "updated"}
 MAX_MONEY = 999_999_999_999_99
 
 
@@ -62,13 +63,25 @@ def status_key(value, labels):
     return status
 
 
+def split_statuses(record, labels):
+    """Read previous mixed statuses without inventing a production stage."""
+    result = dict(record)
+    if "status" in result:
+        status = status_key(result["status"], {**labels, "payment": "На оплате"})
+        result["status"] = "unspecified" if status == "payment" else status
+        result.setdefault("financial_status", "payment" if status == "payment" else "unspecified")
+    if "financial_status" in result:
+        result["financial_status"] = status_key(result["financial_status"], FINANCIAL_STATUS_LABELS)
+    return result
+
+
 def parse(text, labels):
     # Old status text is accepted even when manually renamed to !.txt.
     if text.startswith("Статус: "):
         heading, separator, note = text.partition("\n\nЗаметка:\n")
         if not separator:
             raise ValueError("Проверьте формат статуса и заметки")
-        return {"status": status_key(heading[8:].strip(), labels), "note": note, "extra_blocks": {}}
+        return split_statuses({"status": heading[8:].strip(), "note": note, "extra_blocks": {}}, labels)
     headings = list(re.finditer(r"(?m)^\[([^\]\r\n]+)\]\n", text))
     blocks = {}
     for index, heading in enumerate(headings):
@@ -92,11 +105,13 @@ def parse(text, labels):
     note_lines = blocks["Заметка"].split("\n")
     if any(not line.startswith("> ") for line in note_lines):
         raise ValueError(f"Строки заметки в {DOCUMENT} должны начинаться с '> '")
-    record = {"schema": FORMAT,
+    record = {"schema": int(metadata.get("Формат", FORMAT)),
               "note": "\n".join(line[2:] for line in note_lines),
               "extra_blocks": {name: body for name, body in blocks.items() if name not in KNOWN_BLOCKS}}
     if "Заказ" in blocks:
-        record["status"] = status_key(main.get("Статус", ""), labels)
+        record["status"] = main.get("Статус", "")
+    if "Статус оплаты" in finance:
+        record["financial_status"] = finance["Статус оплаты"]
     if main.get("Название"):
         record["title"] = main["Название"]
     for key, label in (("amount", "Сумма заказа"), ("costs", "Затраты"), ("paid", "Оплачено")):
@@ -105,7 +120,7 @@ def parse(text, labels):
         value = finance.get(label, "Не указано")
         record[key] = None if value == "Не указано" else money(value.removesuffix(" ₽"))
     if metadata:
-        if metadata.get("Формат") != str(FORMAT):
+        if metadata.get("Формат") not in ("2", str(FORMAT)):
             raise ValueError("Неподдерживаемая версия формата карточки")
         if metadata.get("Идентификатор"):
             record["id"] = metadata["Идентификатор"]
@@ -116,10 +131,11 @@ def parse(text, labels):
             if metadata["В списке заказов"] not in ("да", "нет"):
                 raise ValueError("Проверьте поле «В списке заказов» в карточке")
             record["registered"] = metadata["В списке заказов"] == "да"
-    return record
+    return split_statuses(record, labels)
 
 
 def render(record, labels):
+    record = split_statuses(record, labels)
     main = []
     for key, label in (("title", "Название"), ("client", "Клиент"), ("path", "Папка")):
         if record.get(key):
@@ -128,13 +144,15 @@ def render(record, labels):
     if record.get("status"):
         main.append("Статус: " + labels[record["status"]])
         blocks.append(("Заказ", "\n".join(main)))
-    if any(key in record for key in ("amount", "costs", "paid")):
+    if any(key in record for key in ("financial_status", "amount", "costs", "paid")):
         amount, costs, paid = (record.get(key) for key in ("amount", "costs", "paid"))
         profit = amount - costs if amount is not None and costs is not None else None
         debt = amount - paid if amount is not None and paid is not None else None
-        blocks.append(("Финансы", "\n".join(label + ": " + display_money(value) for label, value in (
+        finance = ["Статус оплаты: " + FINANCIAL_STATUS_LABELS[record["financial_status"]]] if "financial_status" in record else []
+        finance.extend(label + ": " + display_money(value) for label, value in (
             ("Сумма заказа", amount), ("Затраты", costs), ("Прибыль", profit),
-            ("Оплачено", paid), ("Остаток оплаты", debt)))))
+            ("Оплачено", paid), ("Остаток оплаты", debt)))
+        blocks.append(("Финансы", "\n".join(finance)))
     blocks.append(("Заметка", "> " + record.get("note", "").replace("\n", "\n> ")))
     blocks.extend(validate_blocks(record.get("extra_blocks", {})).items())
     metadata = [f"Формат: {FORMAT}"]
@@ -159,7 +177,7 @@ def load(folder, labels):
         value = json.loads(read_text(folder / ".order.json"))
         if not isinstance(value, dict):
             raise ValueError("Некорректный прежний снимок заказа")
-        return value
+        return split_statuses(value, labels)
     record = {}
     card = folder / "!order.txt"
     if card.exists() or card.is_symlink():
@@ -169,14 +187,17 @@ def load(folder, labels):
             raise ValueError("Некорректная прежняя карточка !order.txt")
         note, marker, _ = tail.rpartition("\n\nВерсия: ")
         values = dict(line.split(": ", 1) for line in heading.splitlines() if ": " in line)
-        record = {"status": status_key(values.get("Статус", ""), labels),
-                  "note": note if marker else tail, "title": values.get("Название", folder.name), "extra_blocks": {}}
+        record = split_statuses({"status": values.get("Статус", ""),
+                  "note": note if marker else tail, "title": values.get("Название", folder.name), "extra_blocks": {}}, labels)
         for key, label in (("amount", "Сумма заказа"), ("costs", "Затраты"), ("paid", "Оплачено")):
             value = values.get(label, "Не указано")
             record[key] = None if value == "Не указано" else money(value.removesuffix(" ₽"))
     for name in LEGACY_STATUSES:
         if (folder / name).exists() or (folder / name).is_symlink():
-            record.update(parse(read_text(folder / name), labels))
+            latest = parse(read_text(folder / name), labels)
+            if latest.get("status") == "unspecified" and latest.get("financial_status") == "payment" and record.get("status"):
+                latest["status"] = record["status"]
+            record.update(latest)
             return record
     return record
 
@@ -194,6 +215,27 @@ def atomic_write(target, body):
         temporary.replace(target)
     finally:
         temporary.unlink(missing_ok=True)
+
+
+def archive_current(folder):
+    """Preserve the original card bytes before a format upgrade."""
+    source = folder / DOCUMENT
+    if not source.exists():
+        return
+    read_text(source)
+    raw = source.read_bytes()
+    history = folder / ".order-history"
+    version = history / hashlib.sha256(raw).hexdigest()
+    if history.is_symlink() or version.is_symlink():
+        raise ValueError("История заказа не должна быть символической ссылкой")
+    version.mkdir(parents=True, exist_ok=True)
+    destination = version / DOCUMENT
+    if destination.is_symlink():
+        raise ValueError("Файл истории не должен быть символической ссылкой")
+    if not destination.exists():
+        destination.write_bytes(raw)
+    if destination.read_bytes() != raw or source.read_bytes() != raw:
+        raise ValueError("Карточка изменилась во время переноса; повторите выгрузку")
 
 
 def archive_legacy(folder):

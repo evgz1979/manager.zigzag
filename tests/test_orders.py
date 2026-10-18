@@ -16,12 +16,12 @@ class OrderTests(unittest.TestCase):
     http = fixtures.ManagerTests.http
     url = fixtures.ManagerTests.url
 
-    def add(self, path="Клиент/Без года"):
+    def add(self, path="Клиент/2026-00-00 - Заказ"):
         return manager.order_store().add(path, {"status": "process", "note": "Позвонить\nклиенту"})
 
     def payload(self, record, **changes):
         return {"path": record["path"], "revision": record["revision"], "title": record["title"],
-                "status": record["status"], "note": record["note"], "amount": "100 000,50",
+                "status": record["status"], "financial_status": record["financial_status"], "note": record["note"], "amount": "100 000,50",
                 "costs": "40000.25", "paid": "25000", **changes}
 
     def test_finances_are_exact_and_empty_is_not_zero(self):
@@ -39,6 +39,60 @@ class OrderTests(unittest.TestCase):
         self.assertIsNone(cleared["amount"])
         self.assertEqual(cleared["paid"], 0)
         self.assertIsNone(cleared["debt"])
+
+    def test_financial_and_production_statuses_are_independent_even_offline(self):
+        store = manager.order_store()
+        record = self.add()
+        self.root.rename(self.base / "offline")
+        try:
+            record = store.save(self.payload(record, status="rework", financial_status="paid", amount="", costs="", paid=""))
+            self.assertEqual((record["status"], record["financial_status"], record["paid"]), ("rework", "paid", None))
+            record = store.save(self.payload(record, status="done_but", financial_status="paid"))
+            self.assertEqual((record["status"], record["financial_status"]), ("done_but", "paid"))
+            record = store.save(self.payload(record, financial_status="payment", amount="100", paid="100"))
+            self.assertEqual((record["status"], record["financial_status"], record["debt"]), ("done_but", "payment", 0))
+            payload = self.payload(record, status="install")
+            del payload["financial_status"]
+            record = store.save(payload)
+            self.assertEqual((record["status"], record["financial_status"]), ("install", "payment"))
+            store.sync()
+            self.assertTrue(store.get(record["path"])["sync_pending"])
+        finally:
+            (self.base / "offline").rename(self.root)
+        store.sync()
+        loaded = manager.order_document.load(self.root / record["path"], manager.STATUS_LABELS)
+        self.assertEqual((loaded["status"], loaded["financial_status"]), ("install", "payment"))
+
+    def test_legacy_payment_card_is_split_with_original_bytes_preserved(self):
+        path = "Клиент/2026-00-00 - Заказ"
+        folder = self.root / path
+        body = manager.order_document.render({"status": "unspecified", "financial_status": "payment", "note": "Заметка",
+            "amount": 12345, "extra_blocks": {"Доставка": "До двери"}}, manager.STATUS_LABELS)
+        body = body.replace("Статус: Не указан", "Статус: На оплате").replace("Статус оплаты: На оплате\n", "").replace("Формат: 3", "Формат: 2")
+        original = b"\xef\xbb\xbf" + body.replace("\n", "\r\n").encode()
+        self.file(path + "/!.txt", original)
+        store = manager.order_store()
+        record = store.import_folder(path)
+        self.assertEqual((record["status"], record["financial_status"]), ("unspecified", "payment"))
+        store.sync()
+        self.assertEqual(next((folder / ".order-history").rglob("!.txt")).read_bytes(), original)
+        loaded = manager.order_document.load(folder, manager.STATUS_LABELS)
+        self.assertEqual((loaded["schema"], loaded["amount"], loaded["extra_blocks"]), (3, 12345, {"Доставка": "До двери"}))
+        self.assertEqual((loaded["status"], loaded["financial_status"]), ("unspecified", "payment"))
+
+    def test_financial_status_http_rejects_invalid_fields_and_keeps_manual_choice(self):
+        with patch.object(manager, "schedule_order_sync"):
+            record = self.add()
+            status, _, body = self.http("/api/order-save", "POST", json.dumps(self.payload(record, status="done", financial_status="partial")))
+            self.assertEqual(status, 200)
+            saved = json.loads(body)
+            self.assertEqual((saved["status"], saved["financial_status"]), ("done", "partial"))
+            for changes in ({"status": "payment"}, {"financial_status": "other"}, {"financial_status": None}):
+                status, _, _ = self.http("/api/order-save", "POST", json.dumps(self.payload(saved, **changes)))
+                self.assertEqual(status, 400)
+            status, _, body = self.http(self.url("/api/order", saved["path"]))
+            self.assertEqual((status, json.loads(body)["financial_status"]), (200, "partial"))
+            self.assertEqual(manager.order_store().get(saved["path"])["revision"], saved["revision"])
 
     def test_list_and_save_work_with_unavailable_document_root(self):
         store = manager.order_store()
@@ -59,10 +113,10 @@ class OrderTests(unittest.TestCase):
 
     def test_unified_export_can_rebuild_entire_register(self):
         store = manager.order_store()
-        record = store.save(self.payload(self.add(), status="payment"))
+        record = store.save(self.payload(self.add(), status="process", financial_status="payment"))
         store.sync()
         target = self.root / record["path"]
-        self.assertEqual(manager.read_status_document(target), {"status": "payment", "note": record["note"]})
+        self.assertEqual(manager.read_status_document(target), {"status": "process", "financial_status": "payment", "note": record["note"]})
         snapshot = manager.order_document.load(target, manager.STATUS_LABELS)
         self.assertEqual(snapshot["amount"], 10000050)
         self.assertIn("Остаток оплаты: 75 000,50 ₽", (target / "!.txt").read_text())
@@ -72,20 +126,20 @@ class OrderTests(unittest.TestCase):
         manager.order_store().discover(manager.read_status_document, progress)
         restored = manager.order_store().list()[0]
         self.assertEqual(progress["added"], 1)
-        for key in ("id", "title", "status", "note", "amount", "costs", "paid"):
+        for key in ("id", "title", "status", "financial_status", "note", "amount", "costs", "paid"):
             self.assertEqual(record[key], restored[key])
 
     def test_imports_only_marked_folders_and_database_wins_on_later_scan(self):
-        manager.save_status("Клиент/Без года", "payment", "Из прежнего !status.txt")
+        self.file("Клиент/2026-00-00 - Заказ/!status.txt", "Статус: На оплате\n\nЗаметка:\nИз прежнего !status.txt".encode())
         store = manager.order_store()
         progress = {"folders": 0, "added": 0, "errors": []}
         store.discover(manager.read_status_document, progress)
-        self.assertEqual([item["path"] for item in store.list()], ["Клиент/Без года"])
+        self.assertEqual([item["path"] for item in store.list()], ["Клиент/2026-00-00 - Заказ"])
         self.assertEqual(store.list()[0]["note"], "Из прежнего !status.txt")
         store.save(self.payload(store.list()[0], note="Новая заметка из базы"))
         store.discover(manager.read_status_document, progress)
         self.assertEqual(store.list()[0]["note"], "Новая заметка из базы")
-        self.assertEqual(manager.read_folder("Клиент/Без года")["note"], "Новая заметка из базы")
+        self.assertEqual(manager.read_folder("Клиент/2026-00-00 - Заказ")["note"], "Новая заметка из базы")
 
     def test_revisions_reject_stale_edits_without_losing_values(self):
         store = manager.order_store()
@@ -113,9 +167,13 @@ class OrderTests(unittest.TestCase):
 
     def test_removal_is_local_durable_and_does_not_remove_child_orders(self):
         store = manager.order_store()
-        parent = store.save(self.payload(self.add(), note="Последняя заметка"))
-        child = self.add("Клиент/Без года/Фото")
-        original_file = self.root / "Клиент/Без года/Фото/файл%2F #.txt"
+        parent = store.save(self.payload(self.add(), note="Последняя заметка", financial_status="partial"))
+        # A historical nested registration must survive removal of its parent.
+        with store.connect() as db:
+            db.execute("INSERT INTO orders (path,id,title,status,note,revision,updated) VALUES (?,?,?,?,?,1,0)",
+                       (parent["path"] + "/Фото", "00000000-0000-4000-8000-000000000099", "Старая вложенная запись", "new", ""))
+        child = store.get(parent["path"] + "/Фото")
+        original_file = self.root / "Клиент/2026-00-00 - Заказ/Фото/файл%2F #.txt"
         original_bytes = original_file.read_bytes()
         self.root.rename(self.base / "offline")
         with patch.object(store, "target", side_effect=AssertionError("No cloud access")), \
@@ -136,7 +194,7 @@ class OrderTests(unittest.TestCase):
         self.assertIsNotNone(restarted.get(child["path"]))
         card = manager.order_document.load(self.root / parent["path"], manager.STATUS_LABELS)
         self.assertFalse(card["registered"])
-        self.assertEqual((card["note"], card["amount"]), (parent["note"], parent["amount"]))
+        self.assertEqual((card["note"], card["amount"], card["financial_status"]), (parent["note"], parent["amount"], "partial"))
 
     def test_removed_card_does_not_reappear_on_scan_or_database_rebuild(self):
         store = manager.order_store()
@@ -213,7 +271,7 @@ class OrderTests(unittest.TestCase):
             self.assertEqual(json.loads(body)["note"], "Заметка объекта")
 
     def test_service_subtrees_cannot_be_registered_or_discovered(self):
-        parent = "Клиент/2026/Заказ"
+        parent = "Клиент/2026/2026-01-00 - Заказ"
         manager.save_status(parent, "process", "Заказ")
         for suffix in ("#bills", "# bills", "#cdr", "# cdr/Макеты"):
             relative = parent + "/" + suffix
@@ -231,7 +289,7 @@ class OrderTests(unittest.TestCase):
     def test_previous_service_registration_is_discarded_and_folder_note_wins(self):
         store = manager.order_store()
         record = store.save(self.payload(self.add()))
-        relative = "Клиент/2026/Заказ/# счета"
+        relative = "Клиент/2026/2026-01-00 - Заказ/# счета"
         # Simulate an order registered before service folders were excluded.
         with store.connect() as db:
             db.execute("UPDATE orders SET path=? WHERE path=?", (relative, record["path"]))
@@ -248,7 +306,7 @@ class OrderTests(unittest.TestCase):
         manager.save_note(relative, "Заметка к счетам")
         saved = document.load(folder, manager.STATUS_LABELS)
         self.assertFalse(document.ORDER_FIELDS.intersection(saved))
-        ordinary = self.add("Клиент/2026/Заказ")
+        ordinary = self.add("Клиент/2026/2026-01-00 - Заказ")
         self.assertEqual(store.discard_service_orders(), 1)
         self.assertEqual(store.discard_service_orders(), 0)
         with store.connect() as db:
@@ -277,8 +335,8 @@ class OrderTests(unittest.TestCase):
         store = manager.order_store()
         record = store.save(self.payload(self.add()))
         store.sync()
-        shutil.copytree(self.root / record["path"], self.root / "Клиент/Копия")
-        self.file("Клиент/Сломанная/!.txt", b"invalid document")
+        shutil.copytree(self.root / record["path"], self.root / "Клиент/2026-01-00 - Копия")
+        self.file("Клиент/2026-02-00 - Сломанная/!.txt", b"invalid document")
         progress = {"folders": 0, "added": 0, "errors": []}
         store.discover(manager.read_status_document, progress)
         self.assertEqual(len(store.list()), 2)
@@ -299,12 +357,12 @@ class OrderTests(unittest.TestCase):
                 store.add(relative, {})
 
     def test_http_add_save_conflict_and_metadata_listing_without_scan(self):
-        manager.save_status("Клиент/Без года", "payment", "Прочитать статус")
+        manager.save_status("Клиент/2026-00-00 - Заказ", "process", "Прочитать статус", "payment")
         with patch.object(manager, "schedule_order_sync"):
-            status, _, body = self.http("/api/order-add", "POST", json.dumps({"path": "Клиент/Без года"}))
+            status, _, body = self.http("/api/order-add", "POST", json.dumps({"path": "Клиент/2026-00-00 - Заказ"}))
             self.assertEqual(status, 201)
             record = json.loads(body)
-            self.assertEqual((record["status"], record["note"]), ("payment", "Прочитать статус"))
+            self.assertEqual((record["status"], record["financial_status"], record["note"]), ("process", "payment", "Прочитать статус"))
             payload = self.payload(record)
             status, _, body = self.http("/api/order-save", "POST", json.dumps(payload))
             self.assertEqual((status, json.loads(body)["amount"]), (200, 10000050))
@@ -357,14 +415,15 @@ class OrderTests(unittest.TestCase):
         self.assertEqual((restored["amount"], restored["note"]), (record["amount"], record["note"]))
 
     def test_status_and_old_card_without_json_keep_all_finances(self):
-        path = "Клиент/Без года"
+        path = "Клиент/2026-00-00 - Заказ"
         self.file(path + "/!status.txt", "Статус: На оплате\n\nЗаметка:\nНовая заметка".encode())
         self.file(path + "/!order.txt", ("КАРТОЧКА ЗАКАЗА\n\nНазвание: Особое название\nСтатус: В работе\n\n"
             "Сумма заказа: 100 000,50 ₽\nЗатраты: 40 000,25 ₽\nОплачено: 25 000,00 ₽\n\n"
             "Заметка:\nСтарая заметка\n\nВерсия: 2\nОбновлено: вчера\n").encode())
         record = manager.order_store().import_folder(path)
-        self.assertEqual((record["title"], record["status"], record["note"]), ("Особое название", "payment", "Новая заметка"))
+        self.assertEqual((record["title"], record["status"], record["note"]), ("Особое название", "process", "Новая заметка"))
         self.assertEqual((record["amount"], record["costs"], record["paid"]), (10000050, 4000025, 2500000))
+        self.assertEqual(record["financial_status"], "payment")
 
     def test_unknown_sections_survive_database_edits_and_recovery(self):
         store = manager.order_store()
@@ -395,11 +454,11 @@ class OrderTests(unittest.TestCase):
         self.assertTrue(store.get(record["path"])["sync_pending"])
 
     def test_saving_unregistered_status_keeps_additional_blocks(self):
-        folder = self.root / "Клиент/Без года"
+        folder = self.root / "Клиент/2026-00-00 - Заказ"
         document = manager.order_document
         (folder / "!.txt").write_text(document.render({"status": "new", "note": "Прежняя заметка",
             "amount": 50000, "extra_blocks": {"Доставка": "Адрес согласовать"}}, manager.STATUS_LABELS))
-        manager.save_status("Клиент/Без года", "done", "Новая заметка")
+        manager.save_status("Клиент/2026-00-00 - Заказ", "done", "Новая заметка")
         record = document.load(folder, manager.STATUS_LABELS)
         self.assertEqual((record["status"], record["note"], record["amount"]), ("done", "Новая заметка", 50000))
         self.assertEqual(record["extra_blocks"], {"Доставка": "Адрес согласовать"})
@@ -413,10 +472,14 @@ class OrderTests(unittest.TestCase):
                 revision INTEGER NOT NULL,exported_revision INTEGER NOT NULL DEFAULT 0,
                 updated REAL NOT NULL,sync_error TEXT NOT NULL DEFAULT '')""")
             db.execute("INSERT INTO orders VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", (
-                "Клиент/Без года", "00000000-0000-4000-8000-000000000001", "Прежний заказ", "payment",
+                "Клиент/2026-00-00 - Заказ", "00000000-0000-4000-8000-000000000001", "Прежний заказ", "payment",
                 "Старая заметка", 123456, 3456, 100000, 7, 7, 1700000000.0, ""))
         record = store.list()[0]
-        self.assertEqual((record["title"], record["amount"], record["revision"]), ("Прежний заказ", 123456, 7))
+        self.assertEqual((record["title"], record["amount"], record["revision"]), ("Прежний заказ", 123456, 8))
+        self.assertEqual((record["status"], record["financial_status"]), ("unspecified", "payment"))
+        self.assertEqual(store.list()[0]["revision"], 8)
+        with self.assertRaises(manager.OrderConflict):
+            store.save(self.payload(record, revision=7))
         self.assertTrue(record["sync_pending"])
         store.sync()
         self.assertFalse(store.get(record["path"])["sync_pending"])

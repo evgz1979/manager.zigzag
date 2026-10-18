@@ -29,13 +29,13 @@ class ManagerTests(unittest.TestCase):
         ]
         for item in self.patches:
             item.start()
-        self.folder("Клиент/2026/Заказ/# счета")
-        self.folder("Клиент/Без года/Фото")
+        self.folder("Клиент/2026/2026-01-00 - Заказ/# счета")
+        self.folder("Клиент/2026-00-00 - Заказ/Фото")
         self.folder("# docs/Внутри")
         self.folder(".скрыто")
-        self.file("Клиент/2026/Заказ/# счета/Счёт.pdf", b"%PDF-1.4 test")
-        self.file("Клиент/Без года/Фото/файл%2F #.txt", b"0123456789")
-        self.file("Клиент/Без года/.секрет", b"secret")
+        self.file("Клиент/2026/2026-01-00 - Заказ/# счета/Счёт.pdf", b"%PDF-1.4 test")
+        self.file("Клиент/2026-00-00 - Заказ/Фото/файл%2F #.txt", b"0123456789")
+        self.file("Клиент/2026-00-00 - Заказ/.секрет", b"secret")
         self.file("# docs/Внутри/readme.txt", b"common")
         self.server = None
 
@@ -73,20 +73,20 @@ class ManagerTests(unittest.TestCase):
         tree = manager.read_tree()
         self.assertEqual([node["name"] for node in tree["children"]], ["Клиент"])
         self.assertEqual([node["name"] for node in tree["auxiliary"]], ["# docs"])
-        self.assertEqual(manager.read_tree("Клиент/2026/Заказ")["children"][0]["name"], "# счета")
+        self.assertEqual(manager.read_tree("Клиент/2026/2026-01-00 - Заказ")["children"][0]["name"], "# счета")
 
     def test_mixed_years_and_arbitrary_depth_follow_disk(self):
         nodes = manager.read_tree("Клиент")["children"]
-        self.assertEqual({node["name"] for node in nodes}, {"2026", "Без года"})
+        self.assertEqual({node["name"] for node in nodes}, {"2026", "2026-00-00 - Заказ"})
         folder = manager.read_folder("Клиент")
         self.assertEqual(folder["fileCount"], 2)
         self.assertEqual(folder["folderCount"], 5)
-        self.assertEqual({file["folder"] for file in folder["files"]}, {"2026/Заказ/# счета", "Без года/Фото"})
+        self.assertEqual({file["folder"] for file in folder["files"]}, {"2026/2026-01-00 - Заказ/# счета", "2026-00-00 - Заказ/Фото"})
 
     def test_service_folders_have_only_portable_notes_at_any_depth(self):
         note = "Оплатить счёт\n\n[Заказ]\n> текст\n"
-        for relative in ("# docs", "# docs/Внутри", "Клиент/2026/Заказ/# bills",
-                         "Клиент/2026/Заказ/#cdr", "Клиент/2026/Заказ/#bills/2026"):
+        for relative in ("# docs", "# docs/Внутри", "Клиент/2026/2026-01-00 - Заказ/# bills",
+                         "Клиент/2026/2026-01-00 - Заказ/#cdr", "Клиент/2026/2026-01-00 - Заказ/#bills/2026"):
             with self.subTest(relative=relative):
                 self.folder(relative)
                 document = self.root / relative / "!.txt"
@@ -110,7 +110,7 @@ class ManagerTests(unittest.TestCase):
         self.assertFalse(manager.DATA_DIR.exists())
 
     def test_service_note_discards_test_order_fields_and_keeps_note_and_additional_blocks(self):
-        relative = "Клиент/2026/Заказ/# счета"
+        relative = "Клиент/2026/2026-01-00 - Заказ/# счета"
         folder = self.root / relative
         original = "Статус: На оплате\n\nЗаметка:\nПрежняя заметка".encode()
         (folder / "!status.txt").write_bytes(original)
@@ -131,7 +131,7 @@ class ManagerTests(unittest.TestCase):
         self.assertEqual(manager.read_folder(relative)["note"], "Новая заметка")
 
     def test_failed_service_note_write_keeps_legacy_bytes_and_rejects_symlinks(self):
-        relative = "Клиент/2026/Заказ/# счета"
+        relative = "Клиент/2026/2026-01-00 - Заказ/# счета"
         folder = self.root / relative
         original = b"\xef\xbb\xbf" + "Статус: Новый\n\nЗаметка:\nНе потерять".encode()
         (folder / "!status.txt").write_bytes(original)
@@ -176,20 +176,20 @@ class ManagerTests(unittest.TestCase):
 
     def test_notes_migrate_legacy_year_keys_into_folder_and_archive_original(self):
         manager.DATA_DIR.mkdir()
-        old = {"2025/Клиент/Без года": {"status": "done", "note": "Старая заметка"}}
+        old = {"2025/Клиент/2026-00-00 - Заказ": {"status": "done", "note": "Старая заметка"}}
         manager.STATUSES_FILE.write_text(json.dumps(old))
         result = manager.migrate_statuses()
         self.assertEqual(result["migrated"], 1)
         self.assertEqual(json.loads(Path(result["archive"]).read_text()), old)
         self.assertFalse(manager.STATUSES_FILE.exists())
-        self.assertEqual(manager.read_folder("Клиент/Без года")["note"], "Старая заметка")
-        manager.save_status("Клиент/Без года", "process", "Новая заметка")
+        self.assertEqual(manager.read_folder("Клиент/2026-00-00 - Заказ")["note"], "Старая заметка")
+        manager.save_status("Клиент/2026-00-00 - Заказ", "process", "Новая заметка")
         self.assertEqual(json.loads(Path(result["archive"]).read_text()), old)
-        self.assertEqual(manager.read_folder("Клиент/Без года")["note"], "Новая заметка")
+        self.assertEqual(manager.read_folder("Клиент/2026-00-00 - Заказ")["note"], "Новая заметка")
         self.assertIsNone(manager.migrate_statuses())
 
     def test_status_and_multiline_note_are_readable_portable_and_editable_without_app(self):
-        relative = "Клиент/Без года"
+        relative = "Клиент/2026-00-00 - Заказ"
         note = "Позвонить клиенту\n\nРазмеры: 3×2 м\nЗаметка:\nДополнение\n"
         manager.save_status(relative, "process", note)
         document = self.root / relative / manager.STATUS_DOCUMENT_NAME
@@ -208,7 +208,7 @@ class ManagerTests(unittest.TestCase):
             self.assertEqual(manager.read_folder(relative)["note"], folder["note"])
 
     def test_hidden_status_is_renamed_without_changing_content_and_hidden_in_manager(self):
-        relative = "Клиент/Без года"
+        relative = "Клиент/2026-00-00 - Заказ"
         folder = self.root / relative
         original = "Статус: В работе\n\nЗаметка:\nДля просмотра с iPhone\n".encode("utf-8")
         hidden = folder / ".status.txt"
@@ -222,7 +222,7 @@ class ManagerTests(unittest.TestCase):
         self.assertFalse(visible.name.startswith('.'))
 
     def test_plain_status_is_renamed_and_excluded_from_recursive_file_lists(self):
-        relative = "Клиент/Без года"
+        relative = "Клиент/2026-00-00 - Заказ"
         folder = self.root / relative
         content = "Статус: Готово\n\nЗаметка:\nСохранить текст"
         (folder / "status.txt").write_text(content)
@@ -234,7 +234,7 @@ class ManagerTests(unittest.TestCase):
         self.assertEqual(result["fileCount"], 1)
 
     def test_hidden_status_preserves_existing_visible_file_and_backups(self):
-        relative = "Клиент/Без года"
+        relative = "Клиент/2026-00-00 - Заказ"
         folder = self.root / relative
         manager.save_status(relative, "done", "Основная версия")
         hidden_content = "Статус: Новый\n\nЗаметка:\nПрежняя версия"
@@ -247,7 +247,7 @@ class ManagerTests(unittest.TestCase):
         self.assertFalse((folder / ".status.txt").exists())
 
     def test_status_migration_preserves_local_edits_and_unresolved_records(self):
-        manager.save_status("Клиент", "process", "Правка в папке")
+        manager.write_status_document(self.root / "Клиент", "process", "Правка в папке")  # Previous application data.
         manager.DATA_DIR.mkdir()
         old = {"Клиент": {"status": "new", "note": "Прежняя правка"}, "Пропавшая папка": {"status": "done", "note": "Не потерять"}}
         manager.STATUSES_FILE.write_text(json.dumps(old))
@@ -271,7 +271,7 @@ class ManagerTests(unittest.TestCase):
         self.assertEqual(json.loads(Path(result["archive"]).read_text()), old)
 
     def test_status_save_rejects_symlinks_and_does_not_create_files_on_read(self):
-        relative = "Клиент/Без года"
+        relative = "Клиент/2026-00-00 - Заказ"
         manager.read_folder(relative)
         document = self.root / relative / manager.STATUS_DOCUMENT_NAME
         self.assertFalse(document.exists())
@@ -286,7 +286,7 @@ class ManagerTests(unittest.TestCase):
             manager.save_status("alias", "done", "test")
 
     def test_http_literal_percent_hash_unicode_and_byte_ranges(self):
-        path = "Клиент/Без года/Фото/файл%2F #.txt"
+        path = "Клиент/2026-00-00 - Заказ/Фото/файл%2F #.txt"
         route = self.url("/api/file", path)
         status, headers, body = self.http(route, headers={"Range": "bytes=2-5"})
         self.assertEqual((status, body), (206, b"2345"))
@@ -303,7 +303,7 @@ class ManagerTests(unittest.TestCase):
         self.assertEqual(status, 400)
         status, _, _ = self.http(self.url("/api/folder", "missing"))
         self.assertEqual(status, 404)
-        path = "Клиент/Без года/Фото/файл%2F #.txt"
+        path = "Клиент/2026-00-00 - Заказ/Фото/файл%2F #.txt"
         with patch.object(manager.subprocess, "Popen") as open_mock:
             status, _, body = self.http("/api/open", "POST", json.dumps({"path": path, "reveal": True}))
             self.assertEqual(status, 200)
@@ -315,7 +315,7 @@ class ManagerTests(unittest.TestCase):
         status, headers, _ = self.http(self.url("/api/file", "Клиент/page.html"))
         self.assertEqual(status, 200)
         self.assertTrue(headers["Content-Disposition"].startswith("attachment"))
-        status, headers, body = self.http(self.url("/api/text", "Клиент/Без года/Фото/файл%2F #.txt"))
+        status, headers, body = self.http(self.url("/api/text", "Клиент/2026-00-00 - Заказ/Фото/файл%2F #.txt"))
         self.assertEqual(json.loads(body)["text"], "0123456789")
 
     def print_folder(self, work="# work", printing="# print"):
