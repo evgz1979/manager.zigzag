@@ -21,6 +21,7 @@ from orders import OrderStore, OrderConflict, CARD, SNAPSHOT, is_service_folder
 import order_document
 import file_comments
 import image_reports
+import file_trash
 from file_comments import FileCommentConflict
 from folder_structure import folder_role
 
@@ -999,11 +1000,28 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 return
             elif route == "/api/file-comment":
                 relative = payload.get("path", "")
-                record = file_comments.save(comment_file(relative), payload.get("comment"), payload.get("revision"))
+                with file_comments.LOCK:
+                    record = file_comments.save(comment_file(relative), payload.get("comment"), payload.get("revision"))
                 self.send_json({"path": relative, **record})
                 return
             elif route == "/api/image-report":
                 self.send_json(create_image_report(payload.get("path", ""), payload.get("files")), 201)
+                return
+            elif route == "/api/files-trash-preview":
+                self.send_json(file_trash.preview(DATA_ROOT, payload.get("path", ""), payload.get("files")))
+                return
+            elif route == "/api/files-trash":
+                with file_comments.LOCK:
+                    result = file_trash.remove(DATA_ROOT, payload.get("path", ""), payload.get("files"), payload.get("confirmed"))
+                self.send_json(result)
+                return
+            elif route == "/api/files-trash-list":
+                self.send_json({"sessions": file_trash.list_sessions(DATA_ROOT)})
+                return
+            elif route == "/api/files-trash-restore":
+                with file_comments.LOCK:
+                    result = file_trash.restore(DATA_ROOT, payload.get("session"))
+                self.send_json(result)
                 return
             elif route == "/api/status":
                 save_status(payload.get("path", ""), payload.get("status"), payload.get("note", ""), payload.get("financial_status"), payload.get("todo_items", order_document.UNSET_TODOS))
@@ -1020,7 +1038,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": True})
         except FileNotFoundError as error:
             self.send_json({"error": str(error)}, 404)
-        except (PrintConflict, OrderConflict, FileCommentConflict) as error:
+        except (PrintConflict, OrderConflict, FileCommentConflict, file_trash.TrashConflict) as error:
             self.send_json({"error": str(error)}, 409)
         except (ValueError, UnicodeDecodeError) as error:
             self.send_json({"error": str(error)}, 400)

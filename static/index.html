@@ -91,8 +91,11 @@
             <span id="fileSelectionCount" class="file-selection-count">Выбрано: 0</span>
             <button id="clearFileSelection" class="secondary-button" type="button" hidden>Снять выбор</button>
             <button id="createImageReport" class="primary-button" type="button" title="Изображения и комментарии к ним; сохранить PDF в открытой папке" disabled>PDF-отчёт</button>
+            <button id="deleteSelectedFiles" class="danger-button" type="button" disabled>Удалить</button>
+            <button id="openFileTrash" class="secondary-button" type="button">Корзина</button>
             <span id="fileReportState" class="file-report-state" role="status"></span>
             <button id="openImageReport" class="secondary-button" type="button" hidden>Открыть PDF</button>
+            <span id="fileTrashState" class="file-report-state" role="status"></span>
           </div>
           <div id="files" class="files"></div></section>
         </div>
@@ -114,6 +117,10 @@
         <div class="confirm-actions"><button id="cancelRemoveOrder" class="secondary-button" type="button">Отмена</button><button id="confirmRemoveOrder" class="danger-button" type="submit">Убрать из списка</button></div>
       </form>
     </dialog>
+    <dialog id="deleteFilesDialog" class="confirm-dialog" aria-labelledby="deleteFilesTitle">
+      <form id="deleteFilesForm"><h2 id="deleteFilesTitle">Переместить файлы в корзину?</h2><p id="deleteFilesCount"></p><ul id="deleteFilesList" class="file-operation-list"></ul><p>Файлы и их комментарии сохранятся в корзине менеджера. Их можно будет восстановить кнопкой «Корзина».</p><div class="confirm-actions"><button id="cancelDeleteFiles" class="secondary-button" type="button">Отмена</button><button id="confirmDeleteFiles" class="danger-button" type="submit">В корзину</button></div></form>
+    </dialog>
+    <dialog id="fileTrashDialog" class="confirm-dialog file-trash-dialog" aria-labelledby="fileTrashTitle"><h2 id="fileTrashTitle">Корзина менеджера</h2><div id="fileTrashList"></div><p id="fileTrashDialogState" class="file-report-state" role="status"></p><div class="confirm-actions"><button id="closeFileTrash" class="secondary-button" type="button">Закрыть</button></div></dialog>
     <div id="toast" class="toast" role="status" hidden></div>
     <script src="/app.js"></script>
   </body>

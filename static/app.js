@@ -12,6 +12,7 @@ const state = {
   unregistrations: [], removeOrder: null, removingOrder: false,
   fileComment: null, fileCommentSaving: null,
   selectedFiles: new Set(), imageReport: null,
+  fileRemoval: null, fileRemoving: false, trashRestoring: false,
 };
 let searchTimer, toastTimer, todoSaveTimer, previewVersion = 0, treeSearchVersion = 0, printReadVersion = 0;
 const icon = (name) => '<svg aria-hidden="true"><use href="#icon-' + name + '"/></svg>';
@@ -338,10 +339,87 @@ function renderFileActions() {
   $("clearFileSelection").hidden = !selected.length;
   const report = state.imageReport?.folder === state.folder ? state.imageReport : null;
   $("createImageReport").disabled = !images.length || Boolean(report?.busy);
+  $("deleteSelectedFiles").disabled = !selected.length || Boolean(report?.busy) || state.fileRemoving;
   $("createImageReport").textContent = report?.busy ? "Формирую PDF…" : "PDF-отчёт";
   $("fileReportState").classList.toggle("error", Boolean(report?.error));
   $("fileReportState").textContent = report?.error || (report?.result ? "Сохранён: " + report.result.name + (report.result.skippedCount ? " · пропущено файлов других типов: " + report.result.skippedCount : "") : "");
   $("openImageReport").hidden = !report?.result;
+  if (report?.result && !state.folder.files.some((file) => file.path === report.result.path)) $("openImageReport").hidden = true;
+}
+
+async function confirmFileRemoval() {
+  if (state.fileRemoving || state.imageReport?.busy) return;
+  const folder = state.folder;
+  const selected = folder.files.filter((file) => state.selectedFiles.has(file.path)).map((file) => file.path);
+  if (!selected.length) return;
+  const preview = await request("/api/files-trash-preview", { path: folder.path, files: selected });
+  if (state.folder !== folder) return;
+  state.fileRemoval = { ...preview, folder };
+  $("deleteFilesCount").textContent = "Выбрано файлов: " + preview.files.length + ". Включая файлы, скрытые текущим фильтром.";
+  $("deleteFilesList").innerHTML = preview.files.map((file) => '<li>' + escapeHtml(file.path) + '</li>').join("");
+  $("confirmDeleteFiles").disabled = false;
+  $("cancelDeleteFiles").disabled = false;
+  $("deleteFilesDialog").showModal();
+}
+
+async function removeSelectedFiles() {
+  const removal = state.fileRemoval;
+  if (!removal || state.fileRemoving) return;
+  state.fileRemoving = true;
+  $("confirmDeleteFiles").disabled = true;
+  $("cancelDeleteFiles").disabled = true;
+  $("confirmDeleteFiles").textContent = "Перемещаю…";
+  try {
+    const result = await request("/api/files-trash", { path: removal.folder.path, files: removal.files, confirmed: true });
+    $("deleteFilesDialog").close();
+    if (state.folder === removal.folder) {
+      for (const path of result.removed) state.selectedFiles.delete(path);
+      await loadOrderFiles(removal.folder.path, state.navigation);
+      $("fileTrashState").classList.toggle("error", Boolean(result.error));
+      $("fileTrashState").textContent = "В корзине: " + result.removed.length + (result.error ? ". Операция остановлена: " + result.error : ". Доступно восстановление.");
+    }
+    notify(result.error ? "Перемещение остановлено: " + result.error : "Файлы перемещены в корзину менеджера", Boolean(result.error));
+  } finally {
+    state.fileRemoving = false;
+    $("confirmDeleteFiles").disabled = false;
+    $("cancelDeleteFiles").disabled = false;
+    $("confirmDeleteFiles").textContent = "В корзину";
+    if (state.folder) renderFileActions();
+  }
+}
+
+async function loadFileTrash() {
+  const data = await request("/api/files-trash-list", {});
+  $("fileTrashList").innerHTML = data.sessions.map((session) => '<section class="file-trash-session"><strong>' +
+    escapeHtml(new Date(session.created).toLocaleString("ru", { timeZone: "Europe/Moscow" })) + ' · файлов: ' + session.count + '</strong><p>' + escapeHtml(session.folder) +
+    '</p><ul class="file-operation-list">' + session.files.map((path) => '<li>' + escapeHtml(path) + '</li>').join("") + '</ul><button class="secondary-button" data-restore-session="' + session.session + '">Восстановить</button></section>').join("") || '<p>Корзина пуста.</p>';
+}
+
+async function openFileTrash() {
+  $("fileTrashDialogState").textContent = "";
+  await loadFileTrash();
+  if (!$("fileTrashDialog").open) $("fileTrashDialog").showModal();
+}
+
+async function restoreFileSession(session) {
+  if (state.trashRestoring) return;
+  state.trashRestoring = true;
+  $("fileTrashList").querySelectorAll("button").forEach((button) => { button.disabled = true; });
+  const folder = state.folder;
+  try {
+    const result = await request("/api/files-trash-restore", { session });
+    await loadFileTrash();
+    if (folder && state.folder === folder) await loadOrderFiles(folder.path, state.navigation);
+    $("fileTrashDialogState").classList.toggle("error", Boolean(result.error));
+    $("fileTrashDialogState").textContent = result.error || "Файлы и комментарии восстановлены.";
+    if (folder && state.folder === folder) {
+      $("fileTrashState").classList.toggle("error", Boolean(result.error));
+      $("fileTrashState").textContent = result.error || "Файлы восстановлены.";
+    }
+  } finally {
+    state.trashRestoring = false;
+    $("fileTrashList").querySelectorAll("button").forEach((button) => { button.disabled = false; });
+  }
 }
 
 async function createImageReport() {
@@ -672,6 +750,7 @@ async function navigate(path, { history = true } = {}) {
     $("openFolderButton").hidden = false;
     $("ordersButton").removeAttribute("aria-current");
     state.folder = data;
+    $("fileTrashState").textContent = "";
     state.selectedFiles.clear();
     state.imageReport = null;
     state.printTask = null;
@@ -1005,6 +1084,16 @@ $("selectAllFiles").addEventListener("change", (event) => {
 });
 $("clearFileSelection").addEventListener("click", () => { state.selectedFiles.clear(); renderFiles(); });
 $("createImageReport").addEventListener("click", () => run(createImageReport));
+$("deleteSelectedFiles").addEventListener("click", () => run(confirmFileRemoval));
+$("deleteFilesForm").addEventListener("submit", (event) => { event.preventDefault(); run(removeSelectedFiles); });
+$("cancelDeleteFiles").addEventListener("click", () => $("deleteFilesDialog").close());
+$("deleteFilesDialog").addEventListener("cancel", (event) => { if (state.fileRemoving) event.preventDefault(); });
+$("openFileTrash").addEventListener("click", () => run(openFileTrash));
+$("closeFileTrash").addEventListener("click", () => $("fileTrashDialog").close());
+$("fileTrashList").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-restore-session]");
+  if (button) run(() => restoreFileSession(button.dataset.restoreSession));
+});
 $("openImageReport").addEventListener("click", () => run(() => showPreview(state.imageReport.result.path)));
 $("fileFilters").addEventListener("click", (event) => {
   const button = event.target.closest("[data-type]");
