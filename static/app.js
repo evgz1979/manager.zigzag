@@ -159,10 +159,11 @@ function renderFolder(preserveForm = false) {
   $("folderSummary").textContent = printView ? printCountLabel(folder.fileCount) + " · название, ссылка и описание" : folder.filesLoading ? "Карточка из локальной базы · файлы загружаются…" : folder.filesUnavailable ? "Карточка из локальной базы · папка сейчас недоступна" : folder.path
     ? folder.fileCount + " файлов · " + folder.folderCount + " папок · " + formatSize(folder.totalSize)
     : "Выберите клиента или заказ в дереве слева";
-  $("folderSection").hidden = !folder.directories.length;
+  const directories = folder.directories.filter((item) => !item.name.startsWith("#"));
+  $("folderSection").hidden = !directories.length;
   $("foldersTitle").textContent = folder.path ? "Подпапки" : "Папки";
-  $("directoryCount").textContent = folder.directories.length;
-  $("subfolders").innerHTML = folder.directories.map((item) =>
+  $("directoryCount").textContent = directories.length;
+  $("subfolders").innerHTML = directories.map((item) =>
     '<button class="subfolder" data-path="' + escapeHtml(item.path) + '" title="' + escapeHtml(item.name) + '">' +
     icon("folder") + '<span>' + escapeHtml(item.name) + "</span>" + icon("chevron") + "</button>").join("");
   $("orderDetails").hidden = !folder.path;
