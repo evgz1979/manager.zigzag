@@ -122,7 +122,7 @@ class EventRelevanceTests(unittest.TestCase):
             self.assertEqual(json.loads(body)["value"], "check")
             schedule.assert_called_once()
         self.assertEqual(self.http("/api/event-relevance", "POST", json.dumps(payload))[0], 409)
-        for value in (None, [], True, "process", "Актуально"):
+        for value in (None, [], True, "process", "deferred", "Актуально"):
             self.assertEqual(self.http("/api/event-relevance", "POST", json.dumps({**payload, "value": value}))[0], 400)
         for path in (self.event + "/Глубже", self.order + "/# bills"):
             self.folder(path)

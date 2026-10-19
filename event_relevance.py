@@ -16,7 +16,7 @@ def read(blocks):
 
 def write(blocks, value):
     if not isinstance(value, str) or value not in LABELS:
-        raise ValueError("Выберите: Без статуса, Актуально, Проверить или Неактуально")
+        raise ValueError("Выберите состояние события: " + ", ".join(LABELS.values()))
     if read(blocks) is None:
         raise ValueError(f"Раздел [{BLOCK}] содержит неизвестный текст; он сохранён без замены. Проверьте !.txt события")
     return {**blocks, BLOCK: LABELS[value]}

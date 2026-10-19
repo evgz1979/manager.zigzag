@@ -1,5 +1,5 @@
 const $ = (id) => document.getElementById(id);
-const statusLabels = { new: "Новый", measure: "Замеры", process: "В работе", workshop: "В цех", install: "Монтаж", rework: "Переделка/доделка", finishing: "Завершение/добивка", done: "Готово", done_but: "Готово, но…", cancelled: "Отменён", unspecified: "Не указан" };
+const statusLabels = { new: "Новый", measure: "Замеры", process: "В работе", workshop: "В цех", install: "Монтаж", rework: "Переделка/доделка", finishing: "Завершение/добивка", deferred: "Отложен/возможно", done: "Готово", done_but: "Готово, но…", cancelled: "Отменён", unspecified: "Не указан" };
 const financialStatusLabels = { unspecified: "Не указан", payment: "На оплате", partial: "Частично оплачен", paid: "Оплачен" };
 const eventRelevanceLabels = { none: "Без статуса", active: "Актуально", check: "Проверить", inactive: "Неактуально" };
 const typeLabels = { all: "Все", images: "Фото", pdf: "PDF", design: "Макеты", docs: "Документы", video: "Видео", audio: "Аудио", other: "Другое" };

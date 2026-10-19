@@ -74,7 +74,7 @@ STATUS_LABELS = {
     "unspecified": "Не указан",
     "new": "Новый", "measure": "Замеры", "process": "В работе",
     "workshop": "В цех", "install": "Монтаж", "rework": "Переделка/доделка",
-    "finishing": "Завершение/добивка",
+    "finishing": "Завершение/добивка", "deferred": "Отложен/возможно",
     "done": "Готово", "done_but": "Готово, но…", "cancelled": "Отменён",
 }
 FINANCIAL_STATUS_LABELS = order_document.FINANCIAL_STATUS_LABELS

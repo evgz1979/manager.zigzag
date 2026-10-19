@@ -40,6 +40,26 @@ class OrderTests(unittest.TestCase):
         self.assertEqual(cleared["paid"], 0)
         self.assertIsNone(cleared["debt"])
 
+    def test_deferred_order_status_survives_export_rebuild_and_keeps_payment(self):
+        store = manager.order_store()
+        record = store.save(self.payload(self.add(), financial_status="paid",
+            todo_items=[{"text": "Вернуться позже", "done": False}]))
+        with patch.object(manager, "schedule_order_sync"):
+            status, _, body = self.http("/api/order-save", "POST", json.dumps(self.payload(record, status="deferred")))
+        self.assertEqual(status, 200)
+        saved = json.loads(body)
+        self.assertEqual((saved["status"], saved["financial_status"]), ("deferred", "paid"))
+        for field in ("amount", "costs", "paid", "note", "todo_items"):
+            self.assertEqual(saved[field], record[field])
+        listed = json.loads(self.http("/api/orders")[2])["orders"]
+        self.assertEqual(listed[0]["status"], "deferred")
+        store.sync()
+        self.assertIn("Статус: Отложен/возможно", (self.root / record["path"] / "!.txt").read_text())
+        shutil.rmtree(manager.DATA_DIR)
+        restored = manager.order_store().import_folder(record["path"])
+        self.assertEqual((restored["status"], restored["financial_status"]), ("deferred", "paid"))
+        self.assertEqual(restored["todo_items"], record["todo_items"])
+
     def test_todos_survive_offline_edits_export_and_full_database_rebuild(self):
         store = manager.order_store()
         initial = [{"text": "Уточнить размеры", "done": False}]

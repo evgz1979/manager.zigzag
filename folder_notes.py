@@ -171,7 +171,7 @@ class FolderNotes:
         relative, value = payload.get("path"), payload.get("value")
         checked_path(self.store.root, relative)
         if not isinstance(value, str) or value not in event_relevance.LABELS:
-            raise ValueError("Выберите: Без статуса, Актуально, Проверить или Неактуально")
+            raise ValueError("Выберите состояние события: " + ", ".join(event_relevance.LABELS.values()))
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
             assert_unlocked(db, relative)
