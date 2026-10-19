@@ -63,6 +63,41 @@ class FileTrashTests(unittest.TestCase):
         self.assertEqual((self.root / self.document).read_bytes(), b'new content')
         self.assertFalse((self.root / trash.HISTORY).exists())
 
+    def test_deleting_one_file_never_changes_surviving_comments_or_empty_caption(self):
+        event = self.scope + '/Фото'
+        survivor = event + '/02 - оставить.txt'
+        empty = event + '/03 - без комментария.txt'
+        nested = event + '/Глубже/02 - оставить.txt'
+        for path in (survivor, empty, nested):
+            self.file(path, path.encode())
+        expected = {self.document: 'Комментарий удаляемого', survivor: 'Свой комментарий',
+                    empty: '', nested: 'Комментарий одноимённого в другой папке'}
+        for path, text in expected.items():
+            if text:
+                first = manager.file_comments.save(self.root / path, 'Прежняя версия: ' + text, 'missing')
+                manager.file_comments.save(self.root / path, text, first['revision'])
+        before = {path: manager.file_comments.read(self.root / path) for path in expected}
+        metadata = self.root / event / '.file-comments'
+        saved_bytes = {path: path.read_bytes() for path in metadata.rglob('*') if path.is_file()}
+        status, _, body = self.http('/api/files-trash', 'POST', json.dumps({
+            'path': event, 'files': trash.preview(self.root, event, [self.document])['files'], 'confirmed': True}))
+        self.assertEqual(status, 200)
+        result = json.loads(body)
+        self.assertEqual(result['removed'], [self.document])
+        self.assertFalse(result['error'])
+        listing = {item['path']: item['comment'] for item in manager.read_folder(event)['files']}
+        self.assertEqual(listing, {path: text for path, text in expected.items() if path != self.document})
+        for path in (survivor, empty, nested):
+            self.assertEqual(manager.file_comments.read(self.root / path), before[path])
+            self.assertEqual(self.http(self.url('/api/file-comment', path))[0], 200)
+        # Запоздавшее сохранение старого окна не создаёт комментарий другому файлу.
+        self.assertEqual(self.http('/api/file-comment', 'POST', json.dumps({
+            'path': self.document, 'comment': 'Старое окно', 'revision': before[self.document]['revision']}))[0], 404)
+        self.assertFalse(manager.file_comments.paths(self.root / self.document)[3].exists())
+        self.assertFalse(trash.restore(self.root, result['session'])['error'])
+        self.assertEqual({path: manager.file_comments.read(self.root / path) for path in expected}, before)
+        self.assertEqual({path: path.read_bytes() for path in metadata.rglob('*') if path.is_file()}, saved_bytes)
+
     def test_invalid_paths_folders_hidden_cards_and_symlinks_are_rejected(self):
         self.file(self.scope + '/!.txt', b'card')
         (self.root / self.scope / 'alias.txt').symlink_to(self.root / self.document)

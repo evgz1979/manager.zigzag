@@ -78,6 +78,29 @@ class FileCommentTests(unittest.TestCase):
         self.assertEqual(cleared["comment"], "")
         self.assertEqual(comments.read(target), cleared)
 
+    def test_external_deletion_does_not_attach_orphan_comment_to_another_file(self):
+        event = "Клиент/2026-00-00 - Заказ/Фото"
+        removed = self.root / event / "01 - удалить.txt"
+        survivor = self.root / event / "02 - оставить.txt"
+        empty = self.root / event / "03 - без комментария.txt"
+        for target in (removed, survivor, empty):
+            target.write_text(target.name)
+        comments.save(removed, "Комментарий удалённого", "missing")
+        previous = comments.save(survivor, "Свой комментарий", "missing")
+        previous_key = comments.binding(survivor)
+        orphan = comments.paths(removed)[3]
+        original = orphan.read_bytes()
+        removed.unlink()  # Удаление вне менеджера оставляет прежний файл комментария.
+        for _ in range(2):
+            listing = {item["path"]: item["comment"] for item in manager.read_folder(event)["files"]}
+            self.assertNotIn(event + "/01 - удалить.txt", listing)
+            self.assertEqual(listing[event + "/02 - оставить.txt"], "Свой комментарий")
+            self.assertEqual(listing[event + "/03 - без комментария.txt"], "")
+        self.assertEqual(comments.read(survivor), previous)
+        self.assertEqual(comments.binding(survivor), previous_key)
+        self.assertEqual(orphan.read_bytes(), original)
+        self.assertEqual(self.http(self.url("/api/file-comment", event + "/01 - удалить.txt"))[0], 404)
+
     def test_failed_atomic_write_keeps_current_comment_and_original_file(self):
         target = self.root / "# docs/Внутри/readme.txt"
         first = comments.save(target, "Не потерять", "missing")
@@ -100,7 +123,8 @@ class FileCommentTests(unittest.TestCase):
         path = "Клиент/2026-00-00 - Заказ/Фото/файл%2F #.txt"
         status, _, body = self.http(self.url("/api/file-comment", path))
         self.assertEqual((status, json.loads(body)["revision"]), (200, "missing"))
-        payload = {"path": path, "comment": "Комментарий\nс телефона", "revision": "missing"}
+        payload = {"path": path, "comment": "Комментарий\nс телефона", "revision": "missing",
+                   "comment_key": json.loads(body)["comment_key"]}
         status, _, body = self.http("/api/file-comment", "POST", json.dumps(payload))
         saved = json.loads(body)
         self.assertEqual((status, saved["comment"]), (200, payload["comment"]))
@@ -115,6 +139,35 @@ class FileCommentTests(unittest.TestCase):
         _, _, _, hidden = comments.paths(self.root / path)
         status, _, _ = self.http(self.url("/api/file", hidden.relative_to(self.root).as_posix()))
         self.assertEqual(status, 400)
+
+    def test_browser_binding_rejects_another_filename_folder_and_stale_folder_location(self):
+        event = "Клиент/2026-00-00 - Заказ/Фото"
+        paths = [event + "/first.txt", event + "/second.txt", event + "/Глубже/first.txt"]
+        for path in paths:
+            self.file(path, b"original")
+        records = {path: json.loads(self.http(self.url("/api/file-comment", path))[2]) for path in paths}
+        self.assertEqual(len({row["comment_key"] for row in records.values()}), len(paths))
+        listing = {row["path"]: row for row in manager.read_folder(event)["files"]}
+        self.assertTrue(all(listing[path]["comment_key"] == row["comment_key"] for path, row in records.items()))
+        source = records[paths[0]]
+        for other in paths[1:]:
+            status, _, _ = self.http("/api/file-comment", "POST", json.dumps({**source, "path": other, "comment": "Текст другого файла"}))
+            self.assertEqual(status, 409)
+            self.assertEqual(comments.read(self.root / other), {"comment": "", "revision": "missing"})
+        self.assertEqual(self.http("/api/file-comment", "POST", json.dumps({
+            "path": paths[0], "comment": "Без привязки", "revision": "missing"}))[0], 409)
+        status, _, body = self.http("/api/file-comment", "POST", json.dumps({**source, "comment": "Своя подпись"}))
+        self.assertEqual(status, 200)
+        before = json.loads(body)
+        # Перенос целой папки сохраняет текст, но старое окно получает другой ключ пути.
+        destination = "Клиент/2026-00-00 - Заказ/00 - Фото"
+        (self.root / event).rename(self.root / destination)
+        moved_path = destination + "/first.txt"
+        current = json.loads(self.http(self.url("/api/file-comment", moved_path))[2])
+        self.assertEqual(current["comment"], "Своя подпись")
+        self.assertNotEqual(current["comment_key"], before["comment_key"])
+        self.assertEqual(self.http("/api/file-comment", "POST", json.dumps({**before, "path": moved_path, "comment": "Старая вкладка"}))[0], 409)
+        self.assertEqual(comments.read(self.root / moved_path)["comment"], "Своя подпись")
 
     def test_symlinks_cannot_redirect_comments_or_history(self):
         target = self.root / "# docs/Внутри/readme.txt"

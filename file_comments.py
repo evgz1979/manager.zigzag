@@ -14,6 +14,14 @@ class FileCommentConflict(ValueError):
     pass
 
 
+def binding(file):
+    """Bind browser requests to this folder and filename, independently of list order."""
+    file = Path(file)
+    identity = [str(file.parent.resolve()), file.name]
+    return hashlib.sha256(json.dumps([unicodedata.normalize("NFC", part) for part in identity],
+                                    ensure_ascii=False).encode()).hexdigest()
+
+
 def paths(file):
     file = Path(file)
     name = unicodedata.normalize("NFC", file.name)

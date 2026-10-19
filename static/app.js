@@ -340,16 +340,17 @@ function fileCard(file) {
   const media = file.preview === "image"
     ? '<img src="' + escapeHtml(url) + '" alt="" loading="lazy" decoding="async"><span class="thumbnail-fallback">' + icon("file") + '<small>' + escapeHtml(file.extension) + "</small></span>"
     : '<span class="file-symbol">' + icon("file") + '<span>' + escapeHtml(file.extension) + "</span></span>";
-  return '<article class="file-card type-' + file.type + (state.selectedFiles.has(file.path) ? ' selected' : '') + '"><label class="file-select-label"><input type="checkbox" class="file-select" data-select-file="' + escapeHtml(file.path) + '" aria-label="Выбрать файл: ' + escapeHtml(file.name) + '"' + (state.selectedFiles.has(file.path) ? ' checked' : '') + '></label><button class="file-main" data-file="' + escapeHtml(file.path) + '" title="' +
+  return '<article class="file-card type-' + file.type + (state.selectedFiles.has(file.path) ? ' selected' : '') + '"><label class="file-select-label"><input type="checkbox" class="file-select" data-select-file="' + escapeHtml(file.path) + '" aria-label="Выбрать файл: ' + escapeHtml(file.name) + '"' + (state.selectedFiles.has(file.path) ? ' checked' : '') + '></label><button class="file-main" data-file="' + escapeHtml(file.path) + '" data-comment-key="' + escapeHtml(file.comment_key || "") + '" title="' +
     escapeHtml(file.name + (file.folder ? "\n" + file.folder : "")) + '" aria-label="' + escapeHtml(file.name) + '"><div class="file-thumbnail">' + media +
     '</div><span class="file-name">' + escapeHtml(file.name) + '</span>' + (file.comment?.trim() ? '<span class="file-comment-caption">' + escapeHtml(file.comment) + '</span>' : '') + '</button></article>';
 }
 
-function updateFileCommentCaption(path, text) {
+function updateFileCommentCaption(path, text, key) {
   const file = state.folder?.files.find((item) => item.path === path);
-  if (file) file.comment = text;
+  if (!file || !key || file.comment_key !== key) return;
+  file.comment = text;
   const button = [...$("files").querySelectorAll("[data-file]")].find((item) => item.dataset.file === path);
-  if (!button) return;
+  if (!button || button.dataset.commentKey !== key) return;
   let caption = button.querySelector(".file-comment-caption");
   if (!text.trim()) { caption?.remove(); return; }
   if (!caption) {
@@ -1100,14 +1101,18 @@ function renderFileComment() {
 }
 
 async function loadFileComment(path, version) {
-  const comment = state.fileComment = { path, comment: "", draft: "", loaded: false, loading: true, dirty: false, error: "" };
+  const file = state.folder?.files.find((item) => item.path === path);
+  const comment = state.fileComment = { path, comment_key: file?.comment_key, comment: "", draft: "", loaded: false, loading: true, dirty: false, error: "" };
   $("fileCommentText").value = "";
   renderFileComment();
   try {
     const result = await request(apiUrl("/api/file-comment", path));
     if (version !== previewVersion || state.fileComment !== comment) return;
-    Object.assign(comment, result, { loaded: true, loading: false, draft: result.comment });
-    updateFileCommentCaption(path, result.comment);
+    if (state.preview?.path !== path || result.path !== path || !comment.comment_key || result.comment_key !== comment.comment_key) {
+      throw new Error("Комментарий не соответствует файлу и папке. Обновите список файлов");
+    }
+    Object.assign(comment, { comment: result.comment, revision: result.revision, loaded: true, loading: false, draft: result.comment });
+    updateFileCommentCaption(path, result.comment, comment.comment_key);
     $("fileCommentText").value = result.comment;
   } catch (error) {
     if (version !== previewVersion || state.fileComment !== comment) return;
@@ -1126,13 +1131,15 @@ async function saveFileComment() {
   const comment = state.fileComment;
   if (!comment?.loaded || !comment.dirty) return;
   const draft = comment.draft;
-  state.fileCommentSaving = request("/api/file-comment", { path: comment.path, comment: draft, revision: comment.revision });
+  if (!comment.comment_key || state.preview?.path !== comment.path) throw new Error("Откройте нужный файл перед сохранением комментария");
+  state.fileCommentSaving = request("/api/file-comment", { path: comment.path, comment_key: comment.comment_key, comment: draft, revision: comment.revision });
   comment.error = "";
   renderFileComment();
   try {
     const saved = await state.fileCommentSaving;
+    if (saved.path !== comment.path || saved.comment_key !== comment.comment_key) throw new Error("Ответ сохранения относится к другому файлу; ваш текст остался в поле");
     Object.assign(comment, { comment: saved.comment, revision: saved.revision, dirty: comment.draft !== saved.comment });
-    updateFileCommentCaption(comment.path, saved.comment);
+    updateFileCommentCaption(comment.path, saved.comment, comment.comment_key);
   } catch (error) {
     comment.error = error.message;
     throw error;

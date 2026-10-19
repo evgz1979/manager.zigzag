@@ -734,7 +734,8 @@ def read_folder(relative=""):
                           "folder": current_path.relative_to(target).as_posix() if current_path != target else "",
                           "size": stat.st_size, "modified": stat.st_mtime,
                           "type": file_group(file), "preview": preview_kind(file),
-                          "extension": file.suffix.lstrip(".").upper() or "ФАЙЛ", "comment": comment})
+                          "extension": file.suffix.lstrip(".").upper() or "ФАЙЛ", "comment": comment,
+                          "comment_key": file_comments.binding(file)})
     print_view = is_print_folder(relative)
     if print_view:
         files = [file for file in files if file["name"] != STATUS_DOCUMENT_NAME and Path(file["name"]).suffix.lower() in PRINT_TEXT_EXTENSIONS]
@@ -992,7 +993,9 @@ class ManagerHandler(BaseHTTPRequestHandler):
             elif parsed.path == "/api/print-task":
                 self.send_json(read_print_task(relative), head=head)
             elif parsed.path == "/api/file-comment":
-                self.send_json({"path": relative, **file_comments.read(comment_file(relative))}, head=head)
+                target = comment_file(relative)
+                self.send_json({"path": relative, "comment_key": file_comments.binding(target),
+                                **file_comments.read(target)}, head=head)
             elif parsed.path in {"/api/file", "/api/preview", "/api/text", "/api/pdf", "/api/pdf-page"}:
                 target = safe_path(relative)
                 if not target.is_file():
@@ -1120,8 +1123,14 @@ class ManagerHandler(BaseHTTPRequestHandler):
             elif route == "/api/file-comment":
                 relative = payload.get("path", "")
                 with file_comments.LOCK:
-                    record = file_comments.save(comment_file(relative), payload.get("comment"), payload.get("revision"))
-                self.send_json({"path": relative, **record})
+                    target = comment_file(relative)
+                    key = file_comments.binding(target)
+                    if not payload.get("comment_key"):
+                        raise FileCommentConflict("Страница устарела. Скопируйте несохранённый комментарий и обновите страницу для проверки файла и папки")
+                    if payload.get("comment_key") != key:
+                        raise FileCommentConflict("Комментарий относится к другому файлу или папке. Ваш текст остался в поле; откройте нужный файл заново")
+                    record = file_comments.save(target, payload.get("comment"), payload.get("revision"))
+                self.send_json({"path": relative, "comment_key": key, **record})
                 return
             elif route == "/api/image-report":
                 self.send_json(create_image_report(payload.get("path", ""), payload.get("files")), 201)
