@@ -23,6 +23,7 @@ import file_comments
 from mobile_sync import MobileBridge
 import image_reports
 import native_renderers
+import order_folders
 import file_trash
 from file_comments import FileCommentConflict
 from folder_structure import folder_role
@@ -708,6 +709,7 @@ def read_folder(relative=""):
             "totalSize": sum(file["size"] for file in files), "counts": counts,
             "warnings": warnings, "view": "print" if print_view else "files",
             "newFileName": next_print_name(target) if print_view else "",
+            "canCreateOrderFolder": status["folderKind"] == "object",
             **status}
 
 
@@ -973,7 +975,10 @@ class ManagerHandler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
             if not isinstance(payload, dict):
                 raise ValueError("Некорректный запрос")
-            if route == "/api/order-add":
+            if route == "/api/order-folder-create":
+                self.send_json(order_folders.create(DATA_ROOT, payload.get("path"), payload.get("date"), payload.get("title")), 201)
+                return
+            elif route == "/api/order-add":
                 relative = payload.get("path", "")
                 target = editable_status_folder(relative)
                 relative = relative_path(target)
@@ -1056,7 +1061,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": True})
         except FileNotFoundError as error:
             self.send_json({"error": str(error)}, 404)
-        except (PrintConflict, OrderConflict, FileCommentConflict, file_trash.TrashConflict) as error:
+        except (PrintConflict, OrderConflict, FileCommentConflict, file_trash.TrashConflict, order_folders.OrderFolderConflict) as error:
             self.send_json({"error": str(error)}, 409)
         except (ValueError, UnicodeDecodeError) as error:
             self.send_json({"error": str(error)}, 400)

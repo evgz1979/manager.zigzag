@@ -66,6 +66,7 @@ h1, h2, h3, p { margin: 0; }
 .scan-state { font-size: 11px; color: var(--muted); white-space: nowrap; }
 .order-heading { display: flex; justify-content: space-between; align-items: center; gap: 25px; padding: 27px 0 23px; }
 .order-heading > div { min-width: 0; }
+.folder-heading-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .eyebrow { color: var(--accent); font-size: 10px; letter-spacing: 1.5px; font-weight: 650; margin-bottom: 7px; }
 h1 { font-size: clamp(22px, 2.5vw, 32px); line-height: 1.23; letter-spacing: -.8px; font-weight: 600; overflow-wrap: anywhere; }
 .folder-summary { color: var(--muted); font-size: 12px; margin-top: 9px; }
@@ -297,6 +298,14 @@ h2 { font-size: 13px; font-weight: 600; }
 .confirm-dialog::backdrop { background: #1d33365c; }
 .confirm-dialog h2 { font-size: 20px; margin: 0 0 20px; }
 .confirm-dialog p { line-height: 1.6; }
+.create-order-dialog { width: 480px; }
+.create-order-dialog form { display: grid; gap: 16px; }
+.create-order-dialog label { display: grid; gap: 7px; font-size: 12px; color: var(--muted); }
+.create-order-dialog input { width: 100%; min-width: 0; padding: 10px; color: var(--text); }
+.create-order-dialog .confirm-actions { margin-top: 5px; }
+.new-order-preview { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.new-order-preview strong { color: var(--text); font-weight: 500; }
+.new-order-error { margin: 0; color: #9b5146; font-size: 12px; }
 .confirm-path { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
 .confirm-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px; }
 .danger-button { padding: 9px 13px; border-color: #9b5146; background: #9b5146; color: white; }

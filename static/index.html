@@ -27,7 +27,7 @@
       </aside>
       <section class="content-pane" aria-label="Содержимое заказа" aria-busy="true">
         <div class="content-topbar"><nav id="breadcrumbs" class="breadcrumbs" aria-label="Путь"></nav><span id="scanState" class="scan-state"></span></div>
-        <header class="order-heading"><div><p id="clientLabel" class="eyebrow">КЛИЕНТЫ И ЗАКАЗЫ</p><h1 id="folderTitle">Зигзаг</h1><p id="folderSummary" class="folder-summary">Загрузка папок…</p></div><button id="openFolderButton" class="secondary-button"><svg><use href="#icon-folder"/></svg>Открыть в Finder</button><button id="addOrderButton" class="primary-button" hidden>+ Добавить в список заказов</button><button id="removeOrderButton" class="secondary-button" hidden>Убрать из списка заказов</button></header>
+        <header class="order-heading"><div><p id="clientLabel" class="eyebrow">КЛИЕНТЫ И ЗАКАЗЫ</p><h1 id="folderTitle">Зигзаг</h1><p id="folderSummary" class="folder-summary">Загрузка папок…</p></div><div class="folder-heading-actions"><button id="createOrderFolderButton" class="primary-button" type="button" hidden>+ Создать заказ</button><button id="openFolderButton" class="secondary-button"><svg><use href="#icon-folder"/></svg>Открыть в Finder</button><button id="addOrderButton" class="primary-button" hidden>+ Добавить в список заказов</button><button id="removeOrderButton" class="secondary-button" hidden>Убрать из списка заказов</button></div></header>
         <div id="notice" class="notice" role="status" hidden></div>
         <button id="loadOrderFilesButton" class="secondary-button" hidden>Повторить загрузку файлов</button>
         <section id="ordersWorkspace" class="orders-workspace" aria-label="Все заказы" hidden>
@@ -102,6 +102,17 @@
         </div>
       </section>
     </main>
+    <dialog id="createOrderFolderDialog" class="confirm-dialog create-order-dialog" aria-labelledby="createOrderFolderTitle">
+      <h2 id="createOrderFolderTitle">Создать заказ</h2>
+      <p>Новая папка в объекте:</p><p id="newOrderParent" class="confirm-path"></p>
+      <form id="createOrderFolderForm">
+        <label for="newOrderDate">Дата заказа<input id="newOrderDate" type="date" required></label>
+        <label for="newOrderTitle">Название заказа<input id="newOrderTitle" type="text" placeholder="Например, замена вывески" maxlength="240" autocomplete="off" required></label>
+        <p class="new-order-preview">Имя папки: <strong id="newOrderFolderName"></strong></p>
+        <p id="newOrderError" class="new-order-error" role="alert" hidden></p>
+        <div class="confirm-actions"><button id="cancelCreateOrderFolder" class="secondary-button" type="button">Отмена</button><button id="submitCreateOrderFolder" class="primary-button" type="submit">Создать папку</button></div>
+      </form>
+    </dialog>
     <dialog id="mobileDialog" class="confirm-dialog" aria-labelledby="mobileTitle">
       <h2 id="mobileTitle">Обмен с iPhone</h2>
       <p>На iPhone можно просматривать заказы, добавлять комментарии к заказам и файлам, вести To-do без связи. Изменения передаются через iCloud, когда он доступен.</p>

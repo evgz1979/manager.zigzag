@@ -13,6 +13,7 @@ const state = {
   fileComment: null, fileCommentSaving: null,
   selectedFiles: new Set(), imageReport: null,
   fileRemoval: null, fileRemoving: false, trashRestoring: false,
+  newOrderParent: null, creatingOrderFolder: false,
 };
 let searchTimer, toastTimer, todoSaveTimer, previewVersion = 0, treeSearchVersion = 0, printReadVersion = 0;
 const icon = (name) => '<svg aria-hidden="true"><use href="#icon-' + name + '"/></svg>';
@@ -182,6 +183,7 @@ function renderFolder(preserveForm = false) {
   $("statusForm").classList.toggle("note-only", noteOnly);
   $("orderNote").placeholder = noteOnly ? "Заметка к этой папке" : "Что важно по этому заказу";
   $("removeOrderButton").hidden = !folder.order;
+  $("createOrderFolderButton").hidden = folder.canCreateOrderFolder !== true;
   if (!preserveForm) {
     folder.todo_items = folder.order ? folder.order.todo_items : folder.todo_items === undefined ? [] : folder.todo_items;
     if (hasTodo) { $("todoNewText").value = ""; renderTodos(); }
@@ -486,6 +488,51 @@ function showPrintTask(task) {
   $("printEditorEmpty").hidden = true;
   renderPrintList();
   renderPrintSaveState();
+}
+
+function renderNewOrderName() {
+  const date = $("newOrderDate").value || "ГГГГ-ММ-ДД";
+  const title = $("newOrderTitle").value.trim() || "Название заказа";
+  $("newOrderFolderName").textContent = date + " - " + title;
+}
+
+function openCreateOrderFolder() {
+  if (state.folder?.canCreateOrderFolder !== true) return;
+  state.newOrderParent = state.folder.path;
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("ru-RU", { timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()).map((part) => [part.type, part.value]));
+  $("newOrderDate").value = parts.year + "-" + parts.month + "-" + parts.day;
+  $("newOrderTitle").value = "";
+  $("newOrderParent").textContent = state.newOrderParent;
+  $("newOrderError").hidden = true;
+  renderNewOrderName();
+  $("createOrderFolderDialog").showModal();
+  $("newOrderTitle").focus();
+}
+
+async function createOrderFolder() {
+  if (state.creatingOrderFolder || !$("createOrderFolderForm").reportValidity()) return;
+  state.creatingOrderFolder = true;
+  const controls = ["submitCreateOrderFolder", "cancelCreateOrderFolder", "newOrderDate", "newOrderTitle"];
+  controls.forEach((id) => { $(id).disabled = true; });
+  $("submitCreateOrderFolder").textContent = "Создаю…";
+  $("newOrderError").hidden = true;
+  let created;
+  try {
+    await saveCurrentStatus();
+    created = await request("/api/order-folder-create", { path: state.newOrderParent, date: $("newOrderDate").value, title: $("newOrderTitle").value });
+  } catch (error) {
+    $("newOrderError").textContent = error.message;
+    $("newOrderError").hidden = false;
+    return;
+  } finally {
+    state.creatingOrderFolder = false;
+    controls.forEach((id) => { $(id).disabled = false; });
+    $("submitCreateOrderFolder").textContent = "Создать папку";
+  }
+  $("createOrderFolderDialog").close();
+  await loadTree();
+  await navigate(created.path);
+  notify("Папка заказа создана");
 }
 
 async function openPrintTask(path) {
@@ -1206,6 +1253,11 @@ setInterval(() => {
 $("homeButton").addEventListener("click", () => run(() => showOrders()));
 $("ordersButton").addEventListener("click", () => run(() => showOrders()));
 $("openFolderButton").addEventListener("click", () => run(() => openNative(state.selected)));
+$("createOrderFolderButton").addEventListener("click", openCreateOrderFolder);
+$("createOrderFolderForm").addEventListener("submit", (event) => { event.preventDefault(); run(createOrderFolder); });
+$("cancelCreateOrderFolder").addEventListener("click", () => $("createOrderFolderDialog").close());
+$("createOrderFolderDialog").addEventListener("cancel", (event) => { if (state.creatingOrderFolder) event.preventDefault(); });
+for (const id of ["newOrderDate", "newOrderTitle"]) $(id).addEventListener("input", renderNewOrderName);
 $("refreshButton").addEventListener("click", () => run(async () => {
   $("refreshButton").disabled = true;
   try {
