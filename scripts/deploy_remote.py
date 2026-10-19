@@ -162,6 +162,13 @@ def health(port, release=None):
     return value
 
 
+def prepare_renderers(settings, release_dir):
+    command = [settings["python"], "-c", "import server, image_reports; server.pdf_renderer(); image_reports.renderer(server.APP_DIR, server.DATA_DIR)"]
+    result = subprocess.run(command, cwd=release_dir, capture_output=True, text=True, timeout=180)
+    if result.returncode:
+        raise RuntimeError("Не удалось подготовить PDF-просмотр и отчёты до переключения сервера:\n" + result.stderr[-6000:])
+
+
 def start(domain, agent, port, release, documents):
     launchctl("enable", domain + "/" + LABEL)
     launchctl("bootstrap", domain, str(agent))
@@ -241,6 +248,11 @@ def deploy(settings, action, release):
             atomic_write(history / "previous-agent.plist", old_agent)
         logs = Path.home() / "Library/Logs/ZigzagManager"
         logs.mkdir(parents=True, exist_ok=True)
+        try:
+            prepare_renderers(settings, release_dir)
+        except Exception as error:
+            write_json(history / "result.json", {"status": "failed", "stage": "renderers", "error": str(error)})
+            raise
         launcher = prepare_launcher(release_dir, root, documents)
         job = {"Label": LABEL, "ProgramArguments": [str(launcher), settings["python"], str(root / "current/server.py"), str(documents)],
                "WorkingDirectory": str(Path.home()), "RunAtLoad": True, "KeepAlive": True, "ThrottleInterval": 10,

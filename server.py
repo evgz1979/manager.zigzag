@@ -22,6 +22,7 @@ import order_document
 import file_comments
 from mobile_sync import MobileBridge
 import image_reports
+import native_renderers
 import file_trash
 from file_comments import FileCommentConflict
 from folder_structure import folder_role
@@ -777,20 +778,11 @@ def image_preview(target):
 
 
 def pdf_renderer():
-    source = APP_DIR / "pdf_preview.swift"
-    binary = DATA_DIR / "pdf-renderer"
     with PDF_BUILD_LOCK:
-        if not binary.exists() or binary.stat().st_mtime < source.stat().st_mtime:
-            DATA_DIR.mkdir(exist_ok=True)
-            temporary = binary.with_suffix(".tmp")
-            try:
-                subprocess.run(["/usr/bin/swiftc", "-O", "-module-cache-path", str(DATA_DIR / "swift-cache"),
-                                str(source), "-o", str(temporary)], check=True, capture_output=True, timeout=60)
-                temporary.replace(binary)
-            except (OSError, subprocess.SubprocessError):
-                temporary.unlink(missing_ok=True)
-                raise ValueError("Не удалось запустить просмотр PDF. Откройте файл на Mac.")
-    return binary
+        try:
+            return native_renderers.build(APP_DIR / "pdf_preview.swift", DATA_DIR, "pdf-renderer", 60)
+        except (OSError, subprocess.SubprocessError) as error:
+            raise ValueError("Не удалось запустить просмотр PDF. Откройте файл на Mac.") from error
 
 
 def pdf_key(target):

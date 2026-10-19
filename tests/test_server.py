@@ -492,8 +492,7 @@ class ManagerTests(unittest.TestCase):
         content += b"".join(f"{offset:010} 00000 n \n".encode() for offset in offsets[1:])
         content += b"trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n" + str(xref).encode() + b"\n%%EOF\n"
         self.file("Клиент/две страницы.pdf", content)
-        binary = manager.APP_DIR / "data" / "pdf-renderer"
-        binary = binary if binary.exists() else manager.pdf_renderer()
+        binary = manager.pdf_renderer()
         with patch.object(manager, "pdf_renderer", return_value=binary):
             status, _, body = self.http(self.url("/api/pdf", "Клиент/две страницы.pdf"))
             self.assertEqual((status, json.loads(body)["pages"]), (200, 2))

@@ -9,6 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 from folder_layout import rename_exclusive
+import native_renderers
 
 BUILD_LOCK = threading.Lock()
 SLOTS = threading.BoundedSemaphore(2)
@@ -17,20 +18,11 @@ IMAGES_PER_PAGE = 4
 
 
 def renderer(app_dir, data_dir):
-    source = Path(app_dir) / "image_report.swift"
-    binary = Path(data_dir) / "image-report"
     with BUILD_LOCK:
-        if not binary.exists() or binary.stat().st_mtime < source.stat().st_mtime:
-            binary.parent.mkdir(parents=True, exist_ok=True)
-            temporary = binary.with_suffix(".tmp")
-            try:
-                subprocess.run(["/usr/bin/swiftc", "-O", "-module-cache-path", str(binary.parent / "swift-cache"),
-                                str(source), "-o", str(temporary)], check=True, capture_output=True, timeout=90)
-                temporary.replace(binary)
-            except (OSError, subprocess.SubprocessError) as error:
-                temporary.unlink(missing_ok=True)
-                raise ValueError("Не удалось запустить формирование PDF") from error
-    return binary
+        try:
+            return native_renderers.build(Path(app_dir) / "image_report.swift", data_dir, "image-report", 90)
+        except (OSError, subprocess.SubprocessError) as error:
+            raise ValueError("Не удалось запустить формирование PDF") from error
 
 
 def create(folder, items, app_dir, data_dir):

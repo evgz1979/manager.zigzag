@@ -111,14 +111,31 @@ class DeploymentTests(unittest.TestCase):
         with sqlite3.connect(self.db) as db:
             self.assertEqual(db.execute("SELECT * FROM orders").fetchall(), [("preserve-me", 7, 5)])
 
-    def run_deploy(self, start):
+    def run_deploy(self, start, renderers=None):
         with patch.object(remote.Path, "home", return_value=self.base / "home"), \
              patch.object(remote, "service_loaded", return_value=True), \
              patch.object(remote, "prepare_launcher", return_value=self.base / "launcher"), \
+             patch.object(remote, "prepare_renderers", side_effect=renderers), \
              patch.object(remote, "stop"), patch.object(remote, "start", side_effect=start), \
              patch.object(remote.sys, "stdout", new_callable=io.StringIO), \
              patch.object(remote.sys, "stdin", SimpleNamespace(buffer=self.package())):
             remote.deploy(self.settings, "deploy", RELEASE)
+
+    def test_renderer_build_failure_keeps_current_release_and_database(self):
+        previous = self.root / ".releases" / PREVIOUS
+        previous.mkdir(parents=True)
+        (previous / "server.py").write_text("# old code\n")
+        remote.select_release(self.root, PREVIOUS)
+        state = {"release": PREVIOUS, "previous": None}
+        remote.write_json(self.root / ".deployment.json", state)
+        before = self.db.read_bytes()
+        with self.assertRaisesRegex(RuntimeError, "compiler failed"):
+            self.run_deploy([], RuntimeError("compiler failed"))
+        self.assertEqual((self.root / "current").resolve(), previous)
+        self.assertEqual(json.loads((self.root / ".deployment.json").read_text()), state)
+        self.assertEqual(self.db.read_bytes(), before)
+        result = next(self.root.glob(".deploy-history/*/result.json"))
+        self.assertEqual(json.loads(result.read_text())["stage"], "renderers")
 
     def test_update_rejects_empty_database_before_switching_code(self):
         self.db.write_bytes(b"")
