@@ -24,6 +24,7 @@ from mobile_sync import MobileBridge
 import image_reports
 import native_renderers
 import order_folders
+from folder_notes import FolderNotes, FolderNoteConflict, parent_order
 import file_trash
 from file_comments import FileCommentConflict
 from folder_structure import folder_role
@@ -621,13 +622,21 @@ def discover_orders():
 
 
 def schedule_order_sync():
-    threading.Thread(target=order_store().sync, daemon=True).start()
+    def sync():
+        order_store().sync()
+        folder_note_store().sync()
+    threading.Thread(target=sync, daemon=True).start()
+
+
+def folder_note_store():
+    return FolderNotes(order_store(), status_document)
 
 
 def order_sync_worker():
     while True:
         try:
             order_store().sync()
+            folder_note_store().sync()
         except Exception as error:
             print(f"Выгрузка заказов: {error}", flush=True)
         threading.Event().wait(15)
@@ -636,7 +645,9 @@ def order_sync_worker():
 def folder_status(path, directories):
     relative = relative_path(path)
     role = folder_role(DATA_ROOT, relative)
-    if is_service_folder(relative):
+    service = is_service_folder(relative)
+    owner = parent_order(DATA_ROOT, relative) if relative else None
+    if service and not owner:
         return {**role, "service": True, "note": read_status_document(path).get("note", ""), "statusSource": "manual"}
     order = order_store().get(relative, include_unregistered=True)
     if order and order["registered"]:
@@ -645,6 +656,10 @@ def folder_status(path, directories):
     if order and order["sync_pending"]:
         return {**role, "service": False, "noteOnly": True, "note": order["note"], "statusSource": "database",
                 "registrationPending": True, "registrationError": order["sync_error"]}
+    if owner:
+        record = folder_note_store().read(relative)
+        return {**role, "service": service, "noteOnly": True, "eventFolder": True, "folderNote": record,
+                "note": record["note"], "todo_items": record["todo_items"], "extra_blocks": record["extra_blocks"], "statusSource": "database"}
     record = read_status_document(path, include_registration=True, include_todos=True)
     haystack = normalized(" ".join([path.name] + [item.name for item in directories]))
     guessed = next((status for status, words in STATUS_KEYWORDS if any(word in haystack for word in words)), "new")
@@ -732,6 +747,8 @@ def save_status(relative, status, note, financial_status=None, todo_items=order_
 
 
 def save_note(relative, note):
+    if folder_note_store().get(relative):
+        raise FolderNoteConflict("Заметка папки теперь ведётся в базе. Обновите страницу, сохранив введённый текст")
     target = editable_status_folder(relative)
     relative = relative_path(target)
     if not isinstance(note, str) or len(note) > 100_000:
@@ -907,6 +924,11 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json({"orders": store.list(), "unregistrations": store.pending_unregistrations(), "scan": dict(SCAN_STATE)}, head=head)
             elif parsed.path == "/api/mobile-status":
                 self.send_json(MobileBridge(order_store()).status(), head=head)
+            elif parsed.path == "/api/folder-note":
+                record = folder_note_store().get(relative)
+                if not record:
+                    raise FileNotFoundError("Заметка папки не найдена в базе")
+                self.send_json(record, head=head)
             elif parsed.path == "/api/order":
                 record = order_store().get(relative)
                 if not record:
@@ -977,6 +999,11 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 raise ValueError("Некорректный запрос")
             if route == "/api/order-folder-create":
                 self.send_json(order_folders.create(DATA_ROOT, payload.get("path"), payload.get("date"), payload.get("title")), 201)
+                return
+            elif route == "/api/folder-note-save":
+                record = folder_note_store().save(payload)
+                self.send_json(record)
+                schedule_order_sync()
                 return
             elif route == "/api/order-add":
                 relative = payload.get("path", "")
@@ -1061,7 +1088,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": True})
         except FileNotFoundError as error:
             self.send_json({"error": str(error)}, 404)
-        except (PrintConflict, OrderConflict, FileCommentConflict, file_trash.TrashConflict, order_folders.OrderFolderConflict) as error:
+        except (PrintConflict, OrderConflict, FileCommentConflict, file_trash.TrashConflict, order_folders.OrderFolderConflict, FolderNoteConflict) as error:
             self.send_json({"error": str(error)}, 409)
         except (ValueError, UnicodeDecodeError) as error:
             self.send_json({"error": str(error)}, 400)

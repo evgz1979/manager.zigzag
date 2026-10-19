@@ -155,8 +155,8 @@ function renderFolder(preserveForm = false) {
   const printView = folder.view === "print";
   const service = folder.service = isServiceFolder(folder.path);
   const noteOnly = service || Boolean(folder.noteOnly);
-  const hasTodo = Boolean(folder.path) && !noteOnly && !printView;
-  $("orderOverview").hidden = !folder.path || printView;
+  const hasTodo = Boolean(folder.path) && (!noteOnly || Boolean(folder.eventFolder));
+  $("orderOverview").hidden = !folder.path || (printView && !folder.eventFolder);
   $("orderOverview").classList.toggle("with-todos", hasTodo);
   $("todoPanel").hidden = !hasTodo;
   $("breadcrumbs").innerHTML = folder.breadcrumbs.map((part, index) =>
@@ -200,6 +200,7 @@ function renderFolder(preserveForm = false) {
     $("statusSelect").value = folder.status || "new";
     $("financialStatusSelect").value = folder.financial_status || "unspecified";
     $("orderNote").value = folder.note;
+    resizeOrderNote();
     renderStatus();
   }
   $("loadOrderFilesButton").hidden = !folder.filesUnavailable;
@@ -224,6 +225,13 @@ function renderFolder(preserveForm = false) {
   } else renderFiles();
 }
 
+function resizeOrderNote() {
+  const note = $("orderNote");
+  if (!$("orderDetails").open) return;
+  note.style.height = "auto";
+  note.style.height = Math.min(480, Math.max(note.value.trim() ? 160 : 54, note.scrollHeight + 2)) + "px";
+}
+
 function renderStatus() {
   $("statusBadge").textContent = statusLabels[state.folder.status] || state.folder.status;
   $("statusBadge").dataset.status = state.folder.status;
@@ -232,7 +240,8 @@ function renderStatus() {
   $("financialStatusBadge").dataset.financialStatus = financial;
   $("financialStatusBadge").hidden = state.folder.service || state.folder.noteOnly || financial === "unspecified";
   $("saveStatusButton").textContent = state.dirty ? "Сохранить изменения" : "Сохранить";
-  $("todoSaveState").textContent = state.saving ? "Сохраняю…" : state.dirty ? "Есть несохранённые изменения" : "Сохранено";
+  const folderNote = state.folder.folderNote;
+  $("todoSaveState").textContent = state.saving ? "Сохраняю…" : state.dirty ? "Есть несохранённые изменения" : folderNote?.sync_error ? "Сохранено в базе. Выгрузка: " + folderNote.sync_error : folderNote?.sync_pending ? "Сохранено в базе · ожидает выгрузки в папку" : folderNote ? folderNote.file_exists ? "Сохранено в базе и в !.txt этой папки" : "Автоматическое сохранение в эту папку" : "Сохранено";
 }
 
 function renderTodos() {
@@ -242,6 +251,7 @@ function renderTodos() {
   $("todoLegacyText").textContent = editable ? "" : (state.folder.order?.extra_blocks || state.folder.extra_blocks || {})["Задачи"] || "";
   $("todoAddForm").hidden = !editable;
   $("todoEmpty").hidden = !editable || Boolean(items.length);
+  $("todoEmpty").textContent = state.folder.folderNote ? "Добавьте, что нужно сделать в этой папке." : "Добавьте, что нужно сделать по заказу.";
   $("todoCount").textContent = editable ? items.filter((item) => item.done).length + " / " + items.length : "";
   $("todoList").innerHTML = editable ? items.map((item, index) => '<div class="todo-row' + (item.done ? ' done' : '') + '" data-todo-index="' + index + '">' +
     '<input class="todo-check" type="checkbox" aria-label="Выполнено: ' + escapeHtml(item.text) + '"' + (item.done ? ' checked' : '') + '>' +
@@ -619,7 +629,9 @@ async function saveCurrentStatus() {
   $("saveStatusButton").disabled = true;
   $("saveStatusButton").textContent = "Сохраняю…";
   const noteOnly = folder.service || folder.noteOnly;
-  state.saving = request(noteOnly ? "/api/note" : folder.order ? "/api/order-save" : "/api/status", noteOnly
+  state.saving = request(folder.folderNote ? "/api/folder-note-save" : noteOnly ? "/api/note" : folder.order ? "/api/order-save" : "/api/status", folder.folderNote
+    ? { path: folder.path, revision: folder.folderNote.revision, ...values }
+    : noteOnly
     ? { path: folder.path, note }
     : folder.order ? { path: folder.path, revision: folder.order.revision, ...values }
       : { path: folder.path, status, financial_status: values.financial_status, note, ...(values.todo_items ? { todo_items: values.todo_items } : {}) });
@@ -628,8 +640,9 @@ async function saveCurrentStatus() {
     const saved = await state.saving;
     if (!noteOnly) { folder.status = status; folder.financial_status = values.financial_status; }
     folder.note = note;
-    folder.statusSource = folder.order ? "database" : "manual";
+    folder.statusSource = folder.order || folder.folderNote ? "database" : "manual";
     if (folder.order) folder.order = saved;
+    if (folder.folderNote) folder.folderNote = saved;
     state.dirty = JSON.stringify(currentOrderValues()) !== JSON.stringify(values);
     renderExportState();
     renderStatus();
@@ -643,7 +656,8 @@ async function saveCurrentStatus() {
 const rubles = (value) => value == null ? "—" : new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB", maximumFractionDigits: 2 }).format(value / 100);
 
 function currentOrderValues() {
-  if (state.folder?.service || state.folder?.noteOnly) return { note: $("orderNote").value };
+  if (state.folder?.service || state.folder?.noteOnly) return { note: $("orderNote").value,
+    ...(state.folder.folderNote && Array.isArray(state.folder.todo_items) ? { todo_items: state.folder.todo_items.map((item) => ({ ...item })) } : {}) };
   return { status: $("statusSelect").value, financial_status: $("financialStatusSelect").value, note: $("orderNote").value, title: $("orderTitleInput").value,
     ...(Array.isArray(state.folder?.todo_items) ? { todo_items: state.folder.todo_items.map((item) => ({ ...item })) } : {}),
     amount: $("orderAmount").value, costs: $("orderCosts").value, paid: $("orderPaid").value };
@@ -1240,7 +1254,15 @@ for (const id of ["orderTitleInput", "orderAmount", "orderCosts", "orderPaid"]) 
 setInterval(() => {
   if (document.hidden) return;
   if (state.view === "orders") loadOrders().catch(() => { $("ordersSyncState").textContent = "Нет связи с сервером · показаны последние загруженные данные"; });
-  else if (state.folder?.order && !state.dirty && !state.saving) {
+  else if (state.folder?.folderNote && !state.dirty && !state.saving) {
+    const folder = state.folder;
+    request(apiUrl("/api/folder-note", folder.path)).then((record) => {
+      if (state.folder === folder && !state.dirty && !state.saving && record.revision === folder.folderNote.revision) {
+        folder.folderNote = record;
+        renderStatus();
+      }
+    }).catch(() => {});
+  } else if (state.folder?.order && !state.dirty && !state.saving) {
     const folder = state.folder;
     request(apiUrl("/api/order", folder.path)).then((order) => {
       if (state.folder === folder && !state.dirty && !state.saving && order.revision === folder.order.revision) {
@@ -1273,7 +1295,9 @@ $("refreshButton").addEventListener("click", () => run(async () => {
 }));
 $("statusSelect").addEventListener("change", () => { state.dirty = true; renderStatus(); });
 $("financialStatusSelect").addEventListener("change", () => { state.dirty = true; renderStatus(); });
-$("orderNote").addEventListener("input", () => { state.dirty = true; renderStatus(); });
+$("orderNote").addEventListener("input", () => { state.dirty = true; resizeOrderNote(); renderStatus(); });
+$("orderDetails").addEventListener("toggle", resizeOrderNote);
+window.addEventListener("resize", resizeOrderNote);
 $("todoAddForm").addEventListener("submit", (event) => {
   event.preventDefault();
   const text = $("todoNewText").value.trim();
@@ -1307,7 +1331,7 @@ $("todoList").addEventListener("click", (event) => {
 $("todoList").addEventListener("keydown", (event) => {
   if (event.key === "Enter" && event.target.matches(".todo-text")) { event.preventDefault(); event.target.blur(); saveTodosSoon(); }
 });
-$("statusForm").addEventListener("submit", (event) => { event.preventDefault(); run(async () => { await saveCurrentStatus(); notify(state.folder?.service || state.folder?.noteOnly ? "Заметка сохранена" : state.folder?.order ? "Карточка сохранена в базе, выгрузка в папку поставлена в очередь" : "Статус и заметка сохранены"); }); });
+$("statusForm").addEventListener("submit", (event) => { event.preventDefault(); run(async () => { await saveCurrentStatus(); notify(state.folder?.folderNote ? "Заметка и задачи сохранены в базе" : state.folder?.service || state.folder?.noteOnly ? "Заметка сохранена" : state.folder?.order ? "Карточка сохранена в базе, выгрузка в папку поставлена в очередь" : "Статус и заметка сохранены"); }); });
 $("newPrintTask").addEventListener("click", () => run(newPrintTask));
 $("printTaskList").addEventListener("click", (event) => {
   const button = event.target.closest("[data-task]");

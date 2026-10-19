@@ -370,7 +370,12 @@ class OrderTests(unittest.TestCase):
         self.assertEqual(status, 404)
         store.sync()
         self.assertEqual(manager.read_folder(relative)["note"], "Реальная заметка из папки")
-        manager.save_note(relative, "Заметка к счетам")
+        with self.assertRaises(manager.FolderNoteConflict):
+            manager.save_note(relative, "Старая вкладка")
+        notes = manager.folder_note_store()
+        note = notes.get(relative)
+        notes.save({"path": relative, "revision": note["revision"], "note": "Заметка к счетам"})
+        notes.sync()
         saved = document.load(folder, manager.STATUS_LABELS)
         self.assertFalse(document.ORDER_FIELDS.intersection(saved))
         ordinary = self.add("Клиент/2026/2026-01-00 - Заказ")

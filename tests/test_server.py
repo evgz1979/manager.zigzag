@@ -104,7 +104,7 @@ class ManagerTests(unittest.TestCase):
         self.assertEqual(folder["folderCount"], 5)
         self.assertEqual({file["folder"] for file in folder["files"]}, {"2026/2026-01-00 - Заказ/# счета", "2026-00-00 - Заказ/Фото"})
 
-    def test_service_folders_have_only_portable_notes_at_any_depth(self):
+    def test_service_folders_have_portable_notes_and_never_order_fields(self):
         note = "Оплатить счёт\n\n[Заказ]\n> текст\n"
         for relative in ("# docs", "# docs/Внутри", "Клиент/2026/2026-01-00 - Заказ/# bills",
                          "Клиент/2026/2026-01-00 - Заказ/#cdr", "Клиент/2026/2026-01-00 - Заказ/#bills/2026"):
@@ -116,8 +116,14 @@ class ManagerTests(unittest.TestCase):
                 self.assertNotIn("status", folder)
                 self.assertNotIn("order", folder)
                 self.assertFalse(document.exists())
-                status, _, _ = self.http("/api/note", "POST", json.dumps({"path": relative, "note": note}))
+                route = "/api/folder-note-save" if folder.get("folderNote") else "/api/note"
+                payload = {"path": relative, "note": note}
+                if folder.get("folderNote"):
+                    payload["revision"] = folder["folderNote"]["revision"]
+                with patch.object(manager, "schedule_order_sync"):
+                    status, _, _ = self.http(route, "POST", json.dumps(payload))
                 self.assertEqual(status, 200)
+                manager.folder_note_store().sync()
                 self.assertEqual(manager.read_folder(relative)["note"], note)
                 self.assertTrue(document.read_text().startswith("ЗАМЕТКА ПАПКИ\n\n[Заметка]\n"))
                 self.assertNotIn("[Финансы]\n", document.read_text())
@@ -128,7 +134,7 @@ class ManagerTests(unittest.TestCase):
                     status, _, _ = self.http(route, "POST", json.dumps({"path": relative, "status": "done", "note": "Нельзя"}))
                     self.assertEqual(status, 400)
                 self.assertEqual(manager.read_folder(relative)["note"], "Правка с iPhone")
-        self.assertFalse(manager.DATA_DIR.exists())
+        self.assertEqual(manager.order_store().list(), [])
 
     def test_service_note_discards_test_order_fields_and_keeps_note_and_additional_blocks(self):
         relative = "Клиент/2026/2026-01-00 - Заказ/# счета"
@@ -143,7 +149,10 @@ class ManagerTests(unittest.TestCase):
         (folder / "!.txt").write_text(document.render(record, manager.STATUS_LABELS))
         self.assertEqual(manager.read_folder(relative)["note"], "Счёт оплачен")
         self.assertFalse(document.ORDER_FIELDS.intersection(document.load(folder, manager.STATUS_LABELS)))
-        manager.save_note(relative, "Новая заметка")
+        store = manager.folder_note_store()
+        record = store.get(relative)
+        store.save({"path": relative, "revision": record["revision"], "note": "Новая заметка"})
+        store.sync()
         saved = document.load(folder, manager.STATUS_LABELS)
         self.assertFalse(document.ORDER_FIELDS.intersection(saved))
         self.assertEqual(saved["extra_blocks"], {"Реквизиты": "ИНН: 123"})
