@@ -1,6 +1,6 @@
 # Зигзаг для iPhone — первая версия
 
-Исходники отдельного приложения для iOS 17 и новее и обработчик обмена Mac готовы для проверки. **Сборка под iOS, установка на телефон и реальный обмен через iCloud ещё не проверены:** на рабочем Mac пока нет Xcode и iPhone SDK. Проверки Python и локального ядра Swift не заменяют проверку двух устройств.
+Исходники отдельного приложения для iOS 17 и новее и обработчик обмена Mac готовы для проверки. **Сборка для настоящего устройства iOS без подписи прошла в Xcode 27.1 (27A9275). Подпись, установка на телефон и реальный обмен через iCloud ещё не проверены.** Xcode установлен на внутреннем SSD в `/Applications/Xcode.app`; внешний диск для сборки не нужен. Успешная сборка не заменяет проверку двух устройств.
 
 ## Что есть
 
@@ -62,11 +62,13 @@ sh mobile/check.sh
 python3 mobile/protocol_check.py
 ```
 
-В полном Xcode дополнительно:
+Сборка для устройства без подписи, не требующая симулятора:
 
 ```sh
-xcodebuild -project mobile/ZigzagPhone.xcodeproj -scheme ZigzagPhone \
-  -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+  xcodebuild -project mobile/ZigzagPhone.xcodeproj -scheme ZigzagPhone \
+  -destination 'generic/platform=iOS' -configuration Debug \
+  -derivedDataPath data/ios-build/DerivedData CODE_SIGNING_ALLOWED=NO build
 ```
 
 Для проверки локального ядра Swift нужен установленный Swift и macOS SDK. `check.sh` проверяет устойчивое сохранение, перезапуск, зависимости задач, подтверждения, старый каталог, другой архив и повреждение состояния; проверка экрана iOS в нём только синтаксическая.
