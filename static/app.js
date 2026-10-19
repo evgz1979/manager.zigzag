@@ -1,6 +1,7 @@
 const $ = (id) => document.getElementById(id);
 const statusLabels = { new: "Новый", measure: "Замеры", process: "В работе", workshop: "В цех", install: "Монтаж", rework: "Переделка/доделка", finishing: "Завершение/добивка", done: "Готово", done_but: "Готово, но…", cancelled: "Отменён", unspecified: "Не указан" };
 const financialStatusLabels = { unspecified: "Не указан", payment: "На оплате", partial: "Частично оплачен", paid: "Оплачен" };
+const eventRelevanceLabels = { none: "Без статуса", active: "Актуально", check: "Проверить", inactive: "Неактуально" };
 const typeLabels = { all: "Все", images: "Фото", pdf: "PDF", design: "Макеты", docs: "Документы", video: "Видео", audio: "Аудио", other: "Другое" };
 const state = {
   tree: [], auxiliary: [], nodes: new Map(), children: new Map(), expanded: new Set(),
@@ -151,6 +152,66 @@ async function loadTree() {
   renderTree();
 }
 
+function renderSubfolders() {
+  const folder = state.folder;
+  const focused = document.activeElement?.closest("[data-relevance]");
+  const focusPath = focused?.dataset.eventPath, focusValue = focused?.dataset.relevance;
+  const directories = folder.directories.filter((item) => !item.name.startsWith("#"));
+  $("subfolders").classList.toggle("with-event-relevance", directories.some((item) => item.eventRelevance));
+  $("folderSection").hidden = !directories.length;
+  $("foldersTitle").textContent = folder.canCreateEventFolder ? "События" : folder.path ? "Подпапки" : "Папки";
+  $("directoryCount").textContent = directories.length;
+  $("subfolders").innerHTML = directories.map((item) => {
+    const open = '<button class="subfolder" data-path="' + escapeHtml(item.path) + '" title="' + escapeHtml(item.name) + '">' +
+      icon("folder") + '<span>' + escapeHtml(item.name) + "</span>" + icon("chevron") + "</button>";
+    const relevance = item.eventRelevance;
+    if (!relevance) return open;
+    const message = item.relevanceSaving ? "Сохраняю…" : relevance.error || (relevance.sync_pending
+      ? relevance.sync_error ? "В базе сохранено · не выгружено: " + relevance.sync_error : "В базе сохранено · ожидает выгрузки" : "");
+    return '<div class="event-folder" data-relevance-state="' + escapeHtml(relevance.value || "none") + '" aria-busy="' + Boolean(item.relevanceSaving) + '">' + open +
+      '<div class="event-relevance" role="group" aria-label="Актуальность события ' + escapeHtml(item.name) + '">' +
+      Object.entries(eventRelevanceLabels).map(([value, label]) => '<button type="button" data-event-path="' + escapeHtml(item.path) + '" data-relevance="' + value +
+        '" aria-pressed="' + (value === relevance.value) + '"' + (item.relevanceSaving || relevance.error || !relevance.revision ? " disabled" : "") + '>' + label + '</button>').join("") +
+      '</div>' + (message ? '<p class="event-export' + (relevance.error || relevance.sync_error ? " error" : "") + '" role="status">' + escapeHtml(message) + '</p>' : "") + '</div>';
+  }).join("");
+  if (focusPath) [...$("subfolders").querySelectorAll("[data-relevance]")].find((button) => button.dataset.eventPath === focusPath && button.dataset.relevance === focusValue)?.focus();
+}
+
+async function refreshEventRelevance(folder) {
+  if (!folder.canCreateEventFolder || state.folder !== folder) return;
+  const records = await request(apiUrl("/api/event-relevance", folder.path));
+  if (state.folder !== folder) return;
+  let changed = false;
+  for (const item of folder.directories) {
+    if (!item.relevanceSaving && item.eventRelevance && records[item.path] && JSON.stringify(item.eventRelevance) !== JSON.stringify(records[item.path])) {
+      item.eventRelevance = records[item.path];
+      changed = true;
+    }
+  }
+  if (changed) renderSubfolders();
+}
+
+async function saveEventRelevance(path, value) {
+  const folder = state.folder, item = folder?.directories.find((directory) => directory.path === path);
+  if (!item?.eventRelevance || item.relevanceSaving || item.eventRelevance.value === value) return;
+  item.relevanceSaving = true;
+  renderSubfolders();
+  try {
+    item.eventRelevance = await request("/api/event-relevance", { path, value, revision: item.eventRelevance.revision });
+  } catch (error) {
+    if (error.status === 409) {
+      try {
+        const records = await request(apiUrl("/api/event-relevance", folder.path));
+        if (records[path]) item.eventRelevance = records[path];
+      } catch { /* Сохраняем последнее известное состояние. */ }
+    }
+    throw error;
+  } finally {
+    item.relevanceSaving = false;
+    if (state.folder === folder) renderSubfolders();
+  }
+}
+
 function renderFolder(preserveForm = false) {
   const folder = state.folder;
   const printView = folder.view === "print";
@@ -169,13 +230,7 @@ function renderFolder(preserveForm = false) {
   $("folderSummary").textContent = printView ? printCountLabel(folder.fileCount) + " · название, ссылка и описание" : folder.filesLoading ? "Карточка из локальной базы · подпапки загружаются…" : folder.filesUnavailable ? "Карточка из локальной базы · папка сейчас недоступна" : folder.filesScope === "events" ? folder.folderCount + " папок · файлы доступны в событиях" : folder.path
     ? folder.fileCount + " файлов · " + folder.folderCount + " папок · " + formatSize(folder.totalSize)
     : "Выберите клиента или заказ в дереве слева";
-  const directories = folder.directories.filter((item) => !item.name.startsWith("#"));
-  $("folderSection").hidden = !directories.length;
-  $("foldersTitle").textContent = folder.path ? "Подпапки" : "Папки";
-  $("directoryCount").textContent = directories.length;
-  $("subfolders").innerHTML = directories.map((item) =>
-    '<button class="subfolder" data-path="' + escapeHtml(item.path) + '" title="' + escapeHtml(item.name) + '">' +
-    icon("folder") + '<span>' + escapeHtml(item.name) + "</span>" + icon("chevron") + "</button>").join("");
+  renderSubfolders();
   $("orderDetails").hidden = !folder.path;
   $("folderDetailsTitle").textContent = noteOnly ? "Заметка" : "Карточка заказа";
   $("statusBadge").hidden = noteOnly;
@@ -1201,6 +1256,10 @@ for (const id of ["auxiliaryButtons", "breadcrumbs", "subfolders"]) {
     if (button) run(() => navigate(button.dataset.path));
   });
 }
+$("subfolders").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-relevance]");
+  if (button) run(() => saveEventRelevance(button.dataset.eventPath, button.dataset.relevance));
+});
 $("treeSearch").addEventListener("input", (event) => {
   state.treeQuery = event.target.value;
   const version = ++treeSearchVersion;
@@ -1358,6 +1417,7 @@ for (const id of ["orderTitleInput", "orderAmount", "orderCosts", "orderPaid"]) 
 }
 setInterval(() => {
   if (document.hidden) return;
+  if (state.view !== "orders" && state.folder?.canCreateEventFolder) refreshEventRelevance(state.folder).catch(() => {});
   if (state.view === "orders") loadOrders().catch(() => { $("ordersSyncState").textContent = "Нет связи с сервером · показаны последние загруженные данные"; });
   else if (state.folder?.folderNote && !state.dirty && !state.saving) {
     const folder = state.folder;

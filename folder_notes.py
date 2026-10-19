@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import order_document as document
+import event_relevance
 from event_folder_undo import assert_unlocked
 from folder_structure import folder_role
 
@@ -147,6 +148,42 @@ class FolderNotes:
                     raise ValueError("Прежний раздел задач содержит произвольный текст; он сохранён без замены")
                 body["extra_blocks"] = document.write_todos(body.get("extra_blocks", {}), payload["todo_items"])
             body["note"] = note
+            document.render(body, self.store.labels)
+            db.execute("UPDATE folder_notes SET document=?, revision=revision+1, updated=?, sync_error='' WHERE path=?",
+                       (json.dumps(body, ensure_ascii=False), time.time(), relative))
+            return self.record(db.execute("SELECT * FROM folder_notes WHERE path=?", (relative,)).fetchone())
+
+    def event_relevances(self, owner):
+        """Обновление переключателей из SQLite, без чтения документов."""
+        checked_path(self.store.root, owner)
+        with self.connect() as db:
+            rows = db.execute("SELECT * FROM folder_notes WHERE parent_order=?", (owner,)).fetchall()
+            registered = {row["path"] for row in db.execute("SELECT path FROM orders WHERE registered=1")}
+            result = {}
+            for row in rows:
+                if event_relevance.is_event(row["path"], owner):
+                    assert_unlocked(db, row["path"])
+                    result[row["path"]] = event_relevance.info(self.record(row),
+                        "Эта папка ещё зарегистрирована как отдельный заказ" if row["path"] in registered else "")
+            return result
+
+    def save_relevance(self, payload):
+        relative, value = payload.get("path"), payload.get("value")
+        checked_path(self.store.root, relative)
+        if not isinstance(value, str) or value not in event_relevance.LABELS:
+            raise ValueError("Выберите: Без статуса, Актуально, Проверить или Неактуально")
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            assert_unlocked(db, relative)
+            row = db.execute("SELECT * FROM folder_notes WHERE path=?", (relative,)).fetchone()
+            if not row or payload.get("revision") != f"{row['id']}:{row['revision']}":
+                raise FolderNoteConflict("Событие изменилось. Его состояние обновлено; повторите выбор")
+            if not event_relevance.is_event(relative, row["parent_order"]):
+                raise ValueError("Актуальность задаётся только событию непосредственно внутри заказа")
+            if db.execute("SELECT 1 FROM orders WHERE path=? AND registered=1", (relative,)).fetchone():
+                raise ValueError("Эта папка ещё зарегистрирована как отдельный заказ")
+            body = json.loads(row["document"])
+            body["extra_blocks"] = event_relevance.write(body.get("extra_blocks", {}), value)
             document.render(body, self.store.labels)
             db.execute("UPDATE folder_notes SET document=?, revision=revision+1, updated=?, sync_error='' WHERE path=?",
                        (json.dumps(body, ensure_ascii=False), time.time(), relative))

@@ -27,6 +27,7 @@ import order_folders
 import event_folders
 from event_folder_undo import EventRenamePending
 from folder_notes import FolderNotes, FolderNoteConflict, parent_order
+import event_relevance
 from order_todos import OrderTodos
 import file_trash
 from file_comments import FileCommentConflict
@@ -738,11 +739,30 @@ def read_folder(relative=""):
     files.sort(key=lambda file: (folder_sort_key(file["folder"]), sort_key(Path(file["name"]))))
     counts = {group: sum(file["type"] == group for file in files) for group in [*EXT_GROUPS, "other"]}
     parts = Path(relative).parts
+    nodes = []
+    event_notes = FolderNotes(order_store())  # Список событий не переносит и не переписывает их прежние файлы.
+    for item in directories:
+        node = folder_node(item)
+        if status["folderKind"] == "order" and not item.name.startswith("#") and not item.is_symlink():
+            record = None
+            try:
+                registered = order_store().get(node["path"])
+                if registered:
+                    raise ValueError("Эта папка ещё зарегистрирована как отдельный заказ")
+                record = event_notes.read(node["path"])
+                node["eventRelevance"] = event_relevance.info(record)
+            except (OSError, ValueError) as error:
+                try:
+                    record = event_notes.get(node["path"])
+                except (OSError, ValueError):
+                    record = None
+                node["eventRelevance"] = event_relevance.info(record, str(error))
+        nodes.append(node)
     breadcrumbs = [{"name": DATA_ROOT.name, "path": ""}]
     breadcrumbs.extend({"name": part, "path": Path(*parts[:index + 1]).as_posix()} for index, part in enumerate(parts))
     return {"name": target.name, "path": relative_path(target), "client": parts[0] if parts else "",
             "root": str(DATA_ROOT), "breadcrumbs": breadcrumbs,
-            "directories": [folder_node(item) for item in directories], "files": files,
+            "directories": nodes, "files": files,
             "fileCount": len(files), "folderCount": folder_count,
             "totalSize": sum(file["size"] for file in files), "counts": counts,
             "warnings": warnings, "view": "print" if print_view else "files",
@@ -954,6 +974,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 if not record:
                     raise FileNotFoundError("Заметка папки не найдена в базе")
                 self.send_json(record, head=head)
+            elif parsed.path == "/api/event-relevance":
+                self.send_json(folder_note_store().event_relevances(relative), head=head)
             elif parsed.path == "/api/event-folders":
                 self.send_json(event_folders.preview(DATA_ROOT, relative, folder_note_store()), head=head)
             elif parsed.path == "/api/order":
@@ -1038,6 +1060,11 @@ class ManagerHandler(BaseHTTPRequestHandler):
             elif route == "/api/folder-note-save":
                 record = folder_note_store().save(payload)
                 self.send_json(record)
+                schedule_order_sync()
+                return
+            elif route == "/api/event-relevance":
+                record = folder_note_store().save_relevance(payload)
+                self.send_json(event_relevance.info(record))
                 schedule_order_sync()
                 return
             elif route == "/api/order-add":

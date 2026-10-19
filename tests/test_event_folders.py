@@ -147,6 +147,8 @@ class EventFolderTests(unittest.TestCase):
         for path in (self.order + "/Фото", self.order + "/Фото/Глубже/# bills"):
             record = notes.read(path)
             record = notes.save({"path": path, "revision": record["revision"], "note": "Своя заметка", "todo_items": [{"text": "Своя задача", "done": True}]})
+            if path == self.order + "/Фото":
+                record = notes.save_relevance({"path": path, "revision": record["revision"], "value": "active"})
             records.append(record)
         notes.sync()
         original = {p.relative_to(self.root / self.order / "Фото").as_posix(): p.read_bytes() for p in (self.root / self.order / "Фото").rglob("*") if p.is_file()}
@@ -158,6 +160,7 @@ class EventFolderTests(unittest.TestCase):
             renamed = notes.get(record["path"].replace("/Фото", "/00 - Фото", 1))
             self.assertEqual(renamed["note"], record["note"])
             self.assertEqual(renamed["todo_items"], record["todo_items"])
+            self.assertEqual(renamed["extra_blocks"], record["extra_blocks"])
             self.assertFalse(renamed["sync_pending"])
             with self.assertRaises(manager.FolderNoteConflict):
                 notes.save({"path": record["path"], "revision": record["revision"], "note": "Старая вкладка"})
