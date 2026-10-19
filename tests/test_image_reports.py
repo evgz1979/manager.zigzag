@@ -24,12 +24,12 @@ class ImageReportTests(unittest.TestCase):
             return manager.create_image_report(folder, files)
 
     def test_mixed_selection_creates_valid_pdf_beside_images_without_overwriting(self):
-        folder = "Клиент/2026-00-00 - Заказ"
-        image = folder + "/Фото/снимок.png"
+        folder = "Клиент/2026-00-00 - Заказ/Фото"
+        image = folder + "/снимок.png"
         self.file(image, PNG)
         original = (self.root / image).stat()
         manager.file_comments.save(self.root / image, "Размер 1200 мм\nПроверить перед печатью.", "missing")
-        other = folder + "/Фото/файл%2F #.txt"
+        other = folder + "/файл%2F #.txt"
         first = self.build(folder, [image, other, image])
         path = self.root / first["path"]
         before = path.read_bytes()

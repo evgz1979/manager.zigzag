@@ -18,11 +18,11 @@ class FileCommentTests(unittest.TestCase):
 
     def test_comments_for_every_file_type_are_portable_and_do_not_modify_originals(self):
         for extension in ("pdf", "cdr", "jpg", "mp4", "mp3", "txt", "zip"):
-            path = "Клиент/2026-00-00 - Заказ/файл # %." + extension
+            path = "Клиент/2026-00-00 - Заказ/Фото/файл # %." + extension
             self.file(path, b"original bytes")
             target = self.root / path
             before = target.stat()
-            original_count = manager.read_folder("Клиент/2026-00-00 - Заказ")["fileCount"]
+            original_count = manager.read_folder("Клиент/2026-00-00 - Заказ/Фото")["fileCount"]
             record = comments.read(target)
             self.assertEqual(record, {"comment": "", "revision": "missing"})
             note = "Проверить " + extension + "\n\n[Комментарий]\n> не терять переносы\n"
@@ -33,7 +33,7 @@ class FileCommentTests(unittest.TestCase):
             self.assertIn(json.dumps(name, ensure_ascii=False), document.read_text())
             self.assertEqual(target.read_bytes(), b"original bytes")
             self.assertEqual(target.stat().st_mtime_ns, before.st_mtime_ns)
-            listing = manager.read_folder("Клиент/2026-00-00 - Заказ")
+            listing = manager.read_folder("Клиент/2026-00-00 - Заказ/Фото")
             self.assertEqual(listing["fileCount"], original_count)
             self.assertEqual(next(file["comment"] for file in listing["files"] if file["path"] == path), note)
 

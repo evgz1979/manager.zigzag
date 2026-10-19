@@ -109,6 +109,7 @@ h1 { font-size: clamp(22px, 2.5vw, 32px); line-height: 1.23; letter-spacing: -.8
 .order-details[open] .details-chevron { transform: rotate(180deg); }
 .status-badge { border-radius: 4px; padding: 3px 7px; color: #677775; background: #e9efeb; font-size: 10px; font-weight: 550; }
 .status-badge[data-status="done_but"] { color: #876d2f; background: #f8f1d8; }
+.status-badge[data-status="finishing"] { color: #386d78; background: #e2f0f3; }
 .status-badge[data-status="done"] { color: #2f7d46; background: #e1f1e5; }
 .status-badge[data-status="measure"] { color: #456c97; background: #e6eef8; }
 .status-badge[data-status="process"], .status-badge[data-status="workshop"] { color: #aa712f; background: #fff1df; }
@@ -288,13 +289,25 @@ h2 { font-size: 13px; font-weight: 600; }
 .orders-table th { background: #f7f9f6; border-bottom: 1px solid var(--line); white-space: nowrap; }
 .orders-table th button { padding: 8px 10px; width: 100%; border: 0; background: none; font-size: 11px; text-align: inherit; color: var(--muted); }
 .orders-table th[aria-sort="ascending"] button, .orders-table th[aria-sort="descending"] button { color: var(--accent); }
-.orders-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.orders-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
 .orders-table tr:last-child td { border-bottom: 0; }
 .orders-table tbody tr:hover { background: #fafcf9; }
 .orders-table th:first-child { min-width: 220px; }
 .orders-table th:nth-child(n+4):nth-child(-n+8) { text-align: right; }
 .order-row-link { display: block; padding: 0; border: 0; background: none; color: var(--accent); text-align: left; font-weight: 550; overflow-wrap: anywhere; }
 .order-row-path { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
+.order-todos { min-width: 245px; max-width: 420px; margin-top: 9px; font-size: 11px; }
+.order-todos-heading { font-size: 10px; font-weight: 600; margin-bottom: 6px; }
+.order-todos-heading span { margin-left: 5px; color: var(--muted); font-weight: 400; }
+.order-todo-group + .order-todo-group { margin-top: 7px; }
+.order-todo-folder { display: block; max-width: 100%; padding: 0; border: 0; border-radius: 0; background: none; color: var(--accent); font-size: 10px; text-align: left; overflow-wrap: anywhere; }
+.order-todo-folder:hover { text-decoration: underline; }
+.order-todo-group ul { display: grid; gap: 3px; list-style: none; margin: 4px 0 0; padding: 0; }
+.order-todo-group li { display: flex; align-items: baseline; gap: 6px; line-height: 1.4; }
+.order-todo-group li > span:first-child { flex: 0 0 11px; color: var(--accent); }
+.order-todo-text { overflow-wrap: anywhere; min-width: 0; }
+.order-todo-group li.done .order-todo-text { color: var(--muted); text-decoration: line-through; }
+.order-todo-state { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
 .confirm-dialog { max-width: min(480px, 92vw); padding: 25px; border: 1px solid var(--line); border-radius: 12px; color: var(--text); }
 .confirm-dialog::backdrop { background: #1d33365c; }
 .confirm-dialog h2 { font-size: 20px; margin: 0 0 20px; }

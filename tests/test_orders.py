@@ -351,7 +351,8 @@ class OrderTests(unittest.TestCase):
         store.discover(manager.read_status_document, progress)
         self.assertEqual((progress["added"], progress["errors"]), (1, []))
         self.assertEqual([record["path"] for record in store.list()], [parent])
-        self.assertEqual(manager.read_folder(parent)["fileCount"], 1)
+        self.assertEqual(manager.read_folder(parent)["fileCount"], 0)
+        self.assertEqual(manager.read_folder(parent + "/# счета")["fileCount"], 1)
 
     def test_previous_service_registration_is_discarded_and_folder_note_wins(self):
         store = manager.order_store()

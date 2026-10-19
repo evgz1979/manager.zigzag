@@ -27,6 +27,7 @@ import order_folders
 import event_folders
 from event_folder_undo import EventRenamePending
 from folder_notes import FolderNotes, FolderNoteConflict, parent_order
+from order_todos import OrderTodos
 import file_trash
 from file_comments import FileCommentConflict
 from folder_structure import folder_role
@@ -72,6 +73,7 @@ STATUS_LABELS = {
     "unspecified": "Не указан",
     "new": "Новый", "measure": "Замеры", "process": "В работе",
     "workshop": "В цех", "install": "Монтаж", "rework": "Переделка/доделка",
+    "finishing": "Завершение/добивка",
     "done": "Готово", "done_but": "Готово, но…", "cancelled": "Отменён",
 }
 FINANCIAL_STATUS_LABELS = order_document.FINANCIAL_STATUS_LABELS
@@ -618,6 +620,7 @@ def discover_orders():
         finally:
             SCAN_STATE["running"] = False
             schedule_order_sync()
+            schedule_todo_refresh()
 
     threading.Thread(target=work, daemon=True).start()
     return dict(SCAN_STATE)
@@ -632,6 +635,23 @@ def schedule_order_sync():
 
 def folder_note_store():
     return FolderNotes(order_store(), status_document)
+
+
+TODO_REFRESH = threading.Event()
+
+
+def schedule_todo_refresh():
+    TODO_REFRESH.set()
+
+
+def order_todo_worker():
+    while True:
+        TODO_REFRESH.clear()
+        try:
+            OrderTodos(order_store()).refresh()
+        except Exception as error:
+            print(f"Обновление To-do папок: {error}", flush=True)
+        TODO_REFRESH.wait(300)
 
 
 def order_sync_worker():
@@ -679,12 +699,13 @@ def read_folder(relative=""):
     directories = directory_children(target)
     status = folder_status(target, directories)
     files, warnings = [], []
-    folder_count = 0
+    hide_files = status["folderKind"] == "order" or bool(status.get("order"))
+    folder_count = len(directories) if hide_files else 0
 
     def walk_error(error):
         warnings.append(f"Не удалось прочитать папку: {error.filename}")
 
-    for current, dirs, names in os.walk(target, onerror=walk_error, followlinks=False):
+    for current, dirs, names in (() if hide_files else os.walk(target, onerror=walk_error, followlinks=False)):
         current_path = Path(current)
         dirs[:] = [name for name in dirs if visible(current_path / name)]
         folder_count += len(dirs)
@@ -725,6 +746,7 @@ def read_folder(relative=""):
             "fileCount": len(files), "folderCount": folder_count,
             "totalSize": sum(file["size"] for file in files), "counts": counts,
             "warnings": warnings, "view": "print" if print_view else "files",
+            "filesScope": "events" if hide_files else "folder",
             "newFileName": next_print_name(target) if print_view else "",
             "canCreateOrderFolder": status["folderKind"] == "object",
             "canCreateEventFolder": status["folderKind"] == "order",
@@ -924,7 +946,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json({"status": "ok", "release": RELEASE_ID, "root": str(DATA_ROOT)}, head=head)
             elif parsed.path == "/api/orders":
                 store = order_store()
-                self.send_json({"orders": store.list(), "unregistrations": store.pending_unregistrations(), "scan": dict(SCAN_STATE)}, head=head)
+                self.send_json({"orders": OrderTodos(store).attach(store.list()), "unregistrations": store.pending_unregistrations(), "scan": dict(SCAN_STATE)}, head=head)
             elif parsed.path == "/api/mobile-status":
                 self.send_json(MobileBridge(order_store()).status(), head=head)
             elif parsed.path == "/api/folder-note":
@@ -1011,6 +1033,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
             elif route == "/api/event-folders-rename":
                 with file_comments.LOCK:
                     self.send_json(event_folders.rename(folder_note_store(), payload))
+                schedule_todo_refresh()
                 return
             elif route == "/api/folder-note-save":
                 record = folder_note_store().save(payload)
@@ -1029,6 +1052,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
                     store.import_folder(relative, fallback)
                 self.send_json(store.get(relative), 201)
                 schedule_order_sync()
+                schedule_todo_refresh()
                 return
             elif route == "/api/mobile-sync":
                 bridge = MobileBridge(order_store())
@@ -1053,6 +1077,10 @@ class ManagerHandler(BaseHTTPRequestHandler):
             elif route == "/api/orders-sync":
                 schedule_order_sync()
                 self.send_json({"ok": True})
+                return
+            elif route == "/api/todos-refresh":
+                schedule_todo_refresh()
+                self.send_json({"ok": True}, 202)
                 return
             elif route == "/api/print-create":
                 self.send_json(create_print_task(payload.get("path", ""), payload.get("link", ""), payload.get("description", ""), payload.get("title", "")), 201)
@@ -1120,6 +1148,7 @@ def main():
             print("Папки не сопоставлены; записи сохранены в архиве: " + ", ".join(migration["unresolved"]), flush=True)
     threading.Thread(target=order_sync_worker, daemon=True).start()
     threading.Thread(target=mobile_sync_worker, daemon=True).start()
+    threading.Thread(target=order_todo_worker, daemon=True).start()
     server = ThreadingHTTPServer((SERVER_HOST, port), ManagerHandler)
     print(f"Менеджер заказов: http://127.0.0.1:{port}", flush=True)
     print(f"Адрес сервера: {SERVER_HOST}:{port}", flush=True)

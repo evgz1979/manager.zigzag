@@ -261,7 +261,8 @@ class ManagerTests(unittest.TestCase):
         result = manager.read_folder(relative)
         self.assertEqual(next((folder / ".order-history").rglob("status.txt")).read_text(), content)
         self.assertEqual(result["note"], "Сохранить текст")
-        self.assertEqual(result["fileCount"], 1)
+        self.assertEqual(result["fileCount"], 0)
+        self.assertEqual(manager.read_folder(relative + "/Фото")["fileCount"], 1)
 
     def test_hidden_status_preserves_existing_visible_file_and_backups(self):
         relative = "Клиент/2026-00-00 - Заказ"
