@@ -6,6 +6,7 @@ import re
 import tempfile
 import time
 import unicodedata
+import icloud_access
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
@@ -90,7 +91,7 @@ def display_money(value):
 def read_text(path):
     if path.is_symlink() or not path.is_file() or path.stat().st_size > 1024 * 1024:
         raise ValueError(f"Некорректный файл {path.name}")
-    return path.read_text(encoding="utf-8-sig").replace("\r\n", "\n")
+    return icloud_access.read_bytes(path).decode("utf-8-sig").replace("\r\n", "\n")
 
 
 def status_key(value, labels):
@@ -261,7 +262,7 @@ def archive_current(folder):
     if not source.exists():
         return
     read_text(source)
-    raw = source.read_bytes()
+    raw = icloud_access.read_bytes(source)
     history = folder / ".order-history"
     version = history / hashlib.sha256(raw).hexdigest()
     if history.is_symlink() or version.is_symlink():
@@ -272,7 +273,7 @@ def archive_current(folder):
         raise ValueError("Файл истории не должен быть символической ссылкой")
     if not destination.exists():
         destination.write_bytes(raw)
-    if destination.read_bytes() != raw or source.read_bytes() != raw:
+    if icloud_access.read_bytes(destination) != raw or icloud_access.read_bytes(source) != raw:
         raise ValueError("Карточка изменилась во время переноса; повторите выгрузку")
 
 
@@ -284,7 +285,7 @@ def archive_legacy(folder):
             continue
         if source.is_symlink() or not source.is_file():
             raise ValueError(f"Вместо {name} должен быть обычный файл")
-        raw = source.read_bytes()
+        raw = icloud_access.read_bytes(source)
         history = folder / ".order-history"
         version = history / hashlib.sha256(raw).hexdigest()
         if history.is_symlink() or version.is_symlink():
@@ -295,6 +296,6 @@ def archive_legacy(folder):
             raise ValueError("Файл истории не должен быть символической ссылкой")
         if not destination.exists():
             destination.write_bytes(raw)
-        if destination.read_bytes() != raw or source.read_bytes() != raw:
+        if icloud_access.read_bytes(destination) != raw or icloud_access.read_bytes(source) != raw:
             raise ValueError("Прежний файл изменился во время переноса; повторите выгрузку")
         source.unlink()

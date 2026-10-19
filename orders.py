@@ -215,17 +215,22 @@ class OrderStore:
                 if not record["sync_pending"]:
                     continue
                 error = ""
+                phase = "Доступ к папке"
                 try:
                     folder = self.target(record["path"])
+                    phase = "Чтение карточки"
                     existing = document.load(folder, self.labels)
                     record["extra_blocks"].update({key: value for key, value in existing.get("extra_blocks", {}).items()
                         if key != document.TODO_BLOCK or key not in record["extra_blocks"]})
                     if existing.get("schema", 0) < document.FORMAT:
+                        phase = "Сохранение прежней карточки в историю"
                         document.archive_current(folder)
+                    phase = "Запись карточки"
                     self.atomic_write(folder / CARD, document.render(record, self.labels))
+                    phase = "Архив прежних файлов карточки"
                     document.archive_legacy(folder)
                 except (OSError, ValueError) as problem:
-                    error = str(problem)
+                    error = phase + ": " + document.icloud_access.sync_error(problem)
                 with self.connect() as db:
                     db.execute("""UPDATE orders SET sync_error=?,exported_revision=CASE WHEN ?='' THEN ?
                         ELSE exported_revision END, export_format=CASE WHEN ?='' THEN ? ELSE export_format END,

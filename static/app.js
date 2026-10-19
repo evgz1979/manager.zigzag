@@ -810,7 +810,7 @@ function renderOrderCalculated() {
 
 function renderExportState() {
   const order = state.folder?.order;
-  $("orderExportState").textContent = !order ? "" : order.sync_error ? "Сохранено в базе. Не удалось выгрузить в папку: " + order.sync_error : order.sync_pending ? "Сохранено в базе · ожидает выгрузки в папку" : "Выгружено в !.txt";
+  $("orderExportState").textContent = !order ? "" : order.sync_error ? "Сохранено в базе · выгрузка в очереди: " + order.sync_error : order.sync_pending ? "Сохранено в базе · ожидает выгрузки в папку" : "Выгружено в !.txt";
 }
 
 async function loadOrders() {
@@ -871,7 +871,7 @@ function renderOrders() {
   }).join("");
   $("ordersTableBody").innerHTML = filtered.map((order) => '<tr><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button><span class="order-row-path">' + escapeHtml(order.path) + '</span>' + renderOrderTodos(order) + '</td><td><span class="status-badge" data-status="' + escapeHtml(order.status) + '">' + escapeHtml(statusLabels[order.status] || order.status) + '</span></td><td><span class="status-badge" data-financial-status="' + escapeHtml(order.financial_status) + '">' + escapeHtml(financialStatusLabels[order.financial_status] || "Не указан") + '</span></td>' +
     ["amount", "costs", "profit", "paid", "debt"].map((field) => '<td class="order-money' + (order[field] < 0 ? " negative" : "") + '">' + rubles(order[field]) + '</td>').join("") +
-    '<td class="order-updated">' + formatDate(order.updated) + (order.sync_pending ? '<span class="sync-pending" title="' + escapeHtml(order.sync_error || "Ожидает выгрузки в папку") + '">' + (order.sync_error ? "Ошибка выгрузки" : "Ожидает выгрузки") + '</span>' : '<span class="sync-complete">Выгружено</span>') + '</td></tr>').join("");
+    '<td class="order-updated">' + formatDate(order.updated) + (order.sync_pending ? '<span class="sync-pending" title="' + escapeHtml(order.sync_error || "Ожидает выгрузки в папку") + '">' + (order.sync_error ? "В очереди · автоповтор" : "Ожидает выгрузки") + '</span>' : '<span class="sync-complete">Выгружено</span>') + '</td></tr>').join("");
   $("ordersEmpty").hidden = Boolean(filtered.length);
   $("ordersEmptyTitle").textContent = state.orders.length ? "Нет заказов по этому фильтру" : "Заказов пока нет";
   $("ordersEmptyHint").textContent = state.orders.length ? "Выберите другой статус или измените поисковый запрос." : "Откройте папку в дереве слева и нажмите «Добавить в список заказов». Кнопка «Найти заказы в папках» восстановит карточки из !.txt и прежних файлов статуса.";
@@ -879,7 +879,7 @@ function renderOrders() {
   const scan = state.scan;
   $("discoverOrdersButton").disabled = Boolean(scan?.running);
   $("ordersSyncState").textContent = scan?.running ? "Поиск карточек в фоне · просмотрено папок: " + scan.folders + " · добавлено: " + scan.added :
-    [scan?.folders ? "Поиск завершён: добавлено " + scan.added + (scan.errors.length ? ", ошибок: " + scan.errors.length : "") : "", errors.length ? "Не выгружено из-за ошибки: " + errors.length : pending.length ? "Ожидает выгрузки: " + pending.length : "Изменения выгружены в папки"].filter(Boolean).join(" · ");
+    [scan?.folders ? "Поиск завершён: добавлено " + scan.added + (scan.errors.length ? ", ошибок: " + scan.errors.length : "") : "", errors.length ? "Сохранено в базе · в очереди выгрузки: " + pending.length + " · ошибок: " + errors.length + " · повторим автоматически" : pending.length ? "Ожидает выгрузки: " + pending.length : "Изменения выгружены в папки"].filter(Boolean).join(" · ");
   if (scan?.errors.length) $("ordersSyncState").textContent += " · " + scan.errors.slice(0, 3).join(" · ");
   if (state.unregistrations.length) $("ordersSyncState").textContent += " · Сохранение снятой регистрации: " + state.unregistrations.length + (state.unregistrations.some((item) => item.sync_error) ? " · есть ошибки, повторим выгрузку" : "");
   $("ordersWorkspace").querySelectorAll("th").forEach((th) => {

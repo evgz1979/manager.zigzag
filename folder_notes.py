@@ -47,7 +47,7 @@ def file_revision(folder):
         if not path.exists() and not path.is_symlink():
             continue
         document.read_text(path)
-        raw = path.read_bytes()
+        raw = document.icloud_access.read_bytes(path)
         digest.update(name.encode() + len(raw).to_bytes(8, "big") + raw)
         found = True
         if name == document.DOCUMENT:
@@ -203,7 +203,7 @@ class FolderNotes:
                     body = document.render(json.loads(row["document"]), self.store.labels)
                     card = target / document.DOCUMENT
                     # Повтор после сбоя между публикацией файла и подтверждением SQLite.
-                    already_written = card.is_file() and not card.is_symlink() and card.read_bytes() == body.encode()
+                    already_written = card.is_file() and not card.is_symlink() and document.icloud_access.read_bytes(card) == body.encode()
                     if not already_written:
                         if file_revision(target) != row["file_revision"]:
                             raise FolderNoteConflict("!.txt изменён вне менеджера. Обе версии сохранены: в файле и в базе; выгрузка остановлена")
@@ -221,6 +221,6 @@ class FolderNotes:
                                    (row["revision"], revision, row["id"]))
                 except (OSError, ValueError) as error:
                     with self.connect() as db:
-                        db.execute("UPDATE folder_notes SET sync_error=? WHERE id=?", (str(error), row["id"]))
+                        db.execute("UPDATE folder_notes SET sync_error=? WHERE id=?", (document.icloud_access.sync_error(error), row["id"]))
         finally:
             SYNC_LOCK.release()

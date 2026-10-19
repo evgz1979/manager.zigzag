@@ -163,10 +163,10 @@ def health(port, release=None):
 
 
 def prepare_renderers(settings, release_dir):
-    command = [settings["python"], "-c", "import server, image_reports; server.pdf_renderer(); image_reports.renderer(server.APP_DIR, server.DATA_DIR)"]
+    command = [settings["python"], "-c", "import server, image_reports, icloud_access; server.pdf_renderer(); image_reports.renderer(server.APP_DIR, server.DATA_DIR); icloud_access.renderer()"]
     result = subprocess.run(command, cwd=release_dir, capture_output=True, text=True, timeout=180)
     if result.returncode:
-        raise RuntimeError("Не удалось подготовить PDF-просмотр и отчёты до переключения сервера:\n" + result.stderr[-6000:])
+        raise RuntimeError("Не удалось подготовить помощники PDF и iCloud до переключения сервера:\n" + result.stderr[-6000:])
 
 
 def start(domain, agent, port, release, documents):
