@@ -316,17 +316,33 @@ h2 { font-size: 13px; font-weight: 600; }
 .orders-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
 .orders-table tr:last-child td { border-bottom: 0; }
 .orders-table tbody tr:hover { background: #fafcf9; }
-.orders-table th:first-child { min-width: 220px; }
-.orders-table th:nth-child(n+4):nth-child(-n+8) { text-align: right; }
+.orders-table .order-todo-column { width: 68px; text-align: center; }
+.orders-table th.order-todo-column { padding: 8px 10px; color: var(--muted); font-size: 11px; font-weight: 400; }
+.orders-table th:nth-child(2) { min-width: 220px; }
+.orders-table th:nth-child(n+5):nth-child(-n+9) { text-align: right; }
+.order-todo-button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-width: 46px; padding: 5px 7px; font-size: 11px; color: var(--accent); background: var(--accent-soft); border-color: #cbded2; }
+.order-todo-button.empty { color: var(--muted); background: transparent; border-color: var(--line); }
+.order-todo-button svg { width: 11px; height: 11px; }
 .order-row-link { display: block; padding: 0; border: 0; background: none; color: var(--accent); text-align: left; font-weight: 550; overflow-wrap: anywhere; }
 .order-row-path { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
-.order-todos { min-width: 245px; max-width: 420px; margin-top: 9px; font-size: 11px; }
-.order-todos-heading { font-size: 10px; font-weight: 600; margin-bottom: 6px; }
-.order-todos-heading span { margin-left: 5px; color: var(--muted); font-weight: 400; }
-.order-todo-group + .order-todo-group { margin-top: 7px; }
-.order-todo-folder { display: block; max-width: 100%; padding: 0; border: 0; border-radius: 0; background: none; color: var(--accent); font-size: 10px; text-align: left; overflow-wrap: anywhere; }
+.order-todo-dialog { width: min(620px, calc(100vw - 32px)); max-width: none; max-height: min(560px, calc(100dvh - 80px)); padding: 0; border: 1px solid var(--line); border-radius: 12px; color: var(--text); box-shadow: 0 20px 70px #19312633; overflow: hidden; }
+.order-todo-dialog[open] { display: flex; flex-direction: column; }
+.order-todo-dialog::backdrop { background: #1d33365c; }
+.order-todo-dialog-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 18px 20px 14px; border-bottom: 1px solid var(--line); flex-shrink: 0; }
+.order-todo-dialog-header > div { min-width: 0; }
+.order-todo-dialog-header h2 { display: flex; align-items: center; gap: 8px; font-size: 16px; }
+.order-todo-dialog-header p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+#orderTodoOrder { margin-top: 8px; font-size: 12px; line-height: 1.4; }
+#orderTodoPath { margin-top: 4px; font-size: 10px; line-height: 1.4; color: var(--muted); }
+.order-todo-dialog-body { overflow: auto; min-height: 0; padding: 18px 20px; scrollbar-width: thin; }
+.order-todo-dialog-footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--line); flex-shrink: 0; }
+.order-todo-dialog-footer > span { color: var(--muted); font-size: 10px; }
+.order-todo-empty { font-size: 12px; color: var(--muted); padding: 12px 0; }
+.order-todos { min-width: 0; font-size: 12px; }
+.order-todo-group + .order-todo-group { margin-top: 18px; }
+.order-todo-folder { display: block; max-width: 100%; padding: 0; border: 0; border-radius: 0; background: none; color: var(--accent); font-size: 12px; text-align: left; overflow-wrap: anywhere; font-weight: 550; }
 .order-todo-folder:hover { text-decoration: underline; }
-.order-todo-group ul { display: grid; gap: 3px; list-style: none; margin: 4px 0 0; padding: 0; }
+.order-todo-group ul { display: grid; gap: 7px; list-style: none; margin: 8px 0 0; padding: 0; }
 .order-todo-group li { display: flex; align-items: baseline; gap: 6px; line-height: 1.4; }
 .order-todo-group li > span:first-child { flex: 0 0 11px; color: var(--accent); }
 .order-todo-text { overflow-wrap: anywhere; min-width: 0; }

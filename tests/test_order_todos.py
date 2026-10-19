@@ -119,16 +119,124 @@ class OrderTodoTests(unittest.TestCase):
         self.assertEqual([group["label"] for group in result[self.order]["todo_groups"]], ["Заказ"])
         self.assertEqual([group["label"] for group in result[nested]["todo_groups"]], ["Заказ", "Глубже"])
 
-    def test_missing_folder_keeps_saved_tasks_and_reports_incomplete_catalog(self):
+    def test_missing_folder_is_hidden_without_erasing_saved_tasks(self):
         self.add()
         self.card(self.order + "/Фото", [{"text": "Не потерять", "done": False}])
         summary = OrderTodos(manager.order_store())
         summary.refresh()
+        before = manager.folder_note_store().get(self.order + "/Фото")
         (self.root / self.order / "Фото").rename(self.base / "moved")
         summary.refresh()
         result = summary.attach(manager.order_store().list())[0]
-        self.assertEqual(result["todo_groups"][0]["items"][0]["text"], "Не потерять")
-        self.assertIn("Недоступны", result["todo_index"]["error"])
+        self.assertEqual(result["todo_groups"], [])
+        self.assertEqual(result["todo_index"]["error"], "")
+        self.assertEqual(manager.folder_note_store().get(self.order + "/Фото"), before)
+
+    def test_external_rename_hides_cached_tasks_without_rebinding_or_erasing_notes(self):
+        self.add()
+        old = self.order + "/10 - Ручки"
+        new = self.order + "/10 - Ручки и доводчики"
+        self.card(old, [{"text": "Проверить замки", "done": False}])
+        summary = OrderTodos(manager.order_store())
+        summary.refresh()
+        before = manager.folder_note_store().get(old)
+        (self.root / old).rename(self.root / new)
+        original = (self.root / new / "!.txt").read_bytes()
+        summary.refresh()
+        result = summary.attach(manager.order_store().list())[0]
+        groups = {group["path"]: group for group in result["todo_groups"]}
+        self.assertEqual(set(groups), {new})
+        self.assertFalse(groups[new]["unavailable"])
+        self.assertEqual(before["todo_items"], groups[new]["items"])
+        for _ in range(3):
+            summary.refresh()
+            self.assertEqual([group["path"] for group in summary.attach(manager.order_store().list())[0]["todo_groups"]], [new])
+        self.assertEqual(manager.folder_note_store().get(old), before)
+        self.assertEqual((self.root / new / "!.txt").read_bytes(), original)
+        self.root.rename(self.base / "offline")
+        with patch.object(manager.OrderStore, "target", side_effect=AssertionError("No iCloud on main")):
+            result = json.loads(self.http("/api/orders")[2])["orders"][0]
+        self.assertEqual([group["path"] for group in result["todo_groups"]], [new])
+
+    def test_returning_folder_becomes_available_without_changing_saved_tasks(self):
+        self.add()
+        path = self.order + "/Фото"
+        self.card(path, [{"text": "Вернуть папку", "done": False}])
+        summary = OrderTodos(manager.order_store())
+        summary.refresh()
+        before = manager.folder_note_store().get(path)
+        (self.root / path).rename(self.base / "moved")
+        summary.refresh()
+        self.assertEqual(summary.attach(manager.order_store().list())[0]["todo_groups"], [])
+        (self.base / "moved").rename(self.root / path)
+        summary.refresh()
+        result = summary.attach(manager.order_store().list())[0]
+        self.assertFalse(result["todo_groups"][0]["unavailable"])
+        self.assertEqual(result["todo_index"]["error"], "")
+        self.assertEqual(manager.folder_note_store().get(path), before)
+
+    def test_missing_folder_keeps_pending_edits_out_of_summary(self):
+        self.add()
+        old, new = self.order + "/Фото", self.order + "/Фотографии"
+        self.card(old, [{"text": "В файле", "done": False}])
+        summary = OrderTodos(manager.order_store())
+        summary.refresh()
+        notes = manager.folder_note_store()
+        record = notes.get(old)
+        saved = notes.save({"path": old, "revision": record["revision"], "note": "Невыгруженная заметка",
+                            "todo_items": [{"text": "Новая задача в базе", "done": False}]})
+        (self.root / old).rename(self.root / new)
+        original = (self.root / new / "!.txt").read_bytes()
+        summary.refresh()
+        groups = {group["path"]: group for group in summary.attach(manager.order_store().list())[0]["todo_groups"]}
+        self.assertNotIn(old, groups)
+        self.assertFalse(groups[new]["unavailable"])
+        self.assertEqual(groups[new]["items"][0]["text"], "В файле")
+        self.assertEqual(notes.get(old), saved)
+        self.assertEqual((self.root / new / "!.txt").read_bytes(), original)
+
+    def test_partial_scan_does_not_mark_unseen_folders_missing_or_clear_previous_missing_state(self):
+        self.add()
+        for name in ("Фото", "Материалы"):
+            self.card(self.order + "/" + name, [{"text": name, "done": False}])
+        summary = OrderTodos(manager.order_store())
+        summary.refresh()
+        def unavailable_walk(target, **kwargs):
+            kwargs["onerror"](PermissionError("iCloud временно недоступен"))
+            return iter(())
+        with patch("order_todos.os.walk", side_effect=unavailable_walk):
+            summary.refresh()
+        groups = summary.attach(manager.order_store().list())[0]["todo_groups"]
+        self.assertFalse(any(group["unavailable"] for group in groups))
+        (self.root / self.order / "Фото").rename(self.base / "moved")
+        summary.refresh()
+        with patch("order_todos.os.walk", side_effect=unavailable_walk):
+            summary.refresh()
+        groups = {group["label"]: group for group in summary.attach(manager.order_store().list())[0]["todo_groups"]}
+        self.assertNotIn("Фото", groups)
+        self.assertFalse(groups["Материалы"]["unavailable"])
+
+    def test_equal_tasks_in_two_existing_folders_are_not_deduplicated(self):
+        self.add()
+        for name in ("10 - Ручки", "10 - Доводчики"):
+            self.card(self.order + "/" + name, [{"text": "Проверить", "done": False}])
+        summary = OrderTodos(manager.order_store())
+        summary.refresh()
+        groups = summary.attach(manager.order_store().list())[0]["todo_groups"]
+        self.assertEqual(len(groups), 2)
+        self.assertFalse(any(group["unavailable"] for group in groups))
+
+    def test_existing_catalog_and_old_code_remain_compatible(self):
+        self.add()
+        with manager.folder_note_store().connect() as db:
+            db.execute("CREATE TABLE todo_catalog (path TEXT PRIMARY KEY, checked REAL, error TEXT NOT NULL)")
+            db.execute("INSERT INTO todo_catalog VALUES (?,?,?)", (self.order, 1, "Прежняя ошибка"))
+        summary = OrderTodos(manager.order_store())
+        summary.refresh()
+        with manager.folder_note_store().connect() as db:
+            db.execute("INSERT OR REPLACE INTO todo_catalog VALUES (?,?,?)", (self.order, 2, ""))
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM todo_missing_folders").fetchone()[0], 0)
+        self.assertEqual(summary.attach(manager.order_store().list())[0]["todo_index"]["checked"], 2)
 
     def test_finishing_status_round_trips_database_file_rebuild_and_independent_finance(self):
         record = self.add()

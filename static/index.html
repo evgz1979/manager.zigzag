@@ -41,7 +41,7 @@
           </div>
           <p id="ordersSyncState" class="orders-sync-state" role="status"></p>
           <div class="orders-table-scroll"><table class="orders-table"><caption class="visually-hidden">Заказы и финансовые показатели в рублях</caption><thead><tr>
-            <th scope="col"><button data-sort="title">Заказ ↕</button></th><th scope="col"><button data-sort="status">Производство ↕</button></th><th scope="col"><button data-sort="financial_status">Оплата ↕</button></th>
+            <th scope="col" class="order-todo-column">To-do</th><th scope="col"><button data-sort="title">Заказ ↕</button></th><th scope="col"><button data-sort="status">Производство ↕</button></th><th scope="col"><button data-sort="financial_status">Оплата ↕</button></th>
             <th scope="col"><button data-sort="amount">Сумма ↕</button></th><th scope="col"><button data-sort="costs">Затраты ↕</button></th>
             <th scope="col"><button data-sort="profit">Прибыль ↕</button></th><th scope="col"><button data-sort="paid">Оплачено ↕</button></th>
             <th scope="col"><button data-sort="debt">Остаток ↕</button></th><th scope="col"><button data-sort="updated">Обновлён ↓</button></th>
@@ -102,6 +102,11 @@
         </div>
       </section>
     </main>
+    <dialog id="orderTodoDialog" class="order-todo-dialog" aria-labelledby="orderTodoTitle" aria-describedby="orderTodoOrder">
+      <header class="order-todo-dialog-header"><div><h2 id="orderTodoTitle">To-do <span id="orderTodoDialogCount" class="count-badge"></span></h2><p id="orderTodoOrder"></p><p id="orderTodoPath"></p></div><button id="closeOrderTodos" class="icon-button" type="button" aria-label="Закрыть To-do" autofocus>✕</button></header>
+      <div id="orderTodoBody" class="order-todo-dialog-body" tabindex="0" aria-label="Актуальные задачи заказа и вложенных папок"></div>
+      <footer class="order-todo-dialog-footer"><span>Только актуальные задачи</span><button id="openTodoOrder" class="secondary-button" type="button">Открыть заказ</button></footer>
+    </dialog>
     <dialog id="createOrderFolderDialog" class="confirm-dialog create-order-dialog" aria-labelledby="createOrderFolderTitle">
       <h2 id="createOrderFolderTitle">Создать заказ</h2>
       <p>Новая папка в объекте:</p><p id="newOrderParent" class="confirm-path"></p>

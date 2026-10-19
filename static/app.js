@@ -16,6 +16,7 @@ const state = {
   fileRemoval: null, fileRemoving: false, trashRestoring: false,
   newOrderParent: null, creatingOrderFolder: false,
   eventPlan: null, eventBusy: false,
+  orderTodoPath: null, orderTodoMarkup: null,
 };
 let searchTimer, toastTimer, todoSaveTimer, previewVersion = 0, treeSearchVersion = 0, printReadVersion = 0;
 const icon = (name) => '<svg aria-hidden="true"><use href="#icon-' + name + '"/></svg>';
@@ -828,19 +829,61 @@ function orderTodoText(order) {
   return (order.todo_groups || []).map((group) => [group.label, ...(group.items || []).map((item) => item.text)].join(" ")).join(" ");
 }
 
-function renderOrderTodos(order) {
+function orderTodoSummary(order) {
   const groups = order.todo_groups || [];
-  const items = groups.flatMap((group) => group.items || []);
+  const count = groups.reduce((total, group) => total + (group.items || []).length, 0);
   const catalog = order.todo_index;
   const warning = catalog?.error ? "Сохранённые задачи · обновление папок: " + catalog.error : !catalog?.checked ? "Задачи папок обновляются…" : "";
-  if (!groups.length && !warning) return "";
-  return '<div class="order-todos" aria-label="To-do заказа и вложенных папок">' +
-    (groups.length ? '<div class="order-todos-heading">To-do' + (items.length ? ' <span>' + items.length + '</span>' : '') + '</div>' : "") +
-    groups.map((group) => '<section class="order-todo-group"><button class="order-todo-folder" data-order="' + escapeHtml(group.path) + '" title="' + escapeHtml(group.path) + '">' + escapeHtml(group.label) + '</button>' +
+  return { groups, count, warning };
+}
+
+function renderOrderTodoButton(order) {
+  const { groups, count, warning } = orderTodoSummary(order);
+  const label = "To-do: " + count + " · " + order.title;
+  return '<button type="button" class="order-todo-button' + (!groups.length ? ' empty' : '') + '" data-order-todos="' + escapeHtml(order.path) + '" aria-haspopup="dialog" aria-controls="orderTodoDialog" aria-label="' + escapeHtml(label) + '" title="' + escapeHtml(warning || "Открыть актуальные задачи") + '"><span>' + count + '</span>' + icon("chevron") + '</button>';
+}
+
+function renderOrderTodoGroup(group) {
+  return '<section class="order-todo-group">' +
+    '<button class="order-todo-folder" data-order="' + escapeHtml(group.path) + '" title="' + escapeHtml(group.path) + '">' + escapeHtml(group.label) + '</button>' +
       (group.items === null ? '<small class="order-todo-state">Прежние записи задач — просмотрите в папке</small>' :
         '<ul>' + group.items.map((item) => '<li' + (item.done ? ' class="done"' : '') + '><span aria-hidden="true">' + (item.done ? '✓' : '○') + '</span><span class="visually-hidden">' + (item.done ? 'Выполнено: ' : 'Нужно сделать: ') + '</span><span class="order-todo-text">' + escapeHtml(item.text) + '</span></li>').join("") + '</ul>') +
-      (group.sync_pending ? '<small class="order-todo-state">' + escapeHtml(group.sync_error ? "Сохранено в базе · выгрузка: " + group.sync_error : "Сохранено в базе · ожидает выгрузки") + '</small>' : "") + '</section>').join("") +
+      (group.sync_pending ? '<small class="order-todo-state">' + escapeHtml(group.sync_error ? "Сохранено в базе · выгрузка: " + group.sync_error : "Сохранено в базе · ожидает выгрузки") + '</small>' : "") + '</section>';
+}
+
+function renderOrderTodos(order) {
+  const { groups, warning } = orderTodoSummary(order);
+  return '<div class="order-todos" aria-label="To-do заказа и вложенных папок">' +
+    (groups.length ? groups.map(renderOrderTodoGroup).join("") : '<p class="order-todo-empty">Актуальных задач нет.</p>') +
     (warning ? '<small class="order-todo-state">' + escapeHtml(warning) + '</small>' : '') + '</div>';
+}
+
+function renderOrderTodoDialog() {
+  if (!$("orderTodoDialog").open) return;
+  const order = state.orders.find((item) => item.path === state.orderTodoPath);
+  if (!order) { $("orderTodoDialog").close(); return; }
+  $("orderTodoDialogCount").textContent = orderTodoSummary(order).count;
+  $("orderTodoOrder").textContent = order.title;
+  $("orderTodoOrder").title = order.title;
+  $("orderTodoPath").textContent = order.path;
+  $("orderTodoPath").title = order.path;
+  const markup = renderOrderTodos(order);
+  if (state.orderTodoMarkup !== markup) {
+    const scroll = $("orderTodoBody").scrollTop;
+    $("orderTodoBody").innerHTML = markup;
+    state.orderTodoMarkup = markup;
+    $("orderTodoBody").scrollTop = scroll;
+  }
+}
+
+function openOrderTodos(path) {
+  if (!state.orders.some((order) => order.path === path)) return;
+  state.orderTodoPath = path;
+  state.orderTodoMarkup = null;
+  $("orderTodoBody").replaceChildren();
+  $("orderTodoDialog").showModal();
+  renderOrderTodoDialog();
+  $("orderTodoBody").scrollTop = 0;
 }
 
 function renderOrders() {
@@ -869,7 +912,7 @@ function renderOrders() {
     const total = known.reduce((sum, order) => sum + order[field], 0);
     return '<div class="order-total"><span>' + label + '</span><strong>' + rubles(known.length ? total : null) + '</strong><small>' + (known.length === filtered.length && filtered.length ? "По всем выбранным заказам" : "Указано: " + known.length + " из " + filtered.length) + '</small></div>';
   }).join("");
-  $("ordersTableBody").innerHTML = filtered.map((order) => '<tr><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button><span class="order-row-path">' + escapeHtml(order.path) + '</span>' + renderOrderTodos(order) + '</td><td><span class="status-badge" data-status="' + escapeHtml(order.status) + '">' + escapeHtml(statusLabels[order.status] || order.status) + '</span></td><td><span class="status-badge" data-financial-status="' + escapeHtml(order.financial_status) + '">' + escapeHtml(financialStatusLabels[order.financial_status] || "Не указан") + '</span></td>' +
+  $("ordersTableBody").innerHTML = filtered.map((order) => '<tr><td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button><span class="order-row-path">' + escapeHtml(order.path) + '</span></td><td><span class="status-badge" data-status="' + escapeHtml(order.status) + '">' + escapeHtml(statusLabels[order.status] || order.status) + '</span></td><td><span class="status-badge" data-financial-status="' + escapeHtml(order.financial_status) + '">' + escapeHtml(financialStatusLabels[order.financial_status] || "Не указан") + '</span></td>' +
     ["amount", "costs", "profit", "paid", "debt"].map((field) => '<td class="order-money' + (order[field] < 0 ? " negative" : "") + '">' + rubles(order[field]) + '</td>').join("") +
     '<td class="order-updated">' + formatDate(order.updated) + (order.sync_pending ? '<span class="sync-pending" title="' + escapeHtml(order.sync_error || "Ожидает выгрузки в папку") + '">' + (order.sync_error ? "В очереди · автоповтор" : "Ожидает выгрузки") + '</span>' : '<span class="sync-complete">Выгружено</span>') + '</td></tr>').join("");
   $("ordersEmpty").hidden = Boolean(filtered.length);
@@ -883,13 +926,17 @@ function renderOrders() {
   if (scan?.errors.length) $("ordersSyncState").textContent += " · " + scan.errors.slice(0, 3).join(" · ");
   if (state.unregistrations.length) $("ordersSyncState").textContent += " · Сохранение снятой регистрации: " + state.unregistrations.length + (state.unregistrations.some((item) => item.sync_error) ? " · есть ошибки, повторим выгрузку" : "");
   $("ordersWorkspace").querySelectorAll("th").forEach((th) => {
-    const button = th.querySelector("button"), selected = button.dataset.sort === key;
+    const button = th.querySelector("button");
+    if (!button) return;
+    const selected = button.dataset.sort === key;
     th.setAttribute("aria-sort", selected ? direction === 1 ? "ascending" : "descending" : "none");
     button.textContent = button.textContent.replace(/ [↕↑↓]$/, "") + (selected ? direction === 1 ? " ↑" : " ↓" : " ↕");
   });
+  renderOrderTodoDialog();
 }
 
 async function showOrders({ history = true } = {}) {
+  if ($("orderTodoDialog").open) $("orderTodoDialog").close();
   if ($("previewDialog").open) await closePreview();
   await saveCurrentPrintTask();
   await saveCurrentStatus();
@@ -929,6 +976,7 @@ function openLocation() {
 }
 
 async function navigate(path, { history = true } = {}) {
+  if ($("orderTodoDialog").open) $("orderTodoDialog").close();
   if ($("previewDialog").open) await closePreview();
   await saveCurrentPrintTask();
   await saveCurrentStatus();
@@ -1335,8 +1383,35 @@ $("orderStatusFilters").addEventListener("click", (event) => {
 $("orderSearch").addEventListener("input", (event) => { state.orderQuery = event.target.value; renderOrders(); });
 $("financialStatusFilter").addEventListener("change", (event) => { state.financialFilter = event.target.value; renderOrders(); });
 $("ordersTableBody").addEventListener("click", (event) => {
+  const todoButton = event.target.closest("[data-order-todos]");
+  if (todoButton) { openOrderTodos(todoButton.dataset.orderTodos); return; }
   const button = event.target.closest("[data-order]");
   if (button) run(() => navigate(button.dataset.order));
+});
+$("closeOrderTodos").addEventListener("click", () => $("orderTodoDialog").close());
+$("orderTodoDialog").addEventListener("close", () => {
+  const path = state.orderTodoPath;
+  state.orderTodoPath = null;
+  state.orderTodoMarkup = null;
+  $("ordersTableBody").querySelectorAll("[data-order-todos]").forEach((button) => {
+    if (state.view === "orders" && button.dataset.orderTodos === path) button.focus({ preventScroll: true });
+  });
+});
+$("orderTodoDialog").addEventListener("click", (event) => {
+  if (event.target !== $("orderTodoDialog")) return;
+  const rect = $("orderTodoDialog").getBoundingClientRect();
+  if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) $("orderTodoDialog").close();
+});
+$("orderTodoBody").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-order]");
+  if (!button) return;
+  $("orderTodoDialog").close();
+  run(() => navigate(button.dataset.order));
+});
+$("openTodoOrder").addEventListener("click", () => {
+  const path = state.orderTodoPath;
+  $("orderTodoDialog").close();
+  if (path) run(() => navigate(path));
 });
 $("ordersWorkspace").querySelector("thead").addEventListener("click", (event) => {
   const button = event.target.closest("[data-sort]");
