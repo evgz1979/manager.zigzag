@@ -29,6 +29,7 @@ from folder_structure import folder_role
 APP_DIR = Path(__file__).resolve().parent
 CONFIG_FILE = APP_DIR / "manager.ini"
 STATIC_DIR = APP_DIR / "static"
+RELEASE_ID = (APP_DIR / ".release-id").read_text().strip() if (APP_DIR / ".release-id").exists() else "development"
 DATA_DIR = APP_DIR / "data"
 STATUSES_FILE = DATA_DIR / "statuses.json"
 STATUS_DOCUMENT_NAME = order_document.DOCUMENT
@@ -905,7 +906,9 @@ class ManagerHandler(BaseHTTPRequestHandler):
         query = urllib.parse.parse_qs(parsed.query)
         relative = query.get("path", [""])[0]
         try:
-            if parsed.path == "/api/orders":
+            if parsed.path == "/api/health":
+                self.send_json({"status": "ok", "release": RELEASE_ID, "root": str(DATA_ROOT)}, head=head)
+            elif parsed.path == "/api/orders":
                 store = order_store()
                 self.send_json({"orders": store.list(), "unregistrations": store.pending_unregistrations(), "scan": dict(SCAN_STATE)}, head=head)
             elif parsed.path == "/api/mobile-status":

@@ -75,6 +75,12 @@ class ManagerTests(unittest.TestCase):
         self.assertEqual([node["name"] for node in tree["auxiliary"]], ["# docs"])
         self.assertEqual(manager.read_tree("Клиент/2026/2026-01-00 - Заказ")["children"][0]["name"], "# счета")
 
+    def test_deployment_health_reports_release_without_creating_database(self):
+        status, _, body = self.http("/api/health")
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body), {"status": "ok", "release": manager.RELEASE_ID, "root": str(self.root)})
+        self.assertFalse(manager.DATA_DIR.exists())
+
     def test_mobile_status_is_local_and_bridge_can_be_enabled_or_paused(self):
         status, _, body = self.http("/api/mobile-status")
         self.assertEqual(status, 200)

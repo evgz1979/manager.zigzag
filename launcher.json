@@ -6,13 +6,11 @@
   "services": [
     {
       "id": "web",
-      "name": "Веб-интерфейс",
+      "name": "Открыть на M4",
       "command": [
-        "/usr/bin/python3",
-        "server.py"
+        "/usr/bin/true"
       ],
-      "port": 8765,
-      "url": "http://127.0.0.1:8765",
+      "url": "http://macmini-m4.local:8765",
       "autoStart": false
     }
   ]

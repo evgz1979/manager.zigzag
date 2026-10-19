@@ -1,5 +1,4 @@
 #!/bin/zsh
 cd "$(dirname "$0")"
-port=$(/usr/bin/python3 -c 'import server; print(server.SERVER_PORT)')
-open "http://127.0.0.1:$port"
-exec /usr/bin/python3 server.py
+url=$(/usr/bin/python3 -c 'import configparser; c=configparser.ConfigParser(interpolation=None); c.read("deploy.ini"); print("http://" + c["m4"]["ssh"].split("@")[-1] + ":" + c["m4"]["port"])')
+exec /usr/bin/open "$url"
