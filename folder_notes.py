@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import order_document as document
+from event_folder_undo import assert_unlocked
 from folder_structure import folder_role
 
 SYNC_LOCK = threading.Lock()
@@ -85,6 +86,7 @@ class FolderNotes:
         if not self.store.database.exists():
             return None
         with self.connect() as db:
+            assert_unlocked(db, relative)
             return self.record(db.execute("SELECT * FROM folder_notes WHERE path=?", (relative,)).fetchone())
 
     def target(self, relative):
@@ -114,6 +116,7 @@ class FolderNotes:
             raise FolderNoteConflict("Файл папки изменился во время чтения. Обновите папку")
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
+            assert_unlocked(db, relative)
             current = db.execute("SELECT * FROM folder_notes WHERE path=?", (relative,)).fetchone()
             if current and current["revision"] != current["exported_revision"]:
                 return self.record(current)
@@ -134,6 +137,7 @@ class FolderNotes:
             raise ValueError("Укажите заметку длиной до 100 000 символов")
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
+            assert_unlocked(db, relative)
             row = db.execute("SELECT * FROM folder_notes WHERE path=?", (relative,)).fetchone()
             if not row or payload.get("revision") != f"{row['id']}:{row['revision']}":
                 raise FolderNoteConflict("Заметка или задачи папки изменились. Обновите папку, сохранив свой ввод")
@@ -156,6 +160,8 @@ class FolderNotes:
                 rows = db.execute("SELECT * FROM folder_notes WHERE revision!=exported_revision ORDER BY path").fetchall()
             for row in rows:
                 try:
+                    with self.connect() as db:
+                        assert_unlocked(db, row["path"])
                     target = self.target(row["path"])
                     body = document.render(json.loads(row["document"]), self.store.labels)
                     card = target / document.DOCUMENT

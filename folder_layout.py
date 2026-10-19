@@ -99,6 +99,8 @@ class Plan:
         session = history / ("." + stamp)
         session.mkdir()
         plan = {"root": str(self.root), "clients": self.clients, "operations": self.operations, "notes": notes}
+        if getattr(self, "database_paths", False):
+            plan["database_paths"] = True
         save_json(session / ".plan.json", plan)
         save_json(session / ".before.json", before)
         shutil.copyfile(__file__, session / ".folder-layout.py")
@@ -107,7 +109,7 @@ class Plan:
                  "Файлы не перезаписываются. Содержимое событий и служебных папок переносится целиком.",
                  "Даты с 00 приблизительные; основания для дат записаны у каждого переноса.", "",
                  "Откат сначала показывает список действий:",
-                 f'python3 "{session / ".folder-layout.py"}" undo "{session}"',
+                 (f'python3 "{session / ".restore.py"}" "{session}"' if plan.get("database_paths") else f'python3 "{session / ".folder-layout.py"}" undo "{session}"'),
                  "Для выполнения отката добавьте --apply. Новые файлы не перезаписываются и не удаляются.", "",
                  *notes, "", "ПЛАН:"]
         for index, operation in enumerate(self.operations, 1):
@@ -158,9 +160,11 @@ def apply(session):
         append(session, {"phase": "complete", "operations": len(plan["operations"])})
 
 
-def undo(session, perform=False):
+def undo(session, perform=False, *, coordinate_database=False):
     session = Path(session)
     plan = load_plan(session)
+    if perform and plan.get("database_paths") and not coordinate_database:
+        raise ValueError("Эта операция меняет пути базы. Используйте .restore.py из этого же журнала")
     root = Path(plan["root"])
     with (session / ".lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)

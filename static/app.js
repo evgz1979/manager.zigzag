@@ -14,6 +14,7 @@ const state = {
   selectedFiles: new Set(), imageReport: null,
   fileRemoval: null, fileRemoving: false, trashRestoring: false,
   newOrderParent: null, creatingOrderFolder: false,
+  eventPlan: null, eventBusy: false,
 };
 let searchTimer, toastTimer, todoSaveTimer, previewVersion = 0, treeSearchVersion = 0, printReadVersion = 0;
 const icon = (name) => '<svg aria-hidden="true"><use href="#icon-' + name + '"/></svg>';
@@ -184,6 +185,7 @@ function renderFolder(preserveForm = false) {
   $("orderNote").placeholder = noteOnly ? "Заметка к этой папке" : "Что важно по этому заказу";
   $("removeOrderButton").hidden = !folder.order;
   $("createOrderFolderButton").hidden = folder.canCreateOrderFolder !== true;
+  $("createEventFolderButton").hidden = folder.canCreateEventFolder !== true;
   if (!preserveForm) {
     folder.todo_items = folder.order ? folder.order.todo_items : folder.todo_items === undefined ? [] : folder.todo_items;
     if (hasTodo) { $("todoNewText").value = ""; renderTodos(); }
@@ -543,6 +545,83 @@ async function createOrderFolder() {
   await loadTree();
   await navigate(created.path);
   notify("Папка заказа создана");
+}
+
+function renderNewEventName() {
+  $("newEventFolderName").textContent = (state.eventPlan?.next_number || "00") + " - " + ($("newEventTitle").value.trim() || "Название события");
+}
+
+function renderEventProposal(previous = new Map()) {
+  const suggestions = state.eventPlan.suggestions;
+  $("eventRenameSection").hidden = !suggestions.length;
+  $("confirmEventRenames").checked = false;
+  $("eventRenameList").innerHTML = suggestions.map((item) => {
+    const title = previous.get(item.source) ?? item.title;
+    return '<div class="event-rename-row" data-number="' + item.number + '"><p class="event-old-name">' + escapeHtml(item.source) + '</p>' +
+      '<label>Название события<input data-event-source="' + escapeHtml(item.source) + '" aria-label="Название для ' + escapeHtml(item.source) + '" type="text" maxlength="240" required value="' + escapeHtml(title) + '" placeholder="Укажите название"></label>' +
+      '<p class="new-order-preview">→ <strong>' + escapeHtml(item.number + ' - ' + (title || 'Название события')) + '</strong></p></div>';
+  }).join("");
+  renderNewEventName();
+}
+
+async function openCreateEventFolder() {
+  if (state.folder?.canCreateEventFolder !== true) return;
+  const path = state.folder.path;
+  const plan = await request(apiUrl("/api/event-folders", path));
+  if (state.folder?.path !== path) return;
+  state.eventPlan = plan;
+  $("newEventParent").textContent = path;
+  $("newEventTitle").value = "";
+  $("eventFolderError").hidden = true;
+  renderEventProposal();
+  $("createEventFolderDialog").showModal();
+  $("newEventTitle").focus();
+}
+
+async function eventAction(action) {
+  if (state.eventBusy) return;
+  const form = action === "create" ? $("createEventFolderForm") : $("renameEventFoldersForm");
+  if (!form.reportValidity()) return;
+  state.eventBusy = true;
+  const controls = $("createEventFolderDialog").querySelectorAll("input, button");
+  controls.forEach((control) => { control.disabled = true; });
+  $("eventFolderError").hidden = true;
+  let created;
+  try {
+    await saveCurrentStatus();
+    const plan = state.eventPlan;
+    if (action === "create") {
+      created = await request("/api/event-folder-create", { path: plan.path, revision: plan.revision, title: $("newEventTitle").value });
+    } else {
+      const names = [...$("eventRenameList").querySelectorAll("input")].map((input) => ({ source: input.dataset.eventSource, title: input.value }));
+      await request("/api/event-folders-rename", { path: plan.path, revision: plan.revision, names, confirmed: $("confirmEventRenames").checked });
+      state.eventPlan = await request(apiUrl("/api/event-folders", plan.path));
+      renderEventProposal();
+      await loadTree();
+      await navigate(plan.path, { history: false });
+      notify("Папки событий переименованы");
+    }
+  } catch (error) {
+    $("eventFolderError").textContent = error.message;
+    $("eventFolderError").hidden = false;
+  } finally {
+    state.eventBusy = false;
+    controls.forEach((control) => { control.disabled = false; });
+  }
+  if (created) {
+    $("createEventFolderDialog").close();
+    await loadTree();
+    await navigate(created.path);
+    notify("Событие создано");
+  }
+}
+
+async function refreshEventProposal() {
+  if (state.eventBusy) return;
+  const previous = new Map([...$("eventRenameList").querySelectorAll("input")].map((input) => [input.dataset.eventSource, input.value]));
+  state.eventPlan = await request(apiUrl("/api/event-folders", state.eventPlan.path));
+  $("eventFolderError").hidden = true;
+  renderEventProposal(previous);
 }
 
 async function openPrintTask(path) {
@@ -1276,6 +1355,18 @@ $("homeButton").addEventListener("click", () => run(() => showOrders()));
 $("ordersButton").addEventListener("click", () => run(() => showOrders()));
 $("openFolderButton").addEventListener("click", () => run(() => openNative(state.selected)));
 $("createOrderFolderButton").addEventListener("click", openCreateOrderFolder);
+$("createEventFolderButton").addEventListener("click", () => run(openCreateEventFolder));
+$("newEventTitle").addEventListener("input", renderNewEventName);
+$("createEventFolderForm").addEventListener("submit", (event) => { event.preventDefault(); run(() => eventAction("create")); });
+$("renameEventFoldersForm").addEventListener("submit", (event) => { event.preventDefault(); run(() => eventAction("rename")); });
+$("refreshEventProposal").addEventListener("click", () => run(refreshEventProposal));
+$("closeCreateEventFolder").addEventListener("click", () => $("createEventFolderDialog").close());
+$("createEventFolderDialog").addEventListener("cancel", (event) => { if (state.eventBusy) event.preventDefault(); });
+$("eventRenameList").addEventListener("input", (event) => {
+  const row = event.target.closest(".event-rename-row");
+  if (row) row.querySelector("strong").textContent = row.dataset.number + " - " + (event.target.value.trim() || "Название события");
+  $("confirmEventRenames").checked = false;
+});
 $("createOrderFolderForm").addEventListener("submit", (event) => { event.preventDefault(); run(createOrderFolder); });
 $("cancelCreateOrderFolder").addEventListener("click", () => $("createOrderFolderDialog").close());
 $("createOrderFolderDialog").addEventListener("cancel", (event) => { if (state.creatingOrderFolder) event.preventDefault(); });

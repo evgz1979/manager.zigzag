@@ -307,6 +307,17 @@ h2 { font-size: 13px; font-weight: 600; }
 .new-order-preview { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
 .new-order-preview strong { color: var(--text); font-weight: 500; }
 .new-order-error { margin: 0; color: #9b5146; font-size: 12px; }
+.create-event-dialog { width: 560px; max-height: 88dvh; overflow: auto; }
+.event-rename-section { border-top: 1px solid var(--line); margin-top: 24px; padding-top: 18px; }
+.event-rename-section h3 { font-size: 15px; margin: 0; }
+.event-rename-section > p { font-size: 12px; color: var(--muted); }
+.event-rename-row { padding: 14px 0; border-bottom: 1px solid var(--line); }
+.event-rename-row p { margin: 0 0 8px; overflow-wrap: anywhere; }
+.event-rename-row .new-order-preview { margin: 8px 0 0; }
+.event-old-name { font-size: 12px; }
+.create-event-dialog .event-rename-confirm { display: flex; align-items: center; gap: 8px; line-height: 1.5; }
+.create-event-dialog .event-rename-confirm input { width: 15px; height: 15px; flex-shrink: 0; }
+.create-event-dialog > .new-order-error { margin-top: 16px; }
 .confirm-path { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
 .confirm-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px; }
 .danger-button { padding: 9px 13px; border-color: #9b5146; background: #9b5146; color: white; }

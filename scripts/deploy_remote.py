@@ -187,6 +187,15 @@ def start(domain, agent, port, release, documents):
     raise RuntimeError("Сервис не прошёл проверку запуска; см. ~/Library/Logs/ZigzagManager/server-error.log")
 
 
+def check_event_rename_compatibility(database, release_dir):
+    if not database.exists() or (release_dir / "event_folder_undo.py").is_file():
+        return
+    with closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)) as db:
+        if (db.execute("SELECT 1 FROM sqlite_master WHERE name='event_renames'").fetchone()
+                and db.execute("SELECT 1 FROM event_renames WHERE state='pending' LIMIT 1").fetchone()):
+            raise RuntimeError("Есть прерванное переименование событий. Завершите его откат перед переключением на старый код")
+
+
 def deploy(settings, action, release):
     root = Path(settings["directory"])
     documents = Path(settings["documents"]).expanduser().resolve()
@@ -263,6 +272,7 @@ def deploy(settings, action, release):
             stop(domain)
             stopped = True
             backup_database(data / database_name(documents), history / "before.sqlite3")
+            check_event_rename_compatibility(data / database_name(documents), release_dir)
             select_release(root, release)
             atomic_write(agent, plistlib.dumps(job))
             value = start(domain, agent, port, release, documents)
@@ -274,6 +284,7 @@ def deploy(settings, action, release):
             if stopped:
                 stop(domain)
                 if previous and old_agent:
+                    check_event_rename_compatibility(data / database_name(documents), root / ".releases" / previous)
                     select_release(root, previous)
                     atomic_write(agent, old_agent)
                     value = start(domain, agent, port, previous, documents)

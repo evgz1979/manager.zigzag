@@ -24,6 +24,8 @@ from mobile_sync import MobileBridge
 import image_reports
 import native_renderers
 import order_folders
+import event_folders
+from event_folder_undo import EventRenamePending
 from folder_notes import FolderNotes, FolderNoteConflict, parent_order
 import file_trash
 from file_comments import FileCommentConflict
@@ -725,6 +727,7 @@ def read_folder(relative=""):
             "warnings": warnings, "view": "print" if print_view else "files",
             "newFileName": next_print_name(target) if print_view else "",
             "canCreateOrderFolder": status["folderKind"] == "object",
+            "canCreateEventFolder": status["folderKind"] == "order",
             **status}
 
 
@@ -929,6 +932,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 if not record:
                     raise FileNotFoundError("Заметка папки не найдена в базе")
                 self.send_json(record, head=head)
+            elif parsed.path == "/api/event-folders":
+                self.send_json(event_folders.preview(DATA_ROOT, relative, folder_note_store()), head=head)
             elif parsed.path == "/api/order":
                 record = order_store().get(relative)
                 if not record:
@@ -999,6 +1004,13 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 raise ValueError("Некорректный запрос")
             if route == "/api/order-folder-create":
                 self.send_json(order_folders.create(DATA_ROOT, payload.get("path"), payload.get("date"), payload.get("title")), 201)
+                return
+            elif route == "/api/event-folder-create":
+                self.send_json(event_folders.create(DATA_ROOT, payload, folder_note_store()), 201)
+                return
+            elif route == "/api/event-folders-rename":
+                with file_comments.LOCK:
+                    self.send_json(event_folders.rename(folder_note_store(), payload))
                 return
             elif route == "/api/folder-note-save":
                 record = folder_note_store().save(payload)
@@ -1088,7 +1100,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": True})
         except FileNotFoundError as error:
             self.send_json({"error": str(error)}, 404)
-        except (PrintConflict, OrderConflict, FileCommentConflict, file_trash.TrashConflict, order_folders.OrderFolderConflict, FolderNoteConflict) as error:
+        except (PrintConflict, OrderConflict, FileCommentConflict, file_trash.TrashConflict, order_folders.OrderFolderConflict, FolderNoteConflict, event_folders.EventFolderConflict, EventRenamePending) as error:
             self.send_json({"error": str(error)}, 409)
         except (ValueError, UnicodeDecodeError) as error:
             self.send_json({"error": str(error)}, 400)

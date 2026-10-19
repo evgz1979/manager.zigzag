@@ -111,6 +111,22 @@ class DeploymentTests(unittest.TestCase):
         with sqlite3.connect(self.db) as db:
             self.assertEqual(db.execute("SELECT * FROM orders").fetchall(), [("preserve-me", 7, 5)])
 
+    def test_old_code_cannot_bypass_pending_event_rename_guards(self):
+        release = self.base / "compatibility-release"
+        release.mkdir()
+        remote.check_event_rename_compatibility(self.db, release)
+        with sqlite3.connect(self.db) as db:
+            db.execute("CREATE TABLE event_renames (state TEXT)")
+            db.execute("INSERT INTO event_renames VALUES ('pending')")
+        with self.assertRaisesRegex(RuntimeError, "переименование"):
+            remote.check_event_rename_compatibility(self.db, release)
+        (release / "event_folder_undo.py").write_text("# guards supported")
+        remote.check_event_rename_compatibility(self.db, release)
+        (release / "event_folder_undo.py").unlink()
+        with sqlite3.connect(self.db) as db:
+            db.execute("UPDATE event_renames SET state='undone'")
+        remote.check_event_rename_compatibility(self.db, release)
+
     def run_deploy(self, start, renderers=None):
         with patch.object(remote.Path, "home", return_value=self.base / "home"), \
              patch.object(remote, "service_loaded", return_value=True), \
