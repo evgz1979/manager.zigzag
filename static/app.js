@@ -227,7 +227,7 @@ function renderFolder(preserveForm = false) {
     escapeHtml(part.name) + "</button>").join("");
   $("folderTitle").textContent = printView ? "Задания на печать" : folder.path ? folder.order?.title || folder.name : "Клиенты и заказы";
   $("clientLabel").textContent = printView ? "ШИРОКОФОРМАТНАЯ ПРОДУКЦИЯ" : service ? "СЛУЖЕБНАЯ ПАПКА" : folder.folderKindLabel && folder.folderKind !== "order" ? folder.folderKindLabel : folder.client || folder.name;
-  $("folderSummary").textContent = printView ? printCountLabel(folder.fileCount) + " · название, ссылка и описание" : folder.filesLoading ? "Карточка из локальной базы · подпапки загружаются…" : folder.filesUnavailable ? "Карточка из локальной базы · папка сейчас недоступна" : folder.filesScope === "events" ? folder.folderCount + " папок · файлы доступны в событиях" : folder.path
+  $("folderSummary").textContent = printView ? printCountLabel(folder.fileCount) + " · название, ссылка и описание" : folder.filesLoading ? "Карточка из локальной базы · подпапки загружаются…" : folder.filesUnavailable ? "Карточка из локальной базы · папка сейчас недоступна" : folder.filesScope === "events" ? folder.folderCount + " папок · файлы доступны в событиях" : folder.filesScope === "subfolders" ? folder.folderCount + " папок" : folder.path
     ? folder.fileCount + " файлов · " + folder.folderCount + " папок · " + formatSize(folder.totalSize)
     : "Выберите клиента или заказ в дереве слева";
   renderSubfolders();
@@ -267,7 +267,7 @@ function renderFolder(preserveForm = false) {
   $("notice").hidden = !warnings.length;
   $("notice").textContent = warnings.join(" · ");
   $("fileSearch").value = state.fileQuery;
-  $("filesSection").hidden = printView || folder.filesScope === "events" || Boolean(folder.filesLoading || folder.filesUnavailable);
+  $("filesSection").hidden = printView || ["events", "subfolders"].includes(folder.filesScope) || Boolean(folder.filesLoading || folder.filesUnavailable);
   $("printWorkspace").hidden = !printView;
   if (printView) {
     state.printQuery = "";

@@ -100,9 +100,35 @@ class ManagerTests(unittest.TestCase):
         nodes = manager.read_tree("Клиент")["children"]
         self.assertEqual({node["name"] for node in nodes}, {"2026", "2026-00-00 - Заказ"})
         folder = manager.read_folder("Клиент")
-        self.assertEqual(folder["fileCount"], 2)
-        self.assertEqual(folder["folderCount"], 5)
-        self.assertEqual({file["folder"] for file in folder["files"]}, {"2026/2026-01-00 - Заказ/# счета", "2026-00-00 - Заказ/Фото"})
+        self.assertEqual(folder["filesScope"], "subfolders")
+        self.assertEqual(folder["fileCount"], 0)
+        self.assertEqual(folder["folderCount"], 2)
+        self.assertEqual({item["name"] for item in folder["directories"]}, {"2026", "2026-00-00 - Заказ"})
+        event = manager.read_folder("Клиент/2026-00-00 - Заказ/Фото")
+        self.assertEqual([item["name"] for item in event["files"]], ["файл%2F #.txt"])
+
+    def test_client_and_object_skip_files_without_changing_document_root_or_other_folders(self):
+        self.file("root.txt", b"root")
+        self.file("Клиент/direct.txt", b"client")
+        self.file("Клиент/Объект/direct.txt", b"object")
+        self.file("Клиент/Объект/2026-10-19 - Заказ/00 - Замеры/file.txt", b"event")
+        with patch.object(manager.os, "walk", side_effect=AssertionError("Client and object must not scan files")):
+            for path, count in (("Клиент", 3), ("Клиент/Объект", 1)):
+                with self.subTest(path=path):
+                    folder = manager.read_folder(path)
+                    self.assertEqual((folder["filesScope"], folder["files"], folder["fileCount"]), ("subfolders", [], 0))
+                    self.assertEqual(folder["folderCount"], count)
+                    self.assertTrue(folder["noteOnly"])
+        root = manager.read_folder("")
+        self.assertEqual(root["filesScope"], "folder")
+        self.assertEqual([item["name"] for item in root["files"]], ["root.txt"])
+        for path in ("Клиент/2026", "Клиент/Объект/2026-10-19 - Заказ/00 - Замеры", "# docs"):
+            with self.subTest(path=path):
+                listing = manager.read_folder(path)
+                self.assertEqual(listing["filesScope"], "folder")
+                self.assertTrue(listing["files"])
+        for path, content in (("Клиент/direct.txt", b"client"), ("Клиент/Объект/direct.txt", b"object")):
+            self.assertEqual((self.root / path).read_bytes(), content)
 
     def test_service_folders_have_portable_notes_and_never_order_fields(self):
         note = "Оплатить счёт\n\n[Заказ]\n> текст\n"
@@ -191,10 +217,12 @@ class ManagerTests(unittest.TestCase):
         outside = self.base / "outside.txt"
         outside.write_text("private")
         (self.root / "Клиент" / "outside.txt").symlink_to(outside)
-        for path in ("../outside.txt", str(outside), ".скрыто", "Клиент/outside.txt"):
+        event = "Клиент/2026-00-00 - Заказ/Фото"
+        (self.root / event / "outside.txt").symlink_to(outside)
+        for path in ("../outside.txt", str(outside), ".скрыто", "Клиент/outside.txt", event + "/outside.txt"):
             with self.subTest(path=path), self.assertRaises(ValueError):
                 manager.safe_path(path)
-        self.assertEqual(manager.read_folder("Клиент")["fileCount"], 2)
+        self.assertEqual(manager.read_folder(event)["fileCount"], 1)
 
     def test_config_accepts_relative_paths_and_literal_hash_percent(self):
         config = self.base / "manager.ini"

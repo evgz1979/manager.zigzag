@@ -700,7 +700,9 @@ def read_folder(relative=""):
     directories = directory_children(target)
     status = folder_status(target, directories)
     files, warnings = [], []
-    hide_files = status["folderKind"] == "order" or bool(status.get("order"))
+    files_scope = "events" if status["folderKind"] == "order" or status.get("order") else (
+        "subfolders" if status["folderKind"] in {"client", "object"} else "folder")
+    hide_files = files_scope != "folder"
     folder_count = len(directories) if hide_files else 0
 
     def walk_error(error):
@@ -766,7 +768,7 @@ def read_folder(relative=""):
             "fileCount": len(files), "folderCount": folder_count,
             "totalSize": sum(file["size"] for file in files), "counts": counts,
             "warnings": warnings, "view": "print" if print_view else "files",
-            "filesScope": "events" if hide_files else "folder",
+            "filesScope": files_scope,
             "newFileName": next_print_name(target) if print_view else "",
             "canCreateOrderFolder": status["folderKind"] == "object",
             "canCreateEventFolder": status["folderKind"] == "order",
