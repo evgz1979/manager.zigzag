@@ -1,6 +1,6 @@
 /* Invoice fields live in SQLite; a browser draft is never the saved copy. */
 (() => {
-  let editor = null, listedPath = null, loading = 0, pendingCreate = null;
+  let editor = null, listedPath = null, listMarkup = null, loading = 0, pendingCreate = null;
   const fields = { kind: "invoiceKind", number: "invoiceNumber", date: "invoiceDate", due_date: "invoiceDue",
     buyer_name: "invoiceBuyer", buyer_inn: "invoiceBuyerInn", buyer_kpp: "invoiceBuyerKpp", buyer_address: "invoiceBuyerAddress",
     note: "invoiceNote", work_start: "invoiceWorkStart", work_end: "invoiceWorkEnd", terms: "invoiceTerms" };
@@ -17,27 +17,34 @@
     const folder = state.folder;
     const visible = Boolean(folder?.order);
     $("invoiceSection").hidden = !visible;
-    if (!visible) { listedPath = null; return; }
+    if (!visible) { listedPath = null; ++loading; return; }
     if (listedPath === folder.path && !force) return;
     const version = ++loading;
-    if (listedPath !== folder.path) { $("invoiceList").replaceChildren(); $("invoiceCount").textContent = ""; }
+    if (listedPath !== folder.path) {
+      $("invoiceList").replaceChildren(); $("invoiceCount").textContent = "";
+      listMarkup = null;
+      $("invoiceListState").textContent = "Загрузка счетов…";
+    }
     listedPath = folder.path;
-    $("invoiceListState").textContent = "Загрузка счетов…";
     try {
       const result = await request(apiUrl("/api/invoices", folder.path));
       if (version !== loading || state.folder?.path !== folder.path) return;
       $("invoiceCount").textContent = result.items.length || "";
       $("invoiceListState").textContent = result.items.length ? "" : "Выпиши первый счёт по этому заказу.";
-      $("invoiceList").innerHTML = result.items.map((record) => {
+      const markup = result.items.map((record) => {
         const label = (record.data.kind === "contract" ? "Счёт-договор" : "Счёт") + " № " + record.number;
         const sync = record.state === "draft" ? "Черновик" : record.sync_error ? "PDF в базе · " + record.sync_error + " · автоповтор" : record.sync_pending ? "PDF в базе · копия в # bills ожидает выгрузки" : "PDF в # bills";
         return '<div class="invoice-row"><button type="button" class="invoice-row-name" data-invoice-edit="' + record.id + '">' + escapeHtml(label) + '<small>' + escapeHtml(record.data.date.split("-").reverse().join(".")) + '</small></button><strong>' + cash(record.data.total) + '</strong><span class="invoice-row-state' + (record.sync_error ? ' error' : '') + '">' + escapeHtml(sync) + '</span>' +
           (record.state === "issued" ? '<a class="secondary-button" href="' + escapeHtml(pdfUrl(record)) + '" target="_blank" rel="noopener">PDF ↗</a>' : '') + '<button class="secondary-button" type="button" data-invoice-copy="' + record.id + '">На основе</button></div>';
       }).join("");
+      if (markup !== listMarkup) {
+        $("invoiceList").innerHTML = markup;
+        listMarkup = markup;
+      }
       // Store records on this exact list, independent of grid positions.
       $("invoiceList").invoiceRecords = result.items;
     } catch (error) {
-      if (version === loading) { listedPath = null; $("invoiceListState").textContent = error.message; }
+      if (version === loading && state.folder?.path === folder.path) $("invoiceListState").textContent = error.message;
     }
   }
 
