@@ -993,6 +993,13 @@ def pdf_key(target):
     return hashlib.sha256(f"{target}:{stat.st_mtime_ns}:{stat.st_size}".encode()).hexdigest()
 
 
+def pdf_error(stderr, fallback):
+    for line in stderr.decode("utf-8", errors="replace").splitlines():
+        if line.startswith("ZIGZAG_PDF_ERROR: "):
+            return line.removeprefix("ZIGZAG_PDF_ERROR: ").strip() or fallback
+    return fallback
+
+
 def pdf_info(target):
     if target.suffix.lower() != ".pdf":
         raise ValueError("Выберите PDF")
@@ -1003,7 +1010,7 @@ def pdf_info(target):
                                     check=True, capture_output=True, timeout=20)
             PDF_INFO_CACHE[key] = json.loads(result.stdout)
         except subprocess.CalledProcessError as error:
-            raise ValueError(error.stderr.decode("utf-8", errors="replace").strip() or "Не удалось прочитать PDF")
+            raise ValueError(pdf_error(error.stderr or b"", "Не удалось прочитать PDF. Открой его на Mac."))
         except (OSError, subprocess.TimeoutExpired):
             raise ValueError("Не удалось прочитать PDF. Откройте его на Mac.")
     return PDF_INFO_CACHE[key]
@@ -1021,6 +1028,9 @@ def pdf_page(target, page):
             try:
                 subprocess.run([str(pdf_renderer()), str(target), str(page), str(preview)],
                                check=True, capture_output=True, timeout=30)
+            except subprocess.CalledProcessError as error:
+                preview.unlink(missing_ok=True)
+                raise ValueError(pdf_error(error.stderr or b"", "Не удалось показать страницу PDF. Открой его на Mac."))
             except (OSError, subprocess.SubprocessError):
                 preview.unlink(missing_ok=True)
                 raise ValueError("Не удалось показать страницу PDF. Откройте его на Mac.")

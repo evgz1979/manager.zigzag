@@ -2,12 +2,41 @@ import AppKit
 import PDFKit
 
 func fail(_ message: String) -> Never {
-    FileHandle.standardError.write(Data((message + "\n").utf8))
+    FileHandle.standardError.write(Data(("ZIGZAG_PDF_ERROR: " + message + "\n").utf8))
     exit(1)
 }
 
 let args = CommandLine.arguments
-guard args.count >= 3, let document = PDFDocument(url: URL(fileURLWithPath: args[1])) else {
+guard args.count >= 3 else { fail("Не указан файл PDF") }
+let url = URL(fileURLWithPath: args[1])
+let manager = FileManager.default
+var contents: Data?
+do {
+    let attributes = try manager.attributesOfItem(atPath: url.path)
+    guard attributes[.type] as? FileAttributeType == .typeRegular else {
+        fail("Для просмотра нужен обычный файл PDF")
+    }
+    if manager.isUbiquitousItem(at: url) {
+        try manager.startDownloadingUbiquitousItem(at: url)
+    }
+    var coordinationError: NSError?
+    var readError: Error?
+    let coordinator = NSFileCoordinator(filePresenter: nil)
+    coordinator.coordinate(readingItemAt: url, options: [], error: &coordinationError) { localURL in
+        do {
+            let file = try FileHandle(forReadingFrom: localURL)
+            defer { try? file.close() }
+            contents = try file.readToEnd() ?? Data()
+        } catch { readError = error }
+    }
+    if let error = coordinationError { throw error }
+    if let error = readError { throw error }
+} catch {
+    fail("Не удалось получить PDF из папки. iCloud может ещё загружать файл; попробуй открыть его повторно.")
+}
+// PDFKit must receive the bytes already read by Foundation. Opening the iCloud
+// URL inside CoreGraphics can fail in the background service even for a valid PDF.
+guard let data = contents, let document = PDFDocument(data: data) else {
     fail("Не удалось прочитать PDF")
 }
 if document.isLocked { fail("PDF защищён паролем. Откройте его на Mac.") }
