@@ -351,6 +351,8 @@ h2 { font-size: 13px; font-weight: 600; }
 .orders-table .order-favorite-column { width: 38px; padding: 6px 3px; text-align: center; }
 .orders-table th.order-favorite-column { color: var(--muted); font-weight: 400; }
 .order-favorite-button { display: inline-grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; background: transparent; color: var(--muted); font-size: 21px; line-height: 1; }
+.order-favorite-button[aria-pressed="false"] > span { opacity: .35; }
+.order-favorite-button[aria-pressed="false"]:hover > span, .order-favorite-button[aria-pressed="false"]:focus-visible > span { opacity: 1; }
 .order-favorite-button:hover { color: #a37413; background: #fcf4df; }
 .order-favorite-button[aria-pressed="true"] { color: #b57b0b; }
 .order-todo-button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-width: 46px; padding: 5px 7px; font-size: 11px; color: var(--accent); background: var(--accent-soft); border-color: #cbded2; }
