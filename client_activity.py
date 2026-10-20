@@ -17,8 +17,8 @@ class ClientActivityConflict(ValueError):
     pass
 
 
-def value(record):
-    return record.get("extra_blocks", {}).get(BLOCK)
+def value(record, block=BLOCK):
+    return record.get("extra_blocks", {}).get(block)
 
 
 def known(raw):
@@ -26,6 +26,10 @@ def known(raw):
 
 
 class ClientActivity:
+    table = "client_activity"
+    block = BLOCK
+    entity = "клиента"
+
     def __init__(self, orders, lock=LOCK):
         self.orders = orders
         self.root = orders.root
@@ -34,9 +38,9 @@ class ClientActivity:
     def connect(self):
         return self.orders.connect()
 
-    @staticmethod
-    def schema(db):
-        db.execute("""CREATE TABLE IF NOT EXISTS client_activity (
+    @classmethod
+    def schema(cls, db):
+        db.execute(f"""CREATE TABLE IF NOT EXISTS {cls.table} (
             path TEXT PRIMARY KEY, inactive INTEGER NOT NULL, revision INTEGER NOT NULL,
             exported_revision INTEGER NOT NULL, file_value TEXT NOT NULL, sync_error TEXT NOT NULL DEFAULT '')""")
 
@@ -48,15 +52,20 @@ class ClientActivity:
         result["editable"] = known(json.loads(result.pop("file_value")))
         return result
 
+    def matches(self, path):
+        return client_path(path) == path
+
     def target(self, path):
-        if not isinstance(path, str) or not path or Path(path).is_absolute() or client_path(path) != path:
-            raise ValueError("Отметка доступна только в карточке клиента")
+        if not isinstance(path, str) or not path or "\x00" in path or Path(path).is_absolute() or Path(path).as_posix() != path or any(part.startswith(".") for part in Path(path).parts):
+            raise ValueError(f"Отметка доступна только в карточке {self.entity}")
         guard_database(self.orders.database, path)
         target = self.root / path
         if any((self.root / Path(*Path(path).parts[:index + 1])).is_symlink() for index in range(len(Path(path).parts))):
             raise ValueError("Символические ссылки не редактируются")
         if not target.is_dir():
-            raise FileNotFoundError("Папка клиента недоступна")
+            raise FileNotFoundError(f"Папка {self.entity} недоступна")
+        if not self.matches(path):
+            raise ValueError(f"Отметка доступна только в карточке {self.entity}")
         return target
 
     def get(self, path):
@@ -64,7 +73,7 @@ class ClientActivity:
             return None
         with self.connect() as db:
             self.schema(db)
-            row = db.execute("SELECT * FROM client_activity WHERE path=?", (path,)).fetchone()
+            row = db.execute(f"SELECT * FROM {self.table} WHERE path=?", (path,)).fetchone()
             return self.record(row) if row else None
 
     def read(self, path):
@@ -73,18 +82,18 @@ class ClientActivity:
             current = self.get(path)
             if current and current["sync_pending"]:
                 return current
-            raw = value(document.load(folder, self.orders.labels))
+            raw = value(document.load(folder, self.orders.labels), self.block)
             with self.connect() as db:
                 self.schema(db)
-                row = db.execute("SELECT * FROM client_activity WHERE path=?", (path,)).fetchone()
+                row = db.execute(f"SELECT * FROM {self.table} WHERE path=?", (path,)).fetchone()
                 # Unknown user text survives and the last known state remains effective.
                 if known(raw):
                     inactive = raw is not None and raw.strip() == INACTIVE
                 else:
                     inactive = bool(row and row["inactive"])
                 revision = row["revision"] + int(json.loads(row["file_value"]) != raw) if row else 1
-                error = "Неизвестный текст [Активность клиента] сохранён. Проверь !.txt клиента." if not known(raw) else ""
-                db.execute("""INSERT INTO client_activity VALUES (?,?,?,?,?,?) ON CONFLICT(path) DO UPDATE SET
+                error = f"Неизвестный текст [{self.block}] сохранён. Проверь !.txt {self.entity}." if not known(raw) else ""
+                db.execute(f"""INSERT INTO {self.table} VALUES (?,?,?,?,?,?) ON CONFLICT(path) DO UPDATE SET
                     inactive=excluded.inactive,revision=excluded.revision,exported_revision=excluded.exported_revision,
                     file_value=excluded.file_value,sync_error=excluded.sync_error""",
                     (path, int(inactive), revision, revision, json.dumps(raw, ensure_ascii=False), error))
@@ -93,17 +102,17 @@ class ClientActivity:
     def save(self, payload):
         path, revision, inactive = payload.get("path"), payload.get("revision"), payload.get("inactive")
         if type(revision) is not int or type(inactive) is not bool:
-            raise ValueError("Открой карточку клиента заново перед изменением отметки")
+            raise ValueError(f"Открой карточку {self.entity} заново перед изменением отметки")
         with self.lock:
             self.target(path)
             with self.connect() as db:
                 self.schema(db)
-                row = db.execute("SELECT * FROM client_activity WHERE path=?", (path,)).fetchone()
+                row = db.execute(f"SELECT * FROM {self.table} WHERE path=?", (path,)).fetchone()
                 if not row or row["revision"] != revision:
-                    raise ClientActivityConflict("Отметка клиента изменилась. Обнови карточку перед сохранением.")
+                    raise ClientActivityConflict(f"Отметка {self.entity} изменилась. Обнови карточку перед сохранением.")
                 if not known(json.loads(row["file_value"])):
-                    raise ClientActivityConflict("Неизвестный текст отметки сохранён. Проверь !.txt клиента.")
-                db.execute("UPDATE client_activity SET inactive=?,revision=revision+1,sync_error='' WHERE path=? AND revision=?",
+                    raise ClientActivityConflict(f"Неизвестный текст отметки сохранён. Проверь !.txt {self.entity}.")
+                db.execute(f"UPDATE {self.table} SET inactive=?,revision=revision+1,sync_error='' WHERE path=? AND revision=?",
                            (int(inactive), path, revision))
         return self.get(path)
 
@@ -114,13 +123,13 @@ class ClientActivity:
             self.target(path)
             with self.connect() as db:
                 self.schema(db)
-                row = db.execute("SELECT * FROM client_activity WHERE path=?", (path,)).fetchone()
+                row = db.execute(f"SELECT * FROM {self.table} WHERE path=?", (path,)).fetchone()
                 if not row or type(payload.get("revision")) is not int or row["revision"] != payload["revision"]:
-                    raise ClientActivityConflict("Отметка клиента изменилась. Обнови карточку.")
-                raw = value(document.load(self.root / path, self.orders.labels))
+                    raise ClientActivityConflict(f"Отметка {self.entity} изменилась. Обнови карточку.")
+                raw = value(document.load(self.root / path, self.orders.labels), self.block)
                 if not known(raw):
-                    raise ClientActivityConflict("Неизвестный текст отметки сохранён. Проверь !.txt клиента.")
-                db.execute("UPDATE client_activity SET inactive=?,revision=revision+1,exported_revision=revision+1,file_value=?,sync_error='' WHERE path=?",
+                    raise ClientActivityConflict(f"Неизвестный текст отметки сохранён. Проверь !.txt {self.entity}.")
+                db.execute(f"UPDATE {self.table} SET inactive=?,revision=revision+1,exported_revision=revision+1,file_value=?,sync_error='' WHERE path=?",
                            (int(raw is not None and raw.strip() == INACTIVE), json.dumps(raw, ensure_ascii=False), path))
         return self.get(path)
 
@@ -130,11 +139,11 @@ class ClientActivity:
             return set()
         with self.connect() as db:
             self.schema(db)
-            return {row[0] for row in db.execute("SELECT path FROM client_activity WHERE inactive=1")}
+            return {row[0] for row in db.execute(f"SELECT path FROM {self.table} WHERE inactive=1")}
 
     def visible_orders(self, records):
         inactive = self.inactive_paths()
-        return [record for record in records if client_path(record["path"]) not in inactive]
+        return [record for record in records if not is_inactive(record["path"], inactive)]
 
     def refresh(self):
         """Only client cards, never order contents; retain index entries on read errors."""
@@ -157,7 +166,7 @@ class ClientActivity:
     def error(self, path, problem):
         with self.connect() as db:
             self.schema(db)
-            db.execute("UPDATE client_activity SET sync_error=? WHERE path=?", (document.icloud_access.sync_error(problem), path))
+            db.execute(f"UPDATE {self.table} SET sync_error=? WHERE path=?", (document.icloud_access.sync_error(problem), path))
 
     def sync(self):
         if not self.orders.database.exists():
@@ -165,21 +174,26 @@ class ClientActivity:
         with self.lock:
             with self.connect() as db:
                 self.schema(db)
-                pending = list(db.execute("SELECT * FROM client_activity WHERE revision!=exported_revision"))
+                pending = list(db.execute(f"SELECT * FROM {self.table} WHERE revision!=exported_revision"))
             for row in pending:
                 try:
                     folder = self.target(row["path"])
                     record = document.load(folder, self.orders.labels)
-                    raw, desired = value(record), INACTIVE if row["inactive"] else ACTIVE
+                    raw, desired = value(record, self.block), INACTIVE if row["inactive"] else ACTIVE
                     if raw != json.loads(row["file_value"]) and raw != desired:
                         raise ClientActivityConflict("Отметка в !.txt изменена извне. Сохранены обе версии; выбери отметку из файла или верни прежний текст файла.")
                     if raw != desired:
-                        record.setdefault("extra_blocks", {})[BLOCK] = desired
+                        record.setdefault("extra_blocks", {})[self.block] = desired
                         document.archive_current(folder)
                         document.atomic_write(folder / document.DOCUMENT, document.render(record, self.orders.labels))
                         document.archive_legacy(folder)
                     with self.connect() as db:
-                        db.execute("UPDATE client_activity SET exported_revision=revision,file_value=?,sync_error='' WHERE path=? AND revision=?",
+                        db.execute(f"UPDATE {self.table} SET exported_revision=revision,file_value=?,sync_error='' WHERE path=? AND revision=?",
                                    (json.dumps(desired, ensure_ascii=False), row["path"], row["revision"]))
                 except (OSError, ValueError) as error:
                     self.error(row["path"], error)
+
+
+def is_inactive(path, paths):
+    """Проверка индекса по границам пути, без чтения документов."""
+    return any(path == parent or path.startswith(parent + "/") for parent in paths)

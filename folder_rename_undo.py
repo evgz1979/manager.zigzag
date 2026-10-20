@@ -26,7 +26,7 @@ def check(db, source, destination, session=None):
                 if other != session and any(inside(pair[key], root) or inside(root, pair[key])
                         for pair in json.loads(mappings) for key in ("source", "destination") for root in (source, destination)):
                     raise ValueError("Сначала завершите переименование из журнала: " + other)
-    for name in ("orders", "folder_notes", "todo_catalog", "todo_missing_folders", "client_activity", "invoices"):
+    for name in ("orders", "folder_notes", "todo_catalog", "todo_missing_folders", "client_activity", "object_activity", "invoices"):
         if table(db, name) and any(inside(row[0], destination) for row in db.execute(f"SELECT path FROM {name}")):
             raise ValueError("По новому пути уже есть сохранённые данные: " + name)
     for name, owner in (("folder_notes", "parent_order"), ("todo_missing_folders", "order_path")):
@@ -52,7 +52,7 @@ def rewrite(db, source, destination):
             if inside(path, source):
                 db.execute("UPDATE folder_notes SET path=?,parent_order=?,revision=revision+1,exported_revision=exported_revision+1 WHERE id=?",
                            (remap(path, source, destination), remap(owner, source, destination), identity))
-    for name in ("todo_catalog", "todo_missing_folders", "client_activity"):
+    for name in ("todo_catalog", "todo_missing_folders", "client_activity", "object_activity"):
         if not table(db, name):
             continue
         for (path,) in list(db.execute(f"SELECT path FROM {name}")):
@@ -64,7 +64,7 @@ def rewrite(db, source, destination):
                 owner = db.execute("SELECT order_path FROM todo_missing_folders WHERE path=?", (path,)).fetchone()[0]
                 extra = ",order_path=?"
                 values.append(remap(owner, source, destination))
-            if name == "client_activity":
+            if name in {"client_activity", "object_activity"}:
                 extra = ",revision=revision+1,exported_revision=exported_revision+1"
             db.execute(f"UPDATE {name} SET path=?{extra} WHERE path=?", (*values, path))
     if table(db, "mobile_files"):

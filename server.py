@@ -37,6 +37,8 @@ from file_comments import FileCommentConflict
 from folder_structure import folder_role, is_catalog_group, client_name
 from folder_structure import client_path
 from client_activity import ClientActivity, ClientActivityConflict
+from client_activity import is_inactive
+from object_activity import ObjectActivity
 
 APP_DIR = Path(__file__).resolve().parent
 CONFIG_FILE = APP_DIR / "manager.ini"
@@ -428,12 +430,12 @@ def read_tree(relative="", query="", show_inactive=False):
     target = safe_path(relative)
     if not target.is_dir():
         raise FileNotFoundError("Папка данных не найдена. Проверьте manager.ini")
-    inactive = client_activity_store().inactive_paths()
+    inactive = inactive_paths()
     def children_of(path):
         return [item for item in directory_children(path)
-                if show_inactive or client_path(relative_path(item)) not in inactive]
+                if show_inactive or not is_inactive(relative_path(item), inactive)]
     def node_of(path):
-        return {**folder_node(path), "inactive": client_path(relative_path(path)) in inactive}
+        return {**folder_node(path), "inactive": is_inactive(relative_path(path), inactive)}
     children = children_of(target)
     auxiliary = []
     group_folders = []
@@ -661,6 +663,7 @@ def schedule_order_sync():
         order_store().sync()
         folder_note_store().sync()
         client_activity_store().sync()
+        object_activity_store().sync()
         invoice_store().sync()
     threading.Thread(target=sync, daemon=True).start()
 
@@ -712,20 +715,30 @@ def client_activity_store():
     return ClientActivity(order_store(), STATUS_LOCK)
 
 
+def object_activity_store():
+    return ObjectActivity(order_store(), STATUS_LOCK)
+
+
+def inactive_paths():
+    return client_activity_store().inactive_paths() | object_activity_store().inactive_paths()
+
+
 def listed_orders():
     store = order_store()
     activity = client_activity_store()
-    return {"orders": OrderTodos(store).attach(activity.visible_orders(store.list())),
-            "unregistrations": activity.visible_orders(store.pending_unregistrations()), "scan": dict(SCAN_STATE)}
+    objects = object_activity_store()
+    return {"orders": OrderTodos(store).attach(objects.visible_orders(activity.visible_orders(store.list()))),
+            "unregistrations": objects.visible_orders(activity.visible_orders(store.pending_unregistrations())), "scan": dict(SCAN_STATE)}
 
 
 def client_activity_worker():
     # File markers are authoritative once exported. Failed reads retain the index.
     while True:
-        try:
-            client_activity_store().refresh()
-        except Exception as error:
-            print(f"Активность клиентов: {error}", flush=True)
+        for activity in (client_activity_store(), object_activity_store()):
+            try:
+                activity.refresh()
+            except Exception as error:
+                print(f"Активность {activity.entity}: {error}", flush=True)
         threading.Event().wait(300)
 
 
@@ -760,6 +773,7 @@ def order_sync_worker():
             order_store().sync()
             folder_note_store().sync()
             client_activity_store().sync()
+            object_activity_store().sync()
             invoice_store().sync()
         except Exception as error:
             print(f"Выгрузка заказов: {error}", flush=True)
@@ -802,9 +816,14 @@ def read_folder(relative="", show_inactive=False):
     status = folder_status(target, directories)
     if status["folderKind"] == "client":
         status["clientActivity"] = client_activity_store().read(relative_path(target))
-    inactive = client_activity_store().inactive_paths()
-    if status["folderKind"] in {"root", "catalog_group"} and not show_inactive:
-        directories = [item for item in directories if client_path(relative_path(item)) not in inactive]
+    elif status["folderKind"] == "object":
+        status["objectActivity"] = object_activity_store().read(relative_path(target))
+    inactive = inactive_paths()
+    # Прямое открытие неактивной папки сохраняет доступ к её содержимому.
+    # В остальных контейнерах скрыты отдельно отмеченные дочерние поддеревья.
+    hidden_children = {path for path in inactive if not is_inactive(relative, {path})}
+    if not show_inactive:
+        directories = [item for item in directories if not is_inactive(relative_path(item), hidden_children)]
     files, warnings = [], []
     print_view = is_print_folder(relative) and len(Path(relative).parts) == 2
     files_scope = "events" if status["folderKind"] == "order" or status.get("order") else (
@@ -851,7 +870,7 @@ def read_folder(relative="", show_inactive=False):
     nodes = []
     event_notes = FolderNotes(order_store())  # Список событий не переносит и не переписывает их прежние файлы.
     for item in directories:
-        node = {**folder_node(item), "inactive": client_path(relative_path(item)) in inactive}
+        node = {**folder_node(item), "inactive": is_inactive(relative_path(item), inactive)}
         if status["folderKind"] == "order" and not item.name.startswith("#") and not item.is_symlink():
             record = None
             try:
@@ -1096,10 +1115,11 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 else:
                     body, name = invoice_store().pdf(relative, identity)
                 self.send_invoice_pdf(body, name, head=head)
-            elif parsed.path == "/api/client-activity":
-                record = client_activity_store().get(relative)
+            elif parsed.path in {"/api/client-activity", "/api/object-activity"}:
+                activity = object_activity_store() if parsed.path == "/api/object-activity" else client_activity_store()
+                record = activity.get(relative)
                 if not record:
-                    raise FileNotFoundError("Отметка клиента не найдена")
+                    raise FileNotFoundError(f"Отметка {activity.entity} не найдена")
                 self.send_json(record, head=head)
             elif parsed.path == "/api/mobile-status":
                 self.send_json(MobileBridge(order_store()).status(), head=head)
@@ -1272,9 +1292,9 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(record)
                 schedule_order_sync()
                 return
-            elif route in {"/api/client-activity", "/api/client-activity-file"}:
-                activity = client_activity_store()
-                record = activity.save(payload) if route == "/api/client-activity" else activity.accept_file(payload)
+            elif route in {"/api/client-activity", "/api/client-activity-file", "/api/object-activity", "/api/object-activity-file"}:
+                activity = object_activity_store() if route.startswith("/api/object-") else client_activity_store()
+                record = activity.accept_file(payload) if route.endswith("-file") else activity.save(payload)
                 self.send_json(record)
                 schedule_order_sync()
                 return
@@ -1292,6 +1312,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 return
             elif route == "/api/clients-refresh":
                 client_activity_store().refresh()
+                object_activity_store().refresh()
                 self.send_json({"ok": True})
                 return
             elif route == "/api/todos-refresh":

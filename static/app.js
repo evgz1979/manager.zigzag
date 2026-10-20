@@ -74,7 +74,7 @@ function treeMarkup(nodes, depth = 0, searching = false) {
     return '<div class="tree-branch" role="none"><div class="tree-row' + (selected ? " selected" : "") + (node.inactive ? " inactive" : "") +
       '" role="treeitem" tabindex="' + tabIndex + '" aria-selected="' + selected + '"' +
       (node.hasChildren ? ' aria-expanded="' + open + '"' : "") + ' aria-level="' + (depth + 1) +
-      '" data-path="' + escapeHtml(node.path) + '" style="--depth:' + depth + '" title="' + escapeHtml(node.name + (node.inactive ? " · Неактивный клиент" : "")) + '">' +
+      '" data-path="' + escapeHtml(node.path) + '" style="--depth:' + depth + '" title="' + escapeHtml(node.name + (node.inactive ? " · Неактивная папка" : "")) + '">' +
       '<button class="tree-toggle' + (open ? " expanded" : "") + '" tabindex="-1" aria-label="' +
       (open ? "Свернуть " : "Раскрыть ") + escapeHtml(node.name) + '"' + (!node.hasChildren ? ' disabled aria-hidden="true"' : "") + ">" +
       icon("chevron") + "</button>" + icon("folder") + '<span class="tree-name">' + escapeHtml(node.name) +
@@ -181,13 +181,29 @@ async function reloadClientTrees() {
   }
 }
 
+function folderActivity(folder) {
+  return folder?.objectActivity || folder?.clientActivity;
+}
+
+function activityRoute(folder) {
+  return folder?.objectActivity ? "/api/object-activity" : "/api/client-activity";
+}
+
+function updateFolderActivity(folder, activity) {
+  folder[folder.objectActivity ? "objectActivity" : "clientActivity"] = activity;
+}
+
 function renderClientActivity() {
-  const activity = state.folder?.clientActivity;
+  const folder = state.folder, activity = folderActivity(folder);
   $("clientActivityCard").hidden = !activity;
   if (!activity) return;
+  const object = Boolean(folder.objectActivity), entity = object ? "объекта" : "клиента";
+  $("clientActivityCard").setAttribute("aria-label", object ? "Карточка объекта" : "Карточка клиента");
+  $("activityLabel").textContent = object ? "Неактивный объект" : "Неактивный клиент";
+  $("activityHint").textContent = "Заказы и To-do неактивного " + entity + " скрыты на главной. Сними отметку, чтобы вернуть их.";
   $("clientInactive").checked = activity.inactive;
   $("clientInactive").disabled = state.clientActivitySaving || !activity.editable;
-  $("clientActivityState").textContent = state.clientActivitySaving ? "Сохраняю…" : activity.sync_error || (activity.sync_pending ? "Сохранено в базе · ожидает выгрузки в !.txt" : "Сохранено в !.txt клиента");
+  $("clientActivityState").textContent = state.clientActivitySaving ? "Сохраняю…" : activity.sync_error || (activity.sync_pending ? "Сохранено в базе · ожидает выгрузки в !.txt" : "Сохранено в !.txt " + entity);
   $("clientActivityState").classList.toggle("error", Boolean(activity.sync_error));
   $("clientActivityAcceptFile").hidden = !activity.sync_pending || !activity.sync_error;
   $("clientActivityAcceptFile").disabled = state.clientActivitySaving;
@@ -195,19 +211,19 @@ function renderClientActivity() {
 
 async function saveClientActivity(inactive, acceptFile = false) {
   const folder = state.folder;
-  if (!folder?.clientActivity || state.clientActivitySaving) return;
+  if (!folderActivity(folder) || state.clientActivitySaving) return;
   state.clientActivitySaving = true;
   renderClientActivity();
   try {
     await saveCurrentStatus();
-    folder.clientActivity = await request(acceptFile ? "/api/client-activity-file" : "/api/client-activity", {
-      path: folder.path, revision: folder.clientActivity.revision, inactive,
-    });
+    updateFolderActivity(folder, await request(activityRoute(folder) + (acceptFile ? "-file" : ""), {
+      path: folder.path, revision: folderActivity(folder).revision, inactive,
+    }));
     await reloadClientTrees();
     await loadOrders();
   } catch (error) {
     if (error.status === 409) {
-      try { folder.clientActivity = await request(apiUrl("/api/client-activity", folder.path)); } catch { /* Сохраняем последнее состояние. */ }
+      try { updateFolderActivity(folder, await request(apiUrl(activityRoute(folder), folder.path))); } catch { /* Сохраняем последнее состояние. */ }
     }
     throw error;
   } finally {
@@ -1775,12 +1791,12 @@ for (const id of ["orderTitleInput", "orderAmount", "orderCosts", "orderPaid"]) 
 }
 setInterval(() => {
   if (document.hidden) return;
-  if (state.folder?.clientActivity && !state.clientActivitySaving) {
+  if (folderActivity(state.folder) && !state.clientActivitySaving) {
     const folder = state.folder;
-    request(apiUrl("/api/client-activity", folder.path)).then((activity) => {
+    request(apiUrl(activityRoute(folder), folder.path)).then((activity) => {
       if (state.folder !== folder || state.clientActivitySaving) return;
-      const changed = activity.inactive !== folder.clientActivity.inactive;
-      folder.clientActivity = activity;
+      const changed = activity.inactive !== folderActivity(folder).inactive;
+      updateFolderActivity(folder, activity);
       renderClientActivity();
       if (changed) run(async () => { await reloadClientTrees(); await loadOrders(); });
     }).catch(() => {});
