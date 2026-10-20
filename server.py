@@ -701,7 +701,7 @@ def read_folder(relative=""):
     status = folder_status(target, directories)
     files, warnings = [], []
     files_scope = "events" if status["folderKind"] == "order" or status.get("order") else (
-        "subfolders" if status["folderKind"] in {"client", "object"} else "folder")
+        "subfolders" if status["folderKind"] in {"client", "object", "supplier_root"} else "folder")
     hide_files = files_scope != "folder"
     folder_count = len(directories) if hide_files else 0
 
@@ -771,7 +771,7 @@ def read_folder(relative=""):
             "warnings": warnings, "view": "print" if print_view else "files",
             "filesScope": files_scope,
             "newFileName": next_print_name(target) if print_view else "",
-            "canCreateOrderFolder": status["folderKind"] == "object",
+            "canCreateOrderFolder": status["folderKind"] in {"object", "supplier_root"},
             "canCreateEventFolder": status["folderKind"] == "order",
             **status}
 

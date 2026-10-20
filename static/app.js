@@ -32,7 +32,6 @@ const formatSize = (bytes) => {
 const formatDate = (seconds) => new Date(seconds * 1000).toLocaleDateString("ru", { day: "numeric", month: "short", year: "numeric" });
 const printCountLabel = (count) => count + " " + ({ one: "задание", few: "задания", many: "заданий", other: "задания" }[new Intl.PluralRules("ru").select(count)]);
 const folderParent = (path) => path.split("/").slice(0, -1).join("/");
-const isServiceFolder = (path) => path.split("/").some((part) => part.startsWith("#"));
 
 async function request(url, payload) {
   const response = await fetch(url, payload === undefined ? {} : {
@@ -160,7 +159,7 @@ function renderSubfolders() {
   const directories = folder.directories.filter((item) => !item.name.startsWith("#"));
   $("subfolders").classList.toggle("with-event-relevance", directories.some((item) => item.eventRelevance));
   $("folderSection").hidden = !directories.length;
-  $("foldersTitle").textContent = folder.canCreateEventFolder ? "События" : folder.path ? "Подпапки" : "Папки";
+  $("foldersTitle").textContent = folder.canCreateEventFolder ? "События" : folder.folderKind === "supplier_root" ? "Заказы поставщикам" : folder.path ? "Подпапки" : "Папки";
   $("directoryCount").textContent = directories.length;
   $("subfolders").innerHTML = directories.map((item) => {
     const open = '<button class="subfolder" data-path="' + escapeHtml(item.path) + '" title="' + escapeHtml(item.name) + '">' +
@@ -216,7 +215,7 @@ async function saveEventRelevance(path, value) {
 function renderFolder(preserveForm = false) {
   const folder = state.folder;
   const printView = folder.view === "print";
-  const service = folder.service = isServiceFolder(folder.path);
+  const service = Boolean(folder.service);
   const noteOnly = service || Boolean(folder.noteOnly);
   const hasTodo = Boolean(folder.path) && (!noteOnly || Boolean(folder.eventFolder));
   $("orderOverview").hidden = !folder.path || (printView && !folder.eventFolder);
@@ -241,6 +240,7 @@ function renderFolder(preserveForm = false) {
   $("orderNote").placeholder = noteOnly ? "Заметка к этой папке" : "Что важно по этому заказу";
   $("removeOrderButton").hidden = !folder.order;
   $("createOrderFolderButton").hidden = folder.canCreateOrderFolder !== true;
+  $("createOrderFolderButton").textContent = folder.folderKind === "supplier_root" ? "+ Создать заказ поставщику" : "+ Создать заказ";
   $("createEventFolderButton").hidden = folder.canCreateEventFolder !== true;
   if (!preserveForm) {
     folder.todo_items = folder.order ? folder.order.todo_items : folder.todo_items === undefined ? [] : folder.todo_items;
@@ -568,6 +568,10 @@ function renderNewOrderName() {
 function openCreateOrderFolder() {
   if (state.folder?.canCreateOrderFolder !== true) return;
   state.newOrderParent = state.folder.path;
+  const supplier = state.folder.folderKind === "supplier_root";
+  $("createOrderFolderTitle").textContent = supplier ? "Создать заказ поставщику" : "Создать заказ";
+  $("newOrderParentLabel").textContent = supplier ? "Новая папка в разделе стекла и стеклопакетов:" : "Новая папка в объекте:";
+  $("newOrderTitle").placeholder = supplier ? "Например, поставщик — стеклопакеты для Жуковки" : "Например, замена вывески";
   const parts = Object.fromEntries(new Intl.DateTimeFormat("ru-RU", { timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()).map((part) => [part.type, part.value]));
   $("newOrderDate").value = parts.year + "-" + parts.month + "-" + parts.day;
   $("newOrderTitle").value = "";
@@ -988,7 +992,7 @@ async function navigate(path, { history = true } = {}) {
   document.querySelector(".content-pane").setAttribute("aria-busy", "true");
   try {
     let order = null;
-    if (path && !isServiceFolder(path)) {
+    if (path) {
       try { order = await request(apiUrl("/api/order", path)); }
       catch (error) { if (error.status !== 404) throw error; }
     }
@@ -1004,7 +1008,7 @@ async function navigate(path, { history = true } = {}) {
       if (!response.ok) throw new Error(data.error || "Не удалось открыть папку");
     }
     if (navigation !== state.navigation) return;
-    data.service = isServiceFolder(data.path);
+    data.service = Boolean(data.service);
     if (data.service) {
       delete data.order;
       delete data.status;

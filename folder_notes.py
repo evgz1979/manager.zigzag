@@ -10,7 +10,7 @@ from pathlib import Path
 import order_document as document
 import event_relevance
 from event_folder_undo import assert_unlocked
-from folder_structure import folder_role
+from folder_structure import folder_role, is_supplier_root, is_service_folder
 
 SYNC_LOCK = threading.Lock()
 
@@ -25,7 +25,7 @@ def parent_order(root, relative):
         parent = Path(*parts[:index]).as_posix()
         if folder_role(root, parent)["folderKind"] == "order":
             return parent
-        if parts[index - 1].startswith("#"):
+        if parts[index - 1].startswith("#") and not (index == 1 and is_supplier_root(parts[0])):
             break
     return None
 
@@ -111,7 +111,7 @@ class FolderNotes:
             self.prepare(target)
         revision = file_revision(target)
         body = document.load(target, self.store.labels)
-        if any(part.startswith("#") for part in Path(relative).parts):
+        if is_service_folder(relative):
             body = document.folder_note(body)
         if file_revision(target) != revision:
             raise FolderNoteConflict("Файл папки изменился во время чтения. Обновите папку")

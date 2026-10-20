@@ -12,8 +12,8 @@ from pathlib import Path
 import event_folder_undo as restore
 import folder_layout as layout
 import folder_notes
-from folder_structure import folder_role, dated
-from order_folders import LOCK
+from folder_structure import folder_role, dated, is_service_folder
+from order_folders import LOCK, layout_scope
 
 NUMBER = re.compile(r"^([0-9]+)(?=$|[\s\-–—])")
 CANONICAL = re.compile(r"^([0-9]{2,}) - (\S(?:.*\S)?)$")
@@ -28,9 +28,9 @@ def event_number(name):
 
 
 def parent(root, relative):
-    if not isinstance(relative, str) or not Path(relative).parts or any(part.startswith((".", "#")) for part in Path(relative).parts):
+    if not isinstance(relative, str) or not Path(relative).parts or any(part.startswith(".") for part in Path(relative).parts) or is_service_folder(relative):
         raise ValueError("Выберите папку заказа")
-    target = layout.safe_path(root, relative, [Path(relative).parts[0]])
+    target = layout.safe_path(root, relative, [Path(relative).parts[0]], **layout_scope(relative))
     if not target.is_dir():
         raise FileNotFoundError("Папка заказа недоступна")
     if folder_role(root, relative)["folderKind"] != "order":
@@ -116,7 +116,7 @@ def create(root, payload, notes=None):
         destination = root / relative
         if layout.exists(destination):
             raise EventFolderConflict("Папка или файл с таким именем уже существует. Измените название события")
-        plan = layout.Plan(root, [Path(relative).parts[0]])
+        plan = layout.Plan(root, [Path(relative).parts[0]], **layout_scope(relative))
         plan.mkdir(relative)
         session = plan.create_session(["Создать событие заказа", "Имя: " + name], view["before"])
         try:
@@ -146,7 +146,7 @@ def rename(notes, payload):
         by_source = {item.get("source"): item.get("title") for item in supplied if isinstance(item, dict) and isinstance(item.get("source"), str)}
         if set(by_source) != {item["source"] for item in view["suggestions"]}:
             raise ValueError("Список папок изменён. Обновите предложение")
-        plan = layout.Plan(root, [Path(view["path"]).parts[0]])
+        plan = layout.Plan(root, [Path(view["path"]).parts[0]], **layout_scope(view["path"]))
         plan.database_paths = True
         mappings = []
         for item in view["suggestions"]:

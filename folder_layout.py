@@ -46,11 +46,12 @@ def save_json(path, value):
         os.fsync(stream.fileno())
 
 
-def safe_path(root, relative, clients):
+def safe_path(root, relative, clients, *, service_roots=()):
     relative = Path(relative)
     if relative.is_absolute() or not relative.parts or ".." in relative.parts:
         raise ValueError("Путь должен находиться внутри корня документов")
-    if relative.parts[0] not in clients or relative.parts[0].startswith(("#", ".")):
+    first = relative.parts[0]
+    if first not in clients or first.startswith(".") or (first.startswith("#") and first not in service_roots):
         raise ValueError("Папка вне согласованной области переносов")
     for index in range(1, len(relative.parts) + 1):
         if (root / Path(*relative.parts[:index])).is_symlink():
@@ -59,9 +60,10 @@ def safe_path(root, relative, clients):
 
 
 class Plan:
-    def __init__(self, root, clients):
+    def __init__(self, root, clients, *, service_roots=()):
         self.root = Path(root).resolve()
         self.clients = clients
+        self.service_roots = list(service_roots)
         self.operations = []
         self.directories = set()
 
@@ -69,7 +71,7 @@ class Plan:
         relative = Path(relative).as_posix()
         if relative in self.directories:
             return
-        path = safe_path(self.root, relative, self.clients)
+        path = safe_path(self.root, relative, self.clients, service_roots=self.service_roots)
         if exists(path):
             if not path.is_dir():
                 raise FileExistsError(path)
@@ -81,8 +83,8 @@ class Plan:
         source, destination = Path(source).as_posix(), Path(destination).as_posix()
         if source == destination:
             return
-        original = safe_path(self.root, origin or source, self.clients)
-        target = safe_path(self.root, destination, self.clients)
+        original = safe_path(self.root, origin or source, self.clients, service_roots=self.service_roots)
+        target = safe_path(self.root, destination, self.clients, service_roots=self.service_roots)
         if exists(target):
             raise FileExistsError(target)
         if len(os.fsencode(target.name)) > 255:
@@ -99,6 +101,8 @@ class Plan:
         session = history / ("." + stamp)
         session.mkdir()
         plan = {"root": str(self.root), "clients": self.clients, "operations": self.operations, "notes": notes}
+        if self.service_roots:
+            plan["service_roots"] = self.service_roots
         if getattr(self, "database_paths", False):
             plan["database_paths"] = True
         save_json(session / ".plan.json", plan)
@@ -138,7 +142,7 @@ def apply(session):
         if any(record["phase"] == "intent" for record in records(session)):
             raise ValueError("Этот план уже запускался; сначала проверьте журнал или выполните откат")
         for index, operation in enumerate(plan["operations"], 1):
-            target = safe_path(root, operation["destination"], plan["clients"])
+            target = safe_path(root, operation["destination"], plan["clients"], service_roots=plan.get("service_roots", ()))
             append(session, {"phase": "intent", "id": index, **operation})
             changed = False
             try:
@@ -147,7 +151,7 @@ def apply(session):
                 if operation["operation"] == "mkdir":
                     target.mkdir()
                 else:
-                    source = safe_path(root, operation["source"], plan["clients"])
+                    source = safe_path(root, operation["source"], plan["clients"], service_roots=plan.get("service_roots", ()))
                     if identity(source) != operation["identity"]:
                         raise ValueError("Исходная папка или файл изменились: " + str(source))
                     rename_exclusive(source, target)
@@ -180,9 +184,9 @@ def undo(session, perform=False, *, coordinate_database=False):
         for index, operation in reversed(list(intents.items())):
             if index in reverted or (index in failed and not failed[index].get("changed")):
                 continue
-            target = safe_path(root, operation["destination"], plan["clients"])
+            target = safe_path(root, operation["destination"], plan["clients"], service_roots=plan.get("service_roots", ()))
             expected = commits.get(index, {}).get("identity") or failed.get(index, {}).get("identity") or operation.get("identity")
-            source = safe_path(root, operation["source"], plan["clients"]) if operation["operation"] == "move" else None
+            source = safe_path(root, operation["source"], plan["clients"], service_roots=plan.get("service_roots", ())) if operation["operation"] == "move" else None
             if source and exists(source) and identity(source) == expected and not exists(target):
                 continue
             if not expected or not exists(target) or identity(target) != expected:

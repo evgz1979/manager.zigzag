@@ -10,8 +10,18 @@ DATE = re.compile(r"^(\d{4}|\d{2})[- ._](\d{2})[- ._](\d{2})(?=$|\D)")
 DATE_LIKE = re.compile(r"^(?:19|20)\d{2}[- ._]\d")
 NUMBER = re.compile(r"^\d{2,}(?=$|\D)")
 LABELS = {"root": "Корень документов", "client": "Клиент", "object": "Объект", "year": "Группа года",
+          "supplier_root": "Заказы поставщикам · стекло и стеклопакеты",
           "group": "Общая группа", "order": "Заказ", "event": "Событие или материалы заказа", "service": "Служебная папка",
           "invalid": "Папка с некорректной датой"}
+
+
+def is_supplier_root(name):
+    return name.startswith("#") and name[1:].strip().casefold() == "glass"
+
+
+def is_service_folder(relative):
+    return any(part.startswith("#") and not (index == 0 and is_supplier_root(part))
+               for index, part in enumerate(Path(relative).parts))
 
 
 def dated(name):
@@ -34,10 +44,10 @@ def folder_role(root, relative):
     parts = Path(relative).parts
     if not parts:
         kind = "root"
-    elif any(part.startswith("#") for part in parts):
+    elif is_service_folder(relative):
         kind = "service"
     else:
-        kind = "group" if NUMBER.match(parts[0]) else "client"
+        kind = "supplier_root" if is_supplier_root(parts[0]) else "group" if NUMBER.match(parts[0]) else "client"
         for index, name in enumerate(parts[1:], 1):
             if kind == "order":
                 kind = "event"

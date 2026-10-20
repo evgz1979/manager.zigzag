@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from pathlib import Path
 import order_document as document
 from order_document import money, MAX_MONEY
-from folder_structure import folder_role
+from folder_structure import folder_role, is_service_folder, is_supplier_root
 
 SNAPSHOT = ".order.json"  # Read-only compatibility with the previous export.
 CARD = document.DOCUMENT
@@ -19,10 +19,6 @@ SYNC_LOCK = threading.Lock()
 
 class OrderConflict(ValueError):
     pass
-
-
-def is_service_folder(relative):
-    return any(part.startswith("#") for part in Path(relative).parts)
 
 
 class OrderStore:
@@ -301,7 +297,9 @@ class OrderStore:
         for current, dirs, names in os.walk(self.root, followlinks=False,
                 onerror=lambda error: progress["errors"].append(str(error))):
             folder = Path(current)
-            dirs[:] = [name for name in dirs if not name.startswith((".", "#")) and not (folder / name).is_symlink()]
+            dirs[:] = [name for name in dirs if not name.startswith(".")
+                       and (not name.startswith("#") or (folder == self.root and is_supplier_root(name)))
+                       and not (folder / name).is_symlink()]
             progress["folders"] += 1
             relative = folder.relative_to(self.root).as_posix()
             try:

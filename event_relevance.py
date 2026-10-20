@@ -1,12 +1,14 @@
 """Актуальность события — независимый читаемый блок карточки папки."""
 from pathlib import Path
+from folder_structure import is_service_folder
 
 BLOCK = "Актуальность события"
 LABELS = {"none": "Без статуса", "active": "Актуально", "check": "Проверить", "inactive": "Неактуально"}
 
 
 def is_event(path, owner):
-    return Path(path).parent.as_posix() == owner and not any(part.startswith(("#", ".")) for part in Path(path).parts)
+    return (Path(path).parent.as_posix() == owner and not is_service_folder(path)
+            and not any(part.startswith(".") for part in Path(path).parts))
 
 
 def read(blocks):

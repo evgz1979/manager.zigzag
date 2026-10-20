@@ -7,7 +7,7 @@ from datetime import date
 from pathlib import Path
 
 import folder_layout as layout
-from folder_structure import folder_role
+from folder_structure import folder_role, is_supplier_root
 
 LOCK = threading.RLock()
 
@@ -16,15 +16,20 @@ class OrderFolderConflict(ValueError):
     pass
 
 
+def layout_scope(relative):
+    first = Path(relative).parts[0]
+    return {"service_roots": [first]} if is_supplier_root(first) else {}
+
+
 def create(root, relative, order_date, title):
     root = Path(root).resolve()
     if not isinstance(relative, str) or not Path(relative).parts or any(part.startswith(".") for part in Path(relative).parts):
         raise ValueError("Выберите папку объекта")
-    parent = layout.safe_path(root, relative, [Path(relative).parts[0]])
+    parent = layout.safe_path(root, relative, [Path(relative).parts[0]], **layout_scope(relative))
     if not parent.is_dir():
         raise FileNotFoundError("Папка объекта недоступна")
-    if folder_role(root, relative)["folderKind"] != "object":
-        raise ValueError("Папку заказа можно создать только внутри объекта клиента")
+    if folder_role(root, relative)["folderKind"] not in {"object", "supplier_root"}:
+        raise ValueError("Папку заказа можно создать внутри объекта клиента или в корневой папке # glass")
     if not isinstance(order_date, str) or not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", order_date):
         raise ValueError("Укажите дату в формате ГГГГ-ММ-ДД")
     try:
@@ -46,7 +51,7 @@ def create(root, relative, order_date, title):
         if layout.exists(destination):
             raise OrderFolderConflict("Папка или файл с таким именем уже существует. Измените дату или название")
         path = destination.relative_to(root).as_posix()
-        plan = layout.Plan(root, [Path(relative).parts[0]])
+        plan = layout.Plan(root, [Path(relative).parts[0]], **layout_scope(relative))
         plan.mkdir(path)
         if not plan.operations:
             raise OrderFolderConflict("Папка или файл с таким именем уже существует. Измените дату или название")
