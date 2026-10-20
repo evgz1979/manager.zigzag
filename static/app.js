@@ -19,7 +19,7 @@ const state = {
   newOrderParent: null, creatingOrderFolder: false,
   eventPlan: null, eventBusy: false,
   folderRename: null, folderRenaming: false,
-  orderTodoPath: null, orderTodoMarkup: null,
+  orderTodoPath: null, orderTodoMarkup: null, orderTodoKind: "todos",
 };
 let searchTimer, toastTimer, todoSaveTimer, previewVersion = 0, treeSearchVersion = 0, printReadVersion = 0;
 const icon = (name) => '<svg aria-hidden="true"><use href="#icon-' + name + '"/></svg>';
@@ -489,9 +489,9 @@ function renderPurchases() {
   $("purchaseCount").textContent = editable ? items.filter((item) => item.done).length + " / " + items.length : "";
   $("purchaseList").innerHTML = editable ? items.map((item, index) => '<div class="todo-row' + (item.done ? ' done' : '') + '" data-purchase-index="' + index + '">' +
     '<input class="todo-check" type="checkbox" aria-label="Закупка выполнена: ' + escapeHtml(item.text) + '"' + (item.done ? ' checked' : '') + '>' +
-    '<input class="todo-text" type="text" maxlength="1000" aria-label="Текст закупки или затраты" value="' + escapeHtml(item.text) + '">' +
-    '<button class="todo-delete" type="button" aria-label="Удалить закупку: ' + escapeHtml(item.text) + '">×</button>' +
-    '<div class="purchase-suppliers" role="group" aria-label="Поставщики для закупки: ' + escapeHtml(item.text) + '">' + purchaseSuppliers.map((name) => '<button type="button" data-purchase-supplier="' + name + '" aria-pressed="' + String((item.suppliers || []).includes(name)) + '" title="Отметить поставщика ' + name + '">' + name + '</button>').join("") + '</div></div>').join("") : "";
+    '<input class="todo-text" type="text" maxlength="1000" size="' + Math.max(4, Array.from(item.text).length + 1) + '" aria-label="Текст закупки или затраты" value="' + escapeHtml(item.text) + '">' +
+    '<div class="purchase-suppliers" role="group" aria-label="Поставщики для закупки: ' + escapeHtml(item.text) + '">' + purchaseSuppliers.map((name) => '<button type="button" data-purchase-supplier="' + name + '" aria-pressed="' + String((item.suppliers || []).includes(name)) + '" title="Отметить поставщика ' + name + '">' + name + '</button>').join("") + '</div>' +
+    '<button class="todo-delete" type="button" aria-label="Удалить закупку: ' + escapeHtml(item.text) + '">×</button></div>').join("") : "";
   renderPurchaseSaveState();
 }
 
@@ -1089,6 +1089,29 @@ function renderOrderTodoButton(order) {
   return '<button type="button" class="order-todo-button' + (!groups.length ? ' empty' : '') + '" data-order-todos="' + escapeHtml(order.path) + '" aria-haspopup="dialog" aria-controls="orderTodoDialog" aria-label="' + escapeHtml(label) + '" title="' + escapeHtml(warning || "Открыть актуальные задачи") + '"><span>' + count + '</span>' + icon("chevron") + '</button>';
 }
 
+function orderPurchaseSummary(order) {
+  const items = order.purchase_items === null ? null : (order.purchase_items || []).filter((item) => !item.done);
+  return { items, count: items?.length || 0 };
+}
+
+function orderPurchaseText(order) {
+  return (orderPurchaseSummary(order).items || []).map((item) => [item.text, ...(item.suppliers || [])].join(" ")).join(" ");
+}
+
+function renderOrderPurchaseButton(order) {
+  const { items, count } = orderPurchaseSummary(order);
+  return '<button type="button" class="order-todo-button' + (items?.length === 0 ? ' empty' : '') + '" data-order-purchases="' + escapeHtml(order.path) + '" aria-haspopup="dialog" aria-controls="orderTodoDialog" aria-label="' + escapeHtml("Закупки: " + count + " · " + order.title) + '" title="Открыть актуальные закупки"><span>' + count + '</span>' + icon("chevron") + '</button>';
+}
+
+function renderOrderPurchases(order) {
+  const { items } = orderPurchaseSummary(order);
+  const contents = items === null ? '<p class="order-todo-empty">Прежние записи закупок — просмотрите в заказе.</p>' : !items.length ? '<p class="order-todo-empty">Актуальных закупок нет.</p>' :
+    '<ul class="order-purchase-list">' + items.map((item) => '<li><div class="order-purchase-text"><span aria-hidden="true">○</span><span class="visually-hidden">Нужно закупить: </span><span class="order-todo-text">' + escapeHtml(item.text) + '</span></div>' +
+      '<div class="order-purchase-suppliers" aria-label="Выбранные поставщики">' + ((item.suppliers || []).length ? item.suppliers.map((name) => '<span>' + escapeHtml(name) + '</span>').join("") : '<span class="no-supplier">Поставщик не выбран</span>') + '</div></li>').join("") + '</ul>';
+  const sync = order.sync_pending ? '<small class="order-todo-state">' + escapeHtml(order.sync_error ? "Сохранено в базе · выгрузка: " + order.sync_error : "Сохранено в базе · ожидает выгрузки") + '</small>' : "";
+  return '<div class="order-todos" aria-label="Актуальные закупки заказа">' + contents + sync + '</div>';
+}
+
 function renderOrderTodoGroup(group) {
   return '<section class="order-todo-group">' +
     '<button class="order-todo-folder" data-order="' + escapeHtml(group.path) + '" title="' + escapeHtml(group.path) + '">' + escapeHtml(group.label) + '</button>' +
@@ -1108,12 +1131,17 @@ function renderOrderTodoDialog() {
   if (!$("orderTodoDialog").open) return;
   const order = state.orders.find((item) => item.path === state.orderTodoPath);
   if (!order) { $("orderTodoDialog").close(); return; }
-  $("orderTodoDialogCount").textContent = orderTodoSummary(order).count;
+  const purchases = state.orderTodoKind === "purchases";
+  $("orderTodoKindTitle").textContent = purchases ? "Закупки" : "To-do";
+  $("orderTodoHint").textContent = purchases ? "Только актуальные закупки" : "Только актуальные задачи";
+  $("closeOrderTodos").setAttribute("aria-label", purchases ? "Закрыть закупки" : "Закрыть To-do");
+  $("orderTodoBody").setAttribute("aria-label", purchases ? "Актуальные закупки заказа" : "Актуальные задачи заказа и вложенных папок");
+  $("orderTodoDialogCount").textContent = purchases ? orderPurchaseSummary(order).count : orderTodoSummary(order).count;
   $("orderTodoOrder").textContent = order.title;
   $("orderTodoOrder").title = order.title;
   $("orderTodoPath").textContent = order.path;
   $("orderTodoPath").title = order.path;
-  const markup = renderOrderTodos(order);
+  const markup = purchases ? renderOrderPurchases(order) : renderOrderTodos(order);
   if (state.orderTodoMarkup !== markup) {
     const scroll = $("orderTodoBody").scrollTop;
     $("orderTodoBody").innerHTML = markup;
@@ -1122,9 +1150,10 @@ function renderOrderTodoDialog() {
   }
 }
 
-function openOrderTodos(path) {
+function openOrderTodos(path, kind = "todos") {
   if (!state.orders.some((order) => order.path === path)) return;
   state.orderTodoPath = path;
+  state.orderTodoKind = kind;
   state.orderTodoMarkup = null;
   $("orderTodoBody").replaceChildren();
   $("orderTodoDialog").showModal();
@@ -1134,7 +1163,7 @@ function openOrderTodos(path) {
 
 function renderOrders() {
   const needle = normalize(state.orderQuery.trim());
-  const matching = state.orders.filter((order) => !needle || normalize([order.title, order.path, order.note, orderTodoText(order)].join(" ")).includes(needle));
+  const matching = state.orders.filter((order) => !needle || normalize([order.title, order.path, order.note, orderTodoText(order), orderPurchaseText(order)].join(" ")).includes(needle));
   const productionMatching = matching.filter((order) => state.financialFilter === "all" || order.financial_status === state.financialFilter);
   const financeMatching = matching.filter((order) => state.orderFilter === "all" || order.status === state.orderFilter);
   const filtered = productionMatching.filter((order) => state.orderFilter === "all" || order.status === state.orderFilter);
@@ -1158,7 +1187,7 @@ function renderOrders() {
     const total = known.reduce((sum, order) => sum + order[field], 0);
     return '<div class="order-total"><span>' + label + '</span><strong>' + rubles(known.length ? total : null) + '</strong><small>' + (known.length === filtered.length && filtered.length ? "По всем выбранным заказам" : "Указано: " + known.length + " из " + filtered.length) + '</small></div>';
   }).join("");
-  $("ordersTableBody").innerHTML = filtered.map((order) => '<tr><td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button><span class="order-row-path">' + escapeHtml(order.path) + '</span></td><td><span class="status-badge" data-status="' + escapeHtml(order.status) + '">' + escapeHtml(statusLabels[order.status] || order.status) + '</span></td><td><span class="status-badge" data-financial-status="' + escapeHtml(order.financial_status) + '">' + escapeHtml(financialStatusLabels[order.financial_status] || "Не указан") + '</span></td>' +
+  $("ordersTableBody").innerHTML = filtered.map((order) => '<tr><td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button><span class="order-row-path">' + escapeHtml(order.path) + '</span></td><td><span class="status-badge" data-status="' + escapeHtml(order.status) + '">' + escapeHtml(statusLabels[order.status] || order.status) + '</span></td><td><span class="status-badge" data-financial-status="' + escapeHtml(order.financial_status) + '">' + escapeHtml(financialStatusLabels[order.financial_status] || "Не указан") + '</span></td>' +
     ["amount", "costs", "profit", "paid", "debt"].map((field) => '<td class="order-money' + (order[field] < 0 ? " negative" : "") + '">' + rubles(order[field]) + '</td>').join("") +
     '<td class="order-updated">' + formatDate(order.updated) + (order.sync_pending ? '<span class="sync-pending" title="' + escapeHtml(order.sync_error || "Ожидает выгрузки в папку") + '">' + (order.sync_error ? "В очереди · автоповтор" : "Ожидает выгрузки") + '</span>' : '<span class="sync-complete">Выгружено</span>') + '</td></tr>').join("");
   $("ordersEmpty").hidden = Boolean(filtered.length);
@@ -1705,6 +1734,8 @@ $("orderStatusFilters").addEventListener("click", (event) => {
 $("orderSearch").addEventListener("input", (event) => { state.orderQuery = event.target.value; renderOrders(); });
 $("financialStatusFilter").addEventListener("change", (event) => { state.financialFilter = event.target.value; renderOrders(); });
 $("ordersTableBody").addEventListener("click", (event) => {
+  const purchaseButton = event.target.closest("[data-order-purchases]");
+  if (purchaseButton) { openOrderTodos(purchaseButton.dataset.orderPurchases, "purchases"); return; }
   const todoButton = event.target.closest("[data-order-todos]");
   if (todoButton) { openOrderTodos(todoButton.dataset.orderTodos); return; }
   const button = event.target.closest("[data-order]");
@@ -1713,10 +1744,12 @@ $("ordersTableBody").addEventListener("click", (event) => {
 $("closeOrderTodos").addEventListener("click", () => $("orderTodoDialog").close());
 $("orderTodoDialog").addEventListener("close", () => {
   const path = state.orderTodoPath;
+  const kind = state.orderTodoKind;
   state.orderTodoPath = null;
   state.orderTodoMarkup = null;
-  $("ordersTableBody").querySelectorAll("[data-order-todos]").forEach((button) => {
-    if (state.view === "orders" && button.dataset.orderTodos === path) button.focus({ preventScroll: true });
+  state.orderTodoKind = "todos";
+  $("ordersTableBody").querySelectorAll(kind === "purchases" ? "[data-order-purchases]" : "[data-order-todos]").forEach((button) => {
+    if (state.view === "orders" && (button.dataset.orderPurchases || button.dataset.orderTodos) === path) button.focus({ preventScroll: true });
   });
 });
 $("orderTodoDialog").addEventListener("click", (event) => {
@@ -1961,6 +1994,7 @@ $("purchaseList").addEventListener("input", (event) => {
   const row = event.target.closest("[data-purchase-index]");
   const item = state.folder.purchase_items[Number(row.dataset.purchaseIndex)];
   item.text = event.target.value;
+  event.target.size = Math.max(4, Array.from(item.text).length + 1);
   row.querySelector(".todo-check").setAttribute("aria-label", "Закупка выполнена: " + item.text);
   row.querySelector(".todo-delete").setAttribute("aria-label", "Удалить закупку: " + item.text);
   row.querySelector(".purchase-suppliers").setAttribute("aria-label", "Поставщики для закупки: " + item.text);
