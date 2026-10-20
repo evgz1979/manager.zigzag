@@ -14,6 +14,7 @@ LABELS = {"root": "Корень документов", "client": "Клиент",
           "moneys_root": "Финансовая информация",
           "work_section": "Производственный раздел", "moneys_section": "Финансовый раздел",
           "supplier_root": "Заказы поставщикам · стекло и стеклопакеты",
+          "catalog_group": "Группа клиентов",
           "group": "Общая группа", "order": "Заказ", "event": "Событие или материалы заказа", "service": "Служебная папка",
           "invalid": "Папка с некорректной датой"}
 
@@ -69,6 +70,23 @@ def dated(name):
         return False
 
 
+def is_catalog_group(name):
+    numbered = NUMBER.match(name) or re.match(r"^[0-9]\s*[-–—](?=$|\s)", name)
+    return bool(numbered and not (dated(name) or DATE.match(name) or DATE_LIKE.match(name) or YEAR.fullmatch(name)))
+
+
+def grouped_client(parts):
+    if len(parts) < 2 or not is_catalog_group(parts[0]):
+        return False
+    name = parts[1]
+    return not (dated(name) or DATE.match(name) or DATE_LIKE.match(name) or YEAR.fullmatch(name) or NUMBER.match(name))
+
+
+def client_name(relative):
+    parts = Path(relative).parts
+    return parts[1] if grouped_client(parts) else parts[0] if parts else ""
+
+
 def folder_role(root, relative):
     parts = Path(relative).parts
     if not parts:
@@ -79,6 +97,8 @@ def folder_role(root, relative):
         kind = "moneys_root"
     elif is_service_folder(relative):
         kind = "service"
+    elif len(parts) == 1 and is_catalog_group(parts[0]):
+        kind = "catalog_group"
     elif len(parts) >= 2 and (is_work_root(parts[0]) or is_moneys_root(parts[0])):
         if len(parts) == 2:
             if is_moneys_root(parts[0]):
@@ -89,8 +109,8 @@ def folder_role(root, relative):
             kind = "order" if len(parts) == 3 else "event"
     else:
         prefix = supplier_prefix(relative)
-        kind = "supplier_root" if prefix else "group" if NUMBER.match(parts[0]) else "client"
-        depth = len(prefix) or 1
+        kind = "supplier_root" if prefix else "client" if grouped_client(parts) else "group" if is_catalog_group(parts[0]) else "client"
+        depth = 2 if grouped_client(parts) else len(prefix) or 1
         for index, name in enumerate(parts[depth:], depth):
             if kind == "order":
                 kind = "event"

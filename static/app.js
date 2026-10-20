@@ -4,7 +4,7 @@ const financialStatusLabels = { unspecified: "Не указан", payment: "На
 const eventRelevanceLabels = { none: "Без статуса", active: "Актуально", check: "Проверить", inactive: "Неактуально" };
 const typeLabels = { all: "Все", images: "Фото", pdf: "PDF", design: "Макеты", docs: "Документы", video: "Видео", audio: "Аудио", other: "Другое" };
 const state = {
-  tree: [], auxiliary: [], nodes: new Map(), children: new Map(), expanded: new Set(),
+  tree: [], groups: [], auxiliary: [], nodes: new Map(), children: new Map(), expanded: new Set(),
   treeQuery: "", searchTree: null, folder: null, selected: "",
   fileQuery: "", fileType: "all", fileSort: "folders", limit: 120,
   folderRequest: null, navigation: 0, preview: null, dirty: false, saving: null,
@@ -80,10 +80,19 @@ function treeMarkup(nodes, depth = 0, searching = false) {
 
 function renderTree() {
   const focused = document.activeElement?.closest(".tree-row")?.dataset.path;
-  const nodes = state.searchTree || state.tree;
-  $("folderTree").innerHTML = nodes.length ? treeMarkup(nodes, 0, Boolean(state.searchTree)) : '<p class="tree-empty">Папки не найдены</p>';
-  if (!$("folderTree").querySelector('[tabindex="0"]')) $("folderTree").querySelector(".tree-row")?.setAttribute("tabindex", "0");
+  const focusedGroup = document.activeElement?.closest("[data-catalog-group]")?.dataset.catalogGroup;
+  const data = state.searchTree || { children: state.tree, groups: state.groups };
+  const searching = Boolean(state.searchTree);
+  const markup = (nodes) => nodes.length ? treeMarkup(nodes, 0, searching) : '<p class="tree-empty">Папки не найдены</p>';
+  $("folderTree").innerHTML = data.groups.map((group) => '<section class="catalog-tree-section"><div class="tree-heading catalog-tree-heading"><button type="button" data-catalog-group="' + escapeHtml(group.path) + '" title="Открыть группу ' + escapeHtml(group.name) + '"' + (state.selected === group.path ? ' aria-current="page"' : '') + '>' + escapeHtml(group.name) + '</button><span>' + (group.error ? "—" : group.children.length) + '</span></div><div role="tree" aria-label="Группа ' + escapeHtml(group.name) + '">' + (group.error ? '<p class="tree-empty" role="status">' + escapeHtml(group.error) + '</p>' : markup(group.children)) + '</div></section>').join("") +
+    '<section class="catalog-tree-section"><div class="tree-heading catalog-tree-heading"><span>Клиенты</span><span id="clientCount">' + data.children.length + '</span></div><div role="tree" aria-label="Основное дерево клиентов">' + markup(data.children) + '</div></section>';
+  for (const tree of $("folderTree").querySelectorAll('[role="tree"]')) {
+    const rows = [...tree.querySelectorAll(".tree-row")];
+    const active = rows.find((row) => row.dataset.path === state.selected) || rows[0];
+    rows.forEach((row) => { row.tabIndex = row === active ? 0 : -1; });
+  }
   if (focused) focusTree(focused);
+  if (focusedGroup) [...$("folderTree").querySelectorAll("[data-catalog-group]")].find((button) => button.dataset.catalogGroup === focusedGroup)?.focus({ preventScroll: true });
   $("auxiliaryButtons").innerHTML = state.auxiliary.map((node) =>
     '<button class="auxiliary-button' + (state.selected === node.path || state.selected.startsWith(node.path + "/") ? " active" : "") +
     '" data-path="' + escapeHtml(node.path) + '" title="' + escapeHtml(node.name) + '">' + icon("folder") +
@@ -94,7 +103,7 @@ function renderTree() {
 function focusTree(path) {
   const row = [...$("folderTree").querySelectorAll(".tree-row")].find((item) => item.dataset.path === path);
   if (row) {
-    $("folderTree").querySelectorAll(".tree-row").forEach((item) => { item.tabIndex = -1; });
+    row.closest('[role="tree"]').querySelectorAll(".tree-row").forEach((item) => { item.tabIndex = -1; });
     row.tabIndex = 0;
     row.focus({ preventScroll: true });
   }
@@ -139,11 +148,12 @@ async function revealPath(path, navigation) {
 async function loadTree() {
   const data = await request(apiUrl("/api/tree"));
   state.tree = data.children;
+  state.groups = data.groups || [];
   state.auxiliary = data.auxiliary;
   state.nodes.clear();
   state.children.clear();
-  registerNodes([...state.tree, ...state.auxiliary]);
-  $("clientCount").textContent = state.tree.length;
+  registerNodes([...state.tree, ...state.groups, ...state.auxiliary]);
+  for (const group of state.groups) state.children.set(group.path, group.children);
   $("rootLabel").textContent = data.rootName;
   $("rootLabel").title = data.root;
   for (const path of [...state.expanded].sort((a, b) => a.split("/").length - b.split("/").length)) {
@@ -1003,7 +1013,7 @@ async function navigate(path, { history = true } = {}) {
     let data;
     if (order) {
       const parts = path.split("/");
-      data = { path, name: parts.at(-1), client: parts[0], status: order.status, financial_status: order.financial_status, note: order.note, todo_items: order.todo_items, order,
+      data = { path, name: parts.at(-1), client: order.client, status: order.status, financial_status: order.financial_status, note: order.note, todo_items: order.todo_items, order,
         breadcrumbs: [{ name: $("rootLabel").textContent, path: "" }, ...parts.map((name, index) => ({ name, path: parts.slice(0, index + 1).join("/") }))],
         directories: [], files: [], counts: {}, warnings: [], fileCount: 0, folderCount: 0, totalSize: 0, view: "files", filesScope: "events", filesLoading: true };
     } else {
@@ -1282,6 +1292,8 @@ function run(action) {
 }
 
 $("folderTree").addEventListener("click", (event) => {
+  const group = event.target.closest("[data-catalog-group]");
+  if (group) { run(() => navigate(group.dataset.catalogGroup)); return; }
   const row = event.target.closest(".tree-row");
   if (!row) return;
   const path = row.dataset.path;
@@ -1295,7 +1307,7 @@ $("folderTree").addEventListener("keydown", (event) => {
   const row = event.target.closest(".tree-row");
   if (!row) return;
   const path = row.dataset.path;
-  const rows = [...$("folderTree").querySelectorAll(".tree-row")], index = rows.indexOf(row);
+  const rows = [...row.closest('[role="tree"]').querySelectorAll(".tree-row")], index = rows.indexOf(row);
   if (!["ArrowDown", "ArrowUp", "ArrowRight", "ArrowLeft", "Home", "End", "Enter", " "].includes(event.key)) return;
   event.preventDefault();
   if (event.key === "ArrowDown") focusTree(rows[Math.min(index + 1, rows.length - 1)].dataset.path);
@@ -1336,8 +1348,8 @@ $("treeSearch").addEventListener("input", (event) => {
   searchTimer = setTimeout(() => run(async () => {
     const result = await request(apiUrl("/api/tree", "", { q: state.treeQuery }));
     if (version !== treeSearchVersion) return;
-    state.searchTree = result.children;
-    registerNodes(result.children);
+    state.searchTree = { children: result.children, groups: result.groups || [] };
+    registerNodes([...state.searchTree.children, ...state.searchTree.groups]);
     renderTree();
   }), 250);
 });
@@ -1556,8 +1568,9 @@ $("refreshButton").addEventListener("click", () => run(async () => {
     state.searchTree = null;
     state.treeQuery = "";
     $("treeSearch").value = "";
+    await loadTree();
     if (state.view === "orders") await loadOrders();
-    else { await loadTree(); await navigate(state.selected, { history: false }); }
+    else await navigate(state.selected, { history: false });
   } finally { $("refreshButton").disabled = false; }
 }));
 $("statusSelect").addEventListener("change", () => { state.dirty = true; renderStatus(); });

@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from pathlib import Path
 import order_document as document
 from order_document import money, MAX_MONEY
-from folder_structure import folder_role, is_service_folder
+from folder_structure import folder_role, is_service_folder, client_name
 
 SNAPSHOT = ".order.json"  # Read-only compatibility with the previous export.
 CARD = document.DOCUMENT
@@ -85,7 +85,7 @@ class OrderStore:
             return None
         result = dict(row)
         result["registered"] = bool(result["registered"])
-        result["client"] = Path(result["path"]).parts[0]
+        result["client"] = client_name(result["path"])
         result["profit"] = result["amount"] - result["costs"] if result["amount"] is not None and result["costs"] is not None else None
         result["debt"] = result["amount"] - result["paid"] if result["amount"] is not None and result["paid"] is not None else None
         result["extra_blocks"] = json.loads(result["extra_blocks"])

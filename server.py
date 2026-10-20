@@ -31,7 +31,7 @@ import event_relevance
 from order_todos import OrderTodos
 import file_trash
 from file_comments import FileCommentConflict
-from folder_structure import folder_role
+from folder_structure import folder_role, is_catalog_group, client_name
 
 APP_DIR = Path(__file__).resolve().parent
 CONFIG_FILE = APP_DIR / "manager.ini"
@@ -423,9 +423,11 @@ def read_tree(relative="", query=""):
         raise FileNotFoundError("Папка данных не найдена. Проверьте manager.ini")
     children = directory_children(target)
     auxiliary = []
+    group_folders = []
     if target == DATA_ROOT:
         auxiliary = [folder_node(item) for item in children if item.name.startswith("#")]
-        children = [item for item in children if not item.name.startswith("#")]
+        group_folders = [item for item in children if is_catalog_group(item.name)]
+        children = [item for item in children if not item.name.startswith("#") and not is_catalog_group(item.name)]
     if query:
         needle = search_text(query.strip())
 
@@ -441,10 +443,19 @@ def read_tree(relative="", query=""):
             return None
 
         nodes = [node for item in children if (node := matching_node(item))]
+        groups = [node for item in group_folders if (node := matching_node(item))]
     else:
         nodes = [folder_node(item) for item in children]
+        groups = []
+        for item in group_folders:
+            node = {**folder_node(item), "children": []}
+            try:
+                node["children"] = [folder_node(child) for child in directory_children(item)]
+            except OSError as error:
+                node["error"] = "Не удалось прочитать группу: " + str(error)
+            groups.append(node)
     return {"root": str(DATA_ROOT), "rootName": DATA_ROOT.name, "path": relative,
-            "children": nodes, "auxiliary": auxiliary}
+            "children": nodes, "groups": groups, "auxiliary": auxiliary}
 
 
 def file_group(path):
@@ -702,7 +713,7 @@ def read_folder(relative=""):
     files, warnings = [], []
     print_view = is_print_folder(relative) and len(Path(relative).parts) == 2
     files_scope = "events" if status["folderKind"] == "order" or status.get("order") else (
-        "subfolders" if not print_view and status["folderKind"] in {"client", "object", "supplier_root", "work_root", "moneys_root", "work_section", "moneys_section"} else "folder")
+        "subfolders" if not print_view and status["folderKind"] in {"client", "object", "catalog_group", "supplier_root", "work_root", "moneys_root", "work_section", "moneys_section"} else "folder")
     hide_files = files_scope != "folder"
     folder_count = len(directories) if hide_files else 0
 
@@ -763,7 +774,7 @@ def read_folder(relative=""):
         nodes.append(node)
     breadcrumbs = [{"name": DATA_ROOT.name, "path": ""}]
     breadcrumbs.extend({"name": part, "path": Path(*parts[:index + 1]).as_posix()} for index, part in enumerate(parts))
-    return {"name": target.name, "path": relative_path(target), "client": parts[0] if parts else "",
+    return {"name": target.name, "path": relative_path(target), "client": client_name(relative),
             "root": str(DATA_ROOT), "breadcrumbs": breadcrumbs,
             "directories": nodes, "files": files,
             "fileCount": len(files), "folderCount": folder_count,
