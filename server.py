@@ -701,7 +701,7 @@ def read_folder(relative=""):
     status = folder_status(target, directories)
     files, warnings = [], []
     files_scope = "events" if status["folderKind"] == "order" or status.get("order") else (
-        "subfolders" if status["folderKind"] in {"client", "object", "supplier_root"} else "folder")
+        "subfolders" if status["folderKind"] in {"client", "object", "supplier_root", "work_root"} else "folder")
     hide_files = files_scope != "folder"
     folder_count = len(directories) if hide_files else 0
 

@@ -51,7 +51,8 @@ def safe_path(root, relative, clients, *, service_roots=()):
     if relative.is_absolute() or not relative.parts or ".." in relative.parts:
         raise ValueError("Путь должен находиться внутри корня документов")
     first = relative.parts[0]
-    if first not in clients or first.startswith(".") or (first.startswith("#") and first not in service_roots):
+    service_allowed = any(relative == Path(prefix) or Path(prefix) in relative.parents for prefix in service_roots)
+    if first not in clients or first.startswith(".") or (first.startswith("#") and not service_allowed):
         raise ValueError("Папка вне согласованной области переносов")
     for index in range(1, len(relative.parts) + 1):
         if (root / Path(*relative.parts[:index])).is_symlink():

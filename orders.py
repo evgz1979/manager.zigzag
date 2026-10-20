@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from pathlib import Path
 import order_document as document
 from order_document import money, MAX_MONEY
-from folder_structure import folder_role, is_service_folder, is_supplier_root
+from folder_structure import folder_role, is_service_folder
 
 SNAPSHOT = ".order.json"  # Read-only compatibility with the previous export.
 CARD = document.DOCUMENT
@@ -298,7 +298,7 @@ class OrderStore:
                 onerror=lambda error: progress["errors"].append(str(error))):
             folder = Path(current)
             dirs[:] = [name for name in dirs if not name.startswith(".")
-                       and (not name.startswith("#") or (folder == self.root and is_supplier_root(name)))
+                       and not is_service_folder((folder / name).relative_to(self.root).as_posix())
                        and not (folder / name).is_symlink()]
             progress["folders"] += 1
             relative = folder.relative_to(self.root).as_posix()

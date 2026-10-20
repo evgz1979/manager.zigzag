@@ -156,10 +156,10 @@ function renderSubfolders() {
   const folder = state.folder;
   const focused = document.activeElement?.closest("[data-relevance]");
   const focusPath = focused?.dataset.eventPath, focusValue = focused?.dataset.relevance;
-  const directories = folder.directories.filter((item) => !item.name.startsWith("#"));
+  const directories = folder.directories.filter((item) => folder.folderKind === "work_root" || !item.name.startsWith("#"));
   $("subfolders").classList.toggle("with-event-relevance", directories.some((item) => item.eventRelevance));
   $("folderSection").hidden = !directories.length;
-  $("foldersTitle").textContent = folder.canCreateEventFolder ? "События" : folder.folderKind === "supplier_root" ? "Заказы поставщикам" : folder.path ? "Подпапки" : "Папки";
+  $("foldersTitle").textContent = folder.canCreateEventFolder ? "События" : folder.folderKind === "supplier_root" ? "Заказы поставщикам" : folder.folderKind === "work_root" ? "Разделы производства" : folder.path ? "Подпапки" : "Папки";
   $("directoryCount").textContent = directories.length;
   $("subfolders").innerHTML = directories.map((item) => {
     const open = '<button class="subfolder" data-path="' + escapeHtml(item.path) + '" title="' + escapeHtml(item.name) + '">' +

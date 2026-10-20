@@ -10,6 +10,7 @@ DATE = re.compile(r"^(\d{4}|\d{2})[- ._](\d{2})[- ._](\d{2})(?=$|\D)")
 DATE_LIKE = re.compile(r"^(?:19|20)\d{2}[- ._]\d")
 NUMBER = re.compile(r"^\d{2,}(?=$|\D)")
 LABELS = {"root": "Корень документов", "client": "Клиент", "object": "Объект", "year": "Группа года",
+          "work_root": "Производство",
           "supplier_root": "Заказы поставщикам · стекло и стеклопакеты",
           "group": "Общая группа", "order": "Заказ", "event": "Событие или материалы заказа", "service": "Служебная папка",
           "invalid": "Папка с некорректной датой"}
@@ -19,9 +20,24 @@ def is_supplier_root(name):
     return name.startswith("#") and name[1:].strip().casefold() == "glass"
 
 
+def is_work_root(name):
+    return name.startswith("#") and name[1:].strip().casefold() == "work"
+
+
+def supplier_prefix(relative):
+    parts = Path(relative).parts
+    if parts and is_supplier_root(parts[0]):
+        return parts[:1]  # Совместимость с прежним расположением.
+    if len(parts) >= 2 and is_work_root(parts[0]) and is_supplier_root(parts[1]):
+        return parts[:2]
+    return ()
+
+
 def is_service_folder(relative):
-    return any(part.startswith("#") and not (index == 0 and is_supplier_root(part))
-               for index, part in enumerate(Path(relative).parts))
+    parts = Path(relative).parts
+    if len(parts) == 1 and is_work_root(parts[0]):
+        return False
+    return any(part.startswith("#") for part in parts[len(supplier_prefix(relative)):])
 
 
 def dated(name):
@@ -44,11 +60,15 @@ def folder_role(root, relative):
     parts = Path(relative).parts
     if not parts:
         kind = "root"
+    elif len(parts) == 1 and is_work_root(parts[0]):
+        kind = "work_root"
     elif is_service_folder(relative):
         kind = "service"
     else:
-        kind = "supplier_root" if is_supplier_root(parts[0]) else "group" if NUMBER.match(parts[0]) else "client"
-        for index, name in enumerate(parts[1:], 1):
+        prefix = supplier_prefix(relative)
+        kind = "supplier_root" if prefix else "group" if NUMBER.match(parts[0]) else "client"
+        depth = len(prefix) or 1
+        for index, name in enumerate(parts[depth:], depth):
             if kind == "order":
                 kind = "event"
                 break  # Never inspect event or service contents.

@@ -10,7 +10,7 @@ from pathlib import Path
 import order_document as document
 import event_relevance
 from event_folder_undo import assert_unlocked
-from folder_structure import folder_role, is_supplier_root, is_service_folder
+from folder_structure import folder_role, is_service_folder
 
 SYNC_LOCK = threading.Lock()
 
@@ -25,7 +25,7 @@ def parent_order(root, relative):
         parent = Path(*parts[:index]).as_posix()
         if folder_role(root, parent)["folderKind"] == "order":
             return parent
-        if parts[index - 1].startswith("#") and not (index == 1 and is_supplier_root(parts[0])):
+        if is_service_folder(parent):
             break
     return None
 

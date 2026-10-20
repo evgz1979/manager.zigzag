@@ -3,6 +3,7 @@ import shutil
 import subprocess
 import sys
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import event_folders
@@ -10,6 +11,7 @@ import folder_layout
 import order_folders
 from folder_structure import folder_role, is_service_folder
 from order_todos import OrderTodos
+from scripts.rebind_glass_notes import rebind
 import test_server as fixtures
 
 manager = fixtures.manager
@@ -22,7 +24,8 @@ class SupplierOrderTests(unittest.TestCase):
     file = fixtures.ManagerTests.file
     http = fixtures.ManagerTests.http
     url = fixtures.ManagerTests.url
-    order = "# glass/2026-10-20 - Стеклопакеты для Жуковки"
+    section = "# work/# glass"
+    order = section + "/2026-10-20 - Стеклопакеты для Жуковки"
 
     def post(self, route, payload):
         with patch.object(manager, "schedule_order_sync"), patch.object(manager, "schedule_todo_refresh"):
@@ -31,16 +34,17 @@ class SupplierOrderTests(unittest.TestCase):
         return json.loads(body)
 
     def test_create_register_events_notes_todos_and_local_summary(self):
-        self.folder("# glass")
-        manager.save_note("# glass", "Производство стеклопакетов и стекла")
-        root = manager.read_folder("# glass")
+        self.folder(self.section)
+        manager.save_note(self.section, "Производство стеклопакетов и стекла")
+        root = manager.read_folder(self.section)
         self.assertEqual(root["folderKind"], "supplier_root")
         self.assertEqual(root["filesScope"], "subfolders")
         self.assertTrue(root["canCreateOrderFolder"])
         self.assertFalse(root["canRegisterOrder"])
         self.assertFalse(root["service"])
-        self.assertIn("# glass", [item["path"] for item in manager.read_tree()["auxiliary"]])
-        created = self.post("/api/order-folder-create", {"path": "# glass", "date": "2026-10-20", "title": "Стеклопакеты для Жуковки"})
+        self.assertIn("# work", [item["path"] for item in manager.read_tree()["auxiliary"]])
+        self.assertIn(self.section, [item["path"] for item in manager.read_tree("# work")["children"]])
+        created = self.post("/api/order-folder-create", {"path": self.section, "date": "2026-10-20", "title": "Стеклопакеты для Жуковки"})
         self.assertEqual(created["path"], self.order)
         self.assertEqual(list((self.root / self.order).iterdir()), [])
         self.assertFalse(manager.order_store().database.exists())
@@ -82,7 +86,7 @@ class SupplierOrderTests(unittest.TestCase):
         self.assertIn("[Заказ]", (self.root / self.order / "!.txt").read_text())
         self.assertIn("Проверить формулу", (self.root / event["path"] / "!.txt").read_text())
         self.assertIn("[Актуальность события]\nАктуально", (self.root / event["path"] / "!.txt").read_text())
-        self.assertEqual(manager.read_folder("# glass")["note"], "Производство стеклопакетов и стекла")
+        self.assertEqual(manager.read_folder(self.section)["note"], "Производство стеклопакетов и стекла")
 
     def test_discovery_rebuild_and_removal_preserve_full_cards(self):
         self.folder(self.order + "/00 - Замеры")
@@ -92,7 +96,7 @@ class SupplierOrderTests(unittest.TestCase):
         self.file(self.order + "/!.txt", body.encode())
         self.file(self.order + "/00 - Замеры/!.txt", manager.order_document.render({"note": "Размеры проёма",
             "extra_blocks": {"Задачи": "- [ ] Проверить диагонали"}}, manager.STATUS_LABELS).encode())
-        for parent in ("# docs", "# work/# glass", "Клиент/# glass"):
+        for parent in ("# docs", "# work/# laser", "# work/# razbor/# glass", "Клиент/# glass"):
             self.file(parent + "/2026-10-20 - Не заказ/!.txt", body.encode())
         store = manager.order_store()
         progress = {"folders": 0, "added": 0, "errors": []}
@@ -120,8 +124,8 @@ class SupplierOrderTests(unittest.TestCase):
         self.assertIn("В списке заказов: нет", (self.root / self.order / "!.txt").read_text())
 
     def test_standalone_creation_and_event_rename_undo_work_under_glass(self):
-        self.folder("# glass")
-        created = order_folders.create(self.root, "# glass", "2026-10-20", "Стекло")
+        self.folder(self.section)
+        created = order_folders.create(self.root, self.section, "2026-10-20", "Стекло")
         session = self.root / created["journal"]
         subprocess.run([sys.executable, str(session / ".folder-layout.py"), "undo", str(session), "--apply"],
                        check=True, capture_output=True)
@@ -142,15 +146,15 @@ class SupplierOrderTests(unittest.TestCase):
         self.assertTrue(notes.get(before["path"])["sync_pending"])
         self.assertEqual((self.root / before["path"] / "original.txt").read_bytes(), b"preserve bytes")
 
-    def test_exception_is_only_for_root_glass_and_does_not_enable_general_layout(self):
-        for root in ("# glass", "#glass"):
+    def test_glass_locations_and_spacing_do_not_enable_other_sections_or_layout(self):
+        for root in ("# work/# glass", "#work/#glass", "# work/#glass", "#work/# glass", "# glass", "#glass"):
             path = root + "/00001 - Стекло"
             self.folder(path)
             self.assertFalse(is_service_folder(path))
             self.assertTrue(folder_role(self.root, path)["canRegisterOrder"])
             with self.assertRaises(ValueError):
-                folder_layout.Plan(self.root, [root]).mkdir(root + "/Не разрешено")
-        for path in ("# docs/2026-10-20 - Заказ", "# work/# glass/2026-10-20 - Заказ",
+                folder_layout.Plan(self.root, [root.split('/')[0]]).mkdir(root + "/Не разрешено")
+        for path in ("# docs/2026-10-20 - Заказ", "# work/# laser/2026-10-20 - Заказ", "# work/# razbor/# glass/2026-10-20 - Заказ",
                      "Клиент/# glass/2026-10-20 - Заказ", self.order + "/# bills"):
             self.folder(path)
             with self.subTest(path=path):
@@ -160,7 +164,89 @@ class SupplierOrderTests(unittest.TestCase):
                     manager.order_store().add(path, {})
                 with self.assertRaises(ValueError):
                     event_folders.preview(self.root, path)
-        self.folder("# glass")
-        (self.root / "# glass/Ссылка").symlink_to(self.root / "Клиент")
+        self.folder(self.section)
+        (self.root / self.section / "Ссылка").symlink_to(self.root / "Клиент")
         with self.assertRaises(ValueError):
-            order_folders.create(self.root, "# glass/Ссылка", "2026-10-20", "Заказ")
+            order_folders.create(self.root, self.section + "/Ссылка", "2026-10-20", "Заказ")
+        scope = order_folders.layout_scope(self.section)
+        with self.assertRaises(ValueError):
+            folder_layout.safe_path(self.root, "# work/# laser", ["# work"], **scope)
+
+    def test_work_is_a_container_with_immediate_sections_without_attachment_walk(self):
+        for path in (self.section, "# work/# laser", "# work/# print"):
+            self.folder(path)
+        self.file("# work/# laser/deep/document.txt", b"keep")
+        with patch.object(manager.os, "walk", side_effect=AssertionError("Do not collect section attachments")):
+            work = manager.read_folder("# work")
+        self.assertEqual(work["folderKind"], "work_root")
+        self.assertEqual(work["filesScope"], "subfolders")
+        self.assertEqual(work["fileCount"], 0)
+        self.assertEqual([item["name"] for item in work["directories"]], ["# glass", "# laser", "# print"])
+        self.assertFalse(work["canCreateOrderFolder"])
+        self.assertFalse(work["canRegisterOrder"])
+        manager.save_note("# work", "Производство")
+        self.assertEqual(manager.read_folder("# work")["note"], "Производство")
+
+    def moved_note(self, *, pending=False):
+        path = "# glass/2026-10-20 - Стекло/00 - Задание"
+        self.folder(path)
+        notes = manager.folder_note_store()
+        record = notes.read(path)
+        record = notes.save({"path": path, "revision": record["revision"], "note": "Стеклопакеты",
+            "todo_items": [{"text": "Проверить размеры", "done": False}]})
+        if not pending:
+            notes.sync()
+            record = notes.get(path)
+        self.folder("# work")
+        (self.root / "# glass").rename(self.root / self.section)
+        return notes, record
+
+    def test_explicit_rebind_preserves_identity_bytes_and_new_edits_on_standalone_undo(self):
+        notes, record = self.moved_note()
+        path = "# work/" + record["path"]
+        original = (self.root / path / "!.txt").read_bytes()
+        self.assertEqual(rebind(notes)["count"], 1)
+        self.assertIsNone(notes.get(path))
+        result = rebind(notes, perform=True)
+        rebound = notes.get(path)
+        self.assertEqual(rebound["revision"].split(":")[0], record["revision"].split(":")[0])
+        self.assertEqual(rebound["parent_order"], "# work/" + record["parent_order"])
+        self.assertEqual(rebound["todo_items"], record["todo_items"])
+        self.assertFalse(rebound["sync_pending"])
+        self.assertEqual((self.root / path / "!.txt").read_bytes(), original)
+        self.assertTrue((Path(result["journal"]) / ".before.sqlite3").is_file())
+        with self.assertRaises(manager.FolderNoteConflict):
+            notes.save({"path": record["path"], "revision": record["revision"], "note": "Старая вкладка"})
+        notes.save({"path": path, "revision": rebound["revision"], "note": "Новое дополнение"})
+        (self.root / self.section).rename(self.root / "# glass")
+        session = Path(result["journal"])
+        subprocess.run([sys.executable, str(session / ".restore.py"), str(session), "--apply"], check=True, capture_output=True)
+        restored = notes.get(record["path"])
+        self.assertEqual(restored["note"], "Новое дополнение")
+        self.assertTrue(restored["sync_pending"])
+        self.assertIsNone(notes.get(path))
+        self.assertEqual((self.root / record["path"] / "!.txt").read_bytes(), original)
+
+    def test_rebind_rejects_unexported_notes_without_dropping_queue(self):
+        notes, record = self.moved_note(pending=True)
+        with self.assertRaisesRegex(ValueError, "невыгруженная"):
+            rebind(notes, perform=True)
+        self.assertEqual(notes.get(record["path"]), record)
+        self.assertFalse((self.root / ".folder-layout-history").exists())
+
+    def test_rebind_rejects_changed_files_or_existing_destination_notes(self):
+        notes, record = self.moved_note()
+        path = "# work/" + record["path"]
+        card = self.root / path / "!.txt"
+        original = card.read_bytes()
+        card.write_bytes(original + b"\n[External]\nKeep\n")
+        with self.assertRaisesRegex(ValueError, "отличается"):
+            rebind(notes, perform=True)
+        self.assertIn(b"[External]", card.read_bytes())
+        self.assertEqual(notes.get(record["path"]), record)
+        card.write_bytes(original)
+        notes.read(path)
+        with self.assertRaisesRegex(ValueError, "уже есть заметки"):
+            rebind(notes, perform=True)
+        self.assertIsNotNone(notes.get(record["path"]))
+        self.assertIsNotNone(notes.get(path))
