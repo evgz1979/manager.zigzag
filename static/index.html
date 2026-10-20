@@ -79,10 +79,20 @@
           </section>
         </section>
         </div>
+        <div id="orderFinanceOverview" class="order-finance-overview" hidden>
         <section id="invoiceSection" class="invoice-section" aria-label="Счета заказа" hidden>
           <header class="invoice-section-heading"><h2>Счета <span id="invoiceCount" class="count-badge"></span></h2><button id="newInvoice" class="secondary-button" type="button">+ Выписать счёт</button></header>
           <div id="invoiceList" class="invoice-list"></div><p id="invoiceListState" class="invoice-state" role="status"></p>
         </section>
+        <section id="purchasePanel" class="todo-panel purchase-panel" aria-label="Формирование закупок/затрат">
+          <header class="todo-heading"><h2>Формирование закупок/затрат</h2><span id="purchaseCount"></span></header>
+          <div id="purchaseList" class="todo-list"></div>
+          <p id="purchaseEmpty" class="todo-empty">Добавь, что нужно закупить или заказать.</p>
+          <div id="purchaseLegacy" class="todo-legacy" hidden><p>В разделе «Закупки и затраты» уже есть записи:</p><pre id="purchaseLegacyText"></pre></div>
+          <form id="purchaseAddForm" class="todo-add-form"><input id="purchaseNewText" type="text" maxlength="1000" placeholder="Новая закупка или затрата…" aria-label="Новая закупка или затрата" autocomplete="off" required><button class="primary-button" type="submit">Добавить</button></form>
+          <p id="purchaseSaveState" class="todo-save-state" role="status"></p>
+        </section>
+        </div>
         <section id="sketchSection" class="folder-section" aria-label="Эскизы" hidden><div class="section-heading"><h2>Эскизы</h2><span id="sketchCount"></span></div><div id="sketchTiles" class="subfolders with-event-relevance sketch-grid"></div></section>
         <section id="folderSection" class="folder-section" aria-label="Подпапки"><div class="section-heading"><h2 id="foldersTitle">Папки</h2><span id="directoryCount"></span></div><div id="subfolders" class="subfolders"></div></section>
         <section id="printWorkspace" class="print-workspace" aria-label="Задания на широкоформатную печать" hidden>

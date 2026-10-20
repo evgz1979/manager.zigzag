@@ -19,6 +19,8 @@ KNOWN_BLOCKS = {"Заказ", "Финансы", "Заметка", "Служеб�
 ORDER_FIELDS = {"status", "financial_status", "title", "client", "path", "amount", "costs", "paid", "id", "revision", "updated"}
 MAX_MONEY = 999_999_999_999_99
 TODO_BLOCK = "Задачи"
+PURCHASE_BLOCK = "Закупки и затраты"
+PURCHASE_SUPPLIERS = ("newtek", "glass", "antares", "tbm", "remex")
 UNSET_TODOS = object()
 
 
@@ -55,6 +57,44 @@ def read_todos(blocks):
 def write_todos(blocks, items):
     result = dict(blocks)
     result[TODO_BLOCK] = "\n".join("- [" + ("x" if item["done"] else " ") + "] " + item["text"] for item in validate_todos(items))
+    return result
+
+
+def validate_purchases(items):
+    result = validate_todos(items)
+    for raw, item in zip(items, result):
+        suppliers = raw.get("suppliers", [])
+        if not isinstance(suppliers, list) or any(not isinstance(name, str) or name not in PURCHASE_SUPPLIERS for name in suppliers) or len(set(suppliers)) != len(suppliers):
+            raise ValueError("Некорректный выбор поставщиков закупки")
+        item["suppliers"] = [name for name in PURCHASE_SUPPLIERS if name in suppliers]
+    return result
+
+
+def read_purchases(blocks):
+    items, has_suppliers = [], False
+    for line in blocks.get(PURCHASE_BLOCK, "").splitlines():
+        if not line.strip():
+            continue
+        match = re.fullmatch(r"- \[([ xX])\] (.+)", line)
+        if match:
+            items.append({"text": match[2], "done": match[1].lower() == "x", "suppliers": []})
+            has_suppliers = False
+        elif line.startswith("  Поставщики: ") and items and not has_suppliers:
+            selected = line[len("  Поставщики: "):]
+            items[-1]["suppliers"] = [] if selected == "—" else selected.split(", ")
+            has_suppliers = True
+        else:
+            return None
+    try:
+        return validate_purchases(items)
+    except ValueError:
+        return None
+
+
+def write_purchases(blocks, items):
+    result = dict(blocks)
+    result[PURCHASE_BLOCK] = "\n".join("- [" + ("x" if item["done"] else " ") + "] " + item["text"] +
+        "\n  Поставщики: " + (", ".join(item["suppliers"]) or "—") for item in validate_purchases(items))
     return result
 
 

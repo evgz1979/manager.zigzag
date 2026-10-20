@@ -427,6 +427,20 @@ h2 { font-size: 13px; font-weight: 600; }
 @media (max-width: 1050px) { .print-layout { grid-template-columns: 150px minmax(0, 1fr); gap: 12px; } .print-editor { padding: 15px; } .print-editor-heading { flex-wrap: wrap; } .print-link-row { flex-wrap: wrap; } .print-link-row label { flex-basis: 100%; } }
 @media (max-width: 760px) { .print-layout { grid-template-columns: 1fr; } .print-task-list { max-height: 190px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } .print-toolbar { flex-wrap: wrap; } }
 /* Compact invoice register and editor. */
+.order-finance-overview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 18px; margin: 18px 0; }
+.order-finance-overview > .invoice-section { min-width: 0; margin: 0; }
+.purchase-panel { border-radius: 12px; padding: 13px 15px; }
+.purchase-panel .todo-heading { align-items: flex-start; }
+.purchase-panel .todo-heading h2 { line-height: 1.4; }
+.purchase-panel .todo-row { grid-template-columns: 18px minmax(0, 1fr) 22px; }
+.purchase-suppliers { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 5px; padding: 0 0 4px; }
+.purchase-suppliers button { border-color: var(--line); background: transparent; color: var(--accent); font-size: 10px; padding: 3px 7px; }
+.purchase-suppliers button:hover { background: var(--accent-soft); }
+.purchase-suppliers button[aria-pressed="true"] { color: #fff; background: var(--accent); border-color: var(--accent); }
+.order-finance-overview .invoice-row { flex-wrap: wrap; gap: 7px 10px; }
+.order-finance-overview .invoice-row-name { flex: 1; min-width: min(150px, 100%); }
+.order-finance-overview .invoice-row-state { flex-basis: 100%; order: 5; }
+@media (max-width: 1050px) { .order-finance-overview { grid-template-columns: minmax(0, 1fr); } }
 .invoice-section { margin: 18px 0; border: 1px solid var(--border, #e1e4e9); border-radius: 12px; padding: 12px 15px; }
 .invoice-section-heading, .invoice-total-row, .invoice-dialog-heading, .invoice-dialog-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .invoice-section-heading h2 { margin: 0; font-size: 15px; }

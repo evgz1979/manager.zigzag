@@ -1,6 +1,7 @@
 const $ = (id) => document.getElementById(id);
 const statusLabels = { new: "Новый", measure: "Замеры", process: "Расчеты", workshop: "В цех", install: "Монтаж", rework: "Переделка/доделка", finishing: "Завершение/добивка", deferred: "Отложен/возможно", done: "Готово", done_but: "Готово, но…", cancelled: "Отменён", unspecified: "Не указан" };
 const financialStatusLabels = { unspecified: "Не указан", payment: "На оплате", partial: "Частично оплачен", paid: "Оплачен" };
+const purchaseSuppliers = ["newtek", "glass", "antares", "tbm", "remex"];
 const eventRelevanceLabels = { none: "Без статуса", active: "Актуально", check: "Проверить", inactive: "Неактуально" };
 const typeLabels = { all: "Все", images: "Фото", pdf: "PDF", design: "Макеты", docs: "Документы", video: "Видео", audio: "Аудио", other: "Другое" };
 const state = {
@@ -381,6 +382,7 @@ function renderFolder(preserveForm = false) {
   const service = Boolean(folder.service);
   const noteOnly = service || Boolean(folder.noteOnly);
   const hasTodo = Boolean(folder.path) && (!noteOnly || Boolean(folder.eventFolder));
+  $("orderFinanceOverview").hidden = !hasDescendantTodos(folder);
   $("orderOverview").hidden = !folder.path || (printView && !folder.eventFolder);
   $("orderOverview").classList.toggle("with-todos", hasTodo);
   $("todoPanel").hidden = !hasTodo;
@@ -410,7 +412,10 @@ function renderFolder(preserveForm = false) {
   $("renameFolderButton").hidden = folder.canRenameFolder !== true;
   if (!preserveForm) {
     folder.todo_items = folder.order ? folder.order.todo_items : folder.todo_items === undefined ? [] : folder.todo_items;
+    folder.purchase_items = folder.order ? folder.order.purchase_items : folder.purchase_items === undefined ? [] : folder.purchase_items;
     if (hasTodo) { $("todoNewText").value = ""; renderTodos(); }
+    $("purchaseNewText").value = "";
+    renderPurchases();
     $("orderDetails").open = noteOnly || Boolean(folder.note || folder.order);
     $("orderTitleLabel").hidden = noteOnly || !folder.order;
     $("financialFields").hidden = noteOnly || !folder.order;
@@ -466,6 +471,28 @@ function renderStatus() {
   $("saveStatusButton").textContent = state.dirty ? "Сохранить изменения" : "Сохранить";
   const folderNote = state.folder.folderNote;
   $("todoSaveState").textContent = state.saving ? "Сохраняю…" : state.dirty ? "Есть несохранённые изменения" : folderNote?.sync_error ? "Сохранено в базе. Выгрузка: " + folderNote.sync_error : folderNote?.sync_pending ? "Сохранено в базе · ожидает выгрузки в папку" : folderNote ? folderNote.file_exists ? "Сохранено в базе и в !.txt этой папки" : "Автоматическое сохранение в эту папку" : "Сохранено";
+  renderPurchaseSaveState();
+}
+
+function renderPurchaseSaveState() {
+  const order = state.folder?.order;
+  $("purchaseSaveState").textContent = state.saving ? "Сохраняю…" : state.dirty ? "Есть несохранённые изменения" : order?.sync_error ? "Сохранено в базе · выгрузка: " + order.sync_error : order?.sync_pending ? "Сохранено в базе · ожидает выгрузки в папку" : order ? "Выгружено в !.txt" : "Автоматическое сохранение в !.txt заказа";
+}
+
+function renderPurchases() {
+  const folder = state.folder, items = folder.purchase_items;
+  const editable = Array.isArray(items);
+  $("purchaseLegacy").hidden = editable;
+  $("purchaseLegacyText").textContent = editable ? "" : (folder.order?.extra_blocks || folder.extra_blocks || {})["Закупки и затраты"] || "";
+  $("purchaseAddForm").hidden = !editable;
+  $("purchaseEmpty").hidden = !editable || Boolean(items.length);
+  $("purchaseCount").textContent = editable ? items.filter((item) => item.done).length + " / " + items.length : "";
+  $("purchaseList").innerHTML = editable ? items.map((item, index) => '<div class="todo-row' + (item.done ? ' done' : '') + '" data-purchase-index="' + index + '">' +
+    '<input class="todo-check" type="checkbox" aria-label="Закупка выполнена: ' + escapeHtml(item.text) + '"' + (item.done ? ' checked' : '') + '>' +
+    '<input class="todo-text" type="text" maxlength="1000" aria-label="Текст закупки или затраты" value="' + escapeHtml(item.text) + '">' +
+    '<button class="todo-delete" type="button" aria-label="Удалить закупку: ' + escapeHtml(item.text) + '">×</button>' +
+    '<div class="purchase-suppliers" role="group" aria-label="Поставщики для закупки: ' + escapeHtml(item.text) + '">' + purchaseSuppliers.map((name) => '<button type="button" data-purchase-supplier="' + name + '" aria-pressed="' + String((item.suppliers || []).includes(name)) + '" title="Отметить поставщика ' + name + '">' + name + '</button>').join("") + '</div></div>').join("") : "";
+  renderPurchaseSaveState();
 }
 
 function renderTodos() {
@@ -986,7 +1013,8 @@ async function saveCurrentStatus() {
     : noteOnly
     ? { path: folder.path, note }
     : folder.order ? { path: folder.path, revision: folder.order.revision, ...values }
-      : { path: folder.path, status, financial_status: values.financial_status, note, ...(values.todo_items ? { todo_items: values.todo_items } : {}) });
+      : { path: folder.path, status, financial_status: values.financial_status, note, ...(values.todo_items ? { todo_items: values.todo_items } : {}),
+        ...(values.purchase_items ? { purchase_items: values.purchase_items } : {}) });
   renderStatus();
   try {
     const saved = await state.saving;
@@ -1012,6 +1040,7 @@ function currentOrderValues() {
     ...(state.folder.folderNote && Array.isArray(state.folder.todo_items) ? { todo_items: state.folder.todo_items.map((item) => ({ ...item })) } : {}) };
   return { status: $("statusSelect").value, financial_status: $("financialStatusSelect").value, note: $("orderNote").value, title: $("orderTitleInput").value,
     ...(Array.isArray(state.folder?.todo_items) ? { todo_items: state.folder.todo_items.map((item) => ({ ...item })) } : {}),
+    ...(hasDescendantTodos(state.folder) && Array.isArray(state.folder?.purchase_items) ? { purchase_items: state.folder.purchase_items.map((item) => ({ ...item, suppliers: [...(item.suppliers || [])] })) } : {}),
     amount: $("orderAmount").value, costs: $("orderCosts").value, paid: $("orderPaid").value };
 }
 
@@ -1028,6 +1057,7 @@ function renderOrderCalculated() {
 function renderExportState() {
   const order = state.folder?.order;
   $("orderExportState").textContent = !order ? "" : order.sync_error ? "Сохранено в базе · выгрузка в очереди: " + order.sync_error : order.sync_pending ? "Сохранено в базе · ожидает выгрузки в папку" : "Выгружено в !.txt";
+  renderPurchaseSaveState();
 }
 
 async function loadOrders() {
@@ -1212,7 +1242,7 @@ async function navigate(path, { history = true } = {}) {
     let data;
     if (order) {
       const parts = path.split("/");
-      data = { path, name: parts.at(-1), client: order.client, status: order.status, financial_status: order.financial_status, note: order.note, todo_items: order.todo_items, order,
+      data = { path, name: parts.at(-1), client: order.client, status: order.status, financial_status: order.financial_status, note: order.note, todo_items: order.todo_items, purchase_items: order.purchase_items, order,
         breadcrumbs: [{ name: $("rootLabel").textContent, path: "" }, ...parts.map((name, index) => ({ name, path: parts.slice(0, index + 1).join("/") }))],
         directories: [], files: [], counts: {}, warnings: [], fileCount: 0, folderCount: 0, totalSize: 0, view: "files", filesScope: "events", filesLoading: true };
     } else {
@@ -1272,8 +1302,8 @@ async function loadOrderFiles(path, navigation) {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Не удалось открыть папку");
     if (navigation !== state.navigation) return;
-    const { order, status, financial_status, note, todo_items, noteOnly, registrationPending, registrationError } = state.folder;
-    Object.assign(state.folder, data, { order, status, financial_status, note, todo_items, noteOnly, registrationPending, registrationError, filesLoading: false, filesUnavailable: false });
+    const { order, status, financial_status, note, todo_items, purchase_items, noteOnly, registrationPending, registrationError } = state.folder;
+    Object.assign(state.folder, data, { order, status, financial_status, note, todo_items, purchase_items, noteOnly, registrationPending, registrationError, filesLoading: false, filesUnavailable: false });
     renderFolder(true);
   } catch (error) {
     if (error.name === "AbortError" || navigation !== state.navigation) return;
@@ -1916,6 +1946,50 @@ $("todoList").addEventListener("click", (event) => {
   renderTodos(); saveTodosSoon();
 });
 $("todoList").addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && event.target.matches(".todo-text")) { event.preventDefault(); event.target.blur(); saveTodosSoon(); }
+});
+$("purchaseAddForm").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const text = $("purchaseNewText").value.trim();
+  if (!text || !Array.isArray(state.folder?.purchase_items)) return;
+  state.folder.purchase_items.push({ text, done: false, suppliers: [] });
+  $("purchaseNewText").value = "";
+  renderPurchases(); saveTodosSoon(); $("purchaseNewText").focus();
+});
+$("purchaseList").addEventListener("input", (event) => {
+  if (!event.target.matches(".todo-text")) return;
+  const row = event.target.closest("[data-purchase-index]");
+  const item = state.folder.purchase_items[Number(row.dataset.purchaseIndex)];
+  item.text = event.target.value;
+  row.querySelector(".todo-check").setAttribute("aria-label", "Закупка выполнена: " + item.text);
+  row.querySelector(".todo-delete").setAttribute("aria-label", "Удалить закупку: " + item.text);
+  row.querySelector(".purchase-suppliers").setAttribute("aria-label", "Поставщики для закупки: " + item.text);
+  saveTodosSoon(700);
+});
+$("purchaseList").addEventListener("change", (event) => {
+  if (!event.target.matches(".todo-check")) return;
+  const row = event.target.closest("[data-purchase-index]");
+  state.folder.purchase_items[Number(row.dataset.purchaseIndex)].done = event.target.checked;
+  row.classList.toggle("done", event.target.checked);
+  $("purchaseCount").textContent = state.folder.purchase_items.filter((item) => item.done).length + " / " + state.folder.purchase_items.length;
+  saveTodosSoon();
+});
+$("purchaseList").addEventListener("click", (event) => {
+  const supplier = event.target.closest("[data-purchase-supplier]");
+  if (supplier) {
+    const item = state.folder.purchase_items[Number(supplier.closest("[data-purchase-index]").dataset.purchaseIndex)];
+    const selected = new Set(item.suppliers || []), name = supplier.dataset.purchaseSupplier;
+    if (selected.has(name)) selected.delete(name); else selected.add(name);
+    item.suppliers = purchaseSuppliers.filter((value) => selected.has(value));
+    supplier.setAttribute("aria-pressed", String(selected.has(name)));
+    saveTodosSoon();
+    return;
+  }
+  if (!event.target.closest(".todo-delete")) return;
+  state.folder.purchase_items.splice(Number(event.target.closest("[data-purchase-index]").dataset.purchaseIndex), 1);
+  renderPurchases(); saveTodosSoon();
+});
+$("purchaseList").addEventListener("keydown", (event) => {
   if (event.key === "Enter" && event.target.matches(".todo-text")) { event.preventDefault(); event.target.blur(); saveTodosSoon(); }
 });
 $("statusForm").addEventListener("submit", (event) => { event.preventDefault(); run(async () => { await saveCurrentStatus(); notify(state.folder?.folderNote ? "Заметка и задачи сохранены в базе" : state.folder?.service || state.folder?.noteOnly ? "Заметка сохранена" : state.folder?.order ? "Карточка сохранена в базе, выгрузка в папку поставлена в очередь" : "Статус и заметка сохранены"); }); });

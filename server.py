@@ -531,11 +531,14 @@ def read_status_document(folder, *, include_registration=False, include_todos=Fa
     keys = ("status", "financial_status", "note", "registered") if include_registration else ("status", "financial_status", "note")
     result = {key: record[key] for key in keys if key in record}
     if include_todos:
-        result.update(extra_blocks=record.get("extra_blocks", {}), todo_items=order_document.read_todos(record.get("extra_blocks", {})))
+        blocks = record.get("extra_blocks", {})
+        result.update(extra_blocks=blocks, todo_items=order_document.read_todos(blocks),
+                      purchase_items=order_document.read_purchases(blocks))
     return result
 
 
-def write_status_document(folder, status, note, financial_status=None, todo_items=order_document.UNSET_TODOS):
+def write_status_document(folder, status, note, financial_status=None, todo_items=order_document.UNSET_TODOS,
+                          purchase_items=order_document.UNSET_TODOS):
     with STATUS_LOCK:
         target = status_document(folder)
         record = order_document.load(folder, STATUS_LABELS)
@@ -547,6 +550,11 @@ def write_status_document(folder, status, note, financial_status=None, todo_item
                 record["financial_status"] = financial_status
             if todo_items is not order_document.UNSET_TODOS:
                 record["extra_blocks"] = order_document.write_todos(record.get("extra_blocks", {}), todo_items)
+            if purchase_items is not order_document.UNSET_TODOS:
+                blocks = record.get("extra_blocks", {})
+                if order_document.read_purchases(blocks) is None:
+                    raise ValueError("Прежние записи закупок и затрат сохранены. Проверь раздел в !.txt заказа")
+                record["extra_blocks"] = order_document.write_purchases(blocks, purchase_items)
         record["note"] = note
         if record.get("schema", 0) < order_document.FORMAT:
             order_document.archive_current(folder)
@@ -790,7 +798,7 @@ def folder_status(path, directories):
     order = order_store().get(relative, include_unregistered=True)
     if order and order["registered"]:
         return {**role, "service": False, "status": order["status"], "financial_status": order["financial_status"], "note": order["note"],
-                "todo_items": order["todo_items"], "extra_blocks": order["extra_blocks"], "statusSource": "database", "order": order}
+                "todo_items": order["todo_items"], "purchase_items": order["purchase_items"], "extra_blocks": order["extra_blocks"], "statusSource": "database", "order": order}
     if order and order["sync_pending"]:
         return {**role, "service": False, "noteOnly": True, "note": order["note"], "statusSource": "database",
                 "registrationPending": True, "registrationError": order["sync_error"]}
@@ -804,7 +812,7 @@ def folder_status(path, directories):
     return {**role, "service": False, "noteOnly": not role["canRegisterOrder"] or bool(order) or record.get("registered") is False,
             "status": record.get("status", guessed), "note": record.get("note", ""),
             "financial_status": record.get("financial_status", "unspecified"),
-            "todo_items": record.get("todo_items", []), "extra_blocks": record.get("extra_blocks", {}),
+            "todo_items": record.get("todo_items", []), "purchase_items": record.get("purchase_items", []), "extra_blocks": record.get("extra_blocks", {}),
             "statusSource": "manual" if record.get("status") else "auto"}
 
 
@@ -903,7 +911,8 @@ def read_folder(relative="", show_inactive=False):
             **status}
 
 
-def save_status(relative, status, note, financial_status=None, todo_items=order_document.UNSET_TODOS):
+def save_status(relative, status, note, financial_status=None, todo_items=order_document.UNSET_TODOS,
+                purchase_items=order_document.UNSET_TODOS):
     target = editable_status_folder(relative)
     if is_service_folder(relative_path(target)):
         raise ValueError("У служебной папки нет статуса заказа. Сохраните заметку.")
@@ -918,7 +927,7 @@ def save_status(relative, status, note, financial_status=None, todo_items=order_
             raise OrderConflict("Папка убрана из списка заказов. Обновите её и сохраните заметку.")
         raise OrderConflict("Заказ ведётся в базе. Откройте его заново и сохраните карточку целиком.")
     with STATUS_LOCK:
-        write_status_document(target, status, note, financial_status, todo_items)
+        write_status_document(target, status, note, financial_status, todo_items, purchase_items)
 
 
 def save_note(relative, note):
@@ -1207,7 +1216,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
         try:
             route = urllib.parse.urlparse(self.path).path
             length = int(self.headers.get("Content-Length", "0"))
-            if length < 0 or length > (1024 * 1024 if route == "/api/file-comment" else 256 * 1024):
+            if length < 0 or length > (1024 * 1024 if route in {"/api/file-comment", "/api/order-save", "/api/status"} else 256 * 1024):
                 raise ValueError("Слишком большой запрос")
             payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
             if not isinstance(payload, dict):
@@ -1363,7 +1372,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(result)
                 return
             elif route == "/api/status":
-                save_status(payload.get("path", ""), payload.get("status"), payload.get("note", ""), payload.get("financial_status"), payload.get("todo_items", order_document.UNSET_TODOS))
+                save_status(payload.get("path", ""), payload.get("status"), payload.get("note", ""), payload.get("financial_status"),
+                            payload.get("todo_items", order_document.UNSET_TODOS), payload.get("purchase_items", order_document.UNSET_TODOS))
             elif route == "/api/note":
                 save_note(payload.get("path", ""), payload.get("note", ""))
             elif route == "/api/open":

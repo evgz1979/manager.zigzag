@@ -92,6 +92,7 @@ class OrderStore:
         result["debt"] = result["amount"] - result["paid"] if result["amount"] is not None and result["paid"] is not None else None
         result["extra_blocks"] = json.loads(result["extra_blocks"])
         result["todo_items"] = document.read_todos(result["extra_blocks"])
+        result["purchase_items"] = document.read_purchases(result["extra_blocks"])
         exported_revision, export_format = result.pop("exported_revision"), result.pop("export_format")
         result["sync_pending"] = result["revision"] != exported_revision or (result["registered"] and export_format < document.FORMAT)
         return result
@@ -174,6 +175,10 @@ class OrderStore:
             if current is None:
                 raise OrderConflict("Заказ изменён в другой вкладке. Откройте его заново перед сохранением.")
             blocks = json.loads(current["extra_blocks"])
+            if "purchase_items" in payload:
+                if document.read_purchases(blocks) is None:
+                    raise ValueError("Прежние записи закупок и затрат сохранены. Проверь раздел в !.txt заказа")
+                blocks = document.write_purchases(blocks, payload["purchase_items"])
             if "todo_items" in payload:
                 blocks = document.write_todos(blocks, payload["todo_items"])
                 # Update phone identities in this same transaction, including an
@@ -224,7 +229,7 @@ class OrderStore:
                     phase = "Чтение карточки"
                     existing = document.load(folder, self.labels)
                     record["extra_blocks"].update({key: value for key, value in existing.get("extra_blocks", {}).items()
-                        if key != document.TODO_BLOCK or key not in record["extra_blocks"]})
+                        if key not in {document.TODO_BLOCK, document.PURCHASE_BLOCK} or key not in record["extra_blocks"]})
                     if existing.get("schema", 0) < document.FORMAT:
                         phase = "Сохранение прежней карточки в историю"
                         document.archive_current(folder)
