@@ -53,6 +53,15 @@ h1, h2, h3, p { margin: 0; }
 .tree-row.selected { color: #236754; background: #dfece2; font-weight: 550; }
 .tree-row > svg { width: 16px; height: 16px; color: #9baf97; fill: #dce8d6; }
 .tree-row.selected > svg { color: #6a9274; fill: #c8dcc6; }
+.tree-row.inactive, .subfolder.inactive { opacity: .4; }
+.tree-row.inactive:focus-visible, .subfolder.inactive:focus-visible { opacity: .8; }
+.inactive-clients-toggle { margin: 0 16px 10px; padding: 5px 8px; background: none; color: var(--muted); font-size: 11px; text-align: left; }
+.inactive-clients-toggle[aria-pressed="true"] { color: var(--accent); background: #e9eeea; }
+.client-activity-card { margin-bottom: 16px; padding: 15px 18px; border: 1px solid var(--line); border-radius: 10px; background: #fcfdfb; }
+.client-activity-card label { display: flex; align-items: center; gap: 9px; font-weight: 600; }
+.client-activity-card input { width: 16px; height: 16px; accent-color: var(--accent); }
+.client-activity-card p { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
+.client-activity-card p.error { color: #a5372b; }
 .tree-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tree-toggle { width: 17px; height: 23px; display: grid; place-items: center; flex-shrink: 0; padding: 0; border: 0; background: none; color: #929b94; }
 .tree-toggle svg { width: 11px; height: 11px; transition: transform .12s; }

@@ -87,6 +87,16 @@ def client_name(relative):
     return parts[1] if grouped_client(parts) else parts[0] if parts else ""
 
 
+def client_path(relative):
+    """Client identity by full path, without touching document storage."""
+    parts = Path(relative).parts
+    if not parts or parts[0].startswith((".", "#")):
+        return ""
+    if is_catalog_group(parts[0]):
+        return Path(*parts[:2]).as_posix() if grouped_client(parts) and not parts[1].startswith((".", "#")) else ""
+    return parts[0]
+
+
 def folder_role(root, relative):
     parts = Path(relative).parts
     if not parts:

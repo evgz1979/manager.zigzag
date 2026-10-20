@@ -32,6 +32,8 @@ from order_todos import OrderTodos
 import file_trash
 from file_comments import FileCommentConflict
 from folder_structure import folder_role, is_catalog_group, client_name
+from folder_structure import client_path
+from client_activity import ClientActivity, ClientActivityConflict
 
 APP_DIR = Path(__file__).resolve().parent
 CONFIG_FILE = APP_DIR / "manager.ini"
@@ -417,24 +419,30 @@ def folder_node(path):
     return {"name": path.name, "path": relative_path(path), "hasChildren": has_children}
 
 
-def read_tree(relative="", query=""):
+def read_tree(relative="", query="", show_inactive=False):
     target = safe_path(relative)
     if not target.is_dir():
         raise FileNotFoundError("Папка данных не найдена. Проверьте manager.ini")
-    children = directory_children(target)
+    inactive = client_activity_store().inactive_paths()
+    def children_of(path):
+        return [item for item in directory_children(path)
+                if show_inactive or client_path(relative_path(item)) not in inactive]
+    def node_of(path):
+        return {**folder_node(path), "inactive": client_path(relative_path(path)) in inactive}
+    children = children_of(target)
     auxiliary = []
     group_folders = []
     if target == DATA_ROOT:
-        auxiliary = [folder_node(item) for item in children if item.name.startswith("#")]
+        auxiliary = [node_of(item) for item in children if item.name.startswith("#")]
         group_folders = [item for item in children if is_catalog_group(item.name)]
         children = [item for item in children if not item.name.startswith("#") and not is_catalog_group(item.name)]
     if query:
         needle = search_text(query.strip())
 
         def matching_node(path):
-            node = folder_node(path)
+            node = node_of(path)
             try:
-                descendants = [result for child in directory_children(path) if (result := matching_node(child))]
+                descendants = [result for child in children_of(path) if (result := matching_node(child))]
             except OSError:
                 descendants = []
             if needle in search_text(relative_path(path)) or descendants:
@@ -445,12 +453,12 @@ def read_tree(relative="", query=""):
         nodes = [node for item in children if (node := matching_node(item))]
         groups = [node for item in group_folders if (node := matching_node(item))]
     else:
-        nodes = [folder_node(item) for item in children]
+        nodes = [node_of(item) for item in children]
         groups = []
         for item in group_folders:
-            node = {**folder_node(item), "children": []}
+            node = {**node_of(item), "children": []}
             try:
-                node["children"] = [folder_node(child) for child in directory_children(item)]
+                node["children"] = [node_of(child) for child in children_of(item)]
             except OSError as error:
                 node["error"] = "Не удалось прочитать группу: " + str(error)
             groups.append(node)
@@ -642,11 +650,33 @@ def schedule_order_sync():
     def sync():
         order_store().sync()
         folder_note_store().sync()
+        client_activity_store().sync()
     threading.Thread(target=sync, daemon=True).start()
 
 
 def folder_note_store():
     return FolderNotes(order_store(), status_document)
+
+
+def client_activity_store():
+    return ClientActivity(order_store(), STATUS_LOCK)
+
+
+def listed_orders():
+    store = order_store()
+    activity = client_activity_store()
+    return {"orders": OrderTodos(store).attach(activity.visible_orders(store.list())),
+            "unregistrations": activity.visible_orders(store.pending_unregistrations()), "scan": dict(SCAN_STATE)}
+
+
+def client_activity_worker():
+    # File markers are authoritative once exported. Failed reads retain the index.
+    while True:
+        try:
+            client_activity_store().refresh()
+        except Exception as error:
+            print(f"Активность клиентов: {error}", flush=True)
+        threading.Event().wait(300)
 
 
 TODO_REFRESH = threading.Event()
@@ -671,6 +701,7 @@ def order_sync_worker():
         try:
             order_store().sync()
             folder_note_store().sync()
+            client_activity_store().sync()
         except Exception as error:
             print(f"Выгрузка заказов: {error}", flush=True)
         threading.Event().wait(15)
@@ -704,12 +735,17 @@ def folder_status(path, directories):
             "statusSource": "manual" if record.get("status") else "auto"}
 
 
-def read_folder(relative=""):
+def read_folder(relative="", show_inactive=False):
     target = safe_path(relative)
     if not target.is_dir():
         raise FileNotFoundError("Папка не найдена")
     directories = directory_children(target)
     status = folder_status(target, directories)
+    if status["folderKind"] == "client":
+        status["clientActivity"] = client_activity_store().read(relative_path(target))
+    inactive = client_activity_store().inactive_paths()
+    if status["folderKind"] in {"root", "catalog_group"} and not show_inactive:
+        directories = [item for item in directories if client_path(relative_path(item)) not in inactive]
     files, warnings = [], []
     print_view = is_print_folder(relative) and len(Path(relative).parts) == 2
     files_scope = "events" if status["folderKind"] == "order" or status.get("order") else (
@@ -756,7 +792,7 @@ def read_folder(relative=""):
     nodes = []
     event_notes = FolderNotes(order_store())  # Список событий не переносит и не переписывает их прежние файлы.
     for item in directories:
-        node = folder_node(item)
+        node = {**folder_node(item), "inactive": client_path(relative_path(item)) in inactive}
         if status["folderKind"] == "order" and not item.name.startswith("#") and not item.is_symlink():
             record = None
             try:
@@ -979,8 +1015,12 @@ class ManagerHandler(BaseHTTPRequestHandler):
             if parsed.path == "/api/health":
                 self.send_json({"status": "ok", "release": RELEASE_ID, "root": str(DATA_ROOT)}, head=head)
             elif parsed.path == "/api/orders":
-                store = order_store()
-                self.send_json({"orders": OrderTodos(store).attach(store.list()), "unregistrations": store.pending_unregistrations(), "scan": dict(SCAN_STATE)}, head=head)
+                self.send_json(listed_orders(), head=head)
+            elif parsed.path == "/api/client-activity":
+                record = client_activity_store().get(relative)
+                if not record:
+                    raise FileNotFoundError("Отметка клиента не найдена")
+                self.send_json(record, head=head)
             elif parsed.path == "/api/mobile-status":
                 self.send_json(MobileBridge(order_store()).status(), head=head)
             elif parsed.path == "/api/folder-note":
@@ -998,9 +1038,9 @@ class ManagerHandler(BaseHTTPRequestHandler):
                     raise FileNotFoundError("Заказ не найден в списке")
                 self.send_json(record, head=head)
             elif parsed.path == "/api/tree":
-                self.send_json(read_tree(relative, query.get("q", [""])[0]), head=head)
+                self.send_json(read_tree(relative, query.get("q", [""])[0], query.get("show_inactive", [""])[0] == "1"), head=head)
             elif parsed.path == "/api/folder":
-                self.send_json(read_folder(relative), head=head)
+                self.send_json(read_folder(relative, query.get("show_inactive", [""])[0] == "1"), head=head)
             elif parsed.path == "/api/print-task":
                 self.send_json(read_print_task(relative), head=head)
             elif parsed.path == "/api/file-comment":
@@ -1109,6 +1149,12 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(record)
                 schedule_order_sync()
                 return
+            elif route in {"/api/client-activity", "/api/client-activity-file"}:
+                activity = client_activity_store()
+                record = activity.save(payload) if route == "/api/client-activity" else activity.accept_file(payload)
+                self.send_json(record)
+                schedule_order_sync()
+                return
             elif route == "/api/order-remove":
                 record = order_store().remove(payload)
                 self.send_json(record)
@@ -1119,6 +1165,10 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 return
             elif route == "/api/orders-sync":
                 schedule_order_sync()
+                self.send_json({"ok": True})
+                return
+            elif route == "/api/clients-refresh":
+                client_activity_store().refresh()
                 self.send_json({"ok": True})
                 return
             elif route == "/api/todos-refresh":
@@ -1177,7 +1227,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": True})
         except FileNotFoundError as error:
             self.send_json({"error": str(error)}, 404)
-        except (PrintConflict, OrderConflict, FileCommentConflict, file_trash.TrashConflict, order_folders.OrderFolderConflict, FolderNoteConflict, event_folders.EventFolderConflict, EventRenamePending) as error:
+        except (PrintConflict, OrderConflict, ClientActivityConflict, FileCommentConflict, file_trash.TrashConflict, order_folders.OrderFolderConflict, FolderNoteConflict, event_folders.EventFolderConflict, EventRenamePending) as error:
             self.send_json({"error": str(error)}, 409)
         except (ValueError, UnicodeDecodeError) as error:
             self.send_json({"error": str(error)}, 400)
@@ -1198,6 +1248,7 @@ def main():
     threading.Thread(target=order_sync_worker, daemon=True).start()
     threading.Thread(target=mobile_sync_worker, daemon=True).start()
     threading.Thread(target=order_todo_worker, daemon=True).start()
+    threading.Thread(target=client_activity_worker, daemon=True).start()
     server = ThreadingHTTPServer((SERVER_HOST, port), ManagerHandler)
     print(f"Менеджер заказов: http://127.0.0.1:{port}", flush=True)
     print(f"Адрес сервера: {SERVER_HOST}:{port}", flush=True)

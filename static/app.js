@@ -6,6 +6,7 @@ const typeLabels = { all: "Все", images: "Фото", pdf: "PDF", design: "М�
 const state = {
   tree: [], groups: [], auxiliary: [], nodes: new Map(), children: new Map(), expanded: new Set(),
   treeQuery: "", searchTree: null, folder: null, selected: "",
+  showInactive: false, clientActivitySaving: false,
   fileQuery: "", fileType: "all", fileSort: "folders", limit: 120,
   folderRequest: null, navigation: 0, preview: null, dirty: false, saving: null,
   printTask: null, printSaving: null, printQuery: "",
@@ -23,6 +24,8 @@ const icon = (name) => '<svg aria-hidden="true"><use href="#icon-' + name + '"/>
 const escapeHtml = (value) => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 const normalize = (value) => String(value).normalize("NFC").toLocaleLowerCase("ru");
 const apiUrl = (route, path = "", extra = {}) => route + "?" + new URLSearchParams({ path, ...extra });
+const treeUrl = (path = "", extra = {}) => apiUrl("/api/tree", path, { show_inactive: state.showInactive ? "1" : "0", ...extra });
+const folderUrl = (path) => apiUrl("/api/folder", path, { show_inactive: state.showInactive ? "1" : "0" });
 const formatSize = (bytes) => {
   if (bytes < 1024) return bytes + " Б";
   if (bytes < 1024 ** 2) return Math.round(bytes / 1024) + " КБ";
@@ -67,10 +70,10 @@ function treeMarkup(nodes, depth = 0, searching = false) {
     const children = searching ? node.children || [] : state.children.get(node.path) || [];
     const selected = node.path === state.selected;
     const tabIndex = selected || (!state.selected && depth === 0 && index === 0) ? 0 : -1;
-    return '<div class="tree-branch" role="none"><div class="tree-row' + (selected ? " selected" : "") +
+    return '<div class="tree-branch" role="none"><div class="tree-row' + (selected ? " selected" : "") + (node.inactive ? " inactive" : "") +
       '" role="treeitem" tabindex="' + tabIndex + '" aria-selected="' + selected + '"' +
       (node.hasChildren ? ' aria-expanded="' + open + '"' : "") + ' aria-level="' + (depth + 1) +
-      '" data-path="' + escapeHtml(node.path) + '" style="--depth:' + depth + '" title="' + escapeHtml(node.name) + '">' +
+      '" data-path="' + escapeHtml(node.path) + '" style="--depth:' + depth + '" title="' + escapeHtml(node.name + (node.inactive ? " · Неактивный клиент" : "")) + '">' +
       '<button class="tree-toggle' + (open ? " expanded" : "") + '" tabindex="-1" aria-label="' +
       (open ? "Свернуть " : "Раскрыть ") + escapeHtml(node.name) + '"' + (!node.hasChildren ? ' disabled aria-hidden="true"' : "") + ">" +
       icon("chevron") + "</button>" + icon("folder") + '<span class="tree-name">' + escapeHtml(node.name) +
@@ -84,8 +87,8 @@ function renderTree() {
   const data = state.searchTree || { children: state.tree, groups: state.groups };
   const searching = Boolean(state.searchTree);
   const markup = (nodes) => nodes.length ? treeMarkup(nodes, 0, searching) : '<p class="tree-empty">Папки не найдены</p>';
-  $("folderTree").innerHTML = data.groups.map((group) => '<section class="catalog-tree-section"><div class="tree-heading catalog-tree-heading"><button type="button" data-catalog-group="' + escapeHtml(group.path) + '" title="Открыть группу ' + escapeHtml(group.name) + '"' + (state.selected === group.path ? ' aria-current="page"' : '') + '>' + escapeHtml(group.name) + '</button><span>' + (group.error ? "—" : group.children.length) + '</span></div><div role="tree" aria-label="Группа ' + escapeHtml(group.name) + '">' + (group.error ? '<p class="tree-empty" role="status">' + escapeHtml(group.error) + '</p>' : markup(group.children)) + '</div></section>').join("") +
-    '<section class="catalog-tree-section"><div class="tree-heading catalog-tree-heading"><span>Клиенты</span><span id="clientCount">' + data.children.length + '</span></div><div role="tree" aria-label="Основное дерево клиентов">' + markup(data.children) + '</div></section>';
+  $("folderTree").innerHTML = '<section class="catalog-tree-section"><div class="tree-heading catalog-tree-heading"><span>Клиенты</span><span id="clientCount">' + data.children.length + '</span></div><div role="tree" aria-label="Основное дерево клиентов">' + markup(data.children) + '</div></section>' +
+    data.groups.map((group) => '<section class="catalog-tree-section"><div class="tree-heading catalog-tree-heading"><button type="button" data-catalog-group="' + escapeHtml(group.path) + '" title="Открыть группу ' + escapeHtml(group.name) + '"' + (state.selected === group.path ? ' aria-current="page"' : '') + '>' + escapeHtml(group.name) + '</button><span>' + (group.error ? "—" : group.children.length) + '</span></div><div role="tree" aria-label="Группа ' + escapeHtml(group.name) + '">' + (group.error ? '<p class="tree-empty" role="status">' + escapeHtml(group.error) + '</p>' : markup(group.children)) + '</div></section>').join("");
   for (const tree of $("folderTree").querySelectorAll('[role="tree"]')) {
     const rows = [...tree.querySelectorAll(".tree-row")];
     const active = rows.find((row) => row.dataset.path === state.selected) || rows[0];
@@ -111,7 +114,7 @@ function focusTree(path) {
 
 async function loadChildren(path) {
   if (!state.children.has(path)) {
-    const data = await request(apiUrl("/api/tree", path));
+    const data = await request(treeUrl(path));
     registerNodes(data.children);
     state.children.set(path, data.children);
   }
@@ -146,7 +149,7 @@ async function revealPath(path, navigation) {
 }
 
 async function loadTree() {
-  const data = await request(apiUrl("/api/tree"));
+  const data = await request(treeUrl());
   state.tree = data.children;
   state.groups = data.groups || [];
   state.auxiliary = data.auxiliary;
@@ -162,6 +165,56 @@ async function loadTree() {
   renderTree();
 }
 
+async function reloadClientTrees() {
+  ++treeSearchVersion;
+  clearTimeout(searchTimer);
+  state.searchTree = null;
+  await loadTree();
+  if (state.treeQuery.trim()) {
+    const version = ++treeSearchVersion;
+    const result = await request(treeUrl("", { q: state.treeQuery }));
+    if (version !== treeSearchVersion) return;
+    state.searchTree = { children: result.children, groups: result.groups || [] };
+    registerNodes([...state.searchTree.children, ...state.searchTree.groups]);
+    renderTree();
+  }
+}
+
+function renderClientActivity() {
+  const activity = state.folder?.clientActivity;
+  $("clientActivityCard").hidden = !activity;
+  if (!activity) return;
+  $("clientInactive").checked = activity.inactive;
+  $("clientInactive").disabled = state.clientActivitySaving || !activity.editable;
+  $("clientActivityState").textContent = state.clientActivitySaving ? "Сохраняю…" : activity.sync_error || (activity.sync_pending ? "Сохранено в базе · ожидает выгрузки в !.txt" : "Сохранено в !.txt клиента");
+  $("clientActivityState").classList.toggle("error", Boolean(activity.sync_error));
+  $("clientActivityAcceptFile").hidden = !activity.sync_pending || !activity.sync_error;
+  $("clientActivityAcceptFile").disabled = state.clientActivitySaving;
+}
+
+async function saveClientActivity(inactive, acceptFile = false) {
+  const folder = state.folder;
+  if (!folder?.clientActivity || state.clientActivitySaving) return;
+  state.clientActivitySaving = true;
+  renderClientActivity();
+  try {
+    await saveCurrentStatus();
+    folder.clientActivity = await request(acceptFile ? "/api/client-activity-file" : "/api/client-activity", {
+      path: folder.path, revision: folder.clientActivity.revision, inactive,
+    });
+    await reloadClientTrees();
+    await loadOrders();
+  } catch (error) {
+    if (error.status === 409) {
+      try { folder.clientActivity = await request(apiUrl("/api/client-activity", folder.path)); } catch { /* Сохраняем последнее состояние. */ }
+    }
+    throw error;
+  } finally {
+    state.clientActivitySaving = false;
+    if (state.folder === folder) renderClientActivity();
+  }
+}
+
 function renderSubfolders() {
   const folder = state.folder;
   const focused = document.activeElement?.closest("[data-relevance]");
@@ -172,7 +225,7 @@ function renderSubfolders() {
   $("foldersTitle").textContent = folder.canCreateEventFolder ? "События" : ["supplier_root", "work_section"].includes(folder.folderKind) ? "Заказы поставщикам" : folder.folderKind === "moneys_section" ? "Финансовые записи" : folder.folderKind === "work_root" ? "Разделы производства" : folder.folderKind === "moneys_root" ? "Финансовые разделы" : folder.path ? "Подпапки" : "Папки";
   $("directoryCount").textContent = directories.length;
   $("subfolders").innerHTML = directories.map((item) => {
-    const open = '<button class="subfolder" data-path="' + escapeHtml(item.path) + '" title="' + escapeHtml(item.name) + '">' +
+    const open = '<button class="subfolder' + (item.inactive ? ' inactive' : '') + '" data-path="' + escapeHtml(item.path) + '" title="' + escapeHtml(item.name) + '">' +
       icon("folder") + '<span>' + escapeHtml(item.name) + "</span>" + icon("chevron") + "</button>";
     const relevance = item.eventRelevance;
     if (!relevance) return open;
@@ -224,6 +277,7 @@ async function saveEventRelevance(path, value) {
 
 function renderFolder(preserveForm = false) {
   const folder = state.folder;
+  renderClientActivity();
   const printView = folder.view === "print";
   const service = Boolean(folder.service);
   const noteOnly = service || Boolean(folder.noteOnly);
@@ -756,7 +810,7 @@ async function saveCurrentPrintTask(force = false) {
       url.searchParams.set("task", saved.path);
       window.history.replaceState(null, "", url.pathname + url.search);
     }
-    const refreshed = await request(apiUrl("/api/folder", folder));
+    const refreshed = await request(folderUrl(folder));
     Object.assign(state.folder, refreshed, { note: state.folder.note });
     $("folderSummary").textContent = printCountLabel(state.folder.fileCount) + " · название, ссылка и описание";
     renderPrintList();
@@ -1017,7 +1071,7 @@ async function navigate(path, { history = true } = {}) {
         breadcrumbs: [{ name: $("rootLabel").textContent, path: "" }, ...parts.map((name, index) => ({ name, path: parts.slice(0, index + 1).join("/") }))],
         directories: [], files: [], counts: {}, warnings: [], fileCount: 0, folderCount: 0, totalSize: 0, view: "files", filesScope: "events", filesLoading: true };
     } else {
-      const response = await fetch(apiUrl("/api/folder", path), { signal: state.folderRequest.signal });
+      const response = await fetch(folderUrl(path), { signal: state.folderRequest.signal });
       data = await response.json();
       if (!response.ok) throw new Error(data.error || "Не удалось открыть папку");
     }
@@ -1065,7 +1119,7 @@ async function loadOrderFiles(path, navigation) {
   $("loadOrderFilesButton").hidden = true;
   $("scanState").textContent = "Загрузка файлов…";
   try {
-    const response = await fetch(apiUrl("/api/folder", path), { signal: state.folderRequest.signal });
+    const response = await fetch(folderUrl(path), { signal: state.folderRequest.signal });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Не удалось открыть папку");
     if (navigation !== state.navigation) return;
@@ -1346,13 +1400,26 @@ $("treeSearch").addEventListener("input", (event) => {
     return;
   }
   searchTimer = setTimeout(() => run(async () => {
-    const result = await request(apiUrl("/api/tree", "", { q: state.treeQuery }));
+    const result = await request(treeUrl("", { q: state.treeQuery }));
     if (version !== treeSearchVersion) return;
     state.searchTree = { children: result.children, groups: result.groups || [] };
     registerNodes([...state.searchTree.children, ...state.searchTree.groups]);
     renderTree();
   }), 250);
 });
+$("showInactiveClients").addEventListener("click", () => run(async () => {
+  const button = $("showInactiveClients");
+  button.disabled = true;
+  state.showInactive = !state.showInactive;
+  button.setAttribute("aria-pressed", String(state.showInactive));
+  button.textContent = state.showInactive ? "Скрыть неактивных" : "Показать неактивных";
+  try {
+    await reloadClientTrees();
+    if (state.folder && ["root", "catalog_group"].includes(state.folder.folderKind)) await navigate(state.folder.path, { history: false });
+  } finally { button.disabled = false; }
+}));
+$("clientInactive").addEventListener("change", (event) => run(() => saveClientActivity(event.target.checked)));
+$("clientActivityAcceptFile").addEventListener("click", () => run(() => saveClientActivity(false, true)));
 $("files").addEventListener("click", (event) => {
   const native = event.target.closest("[data-native]");
   const file = event.target.closest("[data-file]");
@@ -1519,6 +1586,16 @@ for (const id of ["orderTitleInput", "orderAmount", "orderCosts", "orderPaid"]) 
 }
 setInterval(() => {
   if (document.hidden) return;
+  if (state.folder?.clientActivity && !state.clientActivitySaving) {
+    const folder = state.folder;
+    request(apiUrl("/api/client-activity", folder.path)).then((activity) => {
+      if (state.folder !== folder || state.clientActivitySaving) return;
+      const changed = activity.inactive !== folder.clientActivity.inactive;
+      folder.clientActivity = activity;
+      renderClientActivity();
+      if (changed) run(async () => { await reloadClientTrees(); await loadOrders(); });
+    }).catch(() => {});
+  }
   if (state.view !== "orders" && state.folder?.canCreateEventFolder) refreshEventRelevance(state.folder).catch(() => {});
   if (state.view === "orders") loadOrders().catch(() => { $("ordersSyncState").textContent = "Нет связи с сервером · показаны последние загруженные данные"; });
   else if (state.folder?.folderNote && !state.dirty && !state.saving) {
@@ -1568,6 +1645,7 @@ $("refreshButton").addEventListener("click", () => run(async () => {
     state.searchTree = null;
     state.treeQuery = "";
     $("treeSearch").value = "";
+    await request("/api/clients-refresh", {});
     await loadTree();
     if (state.view === "orders") await loadOrders();
     else await navigate(state.selected, { history: false });
