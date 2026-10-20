@@ -73,6 +73,10 @@
           <p id="todoSaveState" class="todo-save-state" role="status"></p>
         </section>
         </div>
+        <section id="invoiceSection" class="invoice-section" aria-label="Счета заказа" hidden>
+          <header class="invoice-section-heading"><h2>Счета <span id="invoiceCount" class="count-badge"></span></h2><button id="newInvoice" class="secondary-button" type="button">+ Выписать счёт</button></header>
+          <div id="invoiceList" class="invoice-list"></div><p id="invoiceListState" class="invoice-state" role="status"></p>
+        </section>
         <section id="sketchSection" class="folder-section" aria-label="Эскизы" hidden><div class="section-heading"><h2>Эскизы</h2><span id="sketchCount"></span></div><div id="sketchTiles" class="subfolders with-event-relevance sketch-grid"></div></section>
         <section id="folderSection" class="folder-section" aria-label="Подпапки"><div class="section-heading"><h2 id="foldersTitle">Папки</h2><span id="directoryCount"></span></div><div id="subfolders" class="subfolders"></div></section>
         <section id="printWorkspace" class="print-workspace" aria-label="Задания на широкоформатную печать" hidden>
@@ -109,6 +113,22 @@
         </div>
       </section>
     </main>
+    <dialog id="invoiceDialog" class="invoice-dialog" aria-labelledby="invoiceTitle">
+      <form id="invoiceForm">
+        <header class="invoice-dialog-heading"><div><h2 id="invoiceTitle">Новый счёт</h2><p id="invoiceOrderPath"></p></div><button id="closeInvoice" class="icon-button" type="button" aria-label="Сохранить и закрыть счёт">✕</button></header>
+        <div class="invoice-editor-body">
+          <div class="invoice-meta"><label>Документ<select id="invoiceKind"><option value="invoice">Счёт на оплату</option><option value="contract">Счёт-договор</option></select></label><label>Номер<input id="invoiceNumber" maxlength="40" required></label><label>Дата<input id="invoiceDate" type="date" required></label><label>Оплатить до<input id="invoiceDue" type="date"></label></div>
+          <div class="invoice-buyer"><label>Покупатель<input id="invoiceBuyer" maxlength="300" placeholder="Название организации или ФИО"></label><label>ИНН<input id="invoiceBuyerInn" inputmode="numeric" maxlength="12"></label><label>КПП<input id="invoiceBuyerKpp" inputmode="numeric" maxlength="9"></label><label class="invoice-buyer-address">Адрес покупателя<input id="invoiceBuyerAddress" maxlength="500"></label></div>
+          <div class="invoice-items-scroll"><table class="invoice-items"><caption class="visually-hidden">Позиции счёта</caption><thead><tr><th>Товары, работы, услуги</th><th>Кол-во</th><th>Ед.</th><th>Цена, ₽</th><th>Сумма, ₽</th><th><span class="visually-hidden">Удалить</span></th></tr></thead><tbody id="invoiceItems"></tbody></table></div>
+          <div class="invoice-total-row"><button id="addInvoiceItem" class="secondary-button" type="button">+ Позиция</button><span>Без НДС · Итого <strong id="invoiceTotal">0,00 ₽</strong></span></div>
+          <label class="invoice-note">Примечание<textarea id="invoiceNote" rows="2" maxlength="1000" placeholder="Необязательно"></textarea></label>
+          <div id="invoiceContract" class="invoice-contract" hidden><div class="invoice-work-dates"><label>Начало работ<input id="invoiceWorkStart" type="date"></label><label>Окончание работ<input id="invoiceWorkEnd" type="date"></label></div><label>Краткие условия договора<textarea id="invoiceTerms" rows="4" maxlength="2500"></textarea></label></div>
+          <details class="invoice-seller"><summary>Реквизиты исполнителя</summary><div id="invoiceSellerFields" class="invoice-seller-fields"></div><label class="invoice-remember"><input id="invoiceRememberSeller" type="checkbox">Использовать эти реквизиты для новых счетов</label></details>
+          <p id="invoiceEditorState" class="invoice-state" role="status"></p>
+        </div>
+        <footer class="invoice-dialog-actions"><span id="invoiceDraftHint">Черновик в базе · PDF на одной странице</span><button id="saveInvoice" class="secondary-button" type="submit">Сохранить черновик</button><button id="previewInvoice" class="secondary-button" type="button">Предпросмотр</button><button id="issueInvoice" class="primary-button" type="button">Выпустить PDF</button></footer>
+      </form>
+    </dialog>
     <dialog id="orderTodoDialog" class="order-todo-dialog" aria-labelledby="orderTodoTitle" aria-describedby="orderTodoOrder">
       <header class="order-todo-dialog-header"><div><h2 id="orderTodoTitle">To-do <span id="orderTodoDialogCount" class="count-badge"></span></h2><p id="orderTodoOrder"></p><p id="orderTodoPath"></p></div><button id="closeOrderTodos" class="icon-button" type="button" aria-label="Закрыть To-do" autofocus>✕</button></header>
       <div id="orderTodoBody" class="order-todo-dialog-body" tabindex="0" aria-label="Актуальные задачи заказа и вложенных папок"></div>
@@ -185,6 +205,7 @@
     <dialog id="fileTrashDialog" class="confirm-dialog file-trash-dialog" aria-labelledby="fileTrashTitle"><h2 id="fileTrashTitle">Корзина менеджера</h2><div id="fileTrashList"></div><p id="fileTrashDialogState" class="file-report-state" role="status"></p><div class="confirm-actions"><button id="closeFileTrash" class="secondary-button" type="button">Закрыть</button></div></dialog>
     <div id="toast" class="toast" role="status" hidden></div>
     <script src="/app.js"></script>
+    <script src="/invoices.js"></script>
     <script src="/mobile.js"></script>
   </body>
 </html>

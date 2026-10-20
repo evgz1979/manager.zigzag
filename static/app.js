@@ -359,6 +359,7 @@ async function saveEventRelevance(path, value) {
 
 function renderFolder(preserveForm = false) {
   const folder = state.folder;
+  document.dispatchEvent(new CustomEvent("manager-folder-rendered"));
   renderClientActivity();
   const printView = folder.view === "print";
   const service = Boolean(folder.service);

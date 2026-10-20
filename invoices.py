@@ -1,0 +1,363 @@
+"""Invoice drafts, immutable issued PDFs and a durable folder-copy outbox."""
+from contextlib import contextmanager
+from datetime import date, datetime, timedelta
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import tempfile
+import threading
+import time
+import uuid
+from zoneinfo import ZoneInfo
+
+from event_folder_undo import assert_unlocked
+from folder_layout import rename_exclusive
+import native_renderers
+import orders
+
+BUILD_LOCK = threading.Lock()
+SYNC_LOCK = threading.Lock()
+DEFAULT_SELLER = {
+    "name": "ИП ЗАЙЦЕВ ЕВГЕНИЙ КОНСТАНТИНОВИЧ", "inn": "280404583555", "kpp": "",
+    "address": "141703, Россия, Московская обл., г. Долгопрудный, ул. Набережная, д. 29, корп. 1, кв. 181",
+    "bank": "АО «ТБанк»", "bik": "044525974", "account": "40802810900001017661",
+    "correspondent": "30101810145250000974", "signer": "Зайцев Е.К.",
+}
+DEFAULT_TERMS = (
+    "Исполнитель обязуется выполнить работы (поставить товары), указанные в таблице, "
+    "а Заказчик - принять результат и оплатить указанную стоимость. "
+    "Оплата производится до указанной в счёте даты. Оплата счёта в этот срок означает принятие условий договора.\n"
+    "Результат передаётся по акту или накладной. Изменения объёма, стоимости и сроков стороны согласуют письменно. "
+    "В остальном стороны руководствуются законодательством РФ."
+)
+FIELDS = {"kind": 20, "number": 40, "date": 10, "due_date": 10, "buyer_name": 300,
+          "buyer_inn": 12, "buyer_kpp": 9, "buyer_address": 500, "note": 1000,
+          "work_start": 10, "work_end": 10, "terms": 2500}
+
+
+class InvoiceConflict(ValueError):
+    pass
+
+
+def today():
+    return datetime.now(ZoneInfo("Europe/Moscow")).date()
+
+
+def decimal(value, label, places, maximum):
+    if not isinstance(value, str) or len(value) > 30:
+        raise ValueError("Проверь поле «" + label + "»")
+    try:
+        number = Decimal(value.replace(" ", "").replace("\u00a0", "").replace(",", "."))
+        if not number.is_finite() or number < 0 or number > maximum or number != number.quantize(Decimal(1).scaleb(-places)):
+            raise ValueError()
+        return number
+    except (InvalidOperation, ValueError):
+        raise ValueError("Проверь поле «" + label + "»: допустимо до " + str(places) + " знаков после запятой") from None
+
+
+def validate(value, *, issuing=False):
+    if not isinstance(value, dict):
+        raise ValueError("Некорректные данные счёта")
+    result = {}
+    for field, limit in FIELDS.items():
+        text = value.get(field, "")
+        if not isinstance(text, str) or len(text) > limit or any(ord(c) < 32 and c not in "\n\t" for c in text):
+            raise ValueError("Слишком длинное или некорректное поле: " + field)
+        if field not in {"terms", "note"} and ("\n" in text or "\t" in text):
+            raise ValueError("Поле должно быть в одну строку: " + field)
+        result[field] = text.strip()
+    if result["kind"] not in {"invoice", "contract"}:
+        raise ValueError("Выбери счёт или счёт-договор")
+    if not re.fullmatch(r"[0-9А-Яа-яЁёA-Za-z._/-]{1,40}", result["number"]):
+        raise ValueError("Номер: до 40 букв, цифр, точек, /, - и _")
+    for field in ("date", "due_date", "work_start", "work_end"):
+        if result[field]:
+            try:
+                if date.fromisoformat(result[field]).isoformat() != result[field]:
+                    raise ValueError()
+            except ValueError:
+                raise ValueError("Проверь дату: " + field) from None
+    if not result["date"]:
+        raise ValueError("Укажи дату счёта")
+    if result["due_date"] and result["due_date"] < result["date"]:
+        raise ValueError("Срок оплаты раньше даты счёта")
+    seller = value.get("seller")
+    if not isinstance(seller, dict):
+        raise ValueError("Укажи реквизиты исполнителя")
+    result["seller"] = {}
+    for field in DEFAULT_SELLER:
+        text = seller.get(field, "")
+        if not isinstance(text, str) or len(text) > (500 if field == "address" else 300) or any(ord(c) < 32 for c in text):
+            raise ValueError("Проверь реквизиты исполнителя: " + field)
+        result["seller"][field] = text.strip()
+    for obj, field, lengths in ((result, "buyer_inn", (10, 12)), (result, "buyer_kpp", (9,)),
+                                (result["seller"], "inn", (10, 12)), (result["seller"], "kpp", (9,)),
+                                (result["seller"], "bik", (9,)), (result["seller"], "account", (20,)),
+                                (result["seller"], "correspondent", (20,))):
+        text = obj[field]
+        if text and (not text.isascii() or not text.isdigit() or len(text) not in lengths):
+            raise ValueError("Проверь реквизит: " + field)
+    items = value.get("items")
+    if not isinstance(items, list) or not 1 <= len(items) <= 40:
+        raise ValueError("В счёте должно быть от 1 до 40 позиций")
+    result["items"], total = [], 0
+    for item in items:
+        if not isinstance(item, dict):
+            raise ValueError("Некорректная позиция счёта")
+        name, unit = item.get("name"), item.get("unit")
+        if not isinstance(name, str) or len(name) > 500 or any(ord(c) < 32 for c in name):
+            raise ValueError("Наименование позиции: одна строка до 500 символов")
+        if not isinstance(unit, str) or len(unit) > 16 or any(ord(c) < 32 for c in unit):
+            raise ValueError("Единица измерения: до 16 символов")
+        qty = decimal(item.get("quantity"), "Количество", 3, Decimal("1000000"))
+        price = decimal(item.get("price"), "Цена", 2, Decimal("999999999.99"))
+        if issuing and (not name.strip() or qty <= 0):
+            raise ValueError("Заполни наименования и положительное количество всех позиций")
+        amount = int((qty * price * 100).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+        total += amount
+        result["items"].append({"name": name.strip(), "unit": unit.strip(), "quantity": str(qty),
+                                "price": str(price), "amount": amount})
+    if total > 99999999999:
+        raise ValueError("Сумма счёта превышает 999 999 999,99 ₽")
+    result["total"] = total
+    if issuing:
+        if not result["buyer_name"] or not result["seller"]["name"] or not total:
+            raise ValueError("Укажи покупателя, исполнителя и ненулевую сумму")
+        if any(not result["seller"][key] for key in ("inn", "bank", "bik", "account", "correspondent", "signer")):
+            raise ValueError("Заполни ИНН, банковские реквизиты и подписанта исполнителя")
+        if result["kind"] == "contract":
+            if not all(result[key] for key in ("due_date", "work_start", "work_end", "terms")):
+                raise ValueError("Для счёта-договора укажи срок оплаты, начало и окончание работ и условия")
+            if result["work_end"] < result["work_start"] or result["work_start"] < result["date"]:
+                raise ValueError("Проверь начало и окончание работ")
+    return result
+
+
+def renderer(app_dir, data_dir):
+    with BUILD_LOCK:
+        return native_renderers.build(Path(app_dir) / "invoice_pdf.swift", data_dir, "invoice-pdf", 90)
+
+
+def render(data, app_dir, data_dir):
+    cache = Path(data_dir) / "invoices"
+    cache.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=".invoice-", dir=cache) as work:
+        source, output = Path(work) / "input.json", Path(work) / "invoice.pdf"
+        source.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        try:
+            subprocess.run([str(renderer(app_dir, data_dir)), str(source), str(output)], check=True,
+                           capture_output=True, timeout=30)
+        except subprocess.CalledProcessError as error:
+            raise ValueError(error.stderr.decode("utf-8", errors="replace").strip() or "Не удалось создать PDF") from error
+        except subprocess.TimeoutExpired as error:
+            raise ValueError("Формирование PDF заняло слишком много времени. Черновик сохранён") from error
+        body = output.read_bytes()
+        if not body.startswith(b"%PDF-") or len(body) > 10 * 1024 * 1024:
+            raise ValueError("Не удалось проверить PDF")
+        return body
+
+
+class InvoiceStore:
+    def __init__(self, store, app_dir):
+        self.store, self.app_dir = store, Path(app_dir)
+
+    @contextmanager
+    def connect(self):
+        with self.store.connect() as db:
+            db.execute("""CREATE TABLE IF NOT EXISTS invoices (
+                id TEXT PRIMARY KEY, path TEXT NOT NULL, year INTEGER NOT NULL, number TEXT NOT NULL,
+                revision INTEGER NOT NULL, state TEXT NOT NULL, data TEXT NOT NULL, pdf BLOB,
+                filename TEXT NOT NULL DEFAULT '', exported INTEGER NOT NULL DEFAULT 0,
+                sync_error TEXT NOT NULL DEFAULT '', created REAL NOT NULL, updated REAL NOT NULL,
+                UNIQUE(year,number))""")
+            db.execute("CREATE TABLE IF NOT EXISTS invoice_sequences (year INTEGER PRIMARY KEY, value INTEGER NOT NULL)")
+            db.execute("CREATE TABLE IF NOT EXISTS invoice_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+            db.execute("CREATE TABLE IF NOT EXISTS invoice_history (id TEXT, revision INTEGER, data TEXT NOT NULL, saved REAL NOT NULL, PRIMARY KEY(id,revision))")
+            yield db
+
+    def owner(self, db, path, *, active=False):
+        path = self.store.path(path)
+        assert_unlocked(db, path)
+        row = db.execute("SELECT * FROM orders WHERE path=?", (path,)).fetchone()
+        if not row or (active and not row["registered"]):
+            raise ValueError("Сначала добавь заказ в список заказов")
+        return row
+
+    @staticmethod
+    def record(row):
+        result = {key: row[key] for key in row.keys() if key != "pdf"}
+        result["data"] = json.loads(result["data"])
+        result["sync_pending"] = result["state"] == "issued" and not result["exported"]
+        result["pdf_path"] = str(Path(result["path"]) / "# bills" / result["filename"]) if result["filename"] else None
+        return result
+
+    def current(self, db, path, identity):
+        path = self.store.path(path)
+        assert_unlocked(db, path)
+        if not isinstance(identity, str):
+            raise ValueError("Не указан идентификатор счёта")
+        row = db.execute("SELECT * FROM invoices WHERE id=? AND path=?", (identity, path)).fetchone()
+        if not row:
+            raise InvoiceConflict("Счёт не найден по этому пути. Открой заказ заново")
+        self.owner(db, path)
+        return row
+
+    def list(self, path):
+        with self.connect() as db:
+            self.owner(db, path)
+            # Do not load PDF blobs when listing invoices.
+            rows = db.execute("SELECT id,path,year,number,revision,state,data,filename,exported,sync_error,created,updated FROM invoices WHERE path=? ORDER BY created DESC,id", (path,))
+            return [self.record(row) for row in rows]
+
+    def get(self, path, identity):
+        with self.connect() as db:
+            return self.record(self.current(db, path, identity))
+
+    def create(self, payload):
+        path, identity = payload.get("path"), payload.get("id")
+        try:
+            if str(uuid.UUID(identity)) != identity:
+                raise ValueError()
+        except (ValueError, TypeError, AttributeError):
+            raise ValueError("Не указан идентификатор нового счёта") from None
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            owner = self.owner(db, path, active=True)
+            existing = db.execute("SELECT * FROM invoices WHERE id=?", (identity,)).fetchone()
+            if existing:
+                if existing["path"] != path:
+                    raise InvoiceConflict("Этот идентификатор относится к другому заказу")
+                return self.record(existing)
+            year = today().year
+            row = db.execute("SELECT value FROM invoice_sequences WHERE year=?", (year,)).fetchone()
+            sequence = row[0] if row else 0
+            while True:
+                sequence += 1
+                number = str(sequence)
+                if not db.execute("SELECT 1 FROM invoices WHERE year=? AND number=?", (year, number)).fetchone():
+                    break
+            db.execute("INSERT INTO invoice_sequences VALUES (?,?) ON CONFLICT(year) DO UPDATE SET value=excluded.value", (year, sequence))
+            settings = db.execute("SELECT value FROM invoice_settings WHERE key='seller'").fetchone()
+            data = {key: "" for key in FIELDS}
+            data.update(kind="invoice", number=number, date=today().isoformat(), due_date=(today() + timedelta(days=7)).isoformat(),
+                        buyer_name=orders.client_name(path), seller=json.loads(settings[0]) if settings else dict(DEFAULT_SELLER),
+                        terms=DEFAULT_TERMS, items=[{"name": owner["title"], "unit": "шт", "quantity": "1", "price": "0"}])
+            if payload.get("source"):
+                source = self.current(db, path, payload["source"])
+                data.update(json.loads(source["data"]))
+                data.update(number=number, date=today().isoformat(), due_date=(today() + timedelta(days=7)).isoformat(), work_start="", work_end="")
+            data = validate(data)
+            stamp = time.time()
+            db.execute("INSERT INTO invoices(id,path,year,number,revision,state,data,created,updated) VALUES (?,?,?,?,1,'draft',?,?,?)",
+                       (identity, path, year, number, json.dumps(data, ensure_ascii=False), stamp, stamp))
+            return self.record(self.current(db, path, identity))
+
+    def save(self, payload):
+        data = validate(payload.get("data"))
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = self.current(db, payload.get("path"), payload.get("id"))
+            self.owner(db, row["path"], active=True)
+            if row["state"] != "draft" or type(payload.get("revision")) is not int or row["revision"] != payload["revision"]:
+                raise InvoiceConflict("Счёт уже изменён или выпущен. Твой ввод сохранён в форме; открой актуальную версию отдельно")
+            year = int(data["date"][:4])
+            if db.execute("SELECT 1 FROM invoices WHERE year=? AND number=? AND id<>?", (year, data["number"], row["id"])).fetchone():
+                raise InvoiceConflict("Такой номер уже занят в этом году. Укажи другой номер")
+            db.execute("INSERT INTO invoice_history VALUES (?,?,?,?)", (row["id"], row["revision"], row["data"], time.time()))
+            db.execute("UPDATE invoices SET year=?,number=?,data=?,revision=revision+1,updated=? WHERE id=?",
+                       (year, data["number"], json.dumps(data, ensure_ascii=False), time.time(), row["id"]))
+            if payload.get("remember_seller") is True:
+                db.execute("INSERT INTO invoice_settings VALUES ('seller',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                           (json.dumps(data["seller"], ensure_ascii=False),))
+            return self.record(self.current(db, row["path"], row["id"]))
+
+    def issue(self, payload):
+        with self.connect() as db:
+            row = self.current(db, payload.get("path"), payload.get("id"))
+            if row["state"] == "issued":
+                return self.record(row)  # A retry after a lost HTTP response is safe.
+            if type(payload.get("revision")) is not int or payload["revision"] != row["revision"]:
+                raise InvoiceConflict("Черновик изменился. Обнови его перед выпуском")
+            data = validate(json.loads(row["data"]), issuing=True)
+            revision, path, identity = row["revision"], row["path"], row["id"]
+        # PDF generation uses only local data; it holds no SQLite writer lock.
+        pdf = render(data, self.app_dir, self.store.database.parent)
+        label = "Счёт-договор" if data["kind"] == "contract" else "Счёт"
+        number = re.sub(r"[^0-9А-Яа-яЁёA-Za-z._-]", "-", data["number"])
+        filename = f"{label} № {number} от {data['date']} - {identity[:8]}.pdf"
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            self.owner(db, path, active=True)
+            row = self.current(db, path, identity)
+            if row["state"] == "issued":
+                return self.record(row)
+            if row["revision"] != revision:
+                raise InvoiceConflict("Черновик изменился во время подготовки PDF. Выпуск отменён")
+            db.execute("UPDATE invoices SET pdf=?,state='issued',filename=?,revision=revision+1,updated=?,sync_error='' WHERE id=?",
+                       (pdf, filename, time.time(), identity))
+            return self.record(self.current(db, path, identity))
+
+    def pdf(self, path, identity):
+        with self.connect() as db:
+            row = self.current(db, path, identity)
+            if row["state"] != "issued":
+                raise ValueError("Сначала выпусти PDF")
+            return row["pdf"], row["filename"]
+
+    def preview(self, path, identity):
+        record = self.get(path, identity)
+        data = validate(record["data"], issuing=True)
+        return render({**data, "preview": True}, self.app_dir, self.store.database.parent)
+
+    def sync(self):
+        if not SYNC_LOCK.acquire(blocking=False):
+            return
+        try:
+            with self.connect() as db:
+                pending = [row[0] for row in db.execute("SELECT id FROM invoices WHERE state='issued' AND exported=0")]
+            for identity in pending:
+                # Coordinate path changes with the existing folder rename protocol.
+                with orders.SYNC_LOCK:
+                    try:
+                        with self.connect() as db:
+                            row = db.execute("SELECT * FROM invoices WHERE id=?", (identity,)).fetchone()
+                            assert_unlocked(db, row["path"])
+                        folder = self.store.target(row["path"]) / "# bills"
+                        if folder.is_symlink():
+                            raise ValueError("# bills является ссылкой; PDF остался в базе")
+                        if not folder.exists():
+                            # Reuse the project's journal and standalone mkdir undo.
+                            from folder_layout import Plan
+                            from order_folders import layout_scope
+                            plan = Plan(self.store.root, [Path(row["path"]).parts[0]], **layout_scope(row["path"]))
+                            plan.mkdir(folder.relative_to(self.store.root).as_posix())
+                            session = plan.create_session(["Создание # bills для выпущенных счетов; PDF сохранён в SQLite."], {"order": row["path"], "invoice": identity})
+                            from folder_layout import apply
+                            apply(session)
+                        target = folder / row["filename"]
+                        if os.path.lexists(target):
+                            if target.is_symlink() or not target.is_file() or hashlib.sha256(target.read_bytes()).digest() != hashlib.sha256(row["pdf"]).digest():
+                                raise ValueError("Копия PDF изменена или имя занято. Файл не перезаписан; оригинал доступен из базы")
+                        else:
+                            temporary = None
+                            try:
+                                with tempfile.NamedTemporaryFile(prefix=".invoice-", dir=folder, delete=False) as stream:
+                                    temporary = Path(stream.name)
+                                    stream.write(row["pdf"])
+                                    stream.flush()
+                                    os.fsync(stream.fileno())
+                                rename_exclusive(temporary, target)
+                            finally:
+                                if temporary:
+                                    temporary.unlink(missing_ok=True)
+                        error = ""
+                    except (OSError, ValueError, RuntimeError) as problem:
+                        error = str(problem)
+                    with self.connect() as db:
+                        db.execute("UPDATE invoices SET exported=?,sync_error=? WHERE id=?", (int(not error), error, identity))
+        finally:
+            SYNC_LOCK.release()

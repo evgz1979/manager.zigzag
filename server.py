@@ -22,6 +22,7 @@ import order_document
 import file_comments
 from mobile_sync import MobileBridge, RUN_LOCK
 import image_reports
+import invoices
 import native_renderers
 import order_folders
 import event_folders
@@ -614,6 +615,10 @@ def order_store():
     return OrderStore(DATA_ROOT, DATA_DIR, STATUS_LABELS)
 
 
+def invoice_store():
+    return invoices.InvoiceStore(order_store(), APP_DIR)
+
+
 def schedule_mobile_sync():
     threading.Thread(target=MobileBridge(order_store()).run, daemon=True).start()
 
@@ -656,6 +661,7 @@ def schedule_order_sync():
         order_store().sync()
         folder_note_store().sync()
         client_activity_store().sync()
+        invoice_store().sync()
     threading.Thread(target=sync, daemon=True).start()
 
 
@@ -746,6 +752,7 @@ def order_sync_worker():
             order_store().sync()
             folder_note_store().sync()
             client_activity_store().sync()
+            invoice_store().sync()
         except Exception as error:
             print(f"Выгрузка заказов: {error}", flush=True)
         threading.Event().wait(15)
@@ -998,6 +1005,16 @@ class ManagerHandler(BaseHTTPRequestHandler):
         if not head:
             self.wfile.write(body)
 
+    def send_invoice_pdf(self, body, name, head=False):
+        self.send_response(200)
+        self.send_header("Content-Type", "application/pdf")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Disposition", "inline; filename*=UTF-8''" + urllib.parse.quote(name))
+        self.end_headers()
+        if not head:
+            self.wfile.write(body)
+
     def send_file(self, target, head=False, download=False, allow_range=False, private=False):
         if not target.is_file():
             raise FileNotFoundError("Файл не найден")
@@ -1062,6 +1079,15 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json({"status": "ok", "release": RELEASE_ID, "root": str(DATA_ROOT)}, head=head)
             elif parsed.path == "/api/orders":
                 self.send_json(listed_orders(), head=head)
+            elif parsed.path == "/api/invoices":
+                self.send_json({"items": invoice_store().list(relative)}, head=head)
+            elif parsed.path in {"/api/invoice-pdf", "/api/invoice-preview"}:
+                identity = query.get("id", [""])[0]
+                if parsed.path == "/api/invoice-preview":
+                    body, name = invoice_store().preview(relative, identity), "Предпросмотр счёта.pdf"
+                else:
+                    body, name = invoice_store().pdf(relative, identity)
+                self.send_invoice_pdf(body, name, head=head)
             elif parsed.path == "/api/client-activity":
                 record = client_activity_store().get(relative)
                 if not record:
@@ -1156,7 +1182,18 @@ class ManagerHandler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
             if not isinstance(payload, dict):
                 raise ValueError("Некорректный запрос")
-            if route == "/api/order-folder-create":
+            if route == "/api/invoice-create":
+                self.send_json(invoice_store().create(payload), 201)
+                return
+            elif route == "/api/invoice-save":
+                self.send_json(invoice_store().save(payload))
+                return
+            elif route == "/api/invoice-issue":
+                record = invoice_store().issue(payload)
+                self.send_json(record)
+                schedule_order_sync()
+                return
+            elif route == "/api/order-folder-create":
                 guard_database(order_store().database, payload.get("path", ""), include_children=True)
                 self.send_json(order_folders.create(DATA_ROOT, payload.get("path"), payload.get("date"), payload.get("title")), 201)
                 return
@@ -1306,7 +1343,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": True})
         except FileNotFoundError as error:
             self.send_json({"error": str(error)}, 404)
-        except (PrintConflict, OrderConflict, ClientActivityConflict, FileCommentConflict, file_trash.TrashConflict, order_folders.OrderFolderConflict, folder_rename.FolderRenameConflict, FolderNoteConflict, event_folders.EventFolderConflict, EventRenamePending) as error:
+        except (invoices.InvoiceConflict, PrintConflict, OrderConflict, ClientActivityConflict, FileCommentConflict, file_trash.TrashConflict, order_folders.OrderFolderConflict, folder_rename.FolderRenameConflict, FolderNoteConflict, event_folders.EventFolderConflict, EventRenamePending) as error:
             self.send_json({"error": str(error)}, 409)
         except (ValueError, UnicodeDecodeError) as error:
             self.send_json({"error": str(error)}, 400)

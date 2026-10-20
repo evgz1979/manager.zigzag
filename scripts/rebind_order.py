@@ -75,6 +75,8 @@ def check_links(db, source, destination, identity):
 
 def update_paths(db, source, destination, identity):
     db.execute("UPDATE orders SET path=?,revision=revision+1,sync_error='' WHERE id=?", (destination, identity))
+    if table(db, "invoices"):
+        db.execute("UPDATE invoices SET path=?,revision=revision+1 WHERE path=?", (destination, source))
     if table(db, "todo_catalog"):
         db.execute("UPDATE todo_catalog SET path=? WHERE path=?", (destination, source))
     if table(db, "mobile_files"):

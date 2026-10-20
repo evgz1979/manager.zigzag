@@ -26,7 +26,7 @@ def check(db, source, destination, session=None):
                 if other != session and any(inside(pair[key], root) or inside(root, pair[key])
                         for pair in json.loads(mappings) for key in ("source", "destination") for root in (source, destination)):
                     raise ValueError("Сначала завершите переименование из журнала: " + other)
-    for name in ("orders", "folder_notes", "todo_catalog", "todo_missing_folders", "client_activity"):
+    for name in ("orders", "folder_notes", "todo_catalog", "todo_missing_folders", "client_activity", "invoices"):
         if table(db, name) and any(inside(row[0], destination) for row in db.execute(f"SELECT path FROM {name}")):
             raise ValueError("По новому пути уже есть сохранённые данные: " + name)
     for name, owner in (("folder_notes", "parent_order"), ("todo_missing_folders", "order_path")):
@@ -69,6 +69,11 @@ def rewrite(db, source, destination):
             db.execute(f"UPDATE {name} SET path=?{extra} WHERE path=?", (*values, path))
     if table(db, "mobile_files"):
         db.executemany("UPDATE mobile_files SET scanned=0 WHERE order_id=?", [(identity,) for identity in identities])
+    if table(db, "invoices"):
+        for identity, path in list(db.execute("SELECT id,path FROM invoices")):
+            if inside(path, source):
+                db.execute("UPDATE invoices SET path=?,revision=revision+1 WHERE id=?",
+                           (remap(path, source, destination), identity))
 
 
 def undo(session, perform=False):

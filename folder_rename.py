@@ -76,8 +76,8 @@ def rename(store, payload):
         registered = [(row[0], folder_role(root, row[0])["folderKind"]) for row in db.execute("SELECT path FROM orders")
                       if restore.inside(row[0], source) and (root / row[0]).is_dir()]
         before = {"database": str(store.database.resolve()), **view, "destination": destination,
-                  "tables": {table: [dict(row) for row in db.execute(f"SELECT * FROM {table}") if restore.inside(row["path"], source)]
-                             for table in ("orders", "folder_notes", "todo_catalog", "todo_missing_folders", "client_activity") if restore.table(db, table)}}
+                  "tables": {table: [{key: row[key] for key in row.keys() if key != "pdf"} for row in db.execute(f"SELECT * FROM {table}") if restore.inside(row["path"], source)]
+                             for table in ("orders", "folder_notes", "todo_catalog", "todo_missing_folders", "client_activity", "invoices") if restore.table(db, table)}}
         plan = layout.Plan(root, list({Path(source).parts[0], Path(destination).parts[0]}), **layout_scope(source))
         plan.database_paths = True
         plan.move(source, destination, "Переименовать открытую папку с сохранением всех путей SQLite")

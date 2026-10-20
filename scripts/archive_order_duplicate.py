@@ -54,6 +54,8 @@ def check_links(db, source, identity):
     if table(db, "todo_missing_folders") and any(inside(row[0], source) or inside(row[1], source)
             for row in db.execute("SELECT path,order_path FROM todo_missing_folders")):
         raise ValueError("По старому пути есть сохранённые отсутствующие папки")
+    if table(db, "invoices") and db.execute("SELECT 1 FROM invoices WHERE path=?", (source,)).fetchone():
+        raise ValueError("У старой записи есть счета; требуется отдельное согласование")
     for name in ("mobile_tasks", "mobile_files"):
         if table(db, name) and db.execute(f"SELECT 1 FROM {name} WHERE order_id=?", (identity,)).fetchone():
             raise ValueError("Есть мобильные идентичности; требуется отдельное согласование")
