@@ -92,6 +92,27 @@ class DatabaseStorageTests(unittest.TestCase):
             self.assertFalse(saved['sync_pending'])
         self.assertFalse((self.root/self.order/'!.txt').exists())
 
+    def test_registration_switches_to_order_card_and_rejects_old_draft_editor(self):
+        notes=manager.folder_note_store()
+        draft=notes.read(self.order)
+        saved=notes.save({'path':self.order,'revision':draft['revision'],'note':'До регистрации','status':'install'})
+        with patch.object(manager,'schedule_order_sync'),patch.object(manager,'schedule_todo_refresh'):
+            status,_,body=self.http('/api/order-add','POST',json.dumps({'path':self.order}))
+        self.assertEqual(status,201)
+        order=json.loads(body)
+        self.assertEqual(order['status'],'install')
+        with patch('icloud_access.read_bytes',side_effect=AssertionError('no cloud')):
+            status,_,body=self.http('/api/folder-note-save','POST',json.dumps({'path':self.order,'revision':saved['revision'],'note':'Старое окно','status':'process'}))
+        self.assertEqual(status,409)
+        self.assertEqual(notes.get(self.order)['note'],'До регистрации')
+        with patch.object(manager,'schedule_order_sync'):
+            status,_,body=self.http('/api/order-save','POST',json.dumps({**order,'note':'После регистрации','status':'process'}))
+        self.assertEqual(status,200)
+        self.assertEqual(self.store.get(self.order)['status'],'process')
+        view=manager.folder_status(self.root/self.order,[])
+        self.assertEqual(view['note'],'После регистрации')
+        self.assertNotIn('folderNote',view)
+
     def test_print_draft_and_idempotent_issued_document(self):
         relative='# work/# print';self.folder(relative)
         task=manager.create_print_task(relative,'https://example.com','Размеры','Печать')

@@ -1012,8 +1012,9 @@ async function saveCurrentStatus() {
   $("saveStatusButton").disabled = true;
   $("saveStatusButton").textContent = "Сохраняю…";
   const noteOnly = folder.service || folder.noteOnly;
-  state.saving = request(folder.folderNote ? "/api/folder-note-save" : noteOnly ? "/api/note" : folder.order ? "/api/order-save" : "/api/status", folder.folderNote
-    ? { path: folder.path, revision: folder.folderNote.revision, ...values }
+  const folderNote = folder.order ? null : folder.folderNote;
+  state.saving = request(folderNote ? "/api/folder-note-save" : noteOnly ? "/api/note" : folder.order ? "/api/order-save" : "/api/status", folderNote
+    ? { path: folder.path, revision: folderNote.revision, ...values }
     : noteOnly
     ? { path: folder.path, note }
     : folder.order ? { path: folder.path, revision: folder.order.revision, ...values }
@@ -1026,7 +1027,7 @@ async function saveCurrentStatus() {
     folder.note = note;
     folder.statusSource = folder.order || folder.folderNote ? "database" : "manual";
     if (folder.order) folder.order = saved;
-    if (folder.folderNote) { folder.folderNote = saved; if (saved.card) folder.draftCard = saved.card; }
+    if (folderNote) { folder.folderNote = saved; if (saved.card) folder.draftCard = saved.card; }
     state.dirty = JSON.stringify(currentOrderValues()) !== JSON.stringify(values);
     renderExportState();
     renderStatus();
@@ -1856,6 +1857,8 @@ $("addOrderButton").addEventListener("click", () => run(async () => {
   try {
     await saveCurrentStatus();
     state.folder.order = await request("/api/order-add", { path: state.folder.path });
+    delete state.folder.folderNote;
+    delete state.folder.draftCard;
     state.folder.note = state.folder.order.note;
     state.folder.status = state.folder.order.status;
     state.folder.financial_status = state.folder.order.financial_status;
@@ -1930,7 +1933,7 @@ setInterval(() => {
   if (state.view !== "orders" && state.folder?.sketches?.length) refreshSketchRelevance(state.folder).catch(() => {});
   if (state.view !== "orders") loadDescendantTodos(state.folder);
   if (state.view === "orders") loadOrders().catch(() => { $("ordersSyncState").textContent = "Нет связи с сервером · показаны последние загруженные данные"; });
-  else if (state.folder?.folderNote && !state.dirty && !state.saving) {
+  else if (!state.folder?.order && state.folder?.folderNote && !state.dirty && !state.saving) {
     const folder = state.folder;
     request(apiUrl("/api/folder-note", folder.path)).then((record) => {
       if (state.folder === folder && !state.dirty && !state.saving && record.revision === folder.folderNote.revision) {

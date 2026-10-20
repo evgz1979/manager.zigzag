@@ -165,6 +165,8 @@ class FolderNotes:
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
             assert_unlocked(db, relative)
+            if self.store.database_only and db.execute("SELECT 1 FROM orders WHERE path=? AND registered=1",(relative,)).fetchone():
+                raise FolderNoteConflict("Папка уже добавлена в список заказов. Обнови страницу; введённый текст остался в поле")
             row = db.execute("SELECT * FROM folder_notes WHERE path=?", (relative,)).fetchone()
             if not row or payload.get("revision") != f"{row['id']}:{row['revision']}":
                 raise FolderNoteConflict("Заметка или задачи папки изменились. Обновите папку, сохранив свой ввод")
