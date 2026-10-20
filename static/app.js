@@ -216,6 +216,87 @@ async function saveClientActivity(inactive, acceptFile = false) {
   }
 }
 
+function renderSketches() {
+  const folder = state.folder, files = folder.sketches || [];
+  const focused = document.activeElement?.closest("[data-sketch-status]");
+  const focusPath = focused?.dataset.sketchFile, focusValue = focused?.dataset.sketchStatus;
+  $("sketchSection").hidden = !files.length;
+  $("sketchCount").textContent = files.length;
+  $("sketchTiles").innerHTML = files.map((item) => {
+    const relevance = item.relevance, saving = folder.sketchSavingFolders?.has(item.folder);
+    const message = saving ? "Сохраняю…" : relevance.error || (relevance.sync_pending
+      ? relevance.sync_error ? "В базе сохранено · не выгружено: " + relevance.sync_error : "В базе сохранено · ожидает выгрузки" : "");
+    return '<div class="event-folder sketch-tile" data-relevance-state="' + escapeHtml(relevance.value || "none") + '">' +
+      '<button class="subfolder sketch-open" data-sketch-open="' + escapeHtml(item.path) + '" data-sketch-key="' + escapeHtml(item.key) + '" title="' + escapeHtml(item.name + " · Открыть в CorelDRAW на M4") + '" aria-label="' + escapeHtml("Открыть в CorelDRAW: " + item.name) + '"' + (item.opening ? ' disabled' : '') + '>' +
+      '<span class="sketch-picture"><img src="' + escapeHtml(apiUrl("/api/sketch-preview", item.path, { v: item.preview_version })) + '" alt="" loading="lazy" decoding="async"><span class="sketch-fallback">CDR</span></span><span class="sketch-name">' + escapeHtml(item.name) + '</span></button>' +
+      '<div class="event-relevance" role="group" aria-label="' + escapeHtml("Актуальность эскиза " + item.name) + '">' +
+      Object.entries(eventRelevanceLabels).map(([value, label]) => '<button type="button" data-sketch-file="' + escapeHtml(item.path) + '" data-sketch-status="' + value +
+        '" aria-pressed="' + (value === relevance.value) + '"' + (saving || relevance.error || !relevance.revision ? ' disabled' : '') + '>' + label + '</button>').join("") + '</div>' +
+      (message ? '<p class="event-export' + (relevance.error || relevance.sync_error ? ' error' : '') + '" role="status">' + escapeHtml(message) + '</p>' : '') + '</div>';
+  }).join("");
+  if (focusPath) [...$("sketchTiles").querySelectorAll("[data-sketch-status]")].find((button) => button.dataset.sketchFile === focusPath && button.dataset.sketchStatus === focusValue)?.focus();
+}
+
+function applySketchGroup(folder, path, record) {
+  let changed = false;
+  for (const item of folder.sketches || []) {
+    if (item.folder !== path) continue;
+    const { states, ...metadata } = record;
+    const relevance = { ...metadata, value: states ? states[item.name.normalize("NFC")] || "none" : null };
+    if (JSON.stringify(relevance) !== JSON.stringify(item.relevance)) { item.relevance = relevance; changed = true; }
+  }
+  return changed;
+}
+
+async function refreshSketchRelevance(folder) {
+  if (!(folder.sketches || []).length || state.folder !== folder) return;
+  const records = await request(apiUrl("/api/sketch-relevance", folder.path));
+  if (state.folder !== folder) return;
+  let changed = false;
+  for (const [path, record] of Object.entries(records)) {
+    if (!folder.sketchSavingFolders?.has(path)) changed = applySketchGroup(folder, path, record) || changed;
+  }
+  if (changed) renderSketches();
+}
+
+async function saveSketchRelevance(path, value) {
+  const folder = state.folder, item = folder?.sketches?.find((file) => file.path === path);
+  if (!item || folder.sketchSavingFolders?.has(item.folder) || item.relevance.value === value) return;
+  folder.sketchSavingFolders ||= new Set();
+  folder.sketchSavingFolders.add(item.folder);
+  renderSketches();
+  try {
+    const result = await request("/api/sketch-relevance", { path, key: item.key, value, revision: item.relevance.revision });
+    if (result.path !== item.path || result.key !== item.key || result.folder !== item.folder) throw new Error("Ответ относится к другому эскизу. Обнови страницу");
+    applySketchGroup(folder, result.folder, result.status);
+  } catch (error) {
+    if (error.status === 409) {
+      try {
+        const records = await request(apiUrl("/api/sketch-relevance", folder.path));
+        if (records[item.folder]) applySketchGroup(folder, item.folder, records[item.folder]);
+      } catch { /* Оставляем последнее известное состояние. */ }
+    }
+    throw error;
+  } finally {
+    folder.sketchSavingFolders.delete(item.folder);
+    if (state.folder === folder) renderSketches();
+  }
+}
+
+async function openSketch(path, key) {
+  const folder = state.folder, item = folder?.sketches?.find((file) => file.path === path && file.key === key);
+  if (!item || item.opening) return;
+  item.opening = true;
+  renderSketches();
+  try {
+    await request("/api/sketch-open", { path, key });
+    notify("Эскиз открыт в CorelDRAW на M4");
+  } finally {
+    item.opening = false;
+    if (state.folder === folder) renderSketches();
+  }
+}
+
 function renderSubfolders() {
   const folder = state.folder;
   const focused = document.activeElement?.closest("[data-relevance]");
@@ -296,6 +377,7 @@ function renderFolder(preserveForm = false) {
     ? folder.fileCount + " файлов · " + folder.folderCount + " папок · " + formatSize(folder.totalSize)
     : "Выберите клиента или заказ в дереве слева";
   renderSubfolders();
+  renderSketches();
   $("orderDetails").hidden = !folder.path;
   $("folderDetailsTitle").textContent = noteOnly ? "Заметка" : "Карточка заказа";
   $("statusBadge").hidden = noteOnly;
@@ -1439,6 +1521,15 @@ $("subfolders").addEventListener("click", (event) => {
   const button = event.target.closest("[data-relevance]");
   if (button) run(() => saveEventRelevance(button.dataset.eventPath, button.dataset.relevance));
 });
+$("sketchTiles").addEventListener("click", (event) => {
+  const status = event.target.closest("[data-sketch-status]");
+  const file = event.target.closest("[data-sketch-open]");
+  if (status) run(() => saveSketchRelevance(status.dataset.sketchFile, status.dataset.sketchStatus));
+  else if (file) run(() => openSketch(file.dataset.sketchOpen, file.dataset.sketchKey));
+});
+$("sketchTiles").addEventListener("error", (event) => {
+  if (event.target instanceof HTMLImageElement) event.target.closest(".sketch-picture")?.classList.add("no-preview");
+}, true);
 $("treeSearch").addEventListener("input", (event) => {
   state.treeQuery = event.target.value;
   const version = ++treeSearchVersion;
@@ -1647,6 +1738,7 @@ setInterval(() => {
     }).catch(() => {});
   }
   if (state.view !== "orders" && state.folder?.canCreateEventFolder) refreshEventRelevance(state.folder).catch(() => {});
+  if (state.view !== "orders" && state.folder?.sketches?.length) refreshSketchRelevance(state.folder).catch(() => {});
   if (state.view === "orders") loadOrders().catch(() => { $("ordersSyncState").textContent = "Нет связи с сервером · показаны последние загруженные данные"; });
   else if (state.folder?.folderNote && !state.dirty && !state.saving) {
     const folder = state.folder;

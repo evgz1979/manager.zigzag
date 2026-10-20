@@ -9,6 +9,7 @@ from pathlib import Path
 
 import order_document as document
 import event_relevance
+import sketches
 from event_folder_undo import assert_unlocked
 from folder_structure import folder_role, is_service_folder
 
@@ -188,6 +189,39 @@ class FolderNotes:
             db.execute("UPDATE folder_notes SET document=?, revision=revision+1, updated=?, sync_error='' WHERE path=?",
                        (json.dumps(body, ensure_ascii=False), time.time(), relative))
             return self.record(db.execute("SELECT * FROM folder_notes WHERE path=?", (relative,)).fetchone())
+
+    def save_sketch_relevance(self, payload):
+        import file_comments
+        relative = payload.get("path")
+        if not isinstance(relative, str):
+            raise ValueError("Выберите эскиз")
+        folder = sketches.folder_path(relative)
+        checked_path(self.store.root, relative)
+        if payload.get("key") != file_comments.binding(self.store.root / relative):
+            raise FolderNoteConflict("Отметка относится к другому эскизу. Обновите страницу")
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            assert_unlocked(db, relative)
+            row = db.execute("SELECT * FROM folder_notes WHERE path=?", (folder,)).fetchone()
+            if not row or payload.get("revision") != f"{row['id']}:{row['revision']}":
+                raise FolderNoteConflict("Эскизы или заметка #cdr изменились. Обнови отметки перед повторным выбором")
+            if Path(folder).parent.as_posix() != row["parent_order"]:
+                raise ValueError("Эскизы показываются только в #cdr непосредственно в заказе")
+            body = json.loads(row["document"])
+            body["extra_blocks"] = sketches.write(body.get("extra_blocks", {}), Path(relative).name, payload.get("value"))
+            db.execute("UPDATE folder_notes SET document=?,revision=revision+1,updated=?,sync_error='' WHERE path=?",
+                       (json.dumps(body, ensure_ascii=False), time.time(), folder))
+            return self.record(db.execute("SELECT * FROM folder_notes WHERE path=?", (folder,)).fetchone())
+
+    def sketch_relevances(self, owner):
+        checked_path(self.store.root, owner)
+        with self.connect() as db:
+            result = {}
+            for row in db.execute("SELECT * FROM folder_notes WHERE parent_order=?", (owner,)):
+                if Path(row["path"]).parent.as_posix() == owner and sketches.cdr_folder(Path(row["path"]).name):
+                    assert_unlocked(db, row["path"])
+                    result[row["path"]] = sketches.group_info(self.record(row))
+            return result
 
     def sync(self):
         if not self.store.database.exists() or not SYNC_LOCK.acquire(blocking=False):

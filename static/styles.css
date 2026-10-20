@@ -167,6 +167,14 @@ h2 { font-size: 13px; font-weight: 600; }
 .event-folder[data-relevance-state="inactive"] .event-relevance { opacity: .42; }
 .event-folder[data-relevance-state="inactive"]:hover .event-relevance, .event-folder[data-relevance-state="inactive"]:focus-within .event-relevance { opacity: 1; }
 .event-folder[data-relevance-state="inactive"] > .subfolder:focus-visible { opacity: 1; }
+.sketch-open.subfolder { display: flex; flex-direction: column; gap: 0; padding: 0; border-radius: 7px 7px 0 0; }
+.sketch-picture { display: grid; place-items: center; width: 100%; height: 170px; padding: 10px; background: #fff; border-radius: 7px 7px 0 0; overflow: hidden; }
+.sketch-open.subfolder > .sketch-picture { flex: none; min-height: 0; }
+.sketch-picture img { width: 100%; height: 100%; min-height: 0; object-fit: contain; }
+.sketch-picture .sketch-fallback { display: none; color: #8a958f; font-size: 28px; }
+.sketch-picture.no-preview img { display: none; }
+.sketch-picture.no-preview .sketch-fallback { display: block; }
+.sketch-open.subfolder > .sketch-name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; flex: none; max-width: 100%; margin: 10px 12px 12px; font-size: 12px; color: inherit; }
 .event-export { margin: 0 10px 9px; color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
 .event-export.error { color: #a74937; }
 .files-toolbar { display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--line); padding-top: 23px; }

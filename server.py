@@ -26,6 +26,7 @@ import native_renderers
 import order_folders
 import event_folders
 import folder_rename
+import sketches
 from event_folder_undo import EventRenamePending, guard_database
 from folder_notes import FolderNotes, FolderNoteConflict, parent_order
 import event_relevance
@@ -662,6 +663,45 @@ def folder_note_store():
     return FolderNotes(order_store(), status_document)
 
 
+def sketch_target(relative, key=None):
+    folder = sketches.folder_path(relative)
+    target = comment_file(relative)
+    order_store().require_order_folder(Path(folder).parent.as_posix())
+    if key is not None and key != file_comments.binding(target):
+        raise FolderNoteConflict("Страница относится к другому эскизу. Обнови страницу")
+    return target
+
+
+def read_sketches(directories, warnings):
+    result = []
+    notes = FolderNotes(order_store())
+    for folder in directories:
+        if not sketches.cdr_folder(folder.name) or folder.is_symlink():
+            continue
+        record, error = None, ""
+        try:
+            record = notes.read(relative_path(folder))
+        except (OSError, ValueError) as problem:
+            error = str(problem)
+            try:
+                record = notes.get(relative_path(folder))
+            except (OSError, ValueError):
+                pass
+        try:
+            for file in sorted(folder.iterdir(), key=sort_key):
+                if not visible(file) or not sketches.sketch_name(file.name) or not file.is_file():
+                    continue
+                try:
+                    result.append({"name": file.name, "path": relative_path(file), "folder": relative_path(folder),
+                                   "key": file_comments.binding(file), "preview_version": sketches.fingerprint(file),
+                                   "relevance": sketches.info(record, file.name, error)})
+                except OSError as problem:
+                    warnings.append("Не удалось прочитать эскиз: " + file.name + ": " + str(problem))
+        except OSError as problem:
+            warnings.append("Не удалось прочитать эскизы: " + folder.name + ": " + str(problem))
+    return sorted(result, key=lambda item: (sort_key(Path(item["name"])), item["folder"]))
+
+
 def client_activity_store():
     return ClientActivity(order_store(), STATUS_LOCK)
 
@@ -814,9 +854,10 @@ def read_folder(relative="", show_inactive=False):
         nodes.append(node)
     breadcrumbs = [{"name": DATA_ROOT.name, "path": ""}]
     breadcrumbs.extend({"name": part, "path": Path(*parts[:index + 1]).as_posix()} for index, part in enumerate(parts))
+    sketch_files = read_sketches(directories, warnings) if status["folderKind"] == "order" else []
     return {"name": target.name, "path": relative_path(target), "client": client_name(relative),
             "root": str(DATA_ROOT), "breadcrumbs": breadcrumbs,
-            "directories": nodes, "files": files,
+            "directories": nodes, "files": files, "sketches": sketch_files,
             "fileCount": len(files), "folderCount": folder_count,
             "totalSize": sum(file["size"] for file in files), "counts": counts,
             "warnings": warnings, "view": "print" if print_view else "files",
@@ -1035,6 +1076,12 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(record, head=head)
             elif parsed.path == "/api/event-relevance":
                 self.send_json(folder_note_store().event_relevances(relative), head=head)
+            elif parsed.path == "/api/sketch-relevance":
+                self.send_json(folder_note_store().sketch_relevances(relative), head=head)
+            elif parsed.path == "/api/sketch-preview":
+                target = sketch_target(relative)
+                preview = sketches.preview(target, DATA_DIR)
+                self.send_file(preview, head=head, private=True)
             elif parsed.path == "/api/event-folders":
                 self.send_json(event_folders.preview(DATA_ROOT, relative, folder_note_store()), head=head)
             elif parsed.path == "/api/folder-rename":
@@ -1138,6 +1185,19 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 record = folder_note_store().save_relevance(payload)
                 self.send_json(event_relevance.info(record))
                 schedule_order_sync()
+                return
+            elif route == "/api/sketch-relevance":
+                record = folder_note_store().save_sketch_relevance(payload)
+                self.send_json({"path": payload["path"], "key": payload["key"], "folder": record["path"], "status": sketches.group_info(record)})
+                schedule_order_sync()
+                return
+            elif route == "/api/sketch-open":
+                if not isinstance(payload.get("key"), str):
+                    raise ValueError("Открой страницу эскиза заново")
+                with file_comments.LOCK:
+                    target = sketch_target(payload.get("path", ""), payload["key"])
+                    sketches.open_corel(target)
+                self.send_json({"ok": True})
                 return
             elif route == "/api/order-add":
                 relative = payload.get("path", "")
