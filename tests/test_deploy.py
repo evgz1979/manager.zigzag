@@ -19,6 +19,18 @@ PREVIOUS = "20261019T170000Z-abcdef12"
 
 
 class DeploymentTests(unittest.TestCase):
+    def test_old_code_cannot_bypass_pending_folder_rename(self):
+        release = self.base / "old-code"
+        release.mkdir()
+        (release / 'event_folder_undo.py').touch()
+        with sqlite3.connect(self.db) as db:
+            db.execute("CREATE TABLE folder_renames (session TEXT,state TEXT,mappings TEXT,paths_applied INTEGER)")
+            db.execute("INSERT INTO folder_renames VALUES ('journal','pending','[]',1)")
+        with self.assertRaisesRegex(RuntimeError, "переименование папки"):
+            remote.check_event_rename_compatibility(self.db, release)
+        (release / 'folder_rename_undo.py').touch()
+        remote.check_event_rename_compatibility(self.db, release)
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.base = Path(self.temporary.name).resolve()

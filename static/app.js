@@ -17,6 +17,7 @@ const state = {
   fileRemoval: null, fileRemoving: false, trashRestoring: false,
   newOrderParent: null, creatingOrderFolder: false,
   eventPlan: null, eventBusy: false,
+  folderRename: null, folderRenaming: false,
   orderTodoPath: null, orderTodoMarkup: null,
 };
 let searchTimer, toastTimer, todoSaveTimer, previewVersion = 0, treeSearchVersion = 0, printReadVersion = 0;
@@ -306,6 +307,7 @@ function renderFolder(preserveForm = false) {
   $("createOrderFolderButton").hidden = folder.canCreateOrderFolder !== true;
   $("createOrderFolderButton").textContent = folder.folderKind === "moneys_section" ? "+ Создать запись" : ["supplier_root", "work_section"].includes(folder.folderKind) ? "+ Создать заказ поставщику" : "+ Создать заказ";
   $("createEventFolderButton").hidden = folder.canCreateEventFolder !== true;
+  $("renameFolderButton").hidden = folder.canRenameFolder !== true;
   if (!preserveForm) {
     folder.todo_items = folder.order ? folder.order.todo_items : folder.todo_items === undefined ? [] : folder.todo_items;
     if (hasTodo) { $("todoNewText").value = ""; renderTodos(); }
@@ -1028,6 +1030,7 @@ async function showOrders({ history = true } = {}) {
   $("removeOrderButton").hidden = true;
   $("createOrderFolderButton").hidden = true;
   $("createEventFolderButton").hidden = true;
+  $("renameFolderButton").hidden = true;
   $("notice").hidden = true;
   $("loadOrderFilesButton").hidden = true;
   $("breadcrumbs").innerHTML = '<button aria-current="page">Все заказы</button>';
@@ -1139,6 +1142,53 @@ async function loadOrderFiles(path, navigation) {
 
 async function openNative(path, reveal = false) {
   await request("/api/open", { path, reveal });
+}
+
+function renderFolderRename() {
+  const parent = folderParent(state.folderRename.path);
+  $("renameFolderDestination").textContent = (parent ? parent + "/" : "") + $("renameFolderName").value.trim().normalize("NFC");
+}
+
+async function openFolderRename() {
+  if (!state.folder?.canRenameFolder) return;
+  await saveCurrentPrintTask();
+  await saveCurrentStatus();
+  state.folderRename = await request(apiUrl("/api/folder-rename", state.folder.path));
+  $("renameFolderSource").textContent = state.folderRename.path;
+  $("renameFolderName").value = state.folderRename.name;
+  $("renameFolderError").hidden = true;
+  renderFolderRename();
+  $("renameFolderDialog").showModal();
+  $("renameFolderName").focus();
+  $("renameFolderName").select();
+}
+
+async function submitFolderRename() {
+  if (!state.folderRename || state.folderRenaming) return;
+  state.folderRenaming = true;
+  const controls = ["renameFolderName", "submitRenameFolder", "cancelRenameFolder"];
+  controls.forEach((id) => { $(id).disabled = true; });
+  $("renameFolderError").hidden = true;
+  let result;
+  try {
+    await saveCurrentStatus();
+    result = await request("/api/folder-rename", { path: state.folderRename.path, revision: state.folderRename.revision, name: $("renameFolderName").value });
+  } catch (error) {
+    $("renameFolderError").textContent = error.message;
+    $("renameFolderError").hidden = false;
+    return;
+  } finally {
+    state.folderRenaming = false;
+    controls.forEach((id) => { $(id).disabled = false; });
+  }
+  $("renameFolderDialog").close();
+  const moved = (path) => path === result.source || path.startsWith(result.source + "/") ? result.path + path.slice(result.source.length) : path;
+  state.expanded = new Set([...state.expanded].map(moved));
+  window.history.replaceState(null, "", "?path=" + encodeURIComponent(result.path));
+  await reloadClientTrees();
+  await navigate(result.path, { history: false });
+  await loadOrders();
+  notify("Папка переименована");
 }
 
 async function showPreview(path) {
@@ -1621,6 +1671,11 @@ $("ordersButton").addEventListener("click", () => run(() => showOrders()));
 $("openFolderButton").addEventListener("click", () => run(() => openNative(state.selected)));
 $("createOrderFolderButton").addEventListener("click", openCreateOrderFolder);
 $("createEventFolderButton").addEventListener("click", () => run(openCreateEventFolder));
+$("renameFolderButton").addEventListener("click", () => run(openFolderRename));
+$("renameFolderName").addEventListener("input", renderFolderRename);
+$("renameFolderForm").addEventListener("submit", (event) => { event.preventDefault(); run(submitFolderRename); });
+$("cancelRenameFolder").addEventListener("click", () => { if (!state.folderRenaming) $("renameFolderDialog").close(); });
+$("renameFolderDialog").addEventListener("cancel", (event) => { if (state.folderRenaming) event.preventDefault(); });
 $("newEventTitle").addEventListener("input", renderNewEventName);
 $("createEventFolderForm").addEventListener("submit", (event) => { event.preventDefault(); run(() => eventAction("create")); });
 $("renameEventFoldersForm").addEventListener("submit", (event) => { event.preventDefault(); run(() => eventAction("rename")); });

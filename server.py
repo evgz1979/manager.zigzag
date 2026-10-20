@@ -20,12 +20,13 @@ from zoneinfo import ZoneInfo
 from orders import OrderStore, OrderConflict, CARD, SNAPSHOT, is_service_folder
 import order_document
 import file_comments
-from mobile_sync import MobileBridge
+from mobile_sync import MobileBridge, RUN_LOCK
 import image_reports
 import native_renderers
 import order_folders
 import event_folders
-from event_folder_undo import EventRenamePending
+import folder_rename
+from event_folder_undo import EventRenamePending, guard_database
 from folder_notes import FolderNotes, FolderNoteConflict, parent_order
 import event_relevance
 from order_todos import OrderTodos
@@ -117,6 +118,7 @@ def is_print_folder(relative):
 
 
 def print_target(relative, file=False):
+    guard_database(order_store().database, relative)
     target = safe_path(relative)
     if any((DATA_ROOT / Path(*Path(relative).parts[:index + 1])).is_symlink() for index in range(len(Path(relative).parts))):
         raise ValueError("Символические ссылки не редактируются")
@@ -374,6 +376,7 @@ def relative_path(path):
 
 
 def comment_file(relative):
+    guard_database(order_store().database, relative)
     target = safe_path(relative)
     if any((DATA_ROOT / Path(*Path(relative).parts[:index + 1])).is_symlink() for index in range(len(Path(relative).parts))):
         raise ValueError("Комментарии к символическим ссылкам не редактируются")
@@ -547,6 +550,7 @@ def write_status_document(folder, status, note, financial_status=None, todo_item
 
 
 def editable_status_folder(relative):
+    guard_database(order_store().database, relative)
     target = safe_path(relative)
     if not relative or not target.is_dir():
         raise ValueError("Выберите папку заказа")
@@ -820,6 +824,7 @@ def read_folder(relative="", show_inactive=False):
             "newFileName": next_print_name(target) if print_view else "",
             "canCreateOrderFolder": status["folderKind"] in {"object", "supplier_root", "work_section", "moneys_section"},
             "canCreateEventFolder": status["folderKind"] == "order",
+            "canRenameFolder": folder_rename.available(relative_path(target)),
             **status}
 
 
@@ -1032,6 +1037,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(folder_note_store().event_relevances(relative), head=head)
             elif parsed.path == "/api/event-folders":
                 self.send_json(event_folders.preview(DATA_ROOT, relative, folder_note_store()), head=head)
+            elif parsed.path == "/api/folder-rename":
+                self.send_json(folder_rename.preview(order_store(), relative), head=head)
             elif parsed.path == "/api/order":
                 record = order_store().get(relative)
                 if not record:
@@ -1103,10 +1110,19 @@ class ManagerHandler(BaseHTTPRequestHandler):
             if not isinstance(payload, dict):
                 raise ValueError("Некорректный запрос")
             if route == "/api/order-folder-create":
+                guard_database(order_store().database, payload.get("path", ""), include_children=True)
                 self.send_json(order_folders.create(DATA_ROOT, payload.get("path"), payload.get("date"), payload.get("title")), 201)
                 return
             elif route == "/api/event-folder-create":
+                guard_database(order_store().database, payload.get("path", ""), include_children=True)
                 self.send_json(event_folders.create(DATA_ROOT, payload, folder_note_store()), 201)
+                return
+            elif route == "/api/folder-rename":
+                with RUN_LOCK, file_comments.LOCK, PRINT_LOCK, STATUS_LOCK:
+                    result = folder_rename.rename(order_store(), payload)
+                self.send_json(result)
+                schedule_order_sync()
+                schedule_todo_refresh()
                 return
             elif route == "/api/event-folders-rename":
                 with file_comments.LOCK:
@@ -1194,6 +1210,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json({"path": relative, "comment_key": key, **record})
                 return
             elif route == "/api/image-report":
+                guard_database(order_store().database, payload.get("path", ""), include_children=True)
                 self.send_json(create_image_report(payload.get("path", ""), payload.get("files")), 201)
                 return
             elif route == "/api/files-trash-preview":
@@ -1201,6 +1218,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 return
             elif route == "/api/files-trash":
                 with file_comments.LOCK:
+                    guard_database(order_store().database, payload.get("path", ""), include_children=True)
                     result = file_trash.remove(DATA_ROOT, payload.get("path", ""), payload.get("files"), payload.get("confirmed"))
                 self.send_json(result)
                 return
@@ -1209,6 +1227,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 return
             elif route == "/api/files-trash-restore":
                 with file_comments.LOCK:
+                    guard_database(order_store().database, "", include_children=True)
                     result = file_trash.restore(DATA_ROOT, payload.get("session"))
                 self.send_json(result)
                 return
@@ -1227,7 +1246,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": True})
         except FileNotFoundError as error:
             self.send_json({"error": str(error)}, 404)
-        except (PrintConflict, OrderConflict, ClientActivityConflict, FileCommentConflict, file_trash.TrashConflict, order_folders.OrderFolderConflict, FolderNoteConflict, event_folders.EventFolderConflict, EventRenamePending) as error:
+        except (PrintConflict, OrderConflict, ClientActivityConflict, FileCommentConflict, file_trash.TrashConflict, order_folders.OrderFolderConflict, folder_rename.FolderRenameConflict, FolderNoteConflict, event_folders.EventFolderConflict, EventRenamePending) as error:
             self.send_json({"error": str(error)}, 409)
         except (ValueError, UnicodeDecodeError) as error:
             self.send_json({"error": str(error)}, 400)

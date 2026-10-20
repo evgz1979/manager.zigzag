@@ -188,12 +188,17 @@ def start(domain, agent, port, release, documents):
 
 
 def check_event_rename_compatibility(database, release_dir):
-    if not database.exists() or (release_dir / "event_folder_undo.py").is_file():
+    if not database.exists():
         return
     with closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)) as db:
-        if (db.execute("SELECT 1 FROM sqlite_master WHERE name='event_renames'").fetchone()
+        if (not (release_dir / "event_folder_undo.py").is_file()
+                and db.execute("SELECT 1 FROM sqlite_master WHERE name='event_renames'").fetchone()
                 and db.execute("SELECT 1 FROM event_renames WHERE state='pending' LIMIT 1").fetchone()):
             raise RuntimeError("Есть прерванное переименование событий. Завершите его откат перед переключением на старый код")
+        if (not (release_dir / "folder_rename_undo.py").is_file()
+                and db.execute("SELECT 1 FROM sqlite_master WHERE name='folder_renames'").fetchone()
+                and db.execute("SELECT 1 FROM folder_renames WHERE state='pending' LIMIT 1").fetchone()):
+            raise RuntimeError("Есть прерванное переименование папки. Завершите откат перед переключением на старый код")
 
 
 def deploy(settings, action, release):

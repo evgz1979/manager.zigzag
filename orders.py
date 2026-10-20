@@ -11,6 +11,7 @@ from pathlib import Path
 import order_document as document
 from order_document import money, MAX_MONEY
 from folder_structure import folder_role, is_service_folder, client_name
+from event_folder_undo import assert_unlocked, guard_database
 
 SNAPSHOT = ".order.json"  # Read-only compatibility with the previous export.
 CARD = document.DOCUMENT
@@ -72,6 +73,7 @@ class OrderStore:
 
     def target(self, relative):
         relative = self.path(relative)
+        guard_database(self.database, relative)
         target = self.root / relative
         if any((self.root / Path(*Path(relative).parts[:i + 1])).is_symlink() for i in range(len(Path(relative).parts))):
             raise ValueError("Символические ссылки не редактируются")
@@ -98,6 +100,7 @@ class OrderStore:
         if is_service_folder(relative) or not self.database.exists():
             return None
         with self.connect() as db:
+            assert_unlocked(db, relative)
             row = db.execute("SELECT * FROM orders WHERE path=?", (relative,)).fetchone()
             return self.record(row) if row and (include_unregistered or row["registered"]) else None
 
@@ -131,6 +134,7 @@ class OrderStore:
         if not isinstance(status, str) or status not in self.labels or not isinstance(note, str):
             raise ValueError("Некорректный статус или заметка")
         with self.connect() as db:
+            assert_unlocked(db, relative)
             db.execute("""INSERT INTO orders
                 (path,id,title,status,financial_status,note,amount,costs,paid,revision,updated,extra_blocks)
                 VALUES (?,?,?,?,?,?,?,?,?,1,?,?) ON CONFLICT(path) DO UPDATE SET
@@ -164,6 +168,8 @@ class OrderStore:
         if type(revision) is not int:
             raise ValueError("Не указана версия заказа. Откройте заказ заново.")
         with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            assert_unlocked(db, relative)
             current = db.execute("SELECT extra_blocks FROM orders WHERE path=? AND revision=? AND registered=1", (relative, revision)).fetchone()
             if current is None:
                 raise OrderConflict("Заказ изменён в другой вкладке. Откройте его заново перед сохранением.")
@@ -194,6 +200,7 @@ class OrderStore:
         if type(revision) is not int:
             raise ValueError("Откройте заказ заново перед снятием регистрации")
         with self.connect() as db:
+            assert_unlocked(db, relative)
             result = db.execute("""UPDATE orders SET registered=0,revision=revision+1,updated=?,sync_error=''
                 WHERE path=? AND revision=? AND registered=1""", (time.time(), relative, revision))
             if not result.rowcount:
@@ -242,6 +249,7 @@ class OrderStore:
         previous = self.get(relative, include_unregistered=True)
         if previous and not previous["registered"] and previous["sync_pending"]:
             with self.connect() as db:
+                assert_unlocked(db, relative)
                 db.execute("UPDATE orders SET registered=1,revision=revision+1,updated=?,sync_error='' WHERE path=? AND registered=0",
                            (time.time(), relative))
             return self.get(relative)
@@ -276,9 +284,21 @@ class OrderStore:
         if type(revision) is not int or not 1 <= revision < 2**63 - 1:
             raise ValueError("Некорректная версия карточки")
         document.validate_blocks(snapshot.get("extra_blocks", {}))
-        # A copied folder gets a new identity; never drops the copied order.
+        # A copy is distinct only while the original folder is still present.
+        # A missing original may be a Finder rename: keep its queued data and
+        # require a separate, journalled repair instead of manufacturing a twin.
         with self.connect() as db:
-            if db.execute("SELECT 1 FROM orders WHERE id=? AND path<>?", (identity, relative)).fetchone():
+            assert_unlocked(db, relative)
+            archived = db.execute("SELECT 1 FROM sqlite_master WHERE name='order_duplicate_archive'").fetchone()
+            if archived and db.execute("SELECT 1 FROM order_duplicate_archive WHERE id=? AND state='archived'", (identity,)).fetchone():
+                raise OrderConflict("Карточка относится к сохранённому дублю. Нужна отдельная проверка истории; повторное добавление остановлено.")
+            existing = db.execute("SELECT path FROM orders WHERE id=? AND path<>?", (identity, relative)).fetchone()
+            if existing:
+                try:
+                    self.target(existing["path"])
+                except FileNotFoundError:
+                    raise OrderConflict("Этот заказ уже есть в базе по прежнему пути «" + existing["path"] +
+                                        "». Исходная папка недоступна; возможно, её переименовали. Дубль не создан: нужна отдельная перепривязка с сохранением данных.")
                 identity = str(uuid.uuid4())
             db.execute("""INSERT INTO orders
                 (path,id,title,status,financial_status,note,amount,costs,paid,revision,exported_revision,updated,extra_blocks)

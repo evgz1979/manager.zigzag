@@ -5,6 +5,7 @@ from pathlib import Path
 
 import order_document as document
 from folder_structure import client_path, is_catalog_group
+from event_folder_undo import guard_database
 
 BLOCK = "Активность клиента"
 ACTIVE = "Активный"
@@ -50,6 +51,7 @@ class ClientActivity:
     def target(self, path):
         if not isinstance(path, str) or not path or Path(path).is_absolute() or client_path(path) != path:
             raise ValueError("Отметка доступна только в карточке клиента")
+        guard_database(self.orders.database, path)
         target = self.root / path
         if any((self.root / Path(*Path(path).parts[:index + 1])).is_symlink() for index in range(len(Path(path).parts))):
             raise ValueError("Символические ссылки не редактируются")

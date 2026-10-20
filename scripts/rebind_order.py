@@ -61,11 +61,12 @@ def check_links(db, source, destination, identity):
                 raise ValueError("Есть сохранённые отсутствующие папки; требуется отдельный перенос")
     if table(db, "todo_catalog") and db.execute("SELECT 1 FROM todo_catalog WHERE path=?", (destination,)).fetchone():
         raise ValueError("По новому пути уже есть другая сводка задач")
-    if table(db, "event_renames"):
-        for (mappings,) in db.execute("SELECT mappings FROM event_renames WHERE state='pending'"):
-            if any(inside(pair[key], prefix) or inside(prefix, pair[key])
-                   for pair in json.loads(mappings) for key in ("source", "destination") for prefix in prefixes):
-                raise ValueError("Сначала завершите прерванное переименование")
+    for name in ("event_renames", "folder_renames"):
+        if table(db, name):
+            for (mappings,) in db.execute(f"SELECT mappings FROM {name} WHERE state='pending'"):
+                if any(inside(pair[key], prefix) or inside(prefix, pair[key])
+                       for pair in json.loads(mappings) for key in ("source", "destination") for prefix in prefixes):
+                    raise ValueError("Сначала завершите прерванное переименование")
     if table(db, "mobile_operations"):
         for (payload,) in db.execute("SELECT payload FROM mobile_operations WHERE status='prepared'"):
             if json.loads(payload).get("order_id") == identity:

@@ -16,12 +16,21 @@ def inside(path, prefix):
 
 
 def assert_unlocked(db, path, *, include_children=False):
-    if not db.execute("SELECT 1 FROM sqlite_master WHERE name='event_renames'").fetchone():
-        return
-    for session, mappings in db.execute("SELECT session,mappings FROM event_renames WHERE state='pending'"):
-        if any(inside(path, pair[key]) or (include_children and inside(pair[key], path))
-               for pair in json.loads(mappings) for key in ("source", "destination")):
-            raise EventRenamePending("Переименование прервано. Данные сохранены; выполните откат из журнала: " + session)
+    for name in ("event_renames", "folder_renames"):
+        if not db.execute("SELECT 1 FROM sqlite_master WHERE name=?", (name,)).fetchone():
+            continue
+        for session, mappings in db.execute(f"SELECT session,mappings FROM {name} WHERE state='pending'"):
+            if any(inside(path, pair[key]) or (include_children and (not path or inside(pair[key], path)))
+                   for pair in json.loads(mappings) for key in ("source", "destination")):
+                raise EventRenamePending("Переименование прервано. Данные сохранены; выполните откат из журнала: " + session)
+
+
+def guard_database(database, path, *, include_children=False):
+    if not isinstance(path, str):
+        raise ValueError("Укажите путь папки")
+    if Path(database).exists():
+        with closing(sqlite3.connect(Path(database).resolve().as_uri() + "?mode=ro", uri=True, timeout=15)) as db:
+            assert_unlocked(db, path, include_children=include_children)
 
 
 def undo(session, perform=False):
@@ -45,10 +54,13 @@ def undo(session, perform=False):
         pairs = meta["mappings"]
         roots = [pair[key] for pair in pairs for key in ("source", "destination")]
         # Незавершённая другая операция или старые регистрации требуют отдельного разбора.
-        for other, mappings in db.execute("SELECT session,mappings FROM event_renames WHERE state='pending'"):
-            if other != str(session) and any(inside(pair[key], root) or inside(root, pair[key])
-                    for pair in json.loads(mappings) for key in ("source", "destination") for root in roots):
-                raise ValueError("Сначала завершите другую операцию: " + other)
+        for name in ("event_renames", "folder_renames"):
+            if not db.execute("SELECT 1 FROM sqlite_master WHERE name=?", (name,)).fetchone():
+                continue
+            for other, mappings in db.execute(f"SELECT session,mappings FROM {name} WHERE state='pending'"):
+                if other != str(session) and any(inside(pair[key], root) or inside(root, pair[key])
+                        for pair in json.loads(mappings) for key in ("source", "destination") for root in roots):
+                    raise ValueError("Сначала завершите другую операцию: " + other)
         if any(inside(row[0], root) for row in db.execute("SELECT path FROM orders") for root in roots):
             raise ValueError("Во вложенной папке появилась регистрация заказа; откат остановлен")
         updates = []

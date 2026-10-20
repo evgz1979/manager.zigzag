@@ -14,6 +14,7 @@ import uuid
 from pathlib import Path, PurePosixPath
 
 import file_comments
+from event_folder_undo import assert_unlocked
 import order_document as document
 
 RUN_LOCK = threading.Lock()
@@ -249,6 +250,7 @@ class MobileBridge:
                 if not row:
                     raise MobileConflict("Заказ убран из списка или имеет другой идентификатор")
                 record = self.store.record(row)
+                assert_unlocked(db, record["path"])
                 if operation["kind"] == "file_comment":
                     self.apply_file(db, operation, raw, digest, record, previous)
                 else:

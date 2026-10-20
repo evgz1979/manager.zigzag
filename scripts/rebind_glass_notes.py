@@ -43,11 +43,12 @@ def checked_folder(root, relative):
 def check_database(db, source, destination):
     if any(inside(row[0], prefix) for row in db.execute("SELECT path FROM orders") for prefix in (source, destination)):
         raise ValueError("В поддереве есть регистрация заказа; требуется отдельный перенос базы")
-    if db.execute("SELECT 1 FROM sqlite_master WHERE name='event_renames'").fetchone():
-        for (mappings,) in db.execute("SELECT mappings FROM event_renames WHERE state='pending'"):
-            if any(inside(pair[key], prefix) or inside(prefix, pair[key])
-                   for pair in json.loads(mappings) for key in ("source", "destination") for prefix in (source, destination)):
-                raise ValueError("Сначала завершите прерванное переименование событий")
+    for name in ("event_renames", "folder_renames"):
+        if db.execute("SELECT 1 FROM sqlite_master WHERE name=?", (name,)).fetchone():
+            for (mappings,) in db.execute(f"SELECT mappings FROM {name} WHERE state='pending'"):
+                if any(inside(pair[key], prefix) or inside(prefix, pair[key])
+                       for pair in json.loads(mappings) for key in ("source", "destination") for prefix in (source, destination)):
+                    raise ValueError("Сначала завершите прерванное переименование")
 
 
 def rebind(notes, source="# glass", destination="# work/# glass", *, perform=False):
