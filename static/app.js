@@ -1196,13 +1196,17 @@ async function toggleOrderFavorite(path) {
   }
 }
 
+function orderMatchesProduction(order, filter) {
+  return filter === "all" ? !["cancelled", "deferred"].includes(order.status) : order.status === filter;
+}
+
 function renderOrders() {
   const focusedFavorite = document.activeElement?.dataset.orderFavorite;
   const needle = normalize(state.orderQuery.trim());
   const matching = state.orders.filter((order) => !needle || normalize([order.title, order.path, order.note, orderTodoText(order), orderPurchaseText(order)].join(" ")).includes(needle));
   const productionMatching = matching.filter((order) => state.financialFilter === "all" || order.financial_status === state.financialFilter);
-  const financeMatching = matching.filter((order) => state.orderFilter === "all" || order.status === state.orderFilter);
-  const filtered = productionMatching.filter((order) => state.orderFilter === "all" || order.status === state.orderFilter);
+  const financeMatching = matching.filter((order) => orderMatchesProduction(order, state.orderFilter));
+  const filtered = productionMatching.filter((order) => orderMatchesProduction(order, state.orderFilter));
   const { orderSort: key, orderDirection: direction } = state;
   filtered.sort((a, b) => {
     const favoriteOrder = Number(b.is_favorite === true) - Number(a.is_favorite === true);
@@ -1215,8 +1219,8 @@ function renderOrders() {
     return direction * (typeof first === "string" ? first.localeCompare(second, "ru", { numeric: true }) : first - second);
   });
   $("folderSummary").textContent = filtered.length + " из " + state.orders.length + " заказов · данные из локальной базы";
-  $("orderStatusFilters").innerHTML = Object.entries({ all: "Все", ...statusLabels }).map(([status, label]) =>
-    '<button data-status="' + status + '" aria-pressed="' + (state.orderFilter === status) + '" class="file-filter' + (state.orderFilter === status ? " active" : "") + '">' + label + '<span>' + productionMatching.filter((order) => status === "all" || order.status === status).length + '</span></button>').join("");
+  $("orderStatusFilters").innerHTML = Object.entries({ all: "Основные", ...statusLabels }).map(([status, label]) =>
+    '<button data-status="' + status + '" aria-pressed="' + (state.orderFilter === status) + '" class="file-filter' + (state.orderFilter === status ? " active" : "") + '">' + label + '<span>' + productionMatching.filter((order) => orderMatchesProduction(order, status)).length + '</span></button>').join("");
   $("financialStatusFilter").innerHTML = Object.entries({ all: "Все", ...financialStatusLabels }).map(([status, label]) =>
     '<option value="' + status + '">' + label + ' · ' + financeMatching.filter((order) => status === "all" || order.financial_status === status).length + '</option>').join("");
   $("financialStatusFilter").value = state.financialFilter;
