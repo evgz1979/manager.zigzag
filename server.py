@@ -730,9 +730,14 @@ def client_activity_worker():
 
 
 TODO_REFRESH = threading.Event()
+TODO_REFRESH_PATHS = set()
+TODO_REFRESH_LOCK = threading.Lock()
 
 
-def schedule_todo_refresh():
+def schedule_todo_refresh(relative=None):
+    if relative:
+        with TODO_REFRESH_LOCK:
+            TODO_REFRESH_PATHS.add(relative)
     TODO_REFRESH.set()
 
 
@@ -740,7 +745,10 @@ def order_todo_worker():
     while True:
         TODO_REFRESH.clear()
         try:
-            OrderTodos(order_store()).refresh()
+            with TODO_REFRESH_LOCK:
+                paths = tuple(TODO_REFRESH_PATHS)
+                TODO_REFRESH_PATHS.clear()
+            OrderTodos(order_store()).refresh(paths)
         except Exception as error:
             print(f"Обновление To-do папок: {error}", flush=True)
         TODO_REFRESH.wait(300)
@@ -1117,6 +1125,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 if not record:
                     raise FileNotFoundError("Заказ не найден в списке")
                 self.send_json(record, head=head)
+            elif parsed.path == "/api/order-todos":
+                self.send_json(OrderTodos(order_store()).in_order(relative), head=head)
             elif parsed.path == "/api/tree":
                 self.send_json(read_tree(relative, query.get("q", [""])[0], query.get("show_inactive", [""])[0] == "1"), head=head)
             elif parsed.path == "/api/folder":
@@ -1285,7 +1295,10 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json({"ok": True})
                 return
             elif route == "/api/todos-refresh":
-                schedule_todo_refresh()
+                relative = payload.get("path")
+                if relative:
+                    relative = order_store().path(relative)
+                schedule_todo_refresh(relative) if relative else schedule_todo_refresh()
                 self.send_json({"ok": True}, 202)
                 return
             elif route == "/api/print-create":

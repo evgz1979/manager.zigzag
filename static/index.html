@@ -71,6 +71,12 @@
           <div id="todoLegacy" class="todo-legacy" hidden><p>В разделе «Задачи» уже есть записи:</p><pre id="todoLegacyText"></pre></div>
           <form id="todoAddForm" class="todo-add-form"><input id="todoNewText" type="text" maxlength="1000" placeholder="Новая задача…" aria-label="Новая задача" autocomplete="off" required><button class="primary-button" type="submit">Добавить</button></form>
           <p id="todoSaveState" class="todo-save-state" role="status"></p>
+          <section id="descendantTodos" class="descendant-todos" aria-label="To-do из вложенных папок" hidden>
+            <header class="todo-heading"><h3>Из вложенных папок <span id="descendantTodoCount" class="count-badge"></span></h3><button id="refreshDescendantTodos" class="secondary-button" type="button">Обновить</button></header>
+            <label id="descendantCompletedLabel" class="descendant-completed" hidden><input id="descendantCompleted" type="checkbox">Показать выполненные</label>
+            <div id="descendantTodoList" class="order-todos descendant-todo-list" tabindex="0" aria-label="Задачи вложенных папок"></div>
+            <p id="descendantTodoState" class="todo-save-state" role="status"></p>
+          </section>
         </section>
         </div>
         <section id="invoiceSection" class="invoice-section" aria-label="Счета заказа" hidden>

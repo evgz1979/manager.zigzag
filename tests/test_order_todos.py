@@ -267,6 +267,78 @@ class OrderTodoTests(unittest.TestCase):
         self.assertEqual(status, 202)
         schedule.assert_called_once()
 
+    def test_order_page_summary_reads_descendants_only_from_database_including_completed(self):
+        own = self.add(items=[{"text": "Своя задача", "done": False}])
+        notes = manager.folder_note_store()
+        paths = [self.order + suffix for suffix in ("/01 - Замеры", "/01 - Замеры/Глубже/# cdr")]
+        for path in paths:
+            self.card(path, [{"text": "Выполнено", "done": True}, {"text": "Проверить", "done": False}])
+        summary = OrderTodos(manager.order_store())
+        summary.refresh()
+        original = notes.get(paths[-1])
+        saved = notes.save({"path": paths[-1], "revision": original["revision"], "note": "Не менять",
+                            "todo_items": [{"text": "Только в базе", "done": False}]})
+        self.root.rename(self.base / "offline")
+        with patch.object(manager.OrderStore, "target", side_effect=AssertionError("No iCloud on order page")), \
+             patch("order_todos.os.walk", side_effect=AssertionError("No scans in summary request")):
+            status, _, body = self.http(self.url("/api/order-todos", self.order))
+        self.assertEqual(status, 200)
+        result = json.loads(body)
+        self.assertEqual(result["path"], self.order)
+        self.assertEqual([group["path"] for group in result["todo_groups"]], paths)
+        self.assertEqual([group["label"] for group in result["todo_groups"]], ["01 - Замеры", "01 - Замеры/Глубже/# cdr"])
+        self.assertEqual(result["todo_groups"][0]["items"], [{"text": "Выполнено", "done": True}, {"text": "Проверить", "done": False}])
+        self.assertEqual(result["todo_groups"][1]["items"], saved["todo_items"])
+        self.assertTrue(result["todo_groups"][1]["sync_pending"])
+        self.assertEqual(manager.order_store().get(self.order), own)
+        self.assertEqual(notes.get(paths[-1]), saved)
+
+    def test_unregistered_order_page_collects_unopened_descendant_cards_without_registration(self):
+        path = self.order + "/02 - Монтаж/Материалы"
+        self.card(path, [{"text": "Прочитать без регистрации", "done": False}])
+        summary = OrderTodos(manager.order_store())
+        with patch.object(manager, "schedule_todo_refresh") as schedule:
+            status, _, _ = self.http("/api/todos-refresh", "POST", json.dumps({"path": self.order}))
+        self.assertEqual(status, 202)
+        schedule.assert_called_once_with(self.order)
+        before = (self.root / path / "!.txt").read_bytes()
+        summary.refresh([self.order])
+        result = summary.in_order(self.order)
+        self.assertEqual([group["path"] for group in result["todo_groups"]], [path])
+        self.assertTrue(result["todo_index"]["checked"])
+        self.assertEqual(manager.order_store().list(), [])
+        self.assertEqual((self.root / path / "!.txt").read_bytes(), before)
+
+    def test_order_page_includes_old_nested_registrations_once_but_main_summary_stays_separate(self):
+        self.add(items=[{"text": "Родитель", "done": False}])
+        nested = self.order + "/Фото"
+        self.folder("Клиент/2026-10-19 - Временный")
+        child = self.add("Клиент/2026-10-19 - Временный", [{"text": "Вложенная регистрация", "done": False}])
+        with manager.order_store().connect() as db:
+            db.execute("UPDATE orders SET path=? WHERE id=?", (nested, child["id"]))
+        self.card(nested + "/Глубже", [{"text": "В глубине", "done": False}])
+        summary = OrderTodos(manager.order_store())
+        summary.refresh()
+        result = summary.in_order(self.order)
+        self.assertEqual([group["label"] for group in result["todo_groups"]], ["Фото", "Фото/Глубже"])
+        self.assertEqual([group["items"][0]["text"] for group in result["todo_groups"]], ["Вложенная регистрация", "В глубине"])
+        parent = next(order for order in summary.attach(manager.order_store().list()) if order["path"] == self.order)
+        self.assertEqual([group["label"] for group in parent["todo_groups"]], ["Заказ"])
+
+    def test_order_page_hides_missing_folders_even_when_only_completed_tasks_remain(self):
+        self.add()
+        path = self.order + "/01 - Замеры"
+        self.card(path, [{"text": "Уже выполнено", "done": True}])
+        summary = OrderTodos(manager.order_store())
+        summary.refresh()
+        before = manager.folder_note_store().get(path)
+        self.assertTrue(summary.in_order(self.order)["todo_groups"])
+        (self.root / path).rename(self.base / "moved")
+        for _ in range(2):
+            summary.refresh()
+            self.assertEqual(summary.in_order(self.order)["todo_groups"], [])
+        self.assertEqual(manager.folder_note_store().get(path), before)
+
     def test_main_page_shows_only_open_tasks_without_erasing_completed_items(self):
         completed = {"text": "Выполнено у заказа", "done": True}
         self.add(items=[completed, {"text": "Актуально у заказа", "done": False}])

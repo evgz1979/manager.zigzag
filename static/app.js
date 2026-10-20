@@ -379,6 +379,7 @@ function renderFolder(preserveForm = false) {
     : "Выберите клиента или заказ в дереве слева";
   renderSubfolders();
   renderSketches();
+  renderDescendantTodos();
   $("orderDetails").hidden = !folder.path;
   $("folderDetailsTitle").textContent = noteOnly ? "Заметка" : "Карточка заказа";
   $("statusBadge").hidden = noteOnly;
@@ -464,6 +465,48 @@ function renderTodos() {
     '<input class="todo-check" type="checkbox" aria-label="Выполнено: ' + escapeHtml(item.text) + '"' + (item.done ? ' checked' : '') + '>' +
     '<input class="todo-text" type="text" maxlength="1000" aria-label="Текст задачи" value="' + escapeHtml(item.text) + '">' +
     '<button class="todo-delete" type="button" aria-label="Удалить задачу: ' + escapeHtml(item.text) + '">×</button></div>').join("") : "";
+}
+
+function hasDescendantTodos(folder) {
+  return Boolean(folder?.order || (folder?.folderKind === "order" && !folder.noteOnly));
+}
+
+function renderDescendantTodos() {
+  const folder = state.folder;
+  $("descendantTodos").hidden = !hasDescendantTodos(folder);
+  if (!hasDescendantTodos(folder)) return;
+  const summary = folder.descendantTodos;
+  const groups = summary?.todo_groups || [];
+  const completed = groups.some((group) => group.items?.some((item) => item.done));
+  $("descendantCompletedLabel").hidden = !completed;
+  $("descendantCompleted").checked = Boolean(folder.showCompletedTodos);
+  const visible = groups.map((group) => ({ ...group, items: group.items?.filter((item) => folder.showCompletedTodos || !item.done) ?? null }))
+    .filter((group) => group.items === null || group.items.length);
+  $("descendantTodoCount").textContent = groups.reduce((total, group) => total + (group.items || []).filter((item) => !item.done).length, 0);
+  const markup = visible.length ? visible.map(renderOrderTodoGroup).join("") : '<p class="order-todo-empty">' + (summary ? "Во вложенных папках актуальных задач нет." : "Загружаю задачи вложенных папок…") + '</p>';
+  if (folder.descendantTodoMarkup !== markup) {
+    const scroll = $("descendantTodoList").scrollTop;
+    $("descendantTodoList").innerHTML = markup;
+    $("descendantTodoList").scrollTop = scroll;
+    folder.descendantTodoMarkup = markup;
+  }
+  $("descendantTodoState").textContent = folder.descendantTodoError || (summary ? orderTodoSummary(summary).warning : "");
+}
+
+async function loadDescendantTodos(folder) {
+  if (!hasDescendantTodos(folder) || folder.descendantTodoLoading) return;
+  folder.descendantTodoLoading = true;
+  try {
+    const summary = await request(apiUrl("/api/order-todos", folder.path));
+    if (state.folder !== folder || summary.path !== folder.path) return;
+    folder.descendantTodos = summary;
+    folder.descendantTodoError = "";
+  } catch (error) {
+    if (state.folder === folder) folder.descendantTodoError = "Не удалось обновить задачи: " + error.message;
+  } finally {
+    folder.descendantTodoLoading = false;
+    if (state.folder === folder) renderDescendantTodos();
+  }
 }
 
 function saveTodosSoon(delay = 0) {
@@ -1185,6 +1228,10 @@ async function navigate(path, { history = true } = {}) {
     if (history) window.history.pushState(null, "", data.path ? "?path=" + encodeURIComponent(data.path) : window.location.pathname);
     renderTree();
     renderFolder();
+    run(async () => {
+      if (hasDescendantTodos(data) && !data.order) await request("/api/todos-refresh", { path: data.path });
+      await loadDescendantTodos(data);
+    });
     document.querySelector(".content-pane").scrollTop = 0;
     $("scanState").textContent = "";
     revealPath(data.path, navigation).catch((error) => notify(error.message, true));
@@ -1740,6 +1787,7 @@ setInterval(() => {
   }
   if (state.view !== "orders" && state.folder?.canCreateEventFolder) refreshEventRelevance(state.folder).catch(() => {});
   if (state.view !== "orders" && state.folder?.sketches?.length) refreshSketchRelevance(state.folder).catch(() => {});
+  if (state.view !== "orders") loadDescendantTodos(state.folder);
   if (state.view === "orders") loadOrders().catch(() => { $("ordersSyncState").textContent = "Нет связи с сервером · показаны последние загруженные данные"; });
   else if (state.folder?.folderNote && !state.dirty && !state.saving) {
     const folder = state.folder;
@@ -1804,6 +1852,23 @@ $("financialStatusSelect").addEventListener("change", () => { state.dirty = true
 $("orderNote").addEventListener("input", () => { state.dirty = true; resizeOrderNote(); renderStatus(); });
 $("orderDetails").addEventListener("toggle", resizeOrderNote);
 window.addEventListener("resize", resizeOrderNote);
+$("descendantTodoList").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-order]");
+  if (button) run(() => navigate(button.dataset.order));
+});
+$("descendantCompleted").addEventListener("change", () => {
+  state.folder.showCompletedTodos = $("descendantCompleted").checked;
+  renderDescendantTodos();
+});
+$("refreshDescendantTodos").addEventListener("click", () => run(async () => {
+  const folder = state.folder;
+  $("refreshDescendantTodos").disabled = true;
+  try {
+    await request("/api/todos-refresh", { path: folder.path });
+    await loadDescendantTodos(folder);
+    if (state.folder === folder) $("descendantTodoState").textContent = "Обновление карточек папок запущено…";
+  } finally { $("refreshDescendantTodos").disabled = false; }
+}));
 $("todoAddForm").addEventListener("submit", (event) => {
   event.preventDefault();
   const text = $("todoNewText").value.trim();

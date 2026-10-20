@@ -17,9 +17,9 @@ def path_key(path):
              for part in re.split(r"([0-9]+)", unicodedata.normalize("NFC", name).casefold())]) for name in Path(path).parts]
 
 
-def group(path, label, items, blocks, **metadata):
+def group(path, label, items, blocks, *, include_completed=False, **metadata):
     legacy = blocks.get(document.TODO_BLOCK, "") if items is None else ""
-    if items is not None:
+    if items is not None and not include_completed:
         items = [item for item in items if not item["done"]]
     if not items and not legacy:
         return None
@@ -32,12 +32,13 @@ class OrderTodos:
         # Фоновое чтение не переносит прежние служебные файлы и не переписывает карточки.
         self.notes = FolderNotes(store)
 
-    def attach(self, orders, *, include_missing=False):
+    def attach(self, orders, *, include_missing=False, include_completed=False):
         if not orders:
             return orders
         by_path = {order["path"]: {**order, "todo_groups": [], "todo_index": {"checked": None, "error": ""}} for order in orders}
         for order in by_path.values():
             own = group(order["path"], "Заказ", order["todo_items"], order["extra_blocks"],
+                        include_completed=include_completed,
                         sync_pending=order["sync_pending"], sync_error=order["sync_error"])
             if own:
                 order["todo_groups"].append(own)
@@ -62,27 +63,59 @@ class OrderTodos:
                 continue
             record = self.notes.record(row)
             item = group(record["path"], record["path"][len(owner) + 1:], record["todo_items"], record["extra_blocks"],
+                         include_completed=include_completed,
                          sync_pending=record["sync_pending"], sync_error=record["sync_error"], unavailable=record["path"] in missing)
             if item:
                 by_path[owner]["todo_groups"].append(item)
         return [by_path[order["path"]] for order in orders]
 
-    def refresh(self):
+    @staticmethod
+    def scope(relative):
+        # Незарегистрированный заказ тоже может иметь заметки вложенных папок.
+        return {"path": relative, "todo_items": [], "extra_blocks": {}, "sync_pending": False, "sync_error": ""}
+
+    def in_order(self, relative):
+        """Все вложенные задачи для страницы заказа; только локальная база."""
+        relative = self.store.path(relative)
+        # get также проверяет блокировку незавершённого переименования.
+        record = self.store.get(relative)
+        orders = {order["path"]: order for order in self.store.list()}
+        orders[relative] = record or self.scope(relative)
+        scopes = [order for path, order in orders.items() if path == relative or path.startswith(relative + "/")]
+        summaries = self.attach(scopes, include_completed=True)
+        groups = [{**item, "label": item["path"][len(relative) + 1:]}
+                  for order in summaries for item in order["todo_groups"] if item["path"] != relative]
+        indexes = [order["todo_index"] for order in summaries]
+        checked = [index["checked"] for index in indexes if index["checked"]]
+        return {"path": relative, "todo_groups": sorted(groups, key=lambda item: path_key(item["path"])),
+                "todo_index": {"checked": min(checked) if len(checked) == len(indexes) else None,
+                               "error": " · ".join(dict.fromkeys(index["error"] for index in indexes if index["error"]))}}
+
+    def refresh(self, extra_paths=()):
         if not REFRESH_LOCK.acquire(blocking=False):
             return
         try:
             orders = self.store.list()
+            registered = {order["path"] for order in orders}
+            extra_scopes = set()
+            for relative in extra_paths:
+                relative = self.store.path(relative)
+                if relative not in registered and relative not in extra_scopes:
+                    extra_scopes.add(relative)
+                    orders.append(self.scope(relative))
             if not orders:
                 return
             # Учитывать и уже скрытые пути, чтобы отметки отсутствия не пропадали
             # при следующих обходах. Рабочая сводка их не показывает.
             known = {order["path"]: [item["path"] for item in order["todo_groups"] if item["path"] != order["path"]]
-                     for order in self.attach(orders, include_missing=True)}
+                     for order in self.attach(orders, include_missing=True, include_completed=True)}
             registered = {order["path"] for order in orders}
             for order in orders:
                 relative = order["path"]
                 seen, errors, missing = set(), [], None
                 try:
+                    if relative in extra_scopes:
+                        self.store.require_order_folder(relative)
                     target = self.store.target(relative)
                     def on_error(error):
                         errors.append(str(error))
