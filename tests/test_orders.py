@@ -482,6 +482,11 @@ class OrderTests(unittest.TestCase):
                 self.assertEqual(parsed["note"], note)
                 self.assertEqual(parsed["extra_blocks"], record["extra_blocks"])
                 self.assertEqual(parsed["amount"], 123456)
+                self.assertEqual(parsed["status"], "process")
+                rendered = document.render(record, manager.STATUS_LABELS)
+                self.assertIn("Статус: Расчеты", rendered)
+                previous = document.parse(rendered.replace("Статус: Расчеты", "Статус: В работе"), manager.STATUS_LABELS)
+                self.assertEqual(previous, parsed)
 
     def test_existing_exports_are_combined_and_originals_archived(self):
         store = manager.order_store()

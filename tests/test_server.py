@@ -252,7 +252,7 @@ class ManagerTests(unittest.TestCase):
         manager.save_status(relative, "process", note)
         document = self.root / relative / manager.STATUS_DOCUMENT_NAME
         self.assertEqual(document.name, "!.txt")
-        self.assertIn("Статус: В работе", document.read_text())
+        self.assertIn("Статус: Расчеты", document.read_text())
         self.assertEqual(manager.order_document.load(document.parent, manager.STATUS_LABELS)["note"], note)
         self.assertFalse(manager.DATA_DIR.exists())
         self.assertEqual(manager.read_folder(relative)["note"], note)
