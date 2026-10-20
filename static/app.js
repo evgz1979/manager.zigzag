@@ -13,6 +13,7 @@ const state = {
   printTask: null, printSaving: null, printQuery: "",
   view: "orders", orders: [], orderFilter: "all", financialFilter: "all", orderQuery: "", orderSort: "updated", orderDirection: -1, scan: null, ordersRequest: 0,
   unregistrations: [], removeOrder: null, removingOrder: false,
+  favoriteSaving: new Set(),
   fileComment: null, fileCommentSaving: null,
   selectedFiles: new Set(), imageReport: null,
   fileRemoval: null, fileRemoving: false, trashRestoring: false,
@@ -1161,7 +1162,42 @@ function openOrderTodos(path, kind = "todos") {
   $("orderTodoBody").scrollTop = 0;
 }
 
+function renderOrderFavoriteButton(order) {
+  const unknown = order.is_favorite === null;
+  const label = (order.is_favorite ? "Убрать из избранного" : "Добавить в избранное") + " · " + order.title;
+  return '<button type="button" class="order-favorite-button" data-order-favorite="' + escapeHtml(order.path) + '" aria-pressed="' + Boolean(order.is_favorite) + '" aria-label="' + escapeHtml(label) + '" title="' + escapeHtml(unknown ? "Неизвестный раздел «Избранное» в !.txt сохранён без изменений" : label) + '"' + (unknown || state.favoriteSaving.has(order.path) ? ' disabled' : '') + '><span aria-hidden="true">' + (order.is_favorite ? '★' : '☆') + '</span></button>';
+}
+
+function focusOrderFavorite(path) {
+  if (state.view !== "orders" || !path) return;
+  $("ordersTableBody").querySelectorAll("[data-order-favorite]").forEach((button) => {
+    if (button.dataset.orderFavorite === path) button.focus({ preventScroll: true });
+  });
+}
+
+async function toggleOrderFavorite(path) {
+  const order = state.orders.find((item) => item.path === path);
+  if (!order || order.is_favorite === null || state.favoriteSaving.has(path)) return;
+  state.favoriteSaving.add(path);
+  ++state.ordersRequest;
+  renderOrders();
+  try {
+    const saved = await request("/api/order-favorite", { path, revision: order.revision, is_favorite: !order.is_favorite });
+    ++state.ordersRequest;
+    const current = state.orders.find((item) => item.path === path);
+    if (current) Object.assign(current, saved);
+  } catch (error) {
+    await loadOrders();
+    throw error;
+  } finally {
+    state.favoriteSaving.delete(path);
+    if (state.view === "orders") renderOrders();
+    focusOrderFavorite(path);
+  }
+}
+
 function renderOrders() {
+  const focusedFavorite = document.activeElement?.dataset.orderFavorite;
   const needle = normalize(state.orderQuery.trim());
   const matching = state.orders.filter((order) => !needle || normalize([order.title, order.path, order.note, orderTodoText(order), orderPurchaseText(order)].join(" ")).includes(needle));
   const productionMatching = matching.filter((order) => state.financialFilter === "all" || order.financial_status === state.financialFilter);
@@ -1169,6 +1205,8 @@ function renderOrders() {
   const filtered = productionMatching.filter((order) => state.orderFilter === "all" || order.status === state.orderFilter);
   const { orderSort: key, orderDirection: direction } = state;
   filtered.sort((a, b) => {
+    const favoriteOrder = Number(b.is_favorite === true) - Number(a.is_favorite === true);
+    if (favoriteOrder) return favoriteOrder;
     if (a[key] == null) return b[key] == null ? 0 : 1;
     if (b[key] == null) return -1;
     const labels = key === "status" ? statusLabels : key === "financial_status" ? financialStatusLabels : null;
@@ -1187,7 +1225,7 @@ function renderOrders() {
     const total = known.reduce((sum, order) => sum + order[field], 0);
     return '<div class="order-total"><span>' + label + '</span><strong>' + rubles(known.length ? total : null) + '</strong><small>' + (known.length === filtered.length && filtered.length ? "По всем выбранным заказам" : "Указано: " + known.length + " из " + filtered.length) + '</small></div>';
   }).join("");
-  $("ordersTableBody").innerHTML = filtered.map((order) => '<tr><td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button><span class="order-row-path">' + escapeHtml(order.path) + '</span></td><td><span class="status-badge" data-status="' + escapeHtml(order.status) + '">' + escapeHtml(statusLabels[order.status] || order.status) + '</span></td><td><span class="status-badge" data-financial-status="' + escapeHtml(order.financial_status) + '">' + escapeHtml(financialStatusLabels[order.financial_status] || "Не указан") + '</span></td>' +
+  $("ordersTableBody").innerHTML = filtered.map((order) => '<tr><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td><td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button><span class="order-row-path">' + escapeHtml(order.path) + '</span></td><td><span class="status-badge" data-status="' + escapeHtml(order.status) + '">' + escapeHtml(statusLabels[order.status] || order.status) + '</span></td><td><span class="status-badge" data-financial-status="' + escapeHtml(order.financial_status) + '">' + escapeHtml(financialStatusLabels[order.financial_status] || "Не указан") + '</span></td>' +
     ["amount", "costs", "profit", "paid", "debt"].map((field) => '<td class="order-money' + (order[field] < 0 ? " negative" : "") + '">' + rubles(order[field]) + '</td>').join("") +
     '<td class="order-updated">' + formatDate(order.updated) + (order.sync_pending ? '<span class="sync-pending" title="' + escapeHtml(order.sync_error || "Ожидает выгрузки в папку") + '">' + (order.sync_error ? "В очереди · автоповтор" : "Ожидает выгрузки") + '</span>' : '<span class="sync-complete">Выгружено</span>') + '</td></tr>').join("");
   $("ordersEmpty").hidden = Boolean(filtered.length);
@@ -1208,6 +1246,7 @@ function renderOrders() {
     button.textContent = button.textContent.replace(/ [↕↑↓]$/, "") + (selected ? direction === 1 ? " ↑" : " ↓" : " ↕");
   });
   renderOrderTodoDialog();
+  focusOrderFavorite(focusedFavorite);
 }
 
 async function showOrders({ history = true } = {}) {
@@ -1734,6 +1773,8 @@ $("orderStatusFilters").addEventListener("click", (event) => {
 $("orderSearch").addEventListener("input", (event) => { state.orderQuery = event.target.value; renderOrders(); });
 $("financialStatusFilter").addEventListener("change", (event) => { state.financialFilter = event.target.value; renderOrders(); });
 $("ordersTableBody").addEventListener("click", (event) => {
+  const favoriteButton = event.target.closest("[data-order-favorite]");
+  if (favoriteButton) { run(() => toggleOrderFavorite(favoriteButton.dataset.orderFavorite)); return; }
   const purchaseButton = event.target.closest("[data-order-purchases]");
   if (purchaseButton) { openOrderTodos(purchaseButton.dataset.orderPurchases, "purchases"); return; }
   const todoButton = event.target.closest("[data-order-todos]");

@@ -20,8 +20,23 @@ ORDER_FIELDS = {"status", "financial_status", "title", "client", "path", "amount
 MAX_MONEY = 999_999_999_999_99
 TODO_BLOCK = "Задачи"
 PURCHASE_BLOCK = "Закупки и затраты"
+FAVORITE_BLOCK = "Избранное"
 PURCHASE_SUPPLIERS = ("newtek", "glass", "antares", "tbm", "remex")
 UNSET_TODOS = object()
+
+
+def read_favorite(blocks):
+    if FAVORITE_BLOCK not in blocks:
+        return False
+    return {"да": True, "нет": False}.get(blocks[FAVORITE_BLOCK].strip().casefold())
+
+
+def write_favorite(blocks, value):
+    if type(value) is not bool:
+        raise ValueError("Укажите состояние избранного: вкл или выкл")
+    if read_favorite(blocks) is None:
+        raise ValueError("Прежний раздел «Избранное» сохранён. Проверь его в !.txt заказа")
+    return {**blocks, FAVORITE_BLOCK: "Да" if value else "Нет"}
 
 
 def validate_todos(items):

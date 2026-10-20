@@ -346,8 +346,13 @@ h2 { font-size: 13px; font-weight: 600; }
 .orders-table tbody tr:hover { background: #fafcf9; }
 .orders-table .order-todo-column { width: 68px; text-align: center; }
 .orders-table th.order-todo-column { padding: 8px 10px; color: var(--muted); font-size: 11px; font-weight: 400; }
-.orders-table th:nth-child(3) { min-width: 220px; }
-.orders-table th:nth-child(n+6):nth-child(-n+10) { text-align: right; }
+.orders-table th:nth-child(4) { min-width: 220px; }
+.orders-table th:nth-child(n+7):nth-child(-n+11) { text-align: right; }
+.orders-table .order-favorite-column { width: 38px; padding: 6px 3px; text-align: center; }
+.orders-table th.order-favorite-column { color: var(--muted); font-weight: 400; }
+.order-favorite-button { display: inline-grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; background: transparent; color: var(--muted); font-size: 21px; line-height: 1; }
+.order-favorite-button:hover { color: #a37413; background: #fcf4df; }
+.order-favorite-button[aria-pressed="true"] { color: #b57b0b; }
 .order-todo-button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-width: 46px; padding: 5px 7px; font-size: 11px; color: var(--accent); background: var(--accent-soft); border-color: #cbded2; }
 .order-todo-button.empty { color: var(--muted); background: transparent; border-color: var(--line); }
 .order-todo-button svg { width: 11px; height: 11px; }

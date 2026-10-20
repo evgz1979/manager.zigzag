@@ -1301,6 +1301,11 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(record)
                 schedule_order_sync()
                 return
+            elif route == "/api/order-favorite":
+                record = order_store().save_favorite(payload)
+                self.send_json(record)
+                schedule_order_sync()
+                return
             elif route in {"/api/client-activity", "/api/client-activity-file", "/api/object-activity", "/api/object-activity-file"}:
                 activity = object_activity_store() if route.startswith("/api/object-") else client_activity_store()
                 record = activity.accept_file(payload) if route.endswith("-file") else activity.save(payload)

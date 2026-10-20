@@ -93,6 +93,7 @@ class OrderStore:
         result["extra_blocks"] = json.loads(result["extra_blocks"])
         result["todo_items"] = document.read_todos(result["extra_blocks"])
         result["purchase_items"] = document.read_purchases(result["extra_blocks"])
+        result["is_favorite"] = document.read_favorite(result["extra_blocks"])
         exported_revision, export_format = result.pop("exported_revision"), result.pop("export_format")
         result["sync_pending"] = result["revision"] != exported_revision or (result["registered"] and export_format < document.FORMAT)
         return result
@@ -197,6 +198,25 @@ class OrderStore:
                 raise OrderConflict("Заказ изменён в другой вкладке. Откройте его заново перед сохранением.")
         return self.get(relative)
 
+    def save_favorite(self, payload):
+        """Change just the star, without reading documents or replacing card fields."""
+        relative = self.path(payload.get("path"))
+        revision = payload.get("revision")
+        if type(revision) is not int:
+            raise ValueError("Не указана версия заказа. Обнови список заказов.")
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            assert_unlocked(db, relative)
+            row = db.execute("SELECT extra_blocks FROM orders WHERE path=? AND revision=? AND registered=1",
+                             (relative, revision)).fetchone()
+            if row is None:
+                raise OrderConflict("Заказ изменён в другой вкладке. Обнови список перед сменой избранного.")
+            blocks = document.write_favorite(json.loads(row["extra_blocks"]), payload.get("is_favorite"))
+            db.execute("""UPDATE orders SET extra_blocks=?,revision=revision+1,updated=?,sync_error=''
+                WHERE path=? AND revision=? AND registered=1""",
+                (json.dumps(blocks, ensure_ascii=False), time.time(), relative, revision))
+        return self.get(relative)
+
     def remove(self, payload):
         if payload.get("confirmed") is not True:
             raise ValueError("Подтвердите снятие регистрации заказа")
@@ -229,7 +249,7 @@ class OrderStore:
                     phase = "Чтение карточки"
                     existing = document.load(folder, self.labels)
                     record["extra_blocks"].update({key: value for key, value in existing.get("extra_blocks", {}).items()
-                        if key not in {document.TODO_BLOCK, document.PURCHASE_BLOCK} or key not in record["extra_blocks"]})
+                        if key not in {document.TODO_BLOCK, document.PURCHASE_BLOCK, document.FAVORITE_BLOCK} or key not in record["extra_blocks"]})
                     if existing.get("schema", 0) < document.FORMAT:
                         phase = "Сохранение прежней карточки в историю"
                         document.archive_current(folder)
