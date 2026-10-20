@@ -398,6 +398,11 @@ h2 { font-size: 13px; font-weight: 600; }
 .confirm-dialog h2 { font-size: 20px; margin: 0 0 20px; }
 .confirm-dialog p { line-height: 1.6; }
 .create-order-dialog { width: 480px; }
+.year-group-dialog { width: 640px; }
+.year-group-plan { max-height: 330px; overflow: auto; margin: 16px 0; }
+.year-group-item { display: flex; align-items: baseline; gap: 12px; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.year-group-item strong { min-width: 0; overflow-wrap: anywhere; font-weight: 500; }
+.year-group-item span { white-space: nowrap; color: var(--muted); }
 .create-order-dialog form { display: grid; gap: 16px; }
 .create-order-dialog label { display: grid; gap: 7px; font-size: 12px; color: var(--muted); }
 .create-order-dialog input { width: 100%; min-width: 0; padding: 10px; color: var(--text); }

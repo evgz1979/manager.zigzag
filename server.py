@@ -34,6 +34,7 @@ from folder_notes import FolderNotes, FolderNoteConflict, parent_order
 import event_relevance
 from order_todos import OrderTodos
 import file_trash
+import object_years
 from file_comments import FileCommentConflict
 from folder_structure import folder_role, is_catalog_group, client_name
 from folder_structure import client_path
@@ -1017,7 +1018,9 @@ def read_folder(relative="", show_inactive=False):
             "warnings": warnings, "storage":"database" if DATABASE_ONLY else "legacy", "view": "print" if print_view else "files",
             "filesScope": files_scope,
             "newFileName": next_print_name(target) if print_view else "",
-            "canCreateOrderFolder": status["folderKind"] in {"object", "supplier_root", "work_section", "moneys_section"},
+            "canCreateObjectFolder": status["folderKind"]=="client",
+            "canGroupOrdersByYear": status["folderKind"]=="object",
+            "canCreateOrderFolder": status["folderKind"] in {"object", "supplier_root", "work_section", "moneys_section"} or (status["folderKind"]=="year" and order_folders.year_container(DATA_ROOT,relative)),
             "canCreateEventFolder": status["folderKind"] == "order",
             "canRenameFolder": folder_rename.available(relative_path(target)),
             **status}
@@ -1273,6 +1276,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(event_folders.preview(DATA_ROOT, relative, folder_note_store()), head=head)
             elif parsed.path == "/api/folder-rename":
                 self.send_json(folder_rename.preview(order_store(), relative), head=head)
+            elif parsed.path == "/api/object-years":
+                self.send_json(object_years.preview(order_store(),relative),head=head)
             elif parsed.path == "/api/order":
                 record = order_store().get(relative)
                 if not record:
@@ -1359,6 +1364,17 @@ class ManagerHandler(BaseHTTPRequestHandler):
             elif route == "/api/order-folder-create":
                 guard_database(order_store().database, payload.get("path", ""), include_children=True)
                 self.send_json(order_folders.create(DATA_ROOT, payload.get("path"), payload.get("date"), payload.get("title")), 201)
+                return
+            elif route == "/api/object-folder-create":
+                guard_database(order_store().database,payload.get('path',''),include_children=True)
+                self.send_json(order_folders.create_object(DATA_ROOT,payload.get('path'),payload.get('title')),201)
+                return
+            elif route == "/api/object-years":
+                with RUN_LOCK, file_comments.LOCK, PRINT_LOCK, STATUS_LOCK:
+                    result = object_years.group(order_store(),payload)
+                self.send_json(result)
+                schedule_order_sync()
+                schedule_todo_refresh()
                 return
             elif route == "/api/event-folder-create":
                 guard_database(order_store().database, payload.get("path", ""), include_children=True)
@@ -1534,7 +1550,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": True})
         except FileNotFoundError as error:
             self.send_json({"error": str(error)}, 404)
-        except (invoices.InvoiceConflict, PrintConflict, OrderConflict, ClientActivityConflict, FileCommentConflict, file_trash.TrashConflict, order_folders.OrderFolderConflict, folder_rename.FolderRenameConflict, FolderNoteConflict, event_folders.EventFolderConflict, EventRenamePending) as error:
+        except (invoices.InvoiceConflict, PrintConflict, OrderConflict, ClientActivityConflict, FileCommentConflict, file_trash.TrashConflict, order_folders.OrderFolderConflict, object_years.YearGroupConflict, folder_rename.FolderRenameConflict, FolderNoteConflict, event_folders.EventFolderConflict, EventRenamePending) as error:
             self.send_json({"error": str(error)}, 409)
         except (ValueError, UnicodeDecodeError) as error:
             self.send_json({"error": str(error)}, 400)

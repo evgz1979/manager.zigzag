@@ -165,7 +165,7 @@ def apply(session):
         append(session, {"phase": "complete", "operations": len(plan["operations"])})
 
 
-def undo(session, perform=False, *, coordinate_database=False):
+def undo(session, perform=False, *, coordinate_database=False, keep_directories=()):
     session = Path(session)
     plan = load_plan(session)
     if perform and plan.get("database_paths") and not coordinate_database:
@@ -194,6 +194,9 @@ def undo(session, perform=False, *, coordinate_database=False):
                 raise ValueError("Откат остановлен: объект изменён или перемещён: " + str(target))
             if source and exists(source):
                 raise FileExistsError("Откат не перезапишет существующий путь: " + str(source))
+            if source is None and operation["destination"] in keep_directories:
+                append(session,{"phase":"undone","id":index,"retained":True})
+                continue
             if source is None and any(target.iterdir()):
                 raise OSError(errno.ENOTEMPTY, "Новый каталог не пуст; откат сохранит новые данные", str(target))
             count += 1

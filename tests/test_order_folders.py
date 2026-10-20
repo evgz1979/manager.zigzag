@@ -44,7 +44,7 @@ class OrderFolderTests(unittest.TestCase):
         self.assertFalse(target.exists())
 
     def test_creation_allowed_only_in_object_not_in_container_order_or_service(self):
-        paths = {"": False, "Клиент": False, "Клиент/Адрес": True, "Клиент/Адрес/2026": False,
+        paths = {"": False, "Клиент": False, "Клиент/Адрес": True, "Клиент/Адрес/2026": True,
                  "Клиент/Адрес/2026-10-18 - Работа": False, "Клиент/Адрес/2026-10-18 - Работа/01": False,
                  "Клиент/Адрес/# bills": False, "# docs/Внутри": False}
         for path in paths:
@@ -58,7 +58,7 @@ class OrderFolderTests(unittest.TestCase):
                         self.create(path=path)
 
     def test_invalid_names_dates_and_paths_do_not_create_journal_or_folder(self):
-        invalid = [{"date": value} for value in (None, 20261019, "2026-02-30", "2026-00-00", "26-10-19", "2026-1-01")]
+        invalid = [{"date": value} for value in (None, 20261019, "2026-02-30", "2026-00-00", "26-10-19", "2026-1-01", "1800-01-01", "2100-01-01")]
         invalid += [{"title": value} for value in (None, "", "  ", "a/b", "a\\b", "a:b", "a\n", "a\x00b", "Ж" * 150)]
         invalid += [{"path": value} for value in (None, ".", "..", "../Клиент/Адрес", "/tmp", "Клиент/.hidden")]
         for changes in invalid:

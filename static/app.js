@@ -18,6 +18,7 @@ const state = {
   selectedFiles: new Set(), imageReport: null,
   fileRemoval: null, fileRemoving: false, trashRestoring: false,
   newOrderParent: null, creatingOrderFolder: false,
+  newObjectParent:null, creatingObject:false, objectYears:null, groupingYears:false,
   eventPlan: null, eventBusy: false,
   folderRename: null, folderRenaming: false,
   orderTodoPath: null, orderTodoMarkup: null, orderTodoKind: "todos",
@@ -407,6 +408,8 @@ function renderFolder(preserveForm = false) {
   $("statusForm").classList.toggle("note-only", noteOnly);
   $("orderNote").placeholder = noteOnly ? "Заметка к этой папке" : "Что важно по этому заказу";
   $("removeOrderButton").hidden = !folder.order;
+  $("createObjectFolderButton").hidden = folder.canCreateObjectFolder !== true;
+  $("groupObjectYearsButton").hidden = folder.canGroupOrdersByYear !== true;
   $("createOrderFolderButton").hidden = folder.canCreateOrderFolder !== true;
   $("createOrderFolderButton").textContent = folder.folderKind === "moneys_section" ? "+ Создать запись" : ["supplier_root", "work_section"].includes(folder.folderKind) ? "+ Создать заказ поставщику" : "+ Создать заказ";
   $("createEventFolderButton").hidden = folder.canCreateEventFolder !== true;
@@ -804,6 +807,84 @@ function renderNewOrderName() {
   $("newOrderFolderName").textContent = date + " - " + title;
 }
 
+function openCreateObject() {
+  if (!state.folder?.canCreateObjectFolder) return;
+  state.newObjectParent=state.folder.path;
+  $("newObjectParent").textContent=state.newObjectParent;
+  $("newObjectTitle").value="";
+  $("newObjectError").hidden=true;
+  $("createObjectFolderDialog").showModal();
+  $("newObjectTitle").focus();
+}
+
+async function createObject() {
+  if (state.creatingObject || !$("createObjectFolderForm").reportValidity()) return;
+  state.creatingObject=true;
+  const controls=["newObjectTitle","submitCreateObject","cancelCreateObject"];
+  controls.forEach(id=>$(id).disabled=true);
+  $("newObjectError").hidden=true;
+  let result;
+  try {
+    await saveCurrentStatus();
+    result=await request("/api/object-folder-create",{path:state.newObjectParent,title:$("newObjectTitle").value});
+  } catch(error) {
+    $("newObjectError").textContent=error.message;
+    $("newObjectError").hidden=false;
+    return;
+  } finally {
+    state.creatingObject=false;
+    controls.forEach(id=>$(id).disabled=false);
+  }
+  $("createObjectFolderDialog").close();
+  await reloadClientTrees();
+  await navigate(result.path);
+  notify("Объект создан");
+}
+
+async function openObjectYears() {
+  if (!state.folder?.canGroupOrdersByYear) return;
+  await saveCurrentStatus();
+  const plan=await request(apiUrl("/api/object-years",state.folder.path));
+  state.objectYears=plan;
+  $("objectYearsParent").textContent=plan.path;
+  $("objectYearsPlan").innerHTML=plan.mappings.map(pair=>'<div class="year-group-item"><strong>'+escapeHtml(pair.source.split('/').pop())+'</strong><span>→ '+escapeHtml(pair.year)+'/</span></div>').join('')+
+    plan.created_years.map(path=>'<p>Создать папку '+escapeHtml(path.split('/').pop())+'</p>').join('') || '<p>Заказы уже распределены по годам.</p>';
+  $("objectYearsSkipped").hidden=!plan.skipped.length;
+  $("objectYearsSkipped").textContent="Останутся на месте — год не определён: "+plan.skipped.join(' · ');
+  $("objectYearsError").hidden=!plan.conflicts.length;
+  $("objectYearsError").textContent=plan.conflicts.join(' · ');
+  $("submitObjectYears").disabled=Boolean(plan.conflicts.length || (!plan.mappings.length && !plan.created_years.length));
+  $("submitObjectYears").textContent=plan.mappings.length ? "Сгруппировать · "+plan.mappings.length : "Создать папку года";
+  $("objectYearsDialog").showModal();
+}
+
+async function groupObjectYears() {
+  if (!state.objectYears || state.groupingYears) return;
+  state.groupingYears=true;
+  $("submitObjectYears").disabled=true;
+  $("cancelObjectYears").disabled=true;
+  $("objectYearsError").hidden=true;
+  let result;
+  try {
+    result=await request("/api/object-years",{path:state.objectYears.path,revision:state.objectYears.revision,confirmed:true});
+  } catch(error) {
+    $("objectYearsError").textContent=error.message;
+    $("objectYearsError").hidden=false;
+    return;
+  } finally {
+    state.groupingYears=false;
+    $("submitObjectYears").disabled=false;
+    $("cancelObjectYears").disabled=false;
+  }
+  $("objectYearsDialog").close();
+  const moved=path=>{ const pair=state.objectYears.mappings.find(pair=>path===pair.source || path.startsWith(pair.source+'/'));return pair ? pair.destination+path.slice(pair.source.length) : path; };
+  state.expanded=new Set([...state.expanded].map(moved));
+  await reloadClientTrees();
+  await navigate(result.path,{history:false});
+  await loadOrders();
+  notify(result.moved ? "Заказы распределены по годам" : "Годовая папка создана");
+}
+
 function openCreateOrderFolder() {
   if (state.folder?.canCreateOrderFolder !== true) return;
   state.newOrderParent = state.folder.path;
@@ -815,7 +896,9 @@ function openCreateOrderFolder() {
   $("newOrderParentLabel").textContent = finance ? "Новая папка в финансовом разделе:" : supplier ? "Новая папка в производственном разделе:" : "Новая папка в объекте:";
   $("newOrderTitle").placeholder = finance ? "Например, сверка с поставщиком" : supplier ? "Например, заказ поставщику" : "Например, замена вывески";
   const parts = Object.fromEntries(new Intl.DateTimeFormat("ru-RU", { timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()).map((part) => [part.type, part.value]));
-  $("newOrderDate").value = parts.year + "-" + parts.month + "-" + parts.day;
+  const year = state.folder.folderKind === "year" ? state.folder.name : parts.year;
+  $("newOrderDate").value = year + "-" + parts.month + "-" + parts.day;
+  if (!$("newOrderDate").value) $("newOrderDate").value = year + "-01-01";
   $("newOrderTitle").value = "";
   $("newOrderParent").textContent = state.newOrderParent;
   $("newOrderError").hidden = true;
@@ -1289,6 +1372,8 @@ async function showOrders({ history = true } = {}) {
   $("openFolderButton").hidden = true;
   $("addOrderButton").hidden = true;
   $("removeOrderButton").hidden = true;
+  $("createObjectFolderButton").hidden = true;
+  $("groupObjectYearsButton").hidden = true;
   $("createOrderFolderButton").hidden = true;
   $("createEventFolderButton").hidden = true;
   $("renameFolderButton").hidden = true;
@@ -1955,6 +2040,14 @@ $("homeButton").addEventListener("click", () => run(() => showOrders()));
 $("ordersButton").addEventListener("click", () => run(() => showOrders()));
 $("openFolderButton").addEventListener("click", () => run(() => openNative(state.selected)));
 $("createOrderFolderButton").addEventListener("click", openCreateOrderFolder);
+$("createObjectFolderButton").addEventListener("click",openCreateObject);
+$("createObjectFolderForm").addEventListener("submit",event=>{event.preventDefault();run(createObject);});
+$("cancelCreateObject").addEventListener("click",()=>$("createObjectFolderDialog").close());
+$("createObjectFolderDialog").addEventListener("cancel",event=>{if(state.creatingObject)event.preventDefault();});
+$("groupObjectYearsButton").addEventListener("click",()=>run(openObjectYears));
+$("submitObjectYears").addEventListener("click",()=>run(groupObjectYears));
+$("cancelObjectYears").addEventListener("click",()=>$("objectYearsDialog").close());
+$("objectYearsDialog").addEventListener("cancel",event=>{if(state.groupingYears)event.preventDefault();});
 $("createEventFolderButton").addEventListener("click", () => run(openCreateEventFolder));
 $("renameFolderButton").addEventListener("click", () => run(openFolderRename));
 $("renameFolderName").addEventListener("input", renderFolderRename);

@@ -112,7 +112,7 @@ def undo(session, perform=False):
     spec.loader.exec_module(layout)
     if not perform:
         return layout.undo(session)
-    source, destination = meta["source"], meta["destination"]
+    mappings = meta.get("mappings") or ([{"source":meta["source"],"destination":meta["destination"]}] if "source" in meta else [])
     with closing(sqlite3.connect(Path(meta["database"]).as_uri() + "?mode=rw", uri=True, timeout=15)) as db, db:
         db.row_factory = sqlite3.Row
         db.execute("BEGIN IMMEDIATE")
@@ -122,16 +122,28 @@ def undo(session, perform=False):
         if row[0] == "undone":
             return 0
         committed = bool(row[1])
-        if committed:
-            check(db, destination, source, str(session))
-        else:
-            check(db, source, destination, str(session))
+        for pair in mappings:
+            source,destination = pair["source"],pair["destination"]
+            check(db,destination if committed else source,source if committed else destination,str(session))
+        keep = []
+        root = Path(layout.load_plan(session)["root"])
+        for directory in meta.get("created_years",[]):
+            removed = {Path(pair["destination"]).name for pair in mappings if Path(pair["destination"]).parent.as_posix()==directory}
+            target = root/directory
+            has_files = target.is_dir() and any(item.name not in removed for item in target.iterdir())
+            has_data = any(inside(row[0],directory) and not any(inside(row[0],pair["destination"]) for pair in mappings)
+                for name in ("orders","folder_notes","metadata_records","client_activity","object_activity","invoices") if table(db,name)
+                for row in db.execute(f"SELECT path FROM {name}"))
+            if has_files or has_data:
+                keep.append(directory)
         db.execute("UPDATE folder_renames SET state='pending' WHERE session=?", (str(session),))
         db.commit()
         db.execute("BEGIN IMMEDIATE")
-        count = layout.undo(session, True, coordinate_database=True)
+        options = {"keep_directories":keep} if "created_years" in meta else {}
+        count = layout.undo(session, True, coordinate_database=True,**options)
         if committed:
-            rewrite(db, destination, source)
+            for pair in reversed(mappings):
+                rewrite(db,pair["destination"],pair["source"])
         db.execute("UPDATE folder_renames SET state='undone',paths_applied=0 WHERE session=?", (str(session),))
     return count
 
