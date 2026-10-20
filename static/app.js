@@ -156,10 +156,10 @@ function renderSubfolders() {
   const folder = state.folder;
   const focused = document.activeElement?.closest("[data-relevance]");
   const focusPath = focused?.dataset.eventPath, focusValue = focused?.dataset.relevance;
-  const directories = folder.directories.filter((item) => folder.folderKind === "work_root" || !item.name.startsWith("#"));
+  const directories = folder.directories.filter((item) => ["work_root", "moneys_root"].includes(folder.folderKind) || !item.name.startsWith("#"));
   $("subfolders").classList.toggle("with-event-relevance", directories.some((item) => item.eventRelevance));
   $("folderSection").hidden = !directories.length;
-  $("foldersTitle").textContent = folder.canCreateEventFolder ? "События" : folder.folderKind === "supplier_root" ? "Заказы поставщикам" : folder.folderKind === "work_root" ? "Разделы производства" : folder.path ? "Подпапки" : "Папки";
+  $("foldersTitle").textContent = folder.canCreateEventFolder ? "События" : ["supplier_root", "work_section"].includes(folder.folderKind) ? "Заказы поставщикам" : folder.folderKind === "moneys_section" ? "Финансовые записи" : folder.folderKind === "work_root" ? "Разделы производства" : folder.folderKind === "moneys_root" ? "Финансовые разделы" : folder.path ? "Подпапки" : "Папки";
   $("directoryCount").textContent = directories.length;
   $("subfolders").innerHTML = directories.map((item) => {
     const open = '<button class="subfolder" data-path="' + escapeHtml(item.path) + '" title="' + escapeHtml(item.name) + '">' +
@@ -240,7 +240,7 @@ function renderFolder(preserveForm = false) {
   $("orderNote").placeholder = noteOnly ? "Заметка к этой папке" : "Что важно по этому заказу";
   $("removeOrderButton").hidden = !folder.order;
   $("createOrderFolderButton").hidden = folder.canCreateOrderFolder !== true;
-  $("createOrderFolderButton").textContent = folder.folderKind === "supplier_root" ? "+ Создать заказ поставщику" : "+ Создать заказ";
+  $("createOrderFolderButton").textContent = folder.folderKind === "moneys_section" ? "+ Создать запись" : ["supplier_root", "work_section"].includes(folder.folderKind) ? "+ Создать заказ поставщику" : "+ Создать заказ";
   $("createEventFolderButton").hidden = folder.canCreateEventFolder !== true;
   if (!preserveForm) {
     folder.todo_items = folder.order ? folder.order.todo_items : folder.todo_items === undefined ? [] : folder.todo_items;
@@ -561,17 +561,20 @@ function showPrintTask(task) {
 
 function renderNewOrderName() {
   const date = $("newOrderDate").value || "ГГГГ-ММ-ДД";
-  const title = $("newOrderTitle").value.trim() || "Название заказа";
+  const title = $("newOrderTitle").value.trim() || (state.folder?.folderKind === "moneys_section" ? "Название записи" : "Название заказа");
   $("newOrderFolderName").textContent = date + " - " + title;
 }
 
 function openCreateOrderFolder() {
   if (state.folder?.canCreateOrderFolder !== true) return;
   state.newOrderParent = state.folder.path;
-  const supplier = state.folder.folderKind === "supplier_root";
-  $("createOrderFolderTitle").textContent = supplier ? "Создать заказ поставщику" : "Создать заказ";
-  $("newOrderParentLabel").textContent = supplier ? "Новая папка в разделе стекла и стеклопакетов:" : "Новая папка в объекте:";
-  $("newOrderTitle").placeholder = supplier ? "Например, поставщик — стеклопакеты для Жуковки" : "Например, замена вывески";
+  const supplier = ["supplier_root", "work_section"].includes(state.folder.folderKind);
+  const finance = state.folder.folderKind === "moneys_section";
+  $("newOrderDateLabel").textContent = finance ? "Дата записи" : "Дата заказа";
+  $("newOrderTitleLabel").textContent = finance ? "Название записи" : "Название заказа";
+  $("createOrderFolderTitle").textContent = finance ? "Создать финансовую запись" : supplier ? "Создать заказ поставщику" : "Создать заказ";
+  $("newOrderParentLabel").textContent = finance ? "Новая папка в финансовом разделе:" : supplier ? "Новая папка в производственном разделе:" : "Новая папка в объекте:";
+  $("newOrderTitle").placeholder = finance ? "Например, сверка с поставщиком" : supplier ? "Например, заказ поставщику" : "Например, замена вывески";
   const parts = Object.fromEntries(new Intl.DateTimeFormat("ru-RU", { timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()).map((part) => [part.type, part.value]));
   $("newOrderDate").value = parts.year + "-" + parts.month + "-" + parts.day;
   $("newOrderTitle").value = "";
@@ -584,6 +587,7 @@ function openCreateOrderFolder() {
 
 async function createOrderFolder() {
   if (state.creatingOrderFolder || !$("createOrderFolderForm").reportValidity()) return;
+  const finance = state.folder?.folderKind === "moneys_section";
   state.creatingOrderFolder = true;
   const controls = ["submitCreateOrderFolder", "cancelCreateOrderFolder", "newOrderDate", "newOrderTitle"];
   controls.forEach((id) => { $(id).disabled = true; });
@@ -605,7 +609,7 @@ async function createOrderFolder() {
   $("createOrderFolderDialog").close();
   await loadTree();
   await navigate(created.path);
-  notify("Папка заказа создана");
+  notify(finance ? "Финансовая запись создана" : "Папка заказа создана");
 }
 
 function renderNewEventName() {

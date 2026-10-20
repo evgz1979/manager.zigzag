@@ -111,8 +111,8 @@
       <h2 id="createOrderFolderTitle">Создать заказ</h2>
       <p id="newOrderParentLabel">Новая папка в объекте:</p><p id="newOrderParent" class="confirm-path"></p>
       <form id="createOrderFolderForm">
-        <label for="newOrderDate">Дата заказа<input id="newOrderDate" type="date" required></label>
-        <label for="newOrderTitle">Название заказа<input id="newOrderTitle" type="text" placeholder="Например, замена вывески" maxlength="240" autocomplete="off" required></label>
+        <label for="newOrderDate"><span id="newOrderDateLabel">Дата заказа</span><input id="newOrderDate" type="date" required></label>
+        <label for="newOrderTitle"><span id="newOrderTitleLabel">Название заказа</span><input id="newOrderTitle" type="text" placeholder="Например, замена вывески" maxlength="240" autocomplete="off" required></label>
         <p class="new-order-preview">Имя папки: <strong id="newOrderFolderName"></strong></p>
         <p id="newOrderError" class="new-order-error" role="alert" hidden></p>
         <div class="confirm-actions"><button id="cancelCreateOrderFolder" class="secondary-button" type="button">Отмена</button><button id="submitCreateOrderFolder" class="primary-button" type="submit">Создать папку</button></div>

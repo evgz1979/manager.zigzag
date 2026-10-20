@@ -700,8 +700,9 @@ def read_folder(relative=""):
     directories = directory_children(target)
     status = folder_status(target, directories)
     files, warnings = [], []
+    print_view = is_print_folder(relative) and len(Path(relative).parts) == 2
     files_scope = "events" if status["folderKind"] == "order" or status.get("order") else (
-        "subfolders" if status["folderKind"] in {"client", "object", "supplier_root", "work_root"} else "folder")
+        "subfolders" if not print_view and status["folderKind"] in {"client", "object", "supplier_root", "work_root", "moneys_root", "work_section", "moneys_section"} else "folder")
     hide_files = files_scope != "folder"
     folder_count = len(directories) if hide_files else 0
 
@@ -736,7 +737,6 @@ def read_folder(relative=""):
                           "type": file_group(file), "preview": preview_kind(file),
                           "extension": file.suffix.lstrip(".").upper() or "ФАЙЛ", "comment": comment,
                           "comment_key": file_comments.binding(file)})
-    print_view = is_print_folder(relative)
     if print_view:
         files = [file for file in files if file["name"] != STATUS_DOCUMENT_NAME and Path(file["name"]).suffix.lower() in PRINT_TEXT_EXTENSIONS]
     files.sort(key=lambda file: (folder_sort_key(file["folder"]), sort_key(Path(file["name"]))))
@@ -771,7 +771,7 @@ def read_folder(relative=""):
             "warnings": warnings, "view": "print" if print_view else "files",
             "filesScope": files_scope,
             "newFileName": next_print_name(target) if print_view else "",
-            "canCreateOrderFolder": status["folderKind"] in {"object", "supplier_root"},
+            "canCreateOrderFolder": status["folderKind"] in {"object", "supplier_root", "work_section", "moneys_section"},
             "canCreateEventFolder": status["folderKind"] == "order",
             **status}
 

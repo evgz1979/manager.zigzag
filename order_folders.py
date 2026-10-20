@@ -7,7 +7,7 @@ from datetime import date
 from pathlib import Path
 
 import folder_layout as layout
-from folder_structure import folder_role, supplier_prefix
+from folder_structure import folder_role, section_prefix
 
 LOCK = threading.RLock()
 
@@ -17,7 +17,7 @@ class OrderFolderConflict(ValueError):
 
 
 def layout_scope(relative):
-    prefix = supplier_prefix(relative)
+    prefix = section_prefix(relative)
     return {"service_roots": [Path(*prefix).as_posix()]} if prefix else {}
 
 
@@ -28,8 +28,8 @@ def create(root, relative, order_date, title):
     parent = layout.safe_path(root, relative, [Path(relative).parts[0]], **layout_scope(relative))
     if not parent.is_dir():
         raise FileNotFoundError("Папка объекта недоступна")
-    if folder_role(root, relative)["folderKind"] not in {"object", "supplier_root"}:
-        raise ValueError("Папку заказа можно создать внутри объекта клиента или в # work/# glass")
+    if folder_role(root, relative)["folderKind"] not in {"object", "supplier_root", "work_section", "moneys_section"}:
+        raise ValueError("Выберите объект клиента или раздел внутри # work / # moneys")
     if not isinstance(order_date, str) or not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", order_date):
         raise ValueError("Укажите дату в формате ГГГГ-ММ-ДД")
     try:

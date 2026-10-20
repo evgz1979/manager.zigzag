@@ -96,7 +96,7 @@ class SupplierOrderTests(unittest.TestCase):
         self.file(self.order + "/!.txt", body.encode())
         self.file(self.order + "/00 - Замеры/!.txt", manager.order_document.render({"note": "Размеры проёма",
             "extra_blocks": {"Задачи": "- [ ] Проверить диагонали"}}, manager.STATUS_LABELS).encode())
-        for parent in ("# docs", "# work/# laser", "# work/# razbor/# glass", "Клиент/# glass"):
+        for parent in ("# docs", "# work/# laser/# bills", "# work/# razbor/# glass", "Клиент/# glass"):
             self.file(parent + "/2026-10-20 - Не заказ/!.txt", body.encode())
         store = manager.order_store()
         progress = {"folders": 0, "added": 0, "errors": []}
@@ -154,7 +154,7 @@ class SupplierOrderTests(unittest.TestCase):
             self.assertTrue(folder_role(self.root, path)["canRegisterOrder"])
             with self.assertRaises(ValueError):
                 folder_layout.Plan(self.root, [root.split('/')[0]]).mkdir(root + "/Не разрешено")
-        for path in ("# docs/2026-10-20 - Заказ", "# work/# laser/2026-10-20 - Заказ", "# work/# razbor/# glass/2026-10-20 - Заказ",
+        for path in ("# docs/2026-10-20 - Заказ", "# work/# laser/# bills/2026-10-20 - Заказ", "# work/# razbor/# glass/2026-10-20 - Заказ",
                      "Клиент/# glass/2026-10-20 - Заказ", self.order + "/# bills"):
             self.folder(path)
             with self.subTest(path=path):

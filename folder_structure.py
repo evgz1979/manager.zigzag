@@ -11,6 +11,8 @@ DATE_LIKE = re.compile(r"^(?:19|20)\d{2}[- ._]\d")
 NUMBER = re.compile(r"^\d{2,}(?=$|\D)")
 LABELS = {"root": "Корень документов", "client": "Клиент", "object": "Объект", "year": "Группа года",
           "work_root": "Производство",
+          "moneys_root": "Финансовая информация",
+          "work_section": "Производственный раздел", "moneys_section": "Финансовый раздел",
           "supplier_root": "Заказы поставщикам · стекло и стеклопакеты",
           "group": "Общая группа", "order": "Заказ", "event": "Событие или материалы заказа", "service": "Служебная папка",
           "invalid": "Папка с некорректной датой"}
@@ -24,6 +26,10 @@ def is_work_root(name):
     return name.startswith("#") and name[1:].strip().casefold() == "work"
 
 
+def is_moneys_root(name):
+    return name.startswith("#") and name[1:].strip().casefold() == "moneys"
+
+
 def supplier_prefix(relative):
     parts = Path(relative).parts
     if parts and is_supplier_root(parts[0]):
@@ -33,11 +39,18 @@ def supplier_prefix(relative):
     return ()
 
 
+def section_prefix(relative):
+    parts = Path(relative).parts
+    if len(parts) >= 2 and (is_work_root(parts[0]) or is_moneys_root(parts[0])):
+        return parts[:2]
+    return supplier_prefix(relative)
+
+
 def is_service_folder(relative):
     parts = Path(relative).parts
-    if len(parts) == 1 and is_work_root(parts[0]):
+    if len(parts) == 1 and (is_work_root(parts[0]) or is_moneys_root(parts[0])):
         return False
-    return any(part.startswith("#") for part in parts[len(supplier_prefix(relative)):])
+    return any(part.startswith("#") for part in parts[len(section_prefix(relative)):])
 
 
 def dated(name):
@@ -62,8 +75,18 @@ def folder_role(root, relative):
         kind = "root"
     elif len(parts) == 1 and is_work_root(parts[0]):
         kind = "work_root"
+    elif len(parts) == 1 and is_moneys_root(parts[0]):
+        kind = "moneys_root"
     elif is_service_folder(relative):
         kind = "service"
+    elif len(parts) >= 2 and (is_work_root(parts[0]) or is_moneys_root(parts[0])):
+        if len(parts) == 2:
+            if is_moneys_root(parts[0]):
+                kind = "moneys_section"
+            else:
+                kind = "supplier_root" if is_supplier_root(parts[1]) else "work_section"
+        else:
+            kind = "order" if len(parts) == 3 else "event"
     else:
         prefix = supplier_prefix(relative)
         kind = "supplier_root" if prefix else "group" if NUMBER.match(parts[0]) else "client"
