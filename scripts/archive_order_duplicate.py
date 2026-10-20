@@ -90,6 +90,8 @@ def covered(source, current):
 
 
 def archive(store, source, destination, evidence, *, perform=False):
+    if store.database_only:
+        raise ValueError("Прежний разбор дублей по !.txt отключён. Нужна проверка всех связанных данных SQLite")
     import folder_layout as layout
     import order_document as document
 

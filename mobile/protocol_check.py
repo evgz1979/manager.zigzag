@@ -16,7 +16,7 @@ with tempfile.TemporaryDirectory(prefix="zigzag-phone-protocol-") as temporary:
     folder = root / relative
     folder.mkdir(parents=True)
     (folder / "Фото.txt").write_text("Документ не меняется")
-    store = OrderStore(root, base / "mac-local", {"new": "Новый"})
+    store = OrderStore(root, base / "mac-local", {"new": "Новый"}, database_only=False)
     store.add(relative, {"title": "Тест обмена", "note": "Mac", "extra_blocks": {"Задачи": "- [ ] С Mac"}})
     bridge = MobileBridge(store)
     bridge.configure(True)

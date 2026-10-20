@@ -23,8 +23,9 @@ class OrderConflict(ValueError):
 
 
 class OrderStore:
-    def __init__(self, root, data_dir, labels):
+    def __init__(self, root, data_dir, labels, *, database_only=True):
         self.root = Path(root)
+        self.database_only = database_only
         # Changing the configured document root must never mix separate registers.
         key = hashlib.sha256(str(root).encode()).hexdigest()[:16]
         self.database = Path(data_dir) / f"orders-{key}.sqlite3"
@@ -57,6 +58,12 @@ class OrderStore:
                         status=CASE WHEN status='payment' THEN 'unspecified' ELSE status END,
                         revision=revision+CASE WHEN registered=1 THEN 1 ELSE 0 END""")
             with db:
+                if self.database_only:
+                    import local_metadata
+                    local_metadata.schema(db)
+                    for table in ("orders","folder_notes","client_activity","object_activity","metadata_records"):
+                        local_metadata.audit(db,table)
+                    db.commit()
                 yield db
         finally:
             db.close()
@@ -81,8 +88,7 @@ class OrderStore:
             raise FileNotFoundError("Папка заказа недоступна. Данные сохранены в базе; проверьте iCloud и путь заказа.")
         return target
 
-    @staticmethod
-    def record(row):
+    def record(self,row):
         if row is None:
             return None
         result = dict(row)
@@ -96,6 +102,8 @@ class OrderStore:
         result["is_favorite"] = document.read_favorite(result["extra_blocks"])
         exported_revision, export_format = result.pop("exported_revision"), result.pop("export_format")
         result["sync_pending"] = result["revision"] != exported_revision or (result["registered"] and export_format < document.FORMAT)
+        if self.database_only:
+            result.update(sync_pending=False,sync_error="",storage="database")
         return result
 
     def get(self, relative, *, include_unregistered=False):
@@ -230,12 +238,23 @@ class OrderStore:
                 WHERE path=? AND revision=? AND registered=1""", (time.time(), relative, revision))
             if not result.rowcount:
                 raise OrderConflict("Заказ изменён или уже убран из списка. Обновите данные перед подтверждением.")
+            if self.database_only:
+                import folder_notes
+                folder_notes.schema(db)
+                body = self.record(db.execute("SELECT * FROM orders WHERE path=?",(relative,)).fetchone())
+                db.execute("""INSERT INTO folder_notes VALUES (?,?,?,?,1,1,'database',?,'')
+                    ON CONFLICT(path) DO UPDATE SET document=excluded.document,revision=folder_notes.revision+1,updated=excluded.updated""",
+                    (relative,str(uuid.uuid4()),"",json.dumps(body,ensure_ascii=False),time.time()))
         return self.get(relative, include_unregistered=True)
 
     def atomic_write(self, target, body):
         document.atomic_write(target, body)
 
     def sync(self):
+        if self.database_only:
+            with self.connect() as db:
+                db.execute("UPDATE orders SET exported_revision=revision,export_format=?,sync_error='' WHERE exported_revision!=revision OR export_format<? OR sync_error!=''", (document.FORMAT,document.FORMAT))
+            return
         if not SYNC_LOCK.acquire(blocking=False):
             return
         try:
@@ -269,16 +288,42 @@ class OrderStore:
             SYNC_LOCK.release()
 
     def import_folder(self, relative, fallback=None):
+        if self.database_only:
+            with SYNC_LOCK:
+                return self._import_folder(relative,fallback)
+        return self._import_folder(relative,fallback)
+
+    def _import_folder(self, relative, fallback=None):
         folder = self.target(relative)
         self.require_order_folder(relative)
         previous = self.get(relative, include_unregistered=True)
+        if self.database_only and previous:
+            if not previous["registered"]:
+                with self.connect() as db:
+                    db.execute("BEGIN IMMEDIATE")
+                    assert_unlocked(db,relative)
+                    import folder_notes
+                    folder_notes.schema(db)
+                    draft = db.execute("SELECT document FROM folder_notes WHERE path=?",(relative,)).fetchone()
+                    body = json.loads(draft[0]) if draft else previous
+                    db.execute("UPDATE orders SET registered=1,note=?,extra_blocks=?,revision=revision+1,updated=? WHERE path=?",
+                        (body.get("note",previous["note"]),json.dumps(body.get("extra_blocks",previous["extra_blocks"]),ensure_ascii=False),time.time(),relative))
+            return self.get(relative)
         if previous and not previous["registered"] and previous["sync_pending"]:
             with self.connect() as db:
                 assert_unlocked(db, relative)
                 db.execute("UPDATE orders SET registered=1,revision=revision+1,updated=?,sync_error='' WHERE path=? AND registered=0",
                            (time.time(), relative))
             return self.get(relative)
-        initial = document.load(folder, self.labels) or fallback or {"status": "new", "note": ""}
+        if self.database_only:
+            from folder_notes import FolderNotes
+            from local_metadata import MetadataStore
+            with FolderNotes(self).connect() as db:
+                draft = db.execute("SELECT document FROM folder_notes WHERE path=?", (relative,)).fetchone()
+            initial = json.loads(draft[0]) if draft else MetadataStore(self).card(folder)
+            initial = initial or fallback or {"status":"new","note":""}
+        else:
+            initial = document.load(folder, self.labels) or fallback or {"status": "new", "note": ""}
         if initial.get("id"):
             self.restore(relative, initial)
         else:

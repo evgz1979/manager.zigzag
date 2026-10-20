@@ -84,6 +84,8 @@ def update_paths(db, source, destination, identity):
 
 
 def rebind(store, source, destination, *, perform=False):
+    if store.database_only:
+        raise ValueError("Прежняя перепривязка по !.txt отключена. Нужен перенос всех связанных путей SQLite")
     import folder_layout as layout
     import order_document as document
 

@@ -119,6 +119,8 @@ class MobileBridge:
         db.execute("INSERT OR REPLACE INTO mobile_meta VALUES (?,?)", (key, str(value)))
 
     def configure(self, enabled):
+        if self.store.database_only and enabled:
+            raise ValueError("Обмен с iPhone отложен; очередь сохранена")
         if type(enabled) is not bool:
             raise ValueError("Укажите, включён ли обмен")
         with self.store.connect() as db:
@@ -129,7 +131,7 @@ class MobileBridge:
         with self.store.connect() as db:
             values = dict(db.execute("SELECT key,value FROM mobile_meta"))
             conflicts = db.execute("SELECT COUNT(*) FROM mobile_operations WHERE status='conflict'").fetchone()[0]
-        return {"enabled": values.get("enabled") == "1", "running": RUN_LOCK.locked(),
+        return {"enabled": not self.store.database_only and values.get("enabled") == "1", "paused":self.store.database_only, "running": RUN_LOCK.locked(),
                 "last_sync": float(values.get("last_sync", 0)), "error": values.get("error", ""),
                 "orders": int(values.get("orders", 0)), "conflicts": conflicts}
 
@@ -381,6 +383,8 @@ class MobileBridge:
         return {"schema": 1, "root_id": root_id, "generation": generation, "generated": time.time(), "orders": orders, "receipts": receipts}
 
     def run(self):
+        if self.store.database_only:
+            return
         if not self.status()["enabled"] or not RUN_LOCK.acquire(blocking=False):
             return
         try:

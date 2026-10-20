@@ -23,6 +23,7 @@ class ManagerTests(unittest.TestCase):
         self.root = self.base / "Зигзаг"
         self.root.mkdir()
         self.patches = [
+            patch.object(manager, "DATABASE_ONLY", False),  # Legacy migration/export compatibility suite.
             patch.object(manager, "DATA_ROOT", self.root),
             patch.object(manager, "DATA_DIR", self.base / "local"),
             patch.object(manager, "STATUSES_FILE", self.base / "local" / "statuses.json"),

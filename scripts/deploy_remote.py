@@ -191,6 +191,9 @@ def check_event_rename_compatibility(database, release_dir):
     if not database.exists():
         return
     with closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)) as db:
+        if (db.execute("SELECT 1 FROM sqlite_master WHERE name='metadata_settings'").fetchone()
+                and not (release_dir / "local_metadata.py").is_file()):
+            raise RuntimeError("База переведена на новый формат хранения. Старый код не поддерживает рабочие комментарии и заметки; откат заблокирован")
         if (not (release_dir / "event_folder_undo.py").is_file()
                 and db.execute("SELECT 1 FROM sqlite_master WHERE name='event_renames'").fetchone()
                 and db.execute("SELECT 1 FROM event_renames WHERE state='pending' LIMIT 1").fetchone()):

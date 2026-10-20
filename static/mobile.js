@@ -9,7 +9,8 @@
       if (!response.ok) throw new Error(status.error || 'Не удалось прочитать состояние');
       const date = status.last_sync ? new Date(status.last_sync * 1000).toLocaleString('ru-RU') : 'ещё не было';
       byId('mobileStatus').textContent = `${status.enabled ? 'Обмен включён' : 'Обмен приостановлен'}. ${status.running ? 'Обновление… ' : ''}Последняя подготовка: ${date}. Заказов: ${status.orders}. Требуют разбора: ${status.conflicts}.${status.error ? '\n' + status.error : ''}`;
-      byId('mobileEnable').hidden = status.enabled;
+      byId('mobileEnable').hidden = status.enabled || status.paused;
+      if (status.paused) byId('mobileStatus').textContent = 'Обмен отложен. Данные и очередь сохранены.';
       byId('mobilePause').hidden = !status.enabled;
       byId('mobileRefresh').disabled = !status.enabled || status.running;
     } catch (error) { byId('mobileStatus').textContent = error.message; }

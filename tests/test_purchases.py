@@ -61,11 +61,11 @@ class PurchaseTests(unittest.TestCase):
         with patch.object(manager.order_document, "atomic_write", side_effect=OSError("iCloud занят")):
             store.sync()
         self.assertTrue(store.get(self.path)["sync_pending"])
-        restarted = OrderStore(self.root, manager.DATA_DIR, manager.STATUS_LABELS)
+        restarted = OrderStore(self.root, manager.DATA_DIR, manager.STATUS_LABELS, database_only=False)
         self.assertEqual(restarted.get(self.path)["purchase_items"], cleared["purchase_items"])
         restarted.sync()
         self.assertFalse(restarted.get(self.path)["sync_pending"])
-        rebuilt = OrderStore(self.root, self.base / "rebuilt", manager.STATUS_LABELS).import_folder(self.path)
+        rebuilt = OrderStore(self.root, self.base / "rebuilt", manager.STATUS_LABELS, database_only=False).import_folder(self.path)
         self.assertEqual(rebuilt["purchase_items"], cleared["purchase_items"])
         self.assertNotEqual(rebuilt["purchase_items"], first["purchase_items"])
         deleted = self.save(restarted.get(self.path), [])

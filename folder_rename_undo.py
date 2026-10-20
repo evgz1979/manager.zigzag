@@ -5,6 +5,7 @@ import importlib.util
 import json
 from pathlib import Path
 import sqlite3
+import unicodedata
 
 
 def inside(path, prefix):
@@ -19,7 +20,33 @@ def remap(path, source, destination):
     return destination + path[len(source):] if inside(path, source) else path
 
 
+def metadata_paths(db, source, destination, *, apply=False):
+    """Self-contained: this module is copied into standalone restoration journals."""
+    source,destination = (unicodedata.normalize("NFC",value) for value in (source,destination))
+    exists = lambda name: db.execute("SELECT 1 FROM sqlite_master WHERE name=?", (name,)).fetchone()
+    if exists("metadata_file_moves"):
+        for old, new in db.execute("SELECT source,destination FROM metadata_file_moves WHERE state!='restored'"):
+            if any(inside(path, root) for path in (old,new) for root in (source,destination)):
+                raise ValueError("Сначала восстанови файлы из корзины в этой папке")
+    for name in ("metadata_records", "metadata_imports", "metadata_publications"):
+        if not exists(name):
+            continue
+        if any(inside(row[0], destination) for row in db.execute(f"SELECT path FROM {name}")):
+            raise ValueError("По новому пути есть данные базы: " + name)
+        if not apply:
+            continue
+        columns = "rowid,path" + (",source" if name=="metadata_publications" else "")
+        for row in list(db.execute(f"SELECT {columns} FROM {name}")):
+            if inside(row[1], source):
+                extra = ",revision=revision+1" if name=="metadata_records" else ""
+                db.execute(f"UPDATE {name} SET path=?{extra} WHERE rowid=?", (destination+row[1][len(source):],row[0]))
+            if name=="metadata_publications" and inside(row[2],source):
+                db.execute("UPDATE metadata_publications SET source=? WHERE rowid=?", (destination+row[2][len(source):],row[0]))
+
+
+
 def check(db, source, destination, session=None):
+    metadata_paths(db,source,destination)
     for name in ("event_renames", "folder_renames"):
         if table(db, name):
             for other, mappings in db.execute(f"SELECT session,mappings FROM {name} WHERE state='pending'"):
@@ -41,6 +68,7 @@ def check(db, source, destination, session=None):
 
 def rewrite(db, source, destination):
     """Called inside one transaction; preserve every field and pending export."""
+    metadata_paths(db,source,destination,apply=True)
     identities = []
     for row in list(db.execute("SELECT id,path FROM orders")):
         if inside(row[1], source):

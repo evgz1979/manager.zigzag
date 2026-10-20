@@ -52,6 +52,8 @@ def check_database(db, source, destination):
 
 
 def rebind(notes, source="# glass", destination="# work/# glass", *, perform=False):
+    if notes.store.database_only:
+        raise ValueError("Прежняя перепривязка по !.txt отключена. Нужен перенос всех связанных путей SQLite")
     import folder_layout as layout
     from folder_notes import file_revision
     from folder_structure import supplier_prefix

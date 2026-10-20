@@ -56,6 +56,13 @@ def file_revision(folder):
     return digest.hexdigest() if found else "missing"
 
 
+def schema(db):
+    db.execute("""CREATE TABLE IF NOT EXISTS folder_notes (
+        path TEXT PRIMARY KEY, id TEXT NOT NULL UNIQUE, parent_order TEXT NOT NULL,
+        document TEXT NOT NULL, revision INTEGER NOT NULL, exported_revision INTEGER NOT NULL,
+        file_revision TEXT NOT NULL, updated REAL NOT NULL, sync_error TEXT NOT NULL DEFAULT '')""")
+
+
 class FolderNotes:
     def __init__(self, store, prepare=None):
         self.store = store
@@ -64,14 +71,10 @@ class FolderNotes:
     @contextmanager
     def connect(self):
         with self.store.connect() as db:
-            db.execute("""CREATE TABLE IF NOT EXISTS folder_notes (
-                path TEXT PRIMARY KEY, id TEXT NOT NULL UNIQUE, parent_order TEXT NOT NULL,
-                document TEXT NOT NULL, revision INTEGER NOT NULL, exported_revision INTEGER NOT NULL,
-                file_revision TEXT NOT NULL, updated REAL NOT NULL, sync_error TEXT NOT NULL DEFAULT '')""")
+            schema(db)
             yield db
 
-    @staticmethod
-    def record(row):
+    def record(self,row):
         if row is None:
             return None
         value = dict(row)
@@ -79,12 +82,14 @@ class FolderNotes:
         return {"path": value["path"], "revision": f"{value['id']}:{value['revision']}",
                 "note": body.get("note", ""), "extra_blocks": body.get("extra_blocks", {}),
                 "todo_items": document.read_todos(body.get("extra_blocks", {})),
-                "sync_pending": value["revision"] != value["exported_revision"], "sync_error": value["sync_error"],
+                "sync_pending": False if self.store.database_only else value["revision"] != value["exported_revision"], "sync_error": "" if self.store.database_only else value["sync_error"],
+                "storage":"database" if self.store.database_only else "legacy",
+                **({"card":body} if self.store.database_only else {}),
                 "file_exists": value["file_revision"] != "missing",
                 "parent_order": value["parent_order"]}
 
     def get(self, relative):
-        checked_path(self.store.root, relative)
+        self.path(relative)
         if not self.store.database.exists():
             return None
         with self.connect() as db:
@@ -92,7 +97,7 @@ class FolderNotes:
             return self.record(db.execute("SELECT * FROM folder_notes WHERE path=?", (relative,)).fetchone())
 
     def target(self, relative):
-        target = checked_path(self.store.root, relative)
+        target = self.path(relative)
         for index in range(1, len(Path(relative).parts) + 1):
             if (self.store.root / Path(*Path(relative).parts[:index])).is_symlink():
                 raise ValueError("Заметки через символические ссылки не сохраняются")
@@ -100,21 +105,41 @@ class FolderNotes:
             raise FileNotFoundError("Папка недоступна; данные сохранены в базе, выгрузка будет повторена")
         return target
 
+    def path(self, relative):
+        if self.store.database_only and relative=="":
+            return self.store.root
+        return checked_path(self.store.root,relative)
+
     def read(self, relative):
+        if self.store.database_only:
+            with SYNC_LOCK:
+                return self._read(relative)
+        return self._read(relative)
+
+    def _read(self, relative):
         previous = self.get(relative)
+        if self.store.database_only and previous:
+            return previous
         if previous and previous["sync_pending"]:
             return previous
         target = self.target(relative)
         owner = parent_order(self.store.root, relative)
-        if not owner:
+        if not owner and not self.store.database_only:
             raise ValueError("Эта папка не находится внутри заказа")
-        if self.prepare:
+        if self.prepare and not self.store.database_only:
             self.prepare(target)
-        revision = file_revision(target)
-        body = document.load(target, self.store.labels)
+        revision = file_revision(target) if not self.store.database_only else "database"
+        if self.store.database_only:
+            from local_metadata import MetadataStore
+            body = MetadataStore(self.store).card(target)
+            old = self.store.get(relative,include_unregistered=True) if relative else None
+            if old:
+                body = {**body,**old}
+        else:
+            body = document.load(target, self.store.labels)
         if is_service_folder(relative):
             body = document.folder_note(body)
-        if file_revision(target) != revision:
+        if not self.store.database_only and file_revision(target) != revision:
             raise FolderNoteConflict("Файл папки изменился во время чтения. Обновите папку")
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
@@ -126,7 +151,7 @@ class FolderNotes:
                 return self.record(current)
             if not current:
                 db.execute("INSERT INTO folder_notes VALUES (?,?,?,?,1,1,?,?, '')",
-                           (relative, str(uuid.uuid4()), owner, json.dumps(body, ensure_ascii=False), revision, time.time()))
+                           (relative, str(uuid.uuid4()), owner or "", json.dumps(body, ensure_ascii=False), revision, time.time()))
             elif current["file_revision"] != revision:
                 db.execute("UPDATE folder_notes SET document=?, revision=revision+1, exported_revision=revision+1, file_revision=?, updated=?, sync_error='' WHERE path=?",
                            (json.dumps(body, ensure_ascii=False), revision, time.time(), relative))
@@ -134,7 +159,7 @@ class FolderNotes:
 
     def save(self, payload):
         relative, note = payload.get("path"), payload.get("note")
-        checked_path(self.store.root, relative)
+        self.path(relative)
         if not isinstance(note, str) or len(note) > 100_000:
             raise ValueError("Укажите заметку длиной до 100 000 символов")
         with self.connect() as db:
@@ -144,6 +169,18 @@ class FolderNotes:
             if not row or payload.get("revision") != f"{row['id']}:{row['revision']}":
                 raise FolderNoteConflict("Заметка или задачи папки изменились. Обновите папку, сохранив свой ввод")
             body = json.loads(row["document"])
+            if self.store.database_only and not row["parent_order"] and not is_service_folder(relative) and body.get("registered") is not False:
+                for key in ("title","status","financial_status"):
+                    if key in payload:
+                        value = payload[key]
+                        if not isinstance(value,str) or (key=="status" and value not in self.store.labels) or (key=="financial_status" and value not in document.FINANCIAL_STATUS_LABELS) or (key=="title" and (not value.strip() or len(value)>500 or any(c in value for c in '\r\n\x00'))):
+                            raise ValueError("Проверь название и статусы заказа")
+                        body[key] = value.strip() if key=="title" else value
+                for key in ("amount","costs","paid"):
+                    if key in payload:
+                        body[key] = document.money(payload[key])
+                if "purchase_items" in payload:
+                    body["extra_blocks"] = document.write_purchases(body.get("extra_blocks",{}),payload["purchase_items"])
             if "todo_items" in payload:
                 if document.read_todos(body.get("extra_blocks", {})) is None:
                     raise ValueError("Прежний раздел задач содержит произвольный текст; он сохранён без замены")
@@ -224,6 +261,10 @@ class FolderNotes:
             return result
 
     def sync(self):
+        if self.store.database_only:
+            with self.connect() as db:
+                db.execute("UPDATE folder_notes SET exported_revision=revision,sync_error='' WHERE exported_revision!=revision OR sync_error!=''")
+            return
         if not self.store.database.exists() or not SYNC_LOCK.acquire(blocking=False):
             return
         try:

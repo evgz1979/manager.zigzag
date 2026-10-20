@@ -42,6 +42,10 @@ def read(file):
     if target.stat().st_size > 1024 * 1024:
         raise ValueError("Файл комментария слишком большой")
     raw = target.read_bytes()
+    return parse(raw,name)
+
+
+def parse(raw,name):
     text = raw.decode("utf-8-sig").replace("\r\n", "\n")
     header, separator, body = text.partition("\n\n[Комментарий]\n")
     lines = header.splitlines()

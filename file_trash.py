@@ -6,6 +6,7 @@ import json
 import os
 import re
 import shutil
+import sqlite3
 import stat
 import threading
 import unicodedata
@@ -13,6 +14,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
+from contextlib import closing
 
 LOCK = threading.RLock()
 HISTORY = Path('.folder-layout-history/.file-trash')
@@ -125,11 +127,45 @@ def describe(root, plan):
             pending.append(item['path'])
         if any(op['source'] == item['path'] and same(root / op['destination'], op['identity']) for op in operations):
             removed.append(item['path'])
+    if plan.get('database'):
+        with closing(sqlite3.connect(Path(plan['database']).as_uri()+'?mode=rw',uri=True,timeout=15)) as db:
+            for (path,) in db.execute("SELECT source FROM metadata_file_moves WHERE session=? AND state!='restored'",(plan['session'],)):
+                if path not in pending:
+                    pending.append(path)
     return {'session': plan['session'], 'folder': plan['folder'], 'created': plan['created'],
             'files': pending, 'count': len(pending), 'removed': removed}
 
 
-def remove(root, folder, files, confirmed=False):
+def database_move(plan, operation, *, restore=False, finish=False):
+    """Durable comment relocation; also works from the standalone restore script."""
+    if not plan.get('database') or operation['source']!=operation['file']:
+        return
+    source = unicodedata.normalize('NFC',operation['source'])
+    destination = unicodedata.normalize('NFC',operation['destination'])
+    with closing(sqlite3.connect(Path(plan['database']).as_uri()+'?mode=rw',uri=True,timeout=15)) as db, db:
+        db.execute('BEGIN IMMEDIATE')
+        row = db.execute('SELECT state FROM metadata_file_moves WHERE session=? AND source=?',(plan['session'],source)).fetchone()
+        if restore:
+            if not row or row[0]=='restored':
+                return
+            original = db.execute("SELECT id FROM metadata_records WHERE kind='comment' AND path=?",(source,)).fetchone()
+            stored = db.execute("SELECT id FROM metadata_records WHERE kind='comment' AND path=?",(destination,)).fetchone()
+            if original:
+                raise TrashConflict('По исходному пути появился другой комментарий; восстановление остановлено: '+source)
+            if not finish:
+                db.execute("UPDATE metadata_file_moves SET state='pending' WHERE session=? AND source=?",(plan['session'],source))
+            if finish:
+                if stored:
+                    db.execute("UPDATE metadata_records SET path=?,revision=revision+1 WHERE kind='comment' AND path=?",(source,destination))
+                db.execute("UPDATE metadata_file_moves SET state='restored' WHERE session=? AND source=?",(plan['session'],source))
+        elif finish:
+            db.execute("UPDATE metadata_file_moves SET state='trashed' WHERE session=? AND source=?",(plan['session'],source))
+        elif not row:
+            db.execute("INSERT INTO metadata_file_moves VALUES (?,?,?,'pending')",(plan['session'],source,destination))
+            db.execute("UPDATE metadata_records SET path=?,revision=revision+1 WHERE kind='comment' AND path=?",(destination,source))
+
+
+def remove(root, folder, files, confirmed=False, database=None):
     root = Path(root).resolve()
     if confirmed is not True or not isinstance(files, list) or any(not isinstance(item, dict) for item in files):
         raise ValueError('Подтвердите удаление выбранных файлов')
@@ -160,6 +196,8 @@ def remove(root, folder, files, confirmed=False):
         plan = {'kind': 'file-trash', 'root': str(root), 'session': token, 'folder': folder,
                 'created': datetime.now(ZoneInfo('Europe/Moscow')).isoformat(),
                 'files': current['files'], 'operations': operations}
+        if database is not None:
+            plan['database'] = str(Path(database).resolve())
         save(session / '.before.json', current)
         save(session / '.plan.json', plan)
         shutil.copyfile(__file__, session / '.restore.py')
@@ -180,13 +218,15 @@ def remove(root, folder, files, confirmed=False):
                         if revision(source) != item['revision']:
                             raise TrashConflict('Файл изменился: ' + operation['source'])
                     append(session, phase='intent', id=index, **operation)
+                    database_move(plan,operation)
                     if not destination.parent.exists():
                         append(session, phase='mkdir_intent', path=str(destination.parent.relative_to(root)))
                         destination.parent.mkdir(parents=True, exist_ok=True)
                         append(session, phase='mkdir_commit', path=str(destination.parent.relative_to(root)))
                     rename(source, destination)
+                    database_move(plan,operation,finish=True)
                     append(session, phase='commit', id=index)
-                except (OSError, ValueError) as problem:
+                except (OSError, ValueError, sqlite3.Error) as problem:
                     error = str(problem)
                     append(session, phase='failed', id=index, error=error)
                     break
@@ -238,6 +278,7 @@ def restore(root, token):
                     original = checked(root, operation['source'], hidden=True)
                     if not os.path.lexists(stored):
                         if same(original, operation['identity']):
+                            database_move(plan,operation,restore=True,finish=True)
                             continue
                         raise TrashConflict('Не найден сохранённый файл: ' + operation['file'])
                     if not same(stored, operation['identity']):
@@ -247,11 +288,13 @@ def restore(root, token):
                     if not original.parent.is_dir():
                         raise TrashConflict('Исходная папка перемещена или удалена: ' + str(original.parent.relative_to(root)))
                     append(session, phase='undo_intent', id=index)
+                    database_move(plan,operation,restore=True)
                     rename(stored, original)
+                    database_move(plan,operation,restore=True,finish=True)
                     append(session, phase='undone', id=index)
                     if operation['source'] == operation['file']:
                         restored.append(operation['file'])
-                except (OSError, ValueError) as problem:
+                except (OSError, ValueError, sqlite3.Error) as problem:
                     error = str(problem)
                     append(session, phase='undo_failed', id=index, error=error)
                     break

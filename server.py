@@ -24,6 +24,7 @@ from mobile_sync import MobileBridge, RUN_LOCK
 import image_reports
 import invoices
 import native_renderers
+from local_metadata import MetadataStore
 import order_folders
 import event_folders
 import folder_rename
@@ -45,6 +46,7 @@ CONFIG_FILE = APP_DIR / "manager.ini"
 STATIC_DIR = APP_DIR / "static"
 RELEASE_ID = (APP_DIR / ".release-id").read_text().strip() if (APP_DIR / ".release-id").exists() else "development"
 DATA_DIR = APP_DIR / "data"
+DATABASE_ONLY = True
 STATUSES_FILE = DATA_DIR / "statuses.json"
 STATUS_DOCUMENT_NAME = order_document.DOCUMENT
 LEGACY_STATUS_DOCUMENT_NAMES = order_document.LEGACY_STATUSES
@@ -261,6 +263,26 @@ def compose_print_text(link, description, title=""):
 
 
 def read_print_task(relative):
+    with PRINT_LOCK:
+        return _read_print_task(relative)
+
+
+def _read_print_task(relative):
+    if DATABASE_ONLY:
+        if not isinstance(relative,str) or '\x00' in relative:
+            raise ValueError("Выбери задание в # work/# print")
+        if not is_print_folder(str(Path(relative).parent)) or Path(relative).name.startswith('.') or len(Path(relative).parts)!=3:
+            raise ValueError("Выбери задание в # work/# print")
+        current = metadata_store().get("print",relative)
+        if current:
+            return {**current,"name":Path(relative).name,"modified":current["updated"],"storage":"database"}
+        target = print_target(relative,file=True)
+        raw = metadata_store().archive(target)
+        text,_ = decode_print_document(target,raw)
+        link,title,description = split_print_text(text)
+        current = metadata_store().put("print",relative,{"title":title,"link":link,"description":description},"missing")
+        metadata_store().imported("print",relative)
+        return {**current,"name":target.name,"modified":current["updated"],"storage":"database"}
     target = print_target(relative, file=True)
     raw = target.read_bytes()
     if len(raw) > MAX_PRINT_BYTES:
@@ -272,6 +294,14 @@ def read_print_task(relative):
 
 
 def next_print_name(folder):
+    if DATABASE_ONLY:
+        stem = "print - "+datetime.now(ZoneInfo("Europe/Moscow")).strftime("%Y-%m-%d")
+        number = 1
+        while True:
+            filename = stem+("" if number==1 else f" ({number})")+".txt"
+            if not (folder/filename).exists() and not metadata_store().get("print",relative_path(folder/filename)):
+                return filename
+            number += 1
     templates = [item for item in folder.iterdir() if visible(item) and item.is_file()
                  and item.suffix.lower() in PRINT_TEXT_EXTENSIONS and re.match(r"^print\s*-\s*\d{4}-\d{2}-\d{2}", item.name, re.I)]
     extension = max(templates, key=lambda item: item.stat().st_mtime).suffix if templates else ".textClipping"
@@ -285,6 +315,20 @@ def next_print_name(folder):
 
 
 def create_print_task(relative, link, description, title=""):
+    if DATABASE_ONLY:
+        folder = print_target(relative)
+        compose_print_text(link,description,title)  # Existing validation.
+        with PRINT_LOCK:
+            stem = "print - "+datetime.now(ZoneInfo("Europe/Moscow")).strftime("%Y-%m-%d")
+            index = 1
+            while True:
+                filename = stem+("" if index==1 else f" ({index})")+".txt"
+                path = str(Path(relative)/filename)
+                if not metadata_store().get("print",path) and not (folder/filename).exists():
+                    break
+                index += 1
+            metadata_store().put("print",path,{"title":title.strip(),"link":link.strip(),"description":description},"missing")
+            return read_print_task(path)
     folder = print_target(relative)
     text = compose_print_text(link, description, title)
     with PRINT_LOCK:
@@ -307,6 +351,13 @@ def create_print_task(relative, link, description, title=""):
 
 
 def save_print_task(relative, link, description, revision, title=None):
+    if DATABASE_ONLY:
+        with PRINT_LOCK:
+            current = read_print_task(relative)
+            title = current["title"] if title is None else title
+            compose_print_text(link,description,title)
+            metadata_store().put("print",relative,{"title":title.strip(),"link":link.strip(),"description":description},revision)
+            return read_print_task(relative)
     target = print_target(relative, file=True)
     with PRINT_LOCK:
         original = target.read_bytes()
@@ -405,7 +456,7 @@ def create_image_report(relative, selected):
         if file_group(target) != "images":
             skipped += 1
             continue
-        items.append({"path": str(target), "comment": file_comments.read(target)["comment"]})
+        items.append({"path": str(target), "comment": read_file_comment(target)["comment"]})
     if not items:
         raise ValueError("Для PDF-отчёта выберите хотя бы одно изображение")
     if len(items) > image_reports.MAX_IMAGES:
@@ -622,7 +673,15 @@ def migrate_statuses():
 
 
 def order_store():
-    return OrderStore(DATA_ROOT, DATA_DIR, STATUS_LABELS)
+    return OrderStore(DATA_ROOT, DATA_DIR, STATUS_LABELS,database_only=DATABASE_ONLY)
+
+
+def metadata_store():
+    return MetadataStore(order_store())
+
+
+def read_file_comment(file):
+    return metadata_store().comment(file) if DATABASE_ONLY else file_comments.read(file)
 
 
 def invoice_store():
@@ -630,10 +689,14 @@ def invoice_store():
 
 
 def schedule_mobile_sync():
+    if DATABASE_ONLY:
+        return
     threading.Thread(target=MobileBridge(order_store()).run, daemon=True).start()
 
 
 def mobile_sync_worker():
+    if DATABASE_ONLY:
+        return
     while True:
         try:
             MobileBridge(order_store()).run()
@@ -673,6 +736,8 @@ def schedule_order_sync():
         client_activity_store().sync()
         object_activity_store().sync()
         invoice_store().sync()
+        if DATABASE_ONLY:
+            metadata_store().sync()
     threading.Thread(target=sync, daemon=True).start()
 
 
@@ -736,7 +801,29 @@ def listed_orders():
     activity = client_activity_store()
     objects = object_activity_store()
     return {"orders": OrderTodos(store).attach(objects.visible_orders(activity.visible_orders(store.list()))),
-            "unregistrations": objects.visible_orders(activity.visible_orders(store.pending_unregistrations())), "scan": dict(SCAN_STATE)}
+            "unregistrations": objects.visible_orders(activity.visible_orders(store.pending_unregistrations())), "scan": dict(SCAN_STATE),
+            "storage":metadata_store().status() if DATABASE_ONLY else {"database_only":False}}
+
+
+METADATA_REFRESH = threading.Event()
+
+
+def metadata_worker():
+    if not DATABASE_ONLY:
+        return
+    refresh = True
+    while True:
+        METADATA_REFRESH.clear()
+        try:
+            metadata_store().backup("before-migration")
+            if refresh or metadata_store().status()["errors"]:
+                metadata_store().migrate(sys.modules[__name__])
+                metadata_store().imported("migration","")
+            metadata_store().backup("daily")
+        except Exception as error:
+            metadata_store().error("migration","",error)
+            print(f"Перенос метаданных в базу: {error}",flush=True)
+        refresh = METADATA_REFRESH.wait(60)
 
 
 def client_activity_worker():
@@ -783,6 +870,8 @@ def order_sync_worker():
             client_activity_store().sync()
             object_activity_store().sync()
             invoice_store().sync()
+            if DATABASE_ONLY:
+                metadata_store().sync()
         except Exception as error:
             print(f"Выгрузка заказов: {error}", flush=True)
         threading.Event().wait(15)
@@ -793,6 +882,17 @@ def folder_status(path, directories):
     role = folder_role(DATA_ROOT, relative)
     service = is_service_folder(relative)
     owner = parent_order(DATA_ROOT, relative) if relative else None
+    if DATABASE_ONLY:
+        order = order_store().get(relative,include_unregistered=True) if relative else None
+        if order and order["registered"]:
+            return {**role,"service":False,"status":order["status"],"financial_status":order["financial_status"],"note":order["note"],
+                    "todo_items":order["todo_items"],"purchase_items":order["purchase_items"],"extra_blocks":order["extra_blocks"],"statusSource":"database","order":order}
+        record = folder_note_store().read(relative)
+        body = record["card"]
+        note_only = not role["canRegisterOrder"] or bool(order) or body.get("registered") is False
+        return {**role,"service":service,"noteOnly":note_only,"eventFolder":bool(owner),"folderNote":record,"draftCard":body,
+                "note":record["note"],"todo_items":record["todo_items"],"purchase_items":order_document.read_purchases(body.get("extra_blocks",{})),
+                "extra_blocks":record["extra_blocks"],"status":body.get("status","new"),"financial_status":body.get("financial_status","unspecified"),"statusSource":"database"}
     if service and not owner:
         return {**role, "service": True, "note": read_status_document(path).get("note", ""), "statusSource": "manual"}
     order = order_store().get(relative, include_unregistered=True)
@@ -860,7 +960,7 @@ def read_folder(relative="", show_inactive=False):
                 warnings.append(f"Не удалось прочитать файл: {name}")
                 continue
             try:
-                comment = file_comments.read(file)["comment"]
+                comment = read_file_comment(file)["comment"]
             except (OSError, ValueError):
                 comment = ""
                 warnings.append(f"Не удалось прочитать комментарий: {name}")
@@ -870,6 +970,18 @@ def read_folder(relative="", show_inactive=False):
                           "type": file_group(file), "preview": preview_kind(file),
                           "extension": file.suffix.lstrip(".").upper() or "ФАЙЛ", "comment": comment,
                           "comment_key": file_comments.binding(file)})
+    if print_view and DATABASE_ONLY:
+        for file in list(files):
+            try:
+                if Path(file["path"]).suffix.lower() in PRINT_TEXT_EXTENSIONS and not metadata_store().is_publication(file["path"]):
+                    read_print_task(file["path"])
+            except (OSError,ValueError) as error:
+                warnings.append("Не удалось перенести задание: "+file["name"]+" · "+str(error))
+        with metadata_store().connect() as db:
+            records = list(db.execute("SELECT * FROM metadata_records WHERE kind='print' ORDER BY updated DESC"))
+        files = [{"name":Path(row["path"]).name,"path":row["path"],"modified":row["updated"],"size":len(row["data"].encode()),
+                  "folder":"","type":"docs","extension":"TXT","preview":"text",**json.loads(row["data"])}
+                 for row in records if str(Path(row["path"]).parent)==relative]
     if print_view:
         files = [file for file in files if file["name"] != STATUS_DOCUMENT_NAME and Path(file["name"]).suffix.lower() in PRINT_TEXT_EXTENSIONS]
     files.sort(key=lambda file: (folder_sort_key(file["folder"]), sort_key(Path(file["name"]))))
@@ -902,7 +1014,7 @@ def read_folder(relative="", show_inactive=False):
             "directories": nodes, "files": files, "sketches": sketch_files,
             "fileCount": len(files), "folderCount": folder_count,
             "totalSize": sum(file["size"] for file in files), "counts": counts,
-            "warnings": warnings, "view": "print" if print_view else "files",
+            "warnings": warnings, "storage":"database" if DATABASE_ONLY else "legacy", "view": "print" if print_view else "files",
             "filesScope": files_scope,
             "newFileName": next_print_name(target) if print_view else "",
             "canCreateOrderFolder": status["folderKind"] in {"object", "supplier_root", "work_section", "moneys_section"},
@@ -1125,6 +1237,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json({"status": "ok", "release": RELEASE_ID, "root": str(DATA_ROOT)}, head=head)
             elif parsed.path == "/api/orders":
                 self.send_json(listed_orders(), head=head)
+            elif parsed.path == "/api/storage":
+                self.send_json(metadata_store().status() if DATABASE_ONLY else {"database_only":False},head=head)
             elif parsed.path == "/api/invoices":
                 self.send_json({"items": invoice_store().list(relative)}, head=head)
             elif parsed.path in {"/api/invoice-pdf", "/api/invoice-preview"}:
@@ -1175,7 +1289,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
             elif parsed.path == "/api/file-comment":
                 target = comment_file(relative)
                 self.send_json({"path": relative, "comment_key": file_comments.binding(target),
-                                **file_comments.read(target)}, head=head)
+                                **read_file_comment(target)}, head=head)
             elif parsed.path in {"/api/file", "/api/preview", "/api/text", "/api/pdf", "/api/pdf-page"}:
                 target = safe_path(relative)
                 if not target.is_file():
@@ -1324,6 +1438,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 return
             elif route == "/api/order-remove":
                 record = order_store().remove(payload)
+                if DATABASE_ONLY:
+                    record["folderNote"] = folder_note_store().get(record["path"])
                 self.send_json(record)
                 schedule_order_sync()
                 return
@@ -1332,6 +1448,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 return
             elif route == "/api/orders-sync":
                 schedule_order_sync()
+                if DATABASE_ONLY:
+                    METADATA_REFRESH.set()
                 self.send_json({"ok": True})
                 return
             elif route == "/api/clients-refresh":
@@ -1352,6 +1470,16 @@ class ManagerHandler(BaseHTTPRequestHandler):
             elif route == "/api/print-save":
                 self.send_json(save_print_task(payload.get("path", ""), payload.get("link", ""), payload.get("description", ""), payload.get("revision"), payload.get("title")))
                 return
+            elif route == "/api/print-publish":
+                with PRINT_LOCK:
+                    task = read_print_task(payload.get("path",""))
+                    if payload.get("revision")!=task["revision"]:
+                        raise PrintConflict("Задание изменилось. Открой актуальную версию перед выпуском")
+                    filename = "Задание - "+datetime.now(ZoneInfo("Europe/Moscow")).strftime("%Y-%m-%d")+" - "+hashlib.sha256((task["path"]+task["revision"]).encode()).hexdigest()[:10]+".txt"
+                    result = metadata_store().publish(task["path"],task["revision"],DATA_ROOT/Path(task["path"]).parent,filename,compose_print_text(task["link"],task["description"],task["title"]).encode())
+                self.send_json(result,202)
+                schedule_order_sync()
+                return
             elif route == "/api/file-comment":
                 relative = payload.get("path", "")
                 with file_comments.LOCK:
@@ -1361,7 +1489,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
                         raise FileCommentConflict("Страница устарела. Скопируйте несохранённый комментарий и обновите страницу для проверки файла и папки")
                     if payload.get("comment_key") != key:
                         raise FileCommentConflict("Комментарий относится к другому файлу или папке. Ваш текст остался в поле; откройте нужный файл заново")
-                    record = file_comments.save(target, payload.get("comment"), payload.get("revision"))
+                    record = metadata_store().save_comment(target,payload.get("comment"),payload.get("revision")) if DATABASE_ONLY else file_comments.save(target, payload.get("comment"), payload.get("revision"))
                 self.send_json({"path": relative, "comment_key": key, **record})
                 return
             elif route == "/api/image-report":
@@ -1374,7 +1502,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
             elif route == "/api/files-trash":
                 with file_comments.LOCK:
                     guard_database(order_store().database, payload.get("path", ""), include_children=True)
-                    result = file_trash.remove(DATA_ROOT, payload.get("path", ""), payload.get("files"), payload.get("confirmed"))
+                    result = file_trash.remove(DATA_ROOT, payload.get("path", ""), payload.get("files"), payload.get("confirmed"),database=order_store().database if DATABASE_ONLY else None)
                 self.send_json(result)
                 return
             elif route == "/api/files-trash-list":
@@ -1387,9 +1515,13 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(result)
                 return
             elif route == "/api/status":
+                if DATABASE_ONLY:
+                    raise ValueError("Сохрани карточку через редактор базы с проверкой версии")
                 save_status(payload.get("path", ""), payload.get("status"), payload.get("note", ""), payload.get("financial_status"),
                             payload.get("todo_items", order_document.UNSET_TODOS), payload.get("purchase_items", order_document.UNSET_TODOS))
             elif route == "/api/note":
+                if DATABASE_ONLY:
+                    raise ValueError("Сохрани заметку через редактор базы с проверкой версии")
                 save_note(payload.get("path", ""), payload.get("note", ""))
             elif route == "/api/open":
                 target = safe_path(payload.get("path", ""))
@@ -1412,10 +1544,14 @@ class ManagerHandler(BaseHTTPRequestHandler):
 
 def main():
     port = int(sys.argv[1]) if len(sys.argv) > 1 else SERVER_PORT
-    discarded = order_store().discard_service_orders()
+    if DATABASE_ONLY:
+        with metadata_store().connect():
+            pass
+        metadata_store().backup("before-migration")
+    discarded = order_store().discard_service_orders() if not DATABASE_ONLY else 0
     if discarded:
         print(f"Тестовые регистрации служебных папок убраны: {discarded}", flush=True)
-    migration = migrate_statuses()
+    migration = migrate_statuses() if not DATABASE_ONLY else None
     if migration:
         print(f"Статусы перенесены в папки: {migration['migrated']}. Архив: {migration['archive']}", flush=True)
         if migration["unresolved"]:
@@ -1424,6 +1560,7 @@ def main():
     threading.Thread(target=mobile_sync_worker, daemon=True).start()
     threading.Thread(target=order_todo_worker, daemon=True).start()
     threading.Thread(target=client_activity_worker, daemon=True).start()
+    threading.Thread(target=metadata_worker, daemon=True).start()
     server = ThreadingHTTPServer((SERVER_HOST, port), ManagerHandler)
     print(f"Менеджер заказов: http://127.0.0.1:{port}", flush=True)
     print(f"Адрес сервера: {SERVER_HOST}:{port}", flush=True)

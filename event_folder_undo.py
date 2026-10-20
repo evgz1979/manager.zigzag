@@ -3,6 +3,7 @@ import argparse
 import importlib.util
 import json
 import sqlite3
+import unicodedata
 from contextlib import closing
 from pathlib import Path
 
@@ -33,6 +34,37 @@ def guard_database(database, path, *, include_children=False):
             assert_unlocked(db, path, include_children=include_children)
 
 
+def metadata_paths(db, source, destination, *, apply=False):
+    """Self-contained: this module is copied into standalone restoration journals."""
+    source,destination = (unicodedata.normalize("NFC",value) for value in (source,destination))
+    exists = lambda name: db.execute("SELECT 1 FROM sqlite_master WHERE name=?", (name,)).fetchone()
+    if exists("metadata_file_moves"):
+        for old, new in db.execute("SELECT source,destination FROM metadata_file_moves WHERE state!='restored'"):
+            if any(inside(path, root) for path in (old,new) for root in (source,destination)):
+                raise ValueError("Сначала восстанови файлы из корзины в этой папке")
+    for name in ("metadata_records", "metadata_imports", "metadata_publications"):
+        if not exists(name):
+            continue
+        if any(inside(row[0], destination) for row in db.execute(f"SELECT path FROM {name}")):
+            raise ValueError("По новому пути есть данные базы: " + name)
+        if not apply:
+            continue
+        columns = "rowid,path" + (",source" if name=="metadata_publications" else "")
+        for row in list(db.execute(f"SELECT {columns} FROM {name}")):
+            if inside(row[1], source):
+                extra = ",revision=revision+1" if name=="metadata_records" else ""
+                db.execute(f"UPDATE {name} SET path=?{extra} WHERE rowid=?", (destination+row[1][len(source):],row[0]))
+            if name=="metadata_publications" and inside(row[2],source):
+                db.execute("UPDATE metadata_publications SET source=? WHERE rowid=?", (destination+row[2][len(source):],row[0]))
+
+
+def schema(db):
+    db.execute("CREATE TABLE IF NOT EXISTS event_renames (session TEXT PRIMARY KEY,state TEXT NOT NULL,mappings TEXT NOT NULL,paths_applied INTEGER NOT NULL DEFAULT 0)")
+    if "paths_applied" not in {row[1] for row in db.execute("PRAGMA table_info(event_renames)")}:
+        db.execute("ALTER TABLE event_renames ADD COLUMN paths_applied INTEGER NOT NULL DEFAULT 0")
+        db.execute("UPDATE event_renames SET paths_applied=1 WHERE state='complete'")
+
+
 def undo(session, perform=False):
     session = Path(session)
     meta = json.loads((session / ".event-paths.json").read_text())
@@ -46,7 +78,8 @@ def undo(session, perform=False):
     with closing(sqlite3.connect(database.as_uri() + "?mode=rw", uri=True, timeout=15)) as db, db:
         db.row_factory = sqlite3.Row
         db.execute("BEGIN IMMEDIATE")
-        operation = db.execute("SELECT state FROM event_renames WHERE session=?", (str(session),)).fetchone()
+        schema(db)
+        operation = db.execute("SELECT state,paths_applied FROM event_renames WHERE session=?", (str(session),)).fetchone()
         if not operation:
             raise ValueError("В базе нет операции переименования; сохраните базу и журнал для разбора")
         if operation[0] == "undone":
@@ -64,7 +97,10 @@ def undo(session, perform=False):
         if any(inside(row[0], root) for row in db.execute("SELECT path FROM orders") for root in roots):
             raise ValueError("Во вложенной папке появилась регистрация заказа; откат остановлен")
         updates = []
-        rows = db.execute("SELECT id,path FROM folder_notes").fetchall()
+        if operation[1]:
+            for pair in pairs:
+                metadata_paths(db,pair["destination"],pair["source"])
+        rows = db.execute("SELECT id,path FROM folder_notes").fetchall() if operation[1] else []
         for row in rows:
             for pair in pairs:
                 if inside(row["path"], pair["destination"]):
@@ -80,7 +116,10 @@ def undo(session, perform=False):
         count = layout.undo(session, True, coordinate_database=True)
         for old, identity in updates:
             db.execute("UPDATE folder_notes SET path=?,revision=revision+1,exported_revision=exported_revision+1 WHERE id=?", (old, identity))
-        db.execute("UPDATE event_renames SET state='undone' WHERE session=?", (str(session),))
+        if operation[1]:
+            for pair in pairs:
+                metadata_paths(db,pair["destination"],pair["source"],apply=True)
+        db.execute("UPDATE event_renames SET state='undone',paths_applied=0 WHERE session=?", (str(session),))
     return count
 
 

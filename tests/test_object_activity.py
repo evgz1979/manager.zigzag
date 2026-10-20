@@ -131,7 +131,7 @@ class ObjectActivityTests(unittest.TestCase):
         self.folder("Клиент/.hidden/Объект")
         self.folder("# docs/Внутри/Объект")
         (self.root / "Клиент/Ссылка").symlink_to(self.root / "Клиент/Объект")
-        rebuilt = ObjectActivity(OrderStore(self.root, self.base / "rebuilt", manager.STATUS_LABELS))
+        rebuilt = ObjectActivity(OrderStore(self.root, self.base / "rebuilt", manager.STATUS_LABELS, database_only=False))
         load = manager.order_document.load
         seen = []
         def only_objects(folder, *args, **kwargs):

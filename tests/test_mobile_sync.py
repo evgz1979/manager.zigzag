@@ -21,7 +21,7 @@ class MobileSyncTests(unittest.TestCase):
         self.relative = "Клиент/Объект/2026-10-18 - Заказ"
         self.folder = self.root / self.relative
         self.folder.mkdir(parents=True)
-        self.store = OrderStore(self.root, self.base / "local", {"new": "Новый", "done": "Готово"})
+        self.store = OrderStore(self.root, self.base / "local", {"new": "Новый", "done": "Готово"}, database_only=False)
         self.record = self.store.add(self.relative, {
             "title": "Заказ", "status": "new", "financial_status": "partial", "note": "Заметка Mac",
             "amount": 10000, "costs": 2000, "paid": 3000,

@@ -158,6 +158,7 @@ def rename(notes, payload):
                 raise EventFolderConflict("Предлагаемое имя уже занято: " + destination)
             plan.move(source, destination, "Подтверждённое исправление имени события")
             mappings.append({"source": source, "destination": destination})
+            restore.metadata_paths(db,source,destination)
         roots = [pair[key] for pair in mappings for key in ("source", "destination")]
         if any(restore.inside(row[0], prefix) for row in db.execute("SELECT path FROM orders") for prefix in roots):
             raise EventFolderConflict("Во вложенной папке есть прежняя запись заказа. Для неё нужен отдельный перенос с проверкой регистрации")
@@ -168,23 +169,25 @@ def rename(notes, payload):
                 if restore.inside(row["path"], pair["destination"]):
                     raise EventFolderConflict("По новому пути уже сохранена другая заметка: " + row["path"])
                 if restore.inside(row["path"], pair["source"]):
-                    if row["revision"] != row["exported_revision"]:
+                    if not notes.store.database_only and row["revision"] != row["exported_revision"]:
                         raise EventFolderConflict("Сначала дождитесь выгрузки заметок и задач этой папки: " + row["path"])
                     changes.append((pair["destination"] + row["path"][len(pair["source"]):], row["id"]))
                     break
-        db.execute("CREATE TABLE IF NOT EXISTS event_renames (session TEXT PRIMARY KEY, state TEXT NOT NULL, mappings TEXT NOT NULL)")
+        restore.schema(db)
         session = plan.create_session(["Переименовать события по подтверждённому списку.",
             "Для этой операции используйте .restore.py: обычный откат раскладки не обновляет пути базы."], view["before"])
         layout.save_json(session / ".event-paths.json", {"database": str(notes.store.database.resolve()), "mappings": mappings})
         shutil.copyfile(Path(restore.__file__), session / ".restore.py")
-        db.execute("INSERT INTO event_renames VALUES (?, 'pending', ?)", (str(session), json.dumps(mappings, ensure_ascii=False)))
+        db.execute("INSERT INTO event_renames(session,state,mappings) VALUES (?, 'pending', ?)", (str(session), json.dumps(mappings, ensure_ascii=False)))
         db.commit()  # Устойчивая блокировка старых и новых путей до первого переноса.
         try:
             db.execute("BEGIN IMMEDIATE")
             layout.apply(session)
             for destination, identity in changes:
                 db.execute("UPDATE folder_notes SET path=?,revision=revision+1,exported_revision=exported_revision+1 WHERE id=?", (destination, identity))
-            db.execute("UPDATE event_renames SET state='complete' WHERE session=?", (str(session),))
+            for pair in mappings:
+                restore.metadata_paths(db,pair["source"],pair["destination"],apply=True)
+            db.execute("UPDATE event_renames SET state='complete',paths_applied=1 WHERE session=?", (str(session),))
             db.commit()
         except Exception as error:
             db.rollback()

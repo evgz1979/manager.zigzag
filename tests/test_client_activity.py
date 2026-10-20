@@ -135,7 +135,7 @@ class ClientActivityTests(unittest.TestCase):
     def test_exported_client_marker_rebuilds_index_from_files(self):
         self.mark("Клиент")
         manager.client_activity_store().sync()
-        recovered_orders = OrderStore(self.root, self.base / "recovered", manager.STATUS_LABELS)
+        recovered_orders = OrderStore(self.root, self.base / "recovered", manager.STATUS_LABELS, database_only=False)
         recovered = ClientActivity(recovered_orders)
         recovered.refresh()
         self.assertEqual(recovered.inactive_paths(), {"Клиент"})

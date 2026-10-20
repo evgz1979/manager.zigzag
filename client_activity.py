@@ -5,7 +5,7 @@ from pathlib import Path
 
 import order_document as document
 from folder_structure import client_path, is_catalog_group
-from event_folder_undo import guard_database
+from event_folder_undo import guard_database, assert_unlocked
 
 BLOCK = "Активность клиента"
 ACTIVE = "Активный"
@@ -44,12 +44,13 @@ class ClientActivity:
             path TEXT PRIMARY KEY, inactive INTEGER NOT NULL, revision INTEGER NOT NULL,
             exported_revision INTEGER NOT NULL, file_value TEXT NOT NULL, sync_error TEXT NOT NULL DEFAULT '')""")
 
-    @staticmethod
-    def record(row):
+    def record(self,row):
         result = dict(row)
         result["inactive"] = bool(result["inactive"])
         result["sync_pending"] = result["revision"] != result.pop("exported_revision")
         result["editable"] = known(json.loads(result.pop("file_value")))
+        if self.orders.database_only:
+            result.update(sync_pending=False,sync_error="",storage="database")
         return result
 
     def matches(self, path):
@@ -78,6 +79,10 @@ class ClientActivity:
 
     def read(self, path):
         with self.lock:
+            if self.orders.database_only:
+                current = self.get(path)
+                if current:
+                    return current
             folder = self.target(path)
             current = self.get(path)
             if current and current["sync_pending"]:
@@ -103,10 +108,14 @@ class ClientActivity:
         path, revision, inactive = payload.get("path"), payload.get("revision"), payload.get("inactive")
         if type(revision) is not int or type(inactive) is not bool:
             raise ValueError(f"Открой карточку {self.entity} заново перед изменением отметки")
+        if not isinstance(path,str) or not path or Path(path).is_absolute() or any(part.startswith('.') for part in Path(path).parts):
+            raise ValueError("Выбери карточку клиента или объекта")
         with self.lock:
-            self.target(path)
+            if not self.orders.database_only:
+                self.target(path)
             with self.connect() as db:
                 self.schema(db)
+                assert_unlocked(db,path)
                 row = db.execute(f"SELECT * FROM {self.table} WHERE path=?", (path,)).fetchone()
                 if not row or row["revision"] != revision:
                     raise ClientActivityConflict(f"Отметка {self.entity} изменилась. Обнови карточку перед сохранением.")
@@ -118,6 +127,8 @@ class ClientActivity:
 
     def accept_file(self, payload):
         """Explicit conflict resolution; never discard a pending decision on open."""
+        if self.orders.database_only:
+            raise ValueError("Рабочая отметка хранится в базе; импорт старого файла поверх неё отключён")
         path = payload.get("path")
         with self.lock:
             self.target(path)
@@ -169,6 +180,11 @@ class ClientActivity:
             db.execute(f"UPDATE {self.table} SET sync_error=? WHERE path=?", (document.icloud_access.sync_error(problem), path))
 
     def sync(self):
+        if self.orders.database_only:
+            with self.connect() as db:
+                self.schema(db)
+                db.execute(f"UPDATE {self.table} SET exported_revision=revision,sync_error='' WHERE revision!=exported_revision OR sync_error!=''")
+            return
         if not self.orders.database.exists():
             return
         with self.lock:

@@ -205,7 +205,7 @@ function renderClientActivity() {
   $("activityHint").textContent = "Заказы и To-do неактивного " + entity + " скрыты на главной. Сними отметку, чтобы вернуть их.";
   $("clientInactive").checked = activity.inactive;
   $("clientInactive").disabled = state.clientActivitySaving || !activity.editable;
-  $("clientActivityState").textContent = state.clientActivitySaving ? "Сохраняю…" : activity.sync_error || (activity.sync_pending ? "Сохранено в базе · ожидает выгрузки в !.txt" : "Сохранено в !.txt " + entity);
+  $("clientActivityState").textContent = state.clientActivitySaving ? "Сохраняю…" : activity.storage === "database" ? "Сохранено в базе" : activity.sync_error || (activity.sync_pending ? "Сохранено в базе · ожидает выгрузки в !.txt" : "Сохранено в !.txt " + entity);
   $("clientActivityState").classList.toggle("error", Boolean(activity.sync_error));
   $("clientActivityAcceptFile").hidden = !activity.sync_pending || !activity.sync_error;
   $("clientActivityAcceptFile").disabled = state.clientActivitySaving;
@@ -391,7 +391,7 @@ function renderFolder(preserveForm = false) {
     (index ? '<span class="breadcrumb-divider">/</span>' : "") +
     '<button data-path="' + escapeHtml(part.path) + '"' + (index === folder.breadcrumbs.length - 1 ? ' aria-current="page"' : "") + ">" +
     escapeHtml(part.name) + "</button>").join("");
-  $("folderTitle").textContent = printView ? "Задания на печать" : folder.path ? folder.order?.title || folder.name : "Клиенты и заказы";
+  $("folderTitle").textContent = printView ? "Задания на печать" : folder.path ? folder.order?.title || folder.draftCard?.title || folder.name : "Клиенты и заказы";
   $("clientLabel").textContent = printView ? "ШИРОКОФОРМАТНАЯ ПРОДУКЦИЯ" : service ? "СЛУЖЕБНАЯ ПАПКА" : folder.folderKindLabel && folder.folderKind !== "order" ? folder.folderKindLabel : folder.client || folder.name;
   $("folderSummary").textContent = printView ? printCountLabel(folder.fileCount) + " · название, ссылка и описание" : folder.filesLoading ? "Карточка из локальной базы · подпапки загружаются…" : folder.filesUnavailable ? "Карточка из локальной базы · папка сейчас недоступна" : folder.filesScope === "events" ? folder.folderCount + " папок · файлы доступны в событиях" : folder.filesScope === "subfolders" ? folder.folderCount + " папок" : folder.path
     ? folder.fileCount + " файлов · " + folder.folderCount + " папок · " + formatSize(folder.totalSize)
@@ -420,9 +420,10 @@ function renderFolder(preserveForm = false) {
     $("orderDetails").open = noteOnly || Boolean(folder.note || folder.order);
     $("orderTitleLabel").hidden = noteOnly || !folder.order;
     $("financialFields").hidden = noteOnly || !folder.order;
-    $("orderTitleInput").value = folder.order?.title || folder.name;
+    $("orderTitleInput").value = folder.order?.title || folder.draftCard?.title || folder.name;
     for (const [field, key] of [["orderAmount", "amount"], ["orderCosts", "costs"], ["orderPaid", "paid"]]) {
-      $(field).value = folder.order?.[key] == null ? "" : (folder.order[key] / 100).toFixed(2);
+      const card = folder.order || folder.draftCard;
+      $(field).value = card?.[key] == null ? "" : (card[key] / 100).toFixed(2);
     }
     $("addOrderButton").hidden = !folder.path || service || folder.canRegisterOrder !== true || Boolean(folder.order);
     renderOrderCalculated();
@@ -471,13 +472,13 @@ function renderStatus() {
   $("financialStatusBadge").hidden = state.folder.service || state.folder.noteOnly || financial === "unspecified";
   $("saveStatusButton").textContent = state.dirty ? "Сохранить изменения" : "Сохранить";
   const folderNote = state.folder.folderNote;
-  $("todoSaveState").textContent = state.saving ? "Сохраняю…" : state.dirty ? "Есть несохранённые изменения" : folderNote?.sync_error ? "Сохранено в базе. Выгрузка: " + folderNote.sync_error : folderNote?.sync_pending ? "Сохранено в базе · ожидает выгрузки в папку" : folderNote ? folderNote.file_exists ? "Сохранено в базе и в !.txt этой папки" : "Автоматическое сохранение в эту папку" : "Сохранено";
+  $("todoSaveState").textContent = state.saving ? "Сохраняю…" : state.dirty ? "Есть несохранённые изменения" : folderNote?.storage === "database" ? "Сохранено в базе" : folderNote?.sync_error ? "Сохранено в базе. Выгрузка: " + folderNote.sync_error : folderNote?.sync_pending ? "Сохранено в базе · ожидает выгрузки в папку" : folderNote ? folderNote.file_exists ? "Сохранено в базе и в !.txt этой папки" : "Автоматическое сохранение в эту папку" : "Сохранено";
   renderPurchaseSaveState();
 }
 
 function renderPurchaseSaveState() {
   const order = state.folder?.order;
-  $("purchaseSaveState").textContent = state.saving ? "Сохраняю…" : state.dirty ? "Есть несохранённые изменения" : order?.sync_error ? "Сохранено в базе · выгрузка: " + order.sync_error : order?.sync_pending ? "Сохранено в базе · ожидает выгрузки в папку" : order ? "Выгружено в !.txt" : "Автоматическое сохранение в !.txt заказа";
+  $("purchaseSaveState").textContent = state.saving ? "Сохраняю…" : state.dirty ? "Есть несохранённые изменения" : order?.storage === "database" ? "Сохранено в базе" : order?.sync_error ? "Сохранено в базе · выгрузка: " + order.sync_error : order?.sync_pending ? "Сохранено в базе · ожидает выгрузки в папку" : order ? "Выгружено в !.txt" : "Автоматическое сохранение в !.txt заказа";
 }
 
 function renderPurchases() {
@@ -566,7 +567,7 @@ function filteredFiles() {
   const needle = normalize(state.fileQuery.trim());
   const files = state.folder.files.filter((file) =>
     (state.fileType === "all" || file.type === state.fileType) &&
-    (!needle || normalize(file.name + " " + file.folder).includes(needle)));
+    (!needle || normalize(file.name + " " + (file.title || "") + " " + (file.description || "") + " " + file.folder).includes(needle)));
   if (state.fileSort === "modified") files.sort((a, b) => b.modified - a.modified);
   if (state.fileSort === "name") files.sort((a, b) => a.name.localeCompare(b.name, "ru", { numeric: true }));
   return files;
@@ -752,7 +753,7 @@ async function createImageReport() {
 
 function printFiles() {
   const needle = normalize(state.printQuery.trim());
-  return state.folder.files.filter((file) => !needle || normalize(file.name + " " + file.folder).includes(needle))
+  return state.folder.files.filter((file) => !needle || normalize(file.name + " " + (file.title || "") + " " + (file.description || "") + " " + file.folder).includes(needle))
     .sort((a, b) => b.modified - a.modified || b.name.localeCompare(a.name, "ru", { numeric: true }));
 }
 
@@ -762,7 +763,7 @@ function renderPrintList() {
   $("printTaskList").innerHTML = files.map((file) => '<button class="print-task-button' +
     (state.printTask?.path === file.path ? " active" : "") + '" data-task="' + escapeHtml(file.path) +
     '" title="' + escapeHtml(file.name) + '"><span>' + icon("file") + '<strong>' +
-    escapeHtml(file.name.replace(/\.(textClipping|txt|text|md|rtf)$/i, "")) + '</strong></span><small>' +
+    escapeHtml(file.title || file.name.replace(/\.(textClipping|txt|text|md|rtf)$/i, "")) + '</strong></span><small>' +
     formatDate(file.modified) + (file.folder ? " · " + escapeHtml(file.folder) : "") + '</small></button>').join("") ||
     '<p class="tree-empty">' + (state.folder.fileCount ? "Задания не найдены" : "Заданий пока нет") + "</p>";
 }
@@ -771,10 +772,12 @@ function renderPrintSaveState() {
   const task = state.printTask;
   if (!task) return;
   $("printTaskName").textContent = task.name;
-  $("printSaveState").textContent = state.printSaving ? "Сохраняю…" : task.isNew ? "Новое задание · файл появится после сохранения" : task.dirty ? "Есть несохранённые изменения" : "Все изменения сохранены";
+  $("printSaveState").textContent = state.printSaving ? "Сохраняю…" : task.isNew ? "Новый черновик" : task.dirty ? "Есть несохранённые изменения" : task.storage === "database" ? "Черновик сохранён в базе" : "Все изменения сохранены";
   $("printSaveState").classList.toggle("unsaved", Boolean(task.dirty));
   $("savePrintTask").textContent = task.isNew ? "Создать задание" : "Сохранить";
   $("savePrintTask").disabled = Boolean(state.printSaving);
+  $("publishPrintTask").hidden = state.folder?.storage !== "database";
+  $("publishPrintTask").disabled = Boolean(state.printSaving);
   const link = $("printLink").value.trim();
   try {
     const url = new URL(link);
@@ -1023,7 +1026,7 @@ async function saveCurrentStatus() {
     folder.note = note;
     folder.statusSource = folder.order || folder.folderNote ? "database" : "manual";
     if (folder.order) folder.order = saved;
-    if (folder.folderNote) folder.folderNote = saved;
+    if (folder.folderNote) { folder.folderNote = saved; if (saved.card) folder.draftCard = saved.card; }
     state.dirty = JSON.stringify(currentOrderValues()) !== JSON.stringify(values);
     renderExportState();
     renderStatus();
@@ -1057,7 +1060,7 @@ function renderOrderCalculated() {
 
 function renderExportState() {
   const order = state.folder?.order;
-  $("orderExportState").textContent = !order ? "" : order.sync_error ? "Сохранено в базе · выгрузка в очереди: " + order.sync_error : order.sync_pending ? "Сохранено в базе · ожидает выгрузки в папку" : "Выгружено в !.txt";
+  $("orderExportState").textContent = !order ? "" : order.storage === "database" ? "Сохранено в базе" : order.sync_error ? "Сохранено в базе · выгрузка в очереди: " + order.sync_error : order.sync_pending ? "Сохранено в базе · ожидает выгрузки в папку" : "Выгружено в !.txt";
   renderPurchaseSaveState();
 }
 
@@ -1068,6 +1071,7 @@ async function loadOrders() {
   state.orders = result.orders;
   state.unregistrations = result.unregistrations || [];
   state.scan = result.scan;
+  state.storage = result.storage;
   $("ordersNavCount").textContent = result.orders.length;
   if (state.view === "orders") renderOrders();
 }
@@ -1236,7 +1240,7 @@ function renderOrders() {
   }).join("");
   $("ordersTableBody").innerHTML = filtered.map((order) => '<tr><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td><td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button><span class="order-row-path">' + escapeHtml(order.path) + '</span></td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td><span class="status-badge" data-status="' + escapeHtml(order.status) + '">' + escapeHtml(statusLabels[order.status] || order.status) + '</span></td><td><span class="status-badge" data-financial-status="' + escapeHtml(order.financial_status) + '">' + escapeHtml(financialStatusLabels[order.financial_status] || "Не указан") + '</span></td>' +
     ["amount", "costs", "profit", "paid", "debt"].map((field) => '<td class="order-money' + (order[field] < 0 ? " negative" : "") + '">' + rubles(order[field]) + '</td>').join("") +
-    '<td class="order-updated">' + formatDate(order.updated) + (order.sync_pending ? '<span class="sync-pending" title="' + escapeHtml(order.sync_error || "Ожидает выгрузки в папку") + '">' + (order.sync_error ? "В очереди · автоповтор" : "Ожидает выгрузки") + '</span>' : '<span class="sync-complete">Выгружено</span>') + '</td></tr>').join("");
+    '<td class="order-updated">' + formatDate(order.updated) + (order.sync_pending ? '<span class="sync-pending" title="' + escapeHtml(order.sync_error || "Ожидает выгрузки в папку") + '">' + (order.sync_error ? "В очереди · автоповтор" : "Ожидает выгрузки") + '</span>' : '<span class="sync-complete">' + (order.storage === 'database' ? 'В базе' : 'Выгружено') + '</span>') + '</td></tr>').join("");
   $("ordersEmpty").hidden = Boolean(filtered.length);
   $("ordersEmptyTitle").textContent = state.orders.length ? "Нет заказов по этому фильтру" : "Заказов пока нет";
   $("ordersEmptyHint").textContent = state.orders.length ? "Выберите другой статус или измените поисковый запрос." : "Откройте папку в дереве слева и нажмите «Добавить в список заказов». Кнопка «Найти заказы в папках» восстановит карточки из !.txt и прежних файлов статуса.";
@@ -1245,6 +1249,13 @@ function renderOrders() {
   $("discoverOrdersButton").disabled = Boolean(scan?.running);
   $("ordersSyncState").textContent = scan?.running ? "Поиск карточек в фоне · просмотрено папок: " + scan.folders + " · добавлено: " + scan.added :
     [scan?.folders ? "Поиск завершён: добавлено " + scan.added + (scan.errors.length ? ", ошибок: " + scan.errors.length : "") : "", errors.length ? "Сохранено в базе · в очереди выгрузки: " + pending.length + " · ошибок: " + errors.length + " · повторим автоматически" : pending.length ? "Ожидает выгрузки: " + pending.length : "Изменения выгружены в папки"].filter(Boolean).join(" · ");
+  if (state.storage?.database_only) {
+    const storage = state.storage;
+    $("ordersSyncState").textContent = "Изменения сохранены в базе" + (storage.running ? " · переношу прежние данные…" : "") +
+      (storage.errors.length ? " · перенос ожидает повтора: " + storage.errors.length + " · " + storage.errors.slice(0, 2).map(item => item.path + ": " + item.error).join(" · ") : "") +
+      (storage.pending_documents ? " · документов в очереди: " + storage.pending_documents : "") +
+      (storage.document_errors.length ? " · " + storage.document_errors[0].error : "");
+  }
   if (scan?.errors.length) $("ordersSyncState").textContent += " · " + scan.errors.slice(0, 3).join(" · ");
   if (state.unregistrations.length) $("ordersSyncState").textContent += " · Сохранение снятой регистрации: " + state.unregistrations.length + (state.unregistrations.some((item) => item.sync_error) ? " · есть ошибки, повторим выгрузку" : "");
   $("ordersWorkspace").querySelectorAll("th").forEach((th) => {
@@ -1883,6 +1894,7 @@ $("removeOrderForm").addEventListener("submit", (event) => {
       if (state.folder?.path === order.path) {
         delete state.folder.order;
         Object.assign(state.folder, { note: removed.note, noteOnly: true, registrationPending: removed.sync_pending, registrationError: removed.sync_error });
+        if (removed.folderNote) Object.assign(state.folder,{folderNote:removed.folderNote,draftCard:removed.folderNote.card});
         state.dirty = false;
         renderFolder();
       }
@@ -2078,6 +2090,13 @@ $("purchaseList").addEventListener("keydown", (event) => {
 });
 $("statusForm").addEventListener("submit", (event) => { event.preventDefault(); run(async () => { await saveCurrentStatus(); notify(state.folder?.folderNote ? "Заметка и задачи сохранены в базе" : state.folder?.service || state.folder?.noteOnly ? "Заметка сохранена" : state.folder?.order ? "Карточка сохранена в базе, выгрузка в папку поставлена в очередь" : "Статус и заметка сохранены"); }); });
 $("newPrintTask").addEventListener("click", () => run(newPrintTask));
+$("publishPrintTask").addEventListener("click", () => run(async () => {
+  await saveCurrentPrintTask(true);
+  const task = state.printTask;
+  if (!task || task.isNew) return;
+  const result = await request("/api/print-publish", {path:task.path, revision:task.revision});
+  $("printSaveState").textContent = result.pending ? "Задание выпущено · сохраняется в папку" : "Задание уже сохранено в папке";
+}));
 $("printTaskList").addEventListener("click", (event) => {
   const button = event.target.closest("[data-task]");
   if (button) run(() => openPrintTask(button.dataset.task));

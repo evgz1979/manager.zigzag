@@ -37,7 +37,7 @@
             <label class="search-field orders-search"><svg><use href="#icon-search"/></svg><input id="orderSearch" type="search" placeholder="Найти заказ, задачу или закупку…" aria-label="Поиск заказов"></label>
             <label class="financial-filter">Оплата<select id="financialStatusFilter" aria-label="Фильтр по финансовому статусу"></select></label>
             <button id="discoverOrdersButton" class="secondary-button">Найти заказы в папках</button>
-            <button id="refreshTodosButton" class="secondary-button">Обновить To-do</button><button id="syncOrdersButton" class="secondary-button">Выгрузить в папки</button>
+            <button id="refreshTodosButton" class="secondary-button">Обновить To-do</button><button id="syncOrdersButton" class="secondary-button">Повторить перенос / выпуск</button>
           </div>
           <p id="ordersSyncState" class="orders-sync-state" role="status"></p>
           <div class="orders-table-scroll"><table class="orders-table"><caption class="visually-hidden">Заказы и финансовые показатели в рублях</caption><thead><tr>
@@ -103,12 +103,12 @@
               <div id="printTaskList" class="print-task-list"></div>
             </aside>
             <form id="printEditorForm" class="print-editor" hidden>
-              <div class="print-editor-heading"><div><h3 id="printTaskName"></h3><p id="printSaveState" role="status"></p></div><button id="savePrintTask" class="primary-button" type="submit">Сохранить</button></div>
+              <div class="print-editor-heading"><div><h3 id="printTaskName"></h3><p id="printSaveState" role="status"></p></div><button id="publishPrintTask" class="secondary-button" type="button" hidden>Выпустить в папку</button><button id="savePrintTask" class="primary-button" type="submit">Сохранить</button></div>
               <label class="print-title-label" for="printTitle">Название задания<input id="printTitle" name="title" type="text" placeholder="Например, баннеры для Инициативной" autocomplete="off"></label>
               <div class="print-link-row"><label for="printLink">Ссылка на файлы<input id="printLink" name="link" type="url" placeholder="https://…" autocomplete="off"></label><a id="openPrintLink" class="secondary-button" target="_blank" rel="noopener noreferrer" hidden>Открыть ссылку ↗</a></div>
               <div class="print-description-actions"><button id="scanPrintFolders" class="secondary-button" type="button" disabled aria-describedby="printScanHint">Сканировать папки и заполнить описание</button><span id="printScanHint">Позже</span></div>
               <label class="print-description-label" for="printDescription">Описание задания<textarea id="printDescription" name="description" placeholder="Что печатаем, размеры, материал, количество и другие детали…" spellcheck="true"></textarea></label>
-              <p class="print-editor-hint">В файле сохраняются ссылка, название и описание. ⌘S — сохранить.</p>
+              <p class="print-editor-hint">Черновик сохраняется в базе. «Выпустить в папку» создаёт отдельный документ. ⌘S — сохранить.</p>
             </form>
             <div id="printEditorEmpty" class="print-editor-empty">Выберите задание или создайте новое</div>
           </div>
@@ -174,8 +174,8 @@
     </dialog>
     <dialog id="mobileDialog" class="confirm-dialog" aria-labelledby="mobileTitle">
       <h2 id="mobileTitle">Обмен с iPhone</h2>
-      <p>На iPhone можно просматривать заказы, добавлять комментарии к заказам и файлам, вести To-do без связи. Изменения передаются через iCloud, когда он доступен.</p>
-      <p>Подготовьте обмен здесь, затем в приложении iPhone выберите папку «Зигзаг» в iCloud Drive. Для первой установки приложения потребуется Xcode на Mac.</p>
+      <p>Обмен с iPhone отложен. Существующие данные и очередь сохранены.</p>
+      <p>К мобильной версии вернёмся позже, с учётом хранения рабочей информации в базе.</p>
       <p id="mobileStatus" role="status">Загрузка…</p>
       <div class="confirm-actions"><button id="mobileEnable" class="primary-button" type="button">Подготовить обмен</button><button id="mobileRefresh" class="secondary-button" type="button">Обновить сейчас</button><button id="mobilePause" class="secondary-button" type="button">Приостановить</button><button id="mobileClose" class="secondary-button" type="button">Закрыть</button></div>
     </dialog>
