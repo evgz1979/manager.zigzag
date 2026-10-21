@@ -495,7 +495,7 @@ function renderFolder(preserveForm = false) {
     (index ? '<span class="breadcrumb-divider">/</span>' : "") +
     '<button data-path="' + escapeHtml(part.path) + '"' + (index === folder.breadcrumbs.length - 1 ? ' aria-current="page"' : "") + ">" +
     escapeHtml(part.name) + "</button>").join("");
-  $("folderTitle").textContent = printView ? "Задания на печать" : folder.path ? folder.order?.title || folder.draftCard?.title || folder.name : "Клиенты и заказы";
+  renderOrderHeading();
   $("clientLabel").textContent = printView ? "ШИРОКОФОРМАТНАЯ ПРОДУКЦИЯ" : service ? "СЛУЖЕБНАЯ ПАПКА" : folder.folderKindLabel && folder.folderKind !== "order" ? folder.folderKindLabel : folder.client || folder.name;
   $("folderSummary").textContent = printView ? printCountLabel(folder.fileCount) + " · название, ссылка и описание" : folder.filesLoading ? "Карточка из локальной базы · подпапки загружаются…" : folder.filesUnavailable ? "Карточка из локальной базы · папка сейчас недоступна" : folder.filesScope === "events" ? folder.folderCount + " папок · файлы доступны в событиях" : folder.filesScope === "subfolders" ? folder.folderCount + " папок" : folder.path
     ? folder.fileCount + " файлов · " + folder.folderCount + " папок · " + formatSize(folder.totalSize)
@@ -569,6 +569,24 @@ function resizeOrderNote() {
   if (!$("orderDetails").open) return;
   note.style.height = "auto";
   note.style.height = Math.min(480, Math.max(note.value.trim() ? 160 : 54, note.scrollHeight + 2)) + "px";
+}
+
+function renderOrderHeading() {
+  const folder = state.folder;
+  const order = folder?.order;
+  $("folderTitle").textContent = folder?.view === "print" ? "Задания на печать" : folder?.path ? order?.title || folder.draftCard?.title || folder.name : "Клиенты и заказы";
+  const showFolderName = Boolean(order || folder?.folderKind === "order");
+  $("orderFolderName").hidden = !showFolderName;
+  $("orderFolderName").textContent = showFolderName ? "Папка: " + folder.name : "";
+  const button = $("orderPageFavorite");
+  button.hidden = !order;
+  if (!order) return;
+  const label = (order.is_favorite ? "Убрать из избранного" : "Добавить в избранное") + " · " + order.title;
+  button.setAttribute("aria-pressed", String(Boolean(order.is_favorite)));
+  button.setAttribute("aria-label", label);
+  button.title = order.is_favorite === null ? "Неизвестный раздел «Избранное» сохранён без изменений" : label;
+  button.disabled = order.is_favorite === null || state.favoriteSaving.has(order.path);
+  button.firstElementChild.textContent = order.is_favorite ? "★" : "☆";
 }
 
 function renderStatus() {
@@ -1218,6 +1236,7 @@ async function saveCurrentStatus() {
     if (folderNote) { folder.folderNote = saved; if (saved.card) folder.draftCard = saved.card; }
     state.dirty = JSON.stringify(currentOrderValues()) !== JSON.stringify(values);
     renderExportState();
+    renderOrderHeading();
     renderStatus();
   } finally {
     state.saving = null;
@@ -1370,23 +1389,42 @@ function focusOrderFavorite(path) {
 }
 
 async function toggleOrderFavorite(path) {
-  const order = state.orders.find((item) => item.path === path);
+  const folder = state.folder?.path === path ? state.folder : null;
+  let order = folder?.order || state.orders.find((item) => item.path === path);
   if (!order || order.is_favorite === null || state.favoriteSaving.has(path)) return;
   state.favoriteSaving.add(path);
   ++state.ordersRequest;
-  renderOrders();
+  if (state.view === "orders") renderOrders();
+  else renderOrderHeading();
+  let saving;
   try {
-    const saved = await request("/api/order-favorite", { path, revision: order.revision, is_favorite: !order.is_favorite });
-    ++state.ordersRequest;
-    const current = state.orders.find((item) => item.path === path);
-    if (current) Object.assign(current, saved);
+    if (folder) {
+      if (state.saving) await state.saving;
+      if (state.folder !== folder || !folder.order) return;
+      order = folder.order;
+    }
+    saving = request("/api/order-favorite", { path, revision: order.revision, is_favorite: !order.is_favorite }).then((saved) => {
+      ++state.ordersRequest;
+      const current = state.orders.find((item) => item.path === path);
+      if (current) Object.assign(current, saved);
+      if (folder) folder.order = saved;
+    });
+    // Serialize card saves with the star while leaving unsaved editor values intact.
+    if (folder) state.saving = saving;
+    await saving;
   } catch (error) {
     await loadOrders();
     throw error;
   } finally {
+    if (saving && state.saving === saving) state.saving = null;
     state.favoriteSaving.delete(path);
     renderFavoriteOrders();
     if (state.view === "orders") renderOrders();
+    else {
+      renderOrderHeading();
+      renderExportState();
+      renderStatus();
+    }
     focusOrderFavorite(path);
   }
 }
@@ -1488,6 +1526,8 @@ async function showOrders({ history = true } = {}) {
   $("loadOrderFilesButton").hidden = true;
   $("breadcrumbs").innerHTML = '<button aria-current="page">Все заказы</button>';
   $("folderTitle").textContent = "Все заказы";
+  $("orderFolderName").hidden = true;
+  $("orderPageFavorite").hidden = true;
   $("clientLabel").textContent = "ЗИГЗАГ · ОБЩИЙ СПИСОК";
   $("scanState").textContent = "";
   $("ordersButton").setAttribute("aria-current", "page");
@@ -2146,6 +2186,7 @@ setInterval(() => {
 $("homeButton").addEventListener("click", () => run(() => showOrders()));
 $("ordersButton").addEventListener("click", () => run(() => showOrders()));
 $("openFolderButton").addEventListener("click", () => run(() => openNative(state.selected)));
+$("orderPageFavorite").addEventListener("click", () => run(() => toggleOrderFavorite(state.folder?.path)));
 $("createOrderFolderButton").addEventListener("click", openCreateOrderFolder);
 $("createObjectFolderButton").addEventListener("click",openCreateObject);
 $("createObjectFolderForm").addEventListener("submit",event=>{event.preventDefault();run(createObject);});

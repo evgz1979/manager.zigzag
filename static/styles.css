@@ -89,6 +89,10 @@ h1, h2, h3, p { margin: 0; }
 .scan-state { font-size: 11px; color: var(--muted); white-space: nowrap; }
 .order-heading { display: flex; justify-content: space-between; align-items: center; gap: 25px; padding: 27px 0 23px; }
 .order-heading > div { min-width: 0; }
+.order-title-row { display: flex; align-items: flex-start; gap: 8px; }
+.order-title-row h1 { min-width: 0; }
+.order-title-row .order-favorite-button { flex: 0 0 30px; }
+.order-folder-name { margin-top: 7px; color: var(--muted); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
 .folder-heading-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .eyebrow { color: var(--accent); font-size: 10px; letter-spacing: 1.5px; font-weight: 650; margin-bottom: 7px; }
 h1 { font-size: clamp(22px, 2.5vw, 32px); line-height: 1.23; letter-spacing: -.8px; font-weight: 600; overflow-wrap: anywhere; }
