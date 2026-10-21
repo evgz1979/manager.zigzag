@@ -111,6 +111,31 @@ class FileUploadTests(unittest.TestCase):
             saved=self.upload(path=relative)
             self.assertTrue((self.root/saved['path']).is_file())
 
+    def test_uploads_to_events_of_all_dynamic_work_sections_and_nested_hash_folders(self):
+        paths = (
+            '#work/#newtek/2026-10-21 - Сборный/00 - Задание',
+            '# work/# future-provider/Без даты/01 - Event/Deep/# files',
+            '#work/New supplier/2026-10-21 - Order/00 - Event',
+            '# work/# razbor/# newtek/00 - Event',
+            '#work/#print/2026-10-21 - Print/00 - Event',
+        )
+        for relative in paths:
+            with self.subTest(path=relative):
+                self.folder(relative)
+                status,_,body=self.http(self.url('/api/folder',relative))
+                self.assertEqual(status,200,body)
+                folder=json.loads(body)
+                self.assertEqual(folder['filesScope'],'folder')
+                self.assertIsNotNone(folder['upload'])
+                route=self.url('/api/file-upload',relative,name='input.bin',token=folder['upload']['token'])
+                status,_,body=self.http(route,'POST',b'exact incoming bytes',{'Content-Type':'application/octet-stream','X-Manager-Upload':'1'})
+                self.assertEqual(status,201,body)
+                self.assertEqual((self.root/json.loads(body)['path']).read_bytes(),b'exact incoming bytes')
+        for relative in ('#work','#work/#newtek','#work/#newtek/2026-10-21 - Сборный','# work/# razbor/# newtek'):
+            self.assertFalse(file_uploads.available(self.root,relative),relative)
+            self.assertIsNone(manager.read_folder(relative)['upload'])
+        self.assertEqual(self.store.list(),[])
+
     def test_rejects_unsafe_names_paths_and_service_cards(self):
         for name in ('', '../outside.txt', '/tmp/outside.txt','a/b','a\\b','a:b','bad\n.txt','.hidden','!.txt','!STATUS.TXT','status.txt','x'*256):
             with self.subTest(name=name),self.assertRaises(ValueError):self.upload(name)

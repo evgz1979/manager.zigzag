@@ -11,7 +11,7 @@ import uuid
 import file_trash
 import folder_layout
 from folder_notes import parent_order
-from folder_structure import folder_role
+from folder_structure import folder_role, is_work_root
 from event_folder_undo import guard_database
 from order_folders import LOCK
 
@@ -38,7 +38,14 @@ def available(root, relative):
         file_trash.checked(Path(root).resolve(), relative)
     except ValueError:
         return False
-    return bool(relative and folder_role(root, relative)['folderKind'] in {'event', 'service'} and parent_order(root, relative))
+    if not relative or folder_role(root, relative)['folderKind'] not in {'event', 'service'}:
+        return False
+    parts = Path(relative).parts
+    # All production sections are dynamic; extra # containers must not stop
+    # uploads to their events. The root, section and order levels stay excluded.
+    if len(parts)>=4 and is_work_root(parts[0]):
+        return True
+    return bool(parent_order(root, relative))
 
 
 def target(root, relative):

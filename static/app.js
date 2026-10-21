@@ -47,8 +47,10 @@ function renderUpload() {
   $("chooseUploadFiles").disabled = Boolean(job?.busy);
   $("uploadDropHint").textContent = state.folder?.upload ? "Или перетащи файлы в открытое событие · до " + state.folder.upload.maxFiles + " файлов, каждый до " + formatSize(state.folder.upload.maxBytes) : "";
   if (!job) return;
-  $("uploadTitle").textContent = job.busy ? "Загрузка файлов · " + job.index + " из " + job.total : "Загрузка завершена";
-  $("uploadDestination").textContent = job.path;
+  $("uploadTitle").textContent = job.busy ? "Загрузка · " + job.index + " из " + job.total : "Загрузка завершена";
+  $("uploadDestination").textContent = "В папку: " + job.path;
+  $("uploadDestination").title = job.path;
+  $("uploadDestination").setAttribute("aria-label", "Открыть папку назначения: " + job.path);
   $("uploadCurrent").textContent = job.busy ? (job.sent < job.size ? "Передаю: " : "Сохраняю на M4: ") + job.filename : "";
   $("uploadProgress").hidden = !job.busy;
   $("uploadProgress").value = job.size ? Math.round(100 * job.sent / job.size) : 100;
@@ -100,6 +102,7 @@ async function uploadFiles(files) {
   if (!files.length) return;
   if (files.length>folder.upload.maxFiles) { notify("За один раз можно добавить до " + folder.upload.maxFiles + " файлов",true); return; }
   const job = state.upload = { path:folder.path,token:folder.upload.token,maxBytes:folder.upload.maxBytes,busy:true,total:files.length,index:0,filename:"",size:0,sent:0,results:[] };
+  $("uploadDetails").open = false;
   try {
     for (const file of files) {
       job.index++; job.filename=file.name; job.size=file.size; job.sent=0; renderUpload();
