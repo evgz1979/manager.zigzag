@@ -1258,7 +1258,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
             elif parsed.path == "/api/storage":
                 self.send_json(metadata_store().status() if DATABASE_ONLY else {"database_only":False},head=head)
             elif parsed.path == "/api/invoices":
-                self.send_json({"items": invoice_store().list(relative)}, head=head)
+                self.send_json({"items": invoice_store().list(relative), "trash": invoice_store().list(relative, trashed=True)}, head=head)
             elif parsed.path in {"/api/invoice-pdf", "/api/invoice-preview"}:
                 identity = query.get("id", [""])[0]
                 if parsed.path == "/api/invoice-preview":
@@ -1420,6 +1420,14 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 return
             elif route == '/api/invoice-comment':
                 self.send_json(invoice_store().save_comment(payload))
+                return
+            elif route == '/api/invoice-remove':
+                self.send_json(invoice_store().remove(payload))
+                schedule_order_sync()
+                return
+            elif route == '/api/invoice-restore':
+                self.send_json(invoice_store().restore(payload))
+                schedule_order_sync()
                 return
             elif route == "/api/invoice-save":
                 self.send_json(invoice_store().save(payload))

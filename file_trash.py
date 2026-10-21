@@ -113,7 +113,10 @@ def read_plan(root, token):
     for operation in plan['operations']:
         checked(root, operation['source'], hidden=True)
         destination = checked(root, operation['destination'], hidden=True)
-        if session / '.files' not in destination.parents:
+        storage = session / '.files'
+        if plan.get('invoice_id'):
+            storage = checked(root, (Path(plan['folder']) / '.trash' / token).as_posix(), hidden=True)
+        if storage not in destination.parents:
             raise ValueError('Некорректное место хранения удалённого файла')
     return session, plan
 
@@ -165,15 +168,20 @@ def database_move(plan, operation, *, restore=False, finish=False):
             db.execute("UPDATE metadata_records SET path=?,revision=revision+1 WHERE kind='comment' AND path=?",(destination,source))
 
 
-def remove(root, folder, files, confirmed=False, database=None):
+def remove(root, folder, files, confirmed=False, database=None, *, token=None, invoice_id=None):
     root = Path(root).resolve()
     if confirmed is not True or not isinstance(files, list) or any(not isinstance(item, dict) for item in files):
         raise ValueError('Подтвердите удаление выбранных файлов')
     with LOCK:
+        if token and (session_path(root, token) / '.plan.json').exists():
+            _, saved = read_plan(root, token)
+            if saved.get('invoice_id') != invoice_id or saved['folder'] != folder:
+                raise TrashConflict('Сеанс корзины относится к другому счёту')
+            return resume(root, token)
         current = preview(root, folder, [item.get('path') for item in files])
         if len(files) != len(current['files']) or any(item.get('revision') != now['revision'] for item, now in zip(files, current['files'])):
             raise TrashConflict('Файлы изменились после открытия подтверждения. Проверьте выбор заново.')
-        token = uuid.uuid4().hex
+        token = token or uuid.uuid4().hex
         session = session_path(root, token)
         operations = []
         for index, item in enumerate(current['files']):
@@ -187,34 +195,60 @@ def remove(root, folder, files, confirmed=False, database=None):
                     continue
                 if source == sidecar and not source.is_file() or source == history and not source.is_dir():
                     raise ValueError('Некорректные служебные данные комментария')
-                destination = session / '.files' / f'.{index:04}' / source.relative_to(path.parent)
+                storage = root / folder / '.trash' / token if invoice_id else session / '.files' / f'.{index:04}'
+                destination = storage / source.relative_to(path.parent)
                 operations.append({'source': source.relative_to(root).as_posix(),
                                    'destination': destination.relative_to(root).as_posix(),
                                    'identity': fingerprint(source), 'file': item['path']})
         # The plan is durable before any user file or comment is moved.
-        session.mkdir(parents=True)
+        session.mkdir(parents=True, exist_ok=bool(invoice_id))
         plan = {'kind': 'file-trash', 'root': str(root), 'session': token, 'folder': folder,
                 'created': datetime.now(ZoneInfo('Europe/Moscow')).isoformat(),
                 'files': current['files'], 'operations': operations}
         if database is not None:
             plan['database'] = str(Path(database).resolve())
-        save(session / '.before.json', current)
+        if invoice_id:
+            plan['invoice_id'] = invoice_id
+        before = session / '.before.json'
+        if before.exists():
+            if json.loads(before.read_text(encoding='utf-8')) != current:
+                raise TrashConflict('Файл изменился после подготовки корзины')
+        else:
+            save(before, current)
+        helper = session / '.restore.py'
+        if helper.is_symlink():
+            raise ValueError('Средство восстановления не должно быть ссылкой')
+        shutil.copyfile(__file__, helper)
+        with helper.open('rb') as stream:
+            os.fsync(stream.fileno())
         save(session / '.plan.json', plan)
-        shutil.copyfile(__file__, session / '.restore.py')
         (session / '.report.txt').write_text('Корзина менеджера. Оригиналы сохранены без изменения содержимого.\n'
             'Восстановление: кнопка «Корзина» в менеджере или запуск python3 с файлом .restore.py из этой папки.\n'
             'Существующие пути не перезаписываются; при конфликте восстановление останавливается.\n', encoding='utf-8')
-        error = ''
+        return resume(root, token)
+
+
+def resume(root, token):
+    """Complete a prepared move without overwriting either side after interruption."""
+    root = Path(root).resolve()
+    with LOCK:
+        session, plan = read_plan(root, token)
+        operations, error = plan['operations'], ''
         with (session / '.lock').open('a') as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
             for index, operation in enumerate(operations):
                 try:
                     source = checked(root, operation['source'], hidden=True)
                     destination = checked(root, operation['destination'], hidden=True)
+                    if os.path.lexists(destination):
+                        if os.path.lexists(source) or not same(destination, operation['identity']):
+                            raise TrashConflict('Путь корзины занят или файл изменился: ' + operation['destination'])
+                        database_move(plan,operation,finish=True)
+                        continue
                     if not same(source, operation['identity']):
                         raise TrashConflict('Файл изменился: ' + operation['source'])
                     if source.is_file() and operation['source'] == operation['file']:
-                        item = next(item for item in current['files'] if item['path'] == operation['file'])
+                        item = next(item for item in plan['files'] if item['path'] == operation['file'])
                         if revision(source) != item['revision']:
                             raise TrashConflict('Файл изменился: ' + operation['source'])
                     append(session, phase='intent', id=index, **operation)
@@ -231,8 +265,32 @@ def remove(root, folder, files, confirmed=False, database=None):
                     append(session, phase='failed', id=index, error=error)
                     break
             result = {**describe(root, plan), 'error': error}
-            save(session / '.after.json', result)
+            after = session / '.after.json'
+            if after.exists():
+                after = session / ('.after-' + uuid.uuid4().hex + '.json')
+            save(after, result)
             return result
+
+
+def restore_invoice_record(plan):
+    """Also runs from the copied standalone script, without importing the app."""
+    if not plan.get('invoice_id') or not plan.get('database'):
+        return
+    with closing(sqlite3.connect(Path(plan['database']).as_uri()+'?mode=rw',uri=True,timeout=15)) as db, db:
+        db.execute('BEGIN IMMEDIATE')
+        row = db.execute('SELECT id,path,filename,data,revision FROM invoices WHERE id=?', (plan['invoice_id'],)).fetchone()
+        if not row:
+            raise TrashConflict('Карточка счёта не найдена; PDF восстановлен, проверь базу')
+        data = json.loads(row[3])
+        marker = data.get('_trash')
+        if not marker:
+            return
+        if marker['token'] != plan['session'] or (Path(row[1]) / '# bills' / row[2]).as_posix() not in [item['path'] for item in plan['files']]:
+            raise TrashConflict('Счёт перемещён или относится к другому сеансу корзины')
+        data.pop('_trash')
+        import time
+        db.execute('INSERT INTO invoice_history VALUES (?,?,?,?)', (row[0], row[4], row[3], time.time()))
+        db.execute('UPDATE invoices SET data=?,revision=revision+1,updated=? WHERE id=?', (json.dumps(data, ensure_ascii=False), time.time(), row[0]))
 
 
 def list_sessions(root):
@@ -298,6 +356,11 @@ def restore(root, token):
                     error = str(problem)
                     append(session, phase='undo_failed', id=index, error=error)
                     break
+            if not error:
+                try:
+                    restore_invoice_record(plan)
+                except (OSError, ValueError, sqlite3.Error) as problem:
+                    error = str(problem)
             result = {**describe(root, plan), 'restored': restored, 'error': error}
             save(session / ('.restore-result-' + uuid.uuid4().hex + '.json'), result)
             return result

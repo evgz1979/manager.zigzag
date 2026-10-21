@@ -19,6 +19,17 @@ PREVIOUS = "20261019T170000Z-abcdef12"
 
 
 class DeploymentTests(unittest.TestCase):
+    def test_old_code_cannot_restore_trashed_invoices_into_active_list(self):
+        release = self.base / 'old-invoices'
+        release.mkdir()
+        with sqlite3.connect(self.db) as db:
+            db.execute('CREATE TABLE invoices (data TEXT)')
+            db.execute('INSERT INTO invoices VALUES (?)', (json.dumps({'_trash': {'state': 'complete'}}),))
+        with self.assertRaisesRegex(RuntimeError, 'счета в корзине'):
+            remote.check_event_rename_compatibility(self.db, release)
+        (release / 'invoices.py').write_text('INVOICE_TRASH_VERSION = 1')
+        remote.check_event_rename_compatibility(self.db, release)
+
     def test_old_code_cannot_bypass_pending_folder_rename(self):
         release = self.base / "old-code"
         release.mkdir()

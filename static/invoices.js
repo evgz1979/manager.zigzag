@@ -1,6 +1,8 @@
 /* Invoice fields live in SQLite; a browser draft is never the saved copy. */
 (() => {
-  let editor = null, attachment = null, listedPath = null, listMarkup = null, loading = 0, pendingCreate = null;
+  let editor = null, attachment = null, listedPath = null, listMarkup = null, trashMarkup = null, loading = 0, pendingCreate = null;
+  let pendingRemoval = null, removing = false;
+  const invoiceLabel = (record) => record.state === 'external' ? record.data.original_name : (record.data.kind === 'contract' ? 'Счёт-договор' : 'Счёт') + ' № ' + record.number;
   const fields = { kind: "invoiceKind", number: "invoiceNumber", date: "invoiceDate", due_date: "invoiceDue",
     buyer_name: "invoiceBuyer", buyer_inn: "invoiceBuyerInn", buyer_kpp: "invoiceBuyerKpp", buyer_address: "invoiceBuyerAddress",
     note: "invoiceNote", work_start: "invoiceWorkStart", work_end: "invoiceWorkEnd", terms: "invoiceTerms" };
@@ -23,6 +25,7 @@
     if (listedPath !== folder.path) {
       $("invoiceList").replaceChildren(); $("invoiceCount").textContent = "";
       listMarkup = null;
+      trashMarkup = null; $("invoiceTrash").hidden = true; $("invoiceTrash").open = false;
       $("invoiceListState").textContent = "Загрузка счетов…";
     }
     listedPath = folder.path;
@@ -33,12 +36,13 @@
       $("invoiceListState").textContent = result.items.length ? "" : "Прикрепи PDF или выпиши счёт по этому заказу.";
       const markup = result.items.map((record) => {
         const external = record.state === "external";
-        const label = external ? record.data.original_name : (record.data.kind === "contract" ? "Счёт-договор" : "Счёт") + " № " + record.number;
+        const label = invoiceLabel(record);
         const date = record.data.date.split("-").reverse().join(".");
-        const comment = external && record.data.comment ? '<small class="invoice-row-comment">' + escapeHtml(record.data.comment) + '</small>' : '';
+        const details = (external ? 'Внешний · ' : '') + date;
+        const comment = external && record.data.comment ? ' · ' + record.data.comment : '';
         const sync = record.state === "draft" ? "Черновик" : record.sync_error ? "PDF в базе · " + record.sync_error + " · автоповтор" : record.sync_pending ? "PDF в базе · копия в # bills ожидает выгрузки" : "PDF в # bills";
-        return '<div class="invoice-row"><button type="button" class="invoice-row-name" data-invoice-edit="' + record.id + '">' + escapeHtml(label) + '<small>' + escapeHtml((external ? 'Внешний · ' : '') + date) + '</small>' + comment + '</button>' + (external ? '' : '<strong>' + cash(record.data.total) + '</strong>') + '<span class="invoice-row-state' + (record.sync_error ? ' error' : '') + '">' + escapeHtml(sync) + '</span>' +
-          (record.state !== "draft" ? '<a class="secondary-button" href="' + escapeHtml(pdfUrl(record)) + '" target="_blank" rel="noopener">PDF ↗</a>' : '') + (external ? '' : '<button class="secondary-button" type="button" data-invoice-copy="' + record.id + '">На основе</button>') + '</div>';
+        return '<div class="invoice-row"><button type="button" class="invoice-row-name" data-invoice-edit="' + record.id + '"><span class="invoice-row-label" title="' + escapeHtml(label) + '">' + escapeHtml(label) + '</span><small class="invoice-row-meta" title="' + escapeHtml(details + comment + ' · ' + sync) + '">' + escapeHtml(details) + '<span class="invoice-row-comment">' + escapeHtml(comment) + '</span><span class="invoice-row-state' + (record.sync_error ? ' error' : '') + '"> · ' + escapeHtml(sync) + '</span></small></button>' + (external ? '' : '<strong>' + cash(record.data.total) + '</strong>') +
+          (record.state !== "draft" ? '<a class="secondary-button" href="' + escapeHtml(pdfUrl(record)) + '" target="_blank" rel="noopener">PDF ↗</a>' : '') + (external ? '' : '<button class="secondary-button" type="button" data-invoice-copy="' + record.id + '">На основе</button>') + '<button class="secondary-button invoice-remove" type="button" data-invoice-remove="' + record.id + '" title="В корзину" aria-label="' + escapeHtml('В корзину · ' + label) + '">×</button></div>';
       }).join("");
       if (markup !== listMarkup) {
         $("invoiceList").innerHTML = markup;
@@ -46,6 +50,17 @@
       }
       // Store records on this exact list, independent of grid positions.
       $("invoiceList").invoiceRecords = result.items;
+      const trashed = result.trash || [];
+      $("invoiceTrash").hidden = !trashed.length;
+      $("invoiceTrashCount").textContent = trashed.length;
+      const removedMarkup = trashed.map((record) => {
+        const label = invoiceLabel(record), marker = record.trash;
+        const sync = marker.error ? marker.error + ' · автоповтор' : marker.state === 'pending' ? 'Перенос PDF в .trash…' : record.filename ? 'В корзине · # bills/.trash' : 'Черновик в корзине';
+        const comment = record.state === 'external' && record.data.comment ? record.data.comment + ' · ' : '';
+        return '<div class="invoice-row"><div class="invoice-row-name"><span class="invoice-row-label" title="' + escapeHtml(label) + '">' + escapeHtml(label) + '</span><small class="invoice-row-meta' + (marker.error ? ' error' : '') + '" title="' + escapeHtml(comment + sync) + '">' + escapeHtml(comment + sync) + '</small></div><button class="secondary-button" type="button" data-invoice-restore="' + record.id + '">Восстановить</button></div>';
+      }).join('');
+      if (removedMarkup !== trashMarkup) { $("invoiceTrashList").innerHTML = removedMarkup; trashMarkup = removedMarkup; }
+      $("invoiceTrashList").invoiceRecords = trashed;
     } catch (error) {
       if (version === loading && state.folder?.path === folder.path) $("invoiceListState").textContent = error.message;
     }
@@ -260,6 +275,19 @@
     event.target.closest("tr").remove(); changed();
   });
   $("invoiceList").addEventListener("click", (event) => {
+    const remove = event.target.closest('[data-invoice-remove]');
+    if (remove) {
+      const record = $("invoiceList").invoiceRecords?.find((item) => item.id === remove.dataset.invoiceRemove && item.path === state.folder?.path);
+      if (record) {
+        pendingRemoval = record;
+        $("removeInvoiceName").textContent = invoiceLabel(record);
+        $("removeInvoicePath").textContent = record.filename ? record.pdf_path + ' → # bills/.trash' : 'Черновик без PDF';
+        $("removeInvoiceState").textContent = '';
+        $("removeInvoiceState").classList.remove('error');
+        $("removeInvoiceDialog").showModal(); $("cancelRemoveInvoice").focus();
+      }
+      return;
+    }
     const copy = event.target.closest("[data-invoice-copy]");
     const edit = event.target.closest("[data-invoice-edit]");
     if (copy) action(() => create(copy.dataset.invoiceCopy));
@@ -267,6 +295,30 @@
       const record = $("invoiceList").invoiceRecords?.find((item) => item.id === edit.dataset.invoiceEdit && item.path === state.folder?.path);
       if (record) { if (record.state === "external") showExternal(record); else show(record); }
     }
+  });
+  $("cancelRemoveInvoice").addEventListener('click', () => { if (!removing) { pendingRemoval = null; $("removeInvoiceDialog").close(); } });
+  $("removeInvoiceDialog").addEventListener('cancel', (event) => { if (removing) event.preventDefault(); else pendingRemoval = null; });
+  $("removeInvoiceForm").addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const record = pendingRemoval;
+    if (!record || removing) return;
+    removing = true;
+    $("cancelRemoveInvoice").disabled = $("confirmRemoveInvoice").disabled = true;
+    $("removeInvoiceState").textContent = 'Перенос в корзину…'; $("removeInvoiceState").classList.remove('error');
+    try {
+      await request('/api/invoice-remove', {path:record.path,id:record.id,revision:record.revision,confirmed:true});
+      pendingRemoval = null; $("removeInvoiceDialog").close(); await refreshList(true);
+    } catch (error) { $("removeInvoiceState").textContent = error.message; $("removeInvoiceState").classList.add('error'); }
+    finally { removing = false; $("cancelRemoveInvoice").disabled = $("confirmRemoveInvoice").disabled = false; }
+  });
+  $("invoiceTrashList").addEventListener('click', (event) => {
+    const button = event.target.closest('[data-invoice-restore]');
+    const record = button && $("invoiceTrashList").invoiceRecords?.find((item) => item.id === button.dataset.invoiceRestore && item.path === state.folder?.path);
+    if (record) action(async () => {
+      button.disabled = true;
+      try { await request('/api/invoice-restore', {path:record.path,id:record.id,revision:record.revision}); await refreshList(true); }
+      finally { button.disabled = false; }
+    });
   });
   $("previewInvoice").addEventListener("click", () => {
     const tab = window.open("about:blank", "_blank");
@@ -296,7 +348,7 @@
   }));
   document.addEventListener("manager-folder-rendered", () => refreshList());
   window.addEventListener("beforeunload", (event) => {
-    if (editor?.dirty || editor?.saving || editor?.issuing || attachment?.busy || (attachment && $("externalInvoiceComment").value !== attachment.saved)) { event.preventDefault(); event.returnValue = ""; }
+    if (removing || editor?.dirty || editor?.saving || editor?.issuing || attachment?.busy || (attachment && $("externalInvoiceComment").value !== attachment.saved)) { event.preventDefault(); event.returnValue = ""; }
   });
   setInterval(() => { if (!document.hidden && state.view !== "orders" && !$("invoiceSection").hidden) refreshList(true); }, 5000);
   refreshList();

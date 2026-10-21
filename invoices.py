@@ -21,10 +21,14 @@ from event_folder_undo import assert_unlocked
 from folder_layout import rename_exclusive
 import native_renderers
 import orders
+import file_comments
+import file_trash
+import local_metadata
 
 BUILD_LOCK = threading.Lock()
 SYNC_LOCK = threading.Lock()
 MAX_EXTERNAL_BYTES = 20 * 1024 * 1024
+INVOICE_TRASH_VERSION = 1
 EXTERNAL_REQUEST_LIMIT = ((MAX_EXTERNAL_BYTES + 2) // 3) * 4 + 64 * 1024
 DEFAULT_SELLER = {
     "name": "ИП ЗАЙЦЕВ ЕВГЕНИЙ КОНСТАНТИНОВИЧ", "inn": "280404583555", "kpp": "",
@@ -202,11 +206,12 @@ class InvoiceStore:
     def record(row):
         result = {key: row[key] for key in row.keys() if key != "pdf"}
         result["data"] = json.loads(result["data"])
-        result["sync_pending"] = result["state"] in {"issued", "external"} and not result["exported"]
+        result['trash'] = result['data'].get('_trash')
+        result["sync_pending"] = not result['trash'] and result["state"] in {"issued", "external"} and not result["exported"]
         result["pdf_path"] = str(Path(result["path"]) / "# bills" / result["filename"]) if result["filename"] else None
         return result
 
-    def current(self, db, path, identity):
+    def current(self, db, path, identity, *, trashed=False):
         path = self.store.path(path)
         assert_unlocked(db, path)
         if not isinstance(identity, str):
@@ -215,13 +220,16 @@ class InvoiceStore:
         if not row:
             raise InvoiceConflict("Счёт не найден по этому пути. Открой заказ заново")
         self.owner(db, path)
+        if not trashed and json.loads(row['data']).get('_trash'):
+            raise InvoiceConflict('Счёт в корзине. Обнови список или восстанови его')
         return row
 
-    def list(self, path):
+    def list(self, path, *, trashed=False):
         with self.connect() as db:
             self.owner(db, path)
             # Do not load PDF blobs when listing invoices.
-            rows = db.execute("SELECT id,path,year,number,revision,state,data,filename,exported,sync_error,created,updated FROM invoices WHERE path=? ORDER BY created DESC,id", (path,))
+            condition = 'IS NOT NULL' if trashed else 'IS NULL'
+            rows = db.execute("SELECT id,path,year,number,revision,state,data,filename,exported,sync_error,created,updated FROM invoices WHERE path=? AND json_extract(data,'$._trash') " + condition + ' ORDER BY created DESC,id', (path,))
             return [self.record(row) for row in rows]
 
     def get(self, path, identity):
@@ -262,6 +270,8 @@ class InvoiceStore:
             self.owner(db, path, active=True)
             existing = db.execute('SELECT * FROM invoices WHERE id=?', (identity,)).fetchone()
             if existing:
+                if json.loads(existing['data']).get('_trash'):
+                    raise InvoiceConflict('Этот счёт уже в корзине. Восстанови его вместо повторной загрузки')
                 if existing['path'] != path or existing['state'] != 'external' or json.loads(existing['data'])['original_name'] != name or existing['pdf'] != pdf:
                     raise InvoiceConflict("Этот идентификатор уже относится к другому счёту")
                 return self.record(existing)  # Retry never resets a later comment edit.
@@ -290,6 +300,113 @@ class InvoiceStore:
                        (json.dumps(data, ensure_ascii=False), time.time(), row['id']))
             return self.record(self.current(db, row['path'], row['id']))
 
+    def remove(self, payload):
+        if payload.get('confirmed') is not True:
+            raise ValueError('Подтверди перенос выбранного счёта в корзину')
+        with orders.SYNC_LOCK, self.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            row = self.current(db, payload.get('path'), payload.get('id'), trashed=True)
+            self.owner(db, row['path'], active=True)
+            data = json.loads(row['data'])
+            if data.get('_trash'):
+                return self.record(row)
+            if type(payload.get('revision')) is not int or row['revision'] != payload['revision']:
+                raise InvoiceConflict('Счёт изменился. Обнови список перед удалением')
+            local_metadata.schema(db)
+            data['_trash'] = {'token': uuid.uuid4().hex, 'state': 'pending' if row['filename'] else 'complete', 'error': ''}
+            db.execute('INSERT INTO invoice_history VALUES (?,?,?,?)', (row['id'], row['revision'], row['data'], time.time()))
+            db.execute('UPDATE invoices SET data=?,revision=revision+1,updated=? WHERE id=?', (json.dumps(data, ensure_ascii=False), time.time(), row['id']))
+            return self.record(self.current(db, row['path'], row['id'], trashed=True))
+
+    def restore(self, payload):
+        with orders.SYNC_LOCK, file_comments.LOCK:
+            with self.connect() as db:
+                row = self.current(db, payload.get('path'), payload.get('id'), trashed=True)
+                self.owner(db, row['path'], active=True)
+                marker = json.loads(row['data']).get('_trash')
+                if not marker:
+                    return self.record(row)
+                if type(payload.get('revision')) is not int or row['revision'] != payload['revision']:
+                    raise InvoiceConflict('Корзина счёта изменилась. Обнови список')
+            session = file_trash.session_path(self.store.root, marker['token'])
+            if (session / '.plan.json').exists():
+                result = file_trash.restore(self.store.root, marker['token'])
+                if result['error']:
+                    raise InvoiceConflict(result['error'])
+            else:
+                with self.connect() as db:
+                    db.execute('BEGIN IMMEDIATE')
+                    row = self.current(db, payload.get('path'), payload.get('id'), trashed=True)
+                    data = json.loads(row['data'])
+                    data.pop('_trash')
+                    db.execute('INSERT INTO invoice_history VALUES (?,?,?,?)', (row['id'], row['revision'], row['data'], time.time()))
+                    db.execute('UPDATE invoices SET data=?,revision=revision+1,exported=0,updated=? WHERE id=?',
+                               (json.dumps(data, ensure_ascii=False), time.time(), row['id']))
+            return self.get(payload['path'], payload['id'])
+
+    def publish_copy(self, row):
+        folder = self.store.target(row["path"]) / "# bills"
+        if folder.is_symlink():
+            raise ValueError("# bills является ссылкой; PDF остался в базе")
+        if not folder.exists():
+            # Reuse the project's journal and standalone mkdir undo.
+            from folder_layout import Plan
+            from order_folders import layout_scope
+            plan = Plan(self.store.root, [Path(row["path"]).parts[0]], **layout_scope(row["path"]))
+            plan.mkdir(folder.relative_to(self.store.root).as_posix())
+            session = plan.create_session(["Создание # bills для выпущенных счетов; PDF сохранён в SQLite."], {"order": row["path"], "invoice": row["id"]})
+            from folder_layout import apply
+            apply(session)
+        target = folder / row["filename"]
+        if os.path.lexists(target):
+            if target.is_symlink() or not target.is_file() or hashlib.sha256(target.read_bytes()).digest() != hashlib.sha256(row["pdf"]).digest():
+                raise ValueError("Копия PDF изменена или имя занято. Файл не перезаписан; оригинал доступен из базы")
+        else:
+            temporary = None
+            try:
+                with tempfile.NamedTemporaryFile(prefix=".invoice-", dir=folder, delete=False) as stream:
+                    temporary = Path(stream.name)
+                    stream.write(row["pdf"])
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                rename_exclusive(temporary, target)
+            finally:
+                if temporary:
+                    temporary.unlink(missing_ok=True)
+        return target
+
+    def sync_trash(self):
+        with self.connect() as db:
+            identities = [row[0] for row in db.execute("SELECT id FROM invoices WHERE json_extract(data,'$._trash.state')='pending'")]
+        for identity in identities:
+            with orders.SYNC_LOCK, file_comments.LOCK:
+                with self.connect() as db:
+                    row = db.execute('SELECT * FROM invoices WHERE id=?', (identity,)).fetchone()
+                    marker = json.loads(row['data']).get('_trash')
+                    if not marker or marker['state'] != 'pending':
+                        continue
+                try:
+                    with self.connect() as db:
+                        assert_unlocked(db, row['path'])
+                    session = file_trash.session_path(self.store.root, marker['token'])
+                    if (session / '.plan.json').exists():
+                        result = file_trash.resume(self.store.root, marker['token'])
+                    else:
+                        relative = (Path(row['path']) / '# bills' / row['filename']).as_posix()
+                        target = file_trash.checked(self.store.root, relative)
+                        folder = str(Path(relative).parent)
+                        files = file_trash.preview(self.store.root, folder, [relative])['files'] if os.path.lexists(target) else None
+                        self.publish_copy(row)
+                        files = files or file_trash.preview(self.store.root, folder, [relative])['files']
+                        result = file_trash.remove(self.store.root, folder, files, True, self.store.database,
+                                                  token=marker['token'], invoice_id=identity)
+                    error = result['error']
+                except (OSError, ValueError, RuntimeError) as problem:
+                    error = str(problem)
+                with self.connect() as db:
+                    db.execute("UPDATE invoices SET data=json_set(data,'$._trash.error',?,'$._trash.state',?) WHERE id=? AND json_extract(data,'$._trash.token')=?",
+                               (error, 'pending' if error else 'complete', identity, marker['token']))
+
     def create(self, payload):
         path, identity = payload.get("path"), payload.get("id")
         try:
@@ -304,6 +421,8 @@ class InvoiceStore:
             if existing:
                 if existing["path"] != path:
                     raise InvoiceConflict("Этот идентификатор относится к другому заказу")
+                if json.loads(existing['data']).get('_trash'):
+                    raise InvoiceConflict('Этот счёт уже в корзине. Восстанови его из списка удалённых')
                 return self.record(existing)
             year = today().year
             row = db.execute("SELECT value FROM invoice_sequences WHERE year=?", (year,)).fetchone()
@@ -396,43 +515,19 @@ class InvoiceStore:
         if not SYNC_LOCK.acquire(blocking=False):
             return
         try:
+            self.sync_trash()
             with self.connect() as db:
-                pending = [row[0] for row in db.execute("SELECT id FROM invoices WHERE state IN ('issued','external') AND exported=0")]
+                pending = [row[0] for row in db.execute("SELECT id FROM invoices WHERE state IN ('issued','external') AND exported=0 AND json_extract(data,'$._trash') IS NULL")]
             for identity in pending:
                 # Coordinate path changes with the existing folder rename protocol.
                 with orders.SYNC_LOCK:
                     try:
                         with self.connect() as db:
                             row = db.execute("SELECT * FROM invoices WHERE id=?", (identity,)).fetchone()
+                            if json.loads(row['data']).get('_trash'):
+                                continue
                             assert_unlocked(db, row["path"])
-                        folder = self.store.target(row["path"]) / "# bills"
-                        if folder.is_symlink():
-                            raise ValueError("# bills является ссылкой; PDF остался в базе")
-                        if not folder.exists():
-                            # Reuse the project's journal and standalone mkdir undo.
-                            from folder_layout import Plan
-                            from order_folders import layout_scope
-                            plan = Plan(self.store.root, [Path(row["path"]).parts[0]], **layout_scope(row["path"]))
-                            plan.mkdir(folder.relative_to(self.store.root).as_posix())
-                            session = plan.create_session(["Создание # bills для выпущенных счетов; PDF сохранён в SQLite."], {"order": row["path"], "invoice": identity})
-                            from folder_layout import apply
-                            apply(session)
-                        target = folder / row["filename"]
-                        if os.path.lexists(target):
-                            if target.is_symlink() or not target.is_file() or hashlib.sha256(target.read_bytes()).digest() != hashlib.sha256(row["pdf"]).digest():
-                                raise ValueError("Копия PDF изменена или имя занято. Файл не перезаписан; оригинал доступен из базы")
-                        else:
-                            temporary = None
-                            try:
-                                with tempfile.NamedTemporaryFile(prefix=".invoice-", dir=folder, delete=False) as stream:
-                                    temporary = Path(stream.name)
-                                    stream.write(row["pdf"])
-                                    stream.flush()
-                                    os.fsync(stream.fileno())
-                                rename_exclusive(temporary, target)
-                            finally:
-                                if temporary:
-                                    temporary.unlink(missing_ok=True)
+                        self.publish_copy(row)
                         error = ""
                     except (OSError, ValueError, RuntimeError) as problem:
                         error = str(problem)

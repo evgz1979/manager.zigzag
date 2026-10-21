@@ -90,6 +90,7 @@
         <section id="invoiceSection" class="invoice-section" aria-label="Счета заказа" hidden>
           <header class="invoice-section-heading"><h2>Счета <span id="invoiceCount" class="count-badge"></span></h2><div class="invoice-section-actions"><button id="attachInvoice" class="secondary-button" type="button">+ Прикрепить PDF</button><button id="newInvoice" class="secondary-button" type="button">+ Выписать счёт</button></div></header>
           <div id="invoiceList" class="invoice-list"></div><p id="invoiceListState" class="invoice-state" role="status"></p>
+          <details id="invoiceTrash" class="invoice-trash" hidden><summary>Корзина <span id="invoiceTrashCount" class="count-badge"></span></summary><div id="invoiceTrashList" class="invoice-list"></div></details>
         </section>
         <section id="purchasePanel" class="todo-panel purchase-panel" aria-label="Формирование закупок/затрат">
           <header class="todo-heading"><h2>Формирование закупок/затрат</h2><span id="purchaseCount"></span></header>
@@ -143,6 +144,9 @@
         </div>
       </section>
     </main>
+    <dialog id="removeInvoiceDialog" class="confirm-dialog" aria-labelledby="removeInvoiceTitle">
+      <form id="removeInvoiceForm"><h2 id="removeInvoiceTitle">Переместить счёт в корзину?</h2><p id="removeInvoiceName" class="invoice-delete-name"></p><p id="removeInvoicePath" class="invoice-delete-path"></p><p>Счёт можно будет вернуть из блока «Корзина». PDF, комментарий и история сохранятся.</p><p id="removeInvoiceState" class="invoice-state" role="status"></p><div class="confirm-actions"><button id="cancelRemoveInvoice" class="secondary-button" type="button">Отмена</button><button id="confirmRemoveInvoice" class="danger-button" type="submit">В корзину</button></div></form>
+    </dialog>
     <dialog id="externalInvoiceDialog" class="invoice-dialog external-invoice-dialog" aria-labelledby="externalInvoiceTitle">
       <form id="externalInvoiceForm">
         <header class="invoice-dialog-heading"><div><h2 id="externalInvoiceTitle">Внешний счёт</h2><p id="externalInvoicePath"></p></div><button id="closeExternalInvoice" class="icon-button" type="button" aria-label="Закрыть внешний счёт">✕</button></header>

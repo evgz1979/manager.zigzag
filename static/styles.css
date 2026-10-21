@@ -509,9 +509,6 @@ h2 { font-size: 13px; font-weight: 600; }
 .purchase-suppliers button { border-color: var(--line); background: transparent; color: var(--accent); font-size: 10px; padding: 3px 7px; }
 .purchase-suppliers button:hover { background: var(--accent-soft); }
 .purchase-suppliers button[aria-pressed="true"] { color: #fff; background: var(--accent); border-color: var(--accent); }
-.order-finance-overview .invoice-row { flex-wrap: wrap; gap: 7px 10px; }
-.order-finance-overview .invoice-row-name { flex: 1; min-width: min(150px, 100%); }
-.order-finance-overview .invoice-row-state { flex-basis: 100%; order: 5; }
 @media (max-width: 1050px) { .order-finance-overview { grid-template-columns: minmax(0, 1fr); } }
 .invoice-section { margin: 18px 0; border: 1px solid var(--border, #e1e4e9); border-radius: 12px; padding: 12px 15px; }
 .invoice-section-heading, .invoice-total-row, .invoice-dialog-heading, .invoice-dialog-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -522,15 +519,23 @@ h2 { font-size: 13px; font-weight: 600; }
 .external-invoice-dialog { width: min(560px, calc(100vw - 24px)); }
 .external-invoice-name { margin: 0 0 15px; overflow-wrap: anywhere; font-size: 14px; font-weight: 600; }
 .external-invoice-comment { margin-top: 15px; }
-.invoice-row-name .invoice-row-comment { color: #596b63; white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.invoice-row-name { overflow-wrap: anywhere; }
+.invoice-row-comment { color: #596b63; }
 .invoice-list { margin-top: 7px; }
-.invoice-row { display: flex; gap: 12px; align-items: center; padding: 7px 0; border-top: 1px solid #eef0f3; font-size: 12px; }
-.invoice-row-name { border: 0; background: transparent; padding: 0; text-align: left; font: inherit; font-weight: 600; cursor: pointer; min-width: 125px; color: inherit; }
-.invoice-row-name small { display: block; font-size: 11px; font-weight: 400; color: #77808d; margin-top: 2px; }
+.invoice-row { display: flex; flex-wrap: nowrap; gap: 10px; align-items: center; padding: 4px 0; border-top: 1px solid #eef0f3; font-size: 12px; }
+.invoice-row-name { flex: 1; min-width: 0; border: 0; background: transparent; padding: 0; text-align: left; font: inherit; font-weight: 600; line-height: 16px; cursor: pointer; color: inherit; }
+.invoice-row-label, .invoice-row-meta { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.invoice-row-meta { font-size: 11px; font-weight: 400; line-height: 14px; color: #77808d; margin-top: 2px; }
 .invoice-row > strong { white-space: nowrap; }
-.invoice-row-state { color: #77808d; flex: 1; font-size: 11px; overflow-wrap: anywhere; }
-.invoice-row .secondary-button { padding: 5px 9px; font-size: 11px; white-space: nowrap; }
+.invoice-row-state { color: #77808d; }
+.invoice-row .secondary-button { flex-shrink: 0; padding: 5px 9px; font-size: 11px; white-space: nowrap; }
+.invoice-row .invoice-remove { color: #9a8581; font-size: 16px; line-height: 16px; padding: 5px 8px; }
+.invoice-row .invoice-remove:hover { color: #a83e35; border-color: #c87870; }
+.invoice-trash { margin-top: 8px; font-size: 11px; color: #77808d; }
+.invoice-trash summary { cursor: pointer; }
+.invoice-trash .invoice-row-name { cursor: default; color: #77808d; }
+.invoice-row-meta.error { color: #b43b36; }
+.invoice-delete-name, .invoice-delete-path { overflow-wrap: anywhere; }
+.invoice-delete-path { font-size: 11px; color: #77808d; }
 .invoice-state { font-size: 12px; color: #697384; margin: 8px 0 0; overflow-wrap: anywhere; }
 .invoice-state.error, .invoice-row-state.error { color: #b43b36; }
 .invoice-dialog { width: min(920px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 0; border: 1px solid #dce1e8; border-radius: 16px; box-shadow: 0 24px 100px #18223433; }
@@ -578,7 +583,5 @@ h2 { font-size: 13px; font-weight: 600; }
   .invoice-meta, .invoice-seller-fields { grid-template-columns: 1fr 1fr; }
   .invoice-buyer { grid-template-columns: 1fr 1fr; }
   .invoice-buyer > label:first-child { grid-column: 1 / -1; }
-  .invoice-row { flex-wrap: wrap; gap: 8px; }
-  .invoice-row-state { flex-basis: 100%; order: 5; }
-  .invoice-row-name { flex: 1; }
+  .invoice-row { gap: 8px; }
 }
