@@ -35,6 +35,15 @@ h1, h2, h3, p { margin: 0; }
 .auxiliary-button span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .auxiliary-button svg { width: 16px; height: 16px; color: #8d9e90; }
 .auxiliary-button.active { color: var(--accent); background: var(--accent-soft); border-color: #b8d1c3; }
+.favorite-orders { display: grid; gap: 6px; margin: 0 16px 14px; max-height: min(240px, 30dvh); overflow: auto; flex-shrink: 0; scrollbar-width: thin; }
+.favorite-order-button { display: flex; align-items: flex-start; gap: 8px; min-width: 0; padding: 8px 10px; text-align: left; background: #fafbf9; font-size: 12px; }
+.favorite-order-button.active { color: var(--accent); background: var(--accent-soft); border-color: #b8d1c3; }
+.favorite-order-button:focus-visible { outline-offset: -2px; }
+.favorite-order-star { flex-shrink: 0; color: #b57b0b; }
+.favorite-order-text { min-width: 0; }
+.favorite-order-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.favorite-order-client { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
+@media (max-width: 640px) { .favorite-orders { margin-left: 9px; margin-right: 9px; } }
 .tree-heading { display: flex; justify-content: space-between; align-items: center; padding: 0 22px 11px; font-size: 11px; color: #84918c; text-transform: uppercase; letter-spacing: 1.1px; font-weight: 650; }
 .tree-heading span:last-child { letter-spacing: 0; font-size: 11px; }
 .search-field { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 7px; background: #fff; padding: 0 10px; }

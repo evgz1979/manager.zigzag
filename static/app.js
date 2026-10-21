@@ -85,6 +85,24 @@ function treeMarkup(nodes, depth = 0, searching = false) {
   }).join("");
 }
 
+function renderFavoriteOrders() {
+  const container = $("favoriteOrders");
+  const favorites = state.orders.filter((order) => order.is_favorite === true).sort((a,b) =>
+    (a.client || "").localeCompare(b.client || "", "ru", { numeric:true }) || a.title.localeCompare(b.title,"ru",{ numeric:true }) || a.path.localeCompare(b.path,"ru"));
+  const markup = favorites.map((order) => {
+    const active = state.view !== "orders" && (state.selected === order.path || state.selected.startsWith(order.path + "/"));
+    return '<button type="button" class="favorite-order-button' + (active ? ' active' : '') + '" data-path="' + escapeHtml(order.path) + '" title="' + escapeHtml(order.title + " · " + (order.client || "") + "\n" + order.path) + '"' + (active ? ' aria-current="page"' : '') + '><span class="favorite-order-star" aria-hidden="true">★</span><span class="favorite-order-text"><span class="favorite-order-title">' + escapeHtml(order.title) + '</span>' + (order.client ? '<span class="favorite-order-client">' + escapeHtml(order.client) + '</span>' : '') + '</span></button>';
+  }).join("");
+  if (container.innerHTML !== markup) {
+    const focusedPath = container.contains(document.activeElement) ? document.activeElement.dataset.path : null;
+    const scroll = container.scrollTop;
+    container.innerHTML = markup;
+    container.scrollTop = scroll;
+    if (focusedPath) [...container.querySelectorAll("[data-path]")].find((button) => button.dataset.path === focusedPath)?.focus({ preventScroll:true });
+  }
+  container.hidden = !favorites.length;
+}
+
 function renderTree() {
   const focused = document.activeElement?.closest(".tree-row")?.dataset.path;
   const focusedGroup = document.activeElement?.closest("[data-catalog-group]")?.dataset.catalogGroup;
@@ -105,6 +123,7 @@ function renderTree() {
     '" data-path="' + escapeHtml(node.path) + '" title="' + escapeHtml(node.name) + '">' + icon("folder") +
     '<span>' + escapeHtml(node.name) + "</span></button>").join("");
   $("auxiliaryButtons").hidden = !state.auxiliary.length;
+  renderFavoriteOrders();
 }
 
 function focusTree(path) {
@@ -1157,6 +1176,7 @@ async function loadOrders() {
   state.scan = result.scan;
   state.storage = result.storage;
   $("ordersNavCount").textContent = result.orders.length;
+  renderFavoriteOrders();
   if (state.view === "orders") renderOrders();
 }
 
@@ -1279,6 +1299,7 @@ async function toggleOrderFavorite(path) {
     throw error;
   } finally {
     state.favoriteSaving.delete(path);
+    renderFavoriteOrders();
     if (state.view === "orders") renderOrders();
     focusOrderFavorite(path);
   }
@@ -1779,7 +1800,7 @@ $("folderTree").addEventListener("keydown", (event) => {
     else focusTree(folderParent(path));
   }
 });
-for (const id of ["auxiliaryButtons", "breadcrumbs", "subfolders"]) {
+for (const id of ["auxiliaryButtons", "favoriteOrders", "breadcrumbs", "subfolders"]) {
   $(id).addEventListener("click", (event) => {
     const button = event.target.closest("[data-path]");
     if (button) run(() => navigate(button.dataset.path));
@@ -2017,8 +2038,8 @@ setInterval(() => {
   if (state.view !== "orders" && state.folder?.canCreateEventFolder) refreshEventRelevance(state.folder).catch(() => {});
   if (state.view !== "orders" && state.folder?.sketches?.length) refreshSketchRelevance(state.folder).catch(() => {});
   if (state.view !== "orders") loadDescendantTodos(state.folder);
-  if (state.view === "orders") loadOrders().catch(() => { $("ordersSyncState").textContent = "Нет связи с сервером · показаны последние загруженные данные"; });
-  else if (!state.folder?.order && state.folder?.folderNote && !state.dirty && !state.saving) {
+  loadOrders().catch(() => { if (state.view === "orders") $("ordersSyncState").textContent = "Нет связи с сервером · показаны последние загруженные данные"; });
+  if (state.view !== "orders" && !state.folder?.order && state.folder?.folderNote && !state.dirty && !state.saving) {
     const folder = state.folder;
     request(apiUrl("/api/folder-note", folder.path)).then((record) => {
       if (state.folder === folder && !state.dirty && !state.saving && record.revision === folder.folderNote.revision) {
@@ -2245,6 +2266,7 @@ run(async () => {
   try {
     run(loadTree);
     await openLocation();
+    if (state.view !== "orders") await loadOrders();
   } catch (error) {
     $("notice").textContent = error.message;
     $("notice").hidden = false;
