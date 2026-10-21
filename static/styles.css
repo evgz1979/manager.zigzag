@@ -346,8 +346,9 @@ h2 { font-size: 13px; font-weight: 600; }
 .orders-table tbody tr:hover { background: #fafcf9; }
 .orders-table .order-todo-column { width: 68px; text-align: center; }
 .orders-table th.order-todo-column { padding: 8px 10px; color: var(--muted); font-size: 11px; font-weight: 400; }
-.orders-table th:nth-child(4) { min-width: 220px; }
-.orders-table th:nth-child(n+8):nth-child(-n+12) { text-align: right; }
+.orders-table .order-client-column { min-width: 110px; max-width: 160px; overflow-wrap: anywhere; }
+.orders-table th.order-title-column { min-width: 220px; }
+.orders-table th.order-money { text-align: right; }
 .orders-table th.order-comment-column { padding: 8px 10px; color: var(--muted); font-size: 11px; font-weight: 400; }
 .order-row-comment { display: block; width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .order-row-comment.empty { color: var(--muted); }
