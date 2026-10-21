@@ -76,7 +76,8 @@ class SupplierOrderTests(unittest.TestCase):
             status, _, body = self.http("/api/orders")
         self.assertEqual(status, 200)
         listed = json.loads(body)["orders"]
-        self.assertEqual([item["path"] for item in listed], [self.order])
+        self.assertEqual(listed, [])
+        listed = OrderTodos(store).attach(store.list())
         self.assertEqual([item["path"] for item in listed[0]["todo_groups"]], [self.order, event["path"], nested])
         self.assertEqual(store.discard_service_orders(), 0)
         opened = manager.read_folder(self.order)

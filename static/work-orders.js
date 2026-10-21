@@ -22,7 +22,7 @@
     if ($("workLinksSection").hidden) { key = null; model = null; ++loading; return; }
     if (!folder.order) {
       key = null; model = null; ++loading; render();
-      $("workLinksState").textContent = "Для подборки поставщиков сначала добавь этот заказ в общий список. События можно создавать сразу.";
+      $("workLinksState").textContent = "Для подборки поставщиков сначала добавь этот заказ в производство. События можно создавать сразу.";
       return;
     }
     const nextKey = folder.path + ":" + folder.order.id;
@@ -43,7 +43,7 @@
     const options = [...model.candidates, ...model.items.filter((item) => !model.candidates.some((candidate) => candidate.id === item.id))];
     const query = normalize($("workLinksSearch").value.trim());
     const matches = options.filter((item) => !query || normalize([item.title, item.supplier, item.path || ""].join(" ")).includes(query));
-    $("workLinksOptions").innerHTML = matches.map((item) => '<label class="work-link-option"><input type="checkbox" data-work-order-id="' + escapeHtml(item.id) + '"' + (selection.has(item.id) ? ' checked' : '') + '><span><strong>' + escapeHtml(item.title) + '</strong><small>' + escapeHtml(item.supplier || "") + (item.registered ? "" : " · Убран из списка") + '</small><small>' + escapeHtml(item.path || "Запись недоступна") + '</small></span></label>').join("") || '<p class="todo-empty">' + (query ? 'Ничего не найдено.' : 'Сначала добавь заказы из разделов поставщиков в общий список.') + '</p>';
+    $("workLinksOptions").innerHTML = matches.map((item) => '<label class="work-link-option"><input type="checkbox" data-work-order-id="' + escapeHtml(item.id) + '"' + (selection.has(item.id) ? ' checked' : '') + '><span><strong>' + escapeHtml(item.title) + '</strong><small>' + escapeHtml(item.supplier || "") + (item.registered ? "" : " · Убран из списка") + '</small><small>' + escapeHtml(item.path || "Запись недоступна") + '</small></span></label>').join("") || '<p class="todo-empty">' + (query ? 'Ничего не найдено.' : 'Сначала добавь заказы из разделов поставщиков в производство.') + '</p>';
   }
 
   $("editWorkLinks").addEventListener("click", () => run(async () => {

@@ -8,6 +8,11 @@ LINKS_BLOCK = "Связанные заказы поставщиков"
 MAX_LINKS = 200
 
 
+def in_work(relative):
+    parts = Path(relative).parts
+    return bool(parts and is_work_root(parts[0]))
+
+
 def direct_order(relative):
     parts = Path(relative).parts
     return len(parts) == 2 and is_work_root(parts[0]) and dated(parts[1])

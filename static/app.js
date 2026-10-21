@@ -13,7 +13,7 @@ const state = {
   printTask: null, printSaving: null, printQuery: "",
   view: "orders", orders: [], orderFilter: "all", financialFilter: "all", orderQuery: "", orderSort: "updated", orderDirection: -1, scan: null, ordersRequest: 0,
   unregistrations: [], removeOrder: null, removingOrder: false,
-  favoriteSaving: new Set(),
+  favoriteSaving: new Set(), favoriteOrders: [],
   fileComment: null, fileCommentSaving: null,
   selectedFiles: new Set(), imageReport: null,
   fileRemoval: null, fileRemoving: false, trashRestoring: false,
@@ -28,6 +28,7 @@ let searchTimer, toastTimer, todoSaveTimer, previewVersion = 0, treeSearchVersio
 const icon = (name) => '<svg aria-hidden="true"><use href="#icon-' + name + '"/></svg>';
 const escapeHtml = (value) => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 const normalize = (value) => String(value).normalize("NFC").toLocaleLowerCase("ru");
+const isWorkOrderPath = (path) => /^#\s*work$/i.test(String(path || "").split("/")[0]);
 const apiUrl = (route, path = "", extra = {}) => route + "?" + new URLSearchParams({ path, ...extra });
 const treeUrl = (path = "", extra = {}) => apiUrl("/api/tree", path, { show_inactive: state.showInactive ? "1" : "0", ...extra });
 const folderUrl = (path) => apiUrl("/api/folder", path, { show_inactive: state.showInactive ? "1" : "0" });
@@ -171,7 +172,7 @@ function treeMarkup(nodes, depth = 0, searching = false) {
 
 function renderFavoriteOrders() {
   const container = $("favoriteOrders");
-  const favorites = state.orders.filter((order) => order.is_favorite === true).sort((a,b) =>
+  const favorites = state.favoriteOrders.filter((order) => order.is_favorite === true).sort((a,b) =>
     (a.client || "").localeCompare(b.client || "", "ru", { numeric:true }) || a.title.localeCompare(b.title,"ru",{ numeric:true }) || a.path.localeCompare(b.path,"ru"));
   const markup = favorites.map((order) => {
     const active = state.view !== "orders" && (state.selected === order.path || state.selected.startsWith(order.path + "/"));
@@ -511,6 +512,8 @@ function renderFolder(preserveForm = false) {
   $("statusForm").classList.toggle("note-only", noteOnly);
   $("orderNote").placeholder = noteOnly ? "Заметка к этой папке" : "Что важно по этому заказу";
   $("removeOrderButton").hidden = !folder.order;
+  $("addOrderButton").textContent = isWorkOrderPath(folder.path) ? "+ Добавить в производство" : "+ Добавить в список заказов";
+  $("removeOrderButton").textContent = isWorkOrderPath(folder.path) ? "Убрать из производства" : "Убрать из списка заказов";
   $("createObjectFolderButton").hidden = folder.canCreateObjectFolder !== true;
   $("groupObjectYearsButton").hidden = folder.canGroupOrdersByYear !== true;
   $("createOrderFolderButton").hidden = folder.canCreateOrderFolder !== true;
@@ -1277,6 +1280,7 @@ async function loadOrders() {
   const result = await request("/api/orders");
   if (version !== state.ordersRequest) return;
   state.orders = result.orders;
+  state.favoriteOrders = result.favorites || result.orders.filter((order) => order.is_favorite === true);
   state.unregistrations = result.unregistrations || [];
   state.scan = result.scan;
   state.storage = result.storage;
@@ -1407,6 +1411,8 @@ async function toggleOrderFavorite(path) {
       ++state.ordersRequest;
       const current = state.orders.find((item) => item.path === path);
       if (current) Object.assign(current, saved);
+      state.favoriteOrders = state.favoriteOrders.filter((item) => item.path !== path);
+      if (saved.is_favorite === true) state.favoriteOrders.push(saved);
       if (folder) folder.order = saved;
     });
     // Serialize card saves with the star while leaving unsaved editor values intact.
@@ -2098,7 +2104,7 @@ $("addOrderButton").addEventListener("click", () => run(async () => {
     state.folder.noteOnly = false;
     state.folder.registrationPending = false;
     renderFolder();
-    notify("Заказ добавлен в общий список");
+    notify(isWorkOrderPath(state.folder.path) ? "Заказ добавлен в производство" : "Заказ добавлен в общий список");
     await loadOrders();
   } finally { $("addOrderButton").disabled = false; }
 }));
@@ -2108,6 +2114,9 @@ function askRemoveOrder(path) {
   state.removeOrder = { ...order };
   $("removeOrderName").textContent = order.title;
   $("removeOrderPath").textContent = order.path;
+  $("removeOrderTitle").textContent = isWorkOrderPath(order.path) ? "Убрать заказ из производства?" : "Убрать из списка заказов?";
+  $("confirmRemoveOrder").textContent = isWorkOrderPath(order.path) ? "Убрать из производства" : "Убрать из списка";
+  $("removeOrderDescription").textContent = isWorkOrderPath(order.path) ? "Папка, вложения и данные карточки сохранятся. Связанные заказы поставщиков останутся в производстве. Добавить этот заказ обратно можно вручную." : "Папка, вложения и данные карточки сохранятся. Вложенные заказы останутся в списке. Добавить эту папку обратно можно вручную.";
   $("removeOrderDialog").showModal();
   $("cancelRemoveOrder").focus();
 }
@@ -2134,10 +2143,12 @@ $("removeOrderForm").addEventListener("submit", (event) => {
         renderFolder();
       }
       state.orders = state.orders.filter((item) => item.path !== order.path);
+      state.favoriteOrders = state.favoriteOrders.filter((item) => item.path !== order.path);
+      renderFavoriteOrders();
       $("ordersNavCount").textContent = state.orders.length;
       if (state.view === "orders") renderOrders();
       $("removeOrderDialog").close();
-      notify("Папка убрана из списка заказов");
+      notify(isWorkOrderPath(order.path) ? "Заказ убран из производства" : "Папка убрана из списка заказов");
       await loadOrders();
     } finally {
       state.removingOrder = false;

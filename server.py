@@ -37,6 +37,7 @@ from order_todos import OrderTodos
 import file_trash
 import object_years
 import file_uploads
+import work_orders
 from file_comments import FileCommentConflict
 from folder_structure import folder_role, is_catalog_group, client_name
 from folder_structure import client_path
@@ -803,8 +804,11 @@ def listed_orders():
     store = order_store()
     activity = client_activity_store()
     objects = object_activity_store()
-    return {"orders": OrderTodos(store).attach(objects.visible_orders(activity.visible_orders(store.list()))),
-            "unregistrations": objects.visible_orders(activity.visible_orders(store.pending_unregistrations())), "scan": dict(SCAN_STATE),
+    visible = objects.visible_orders(activity.visible_orders(store.list()))
+    return {"orders": OrderTodos(store).attach([order for order in visible if not work_orders.in_work(order["path"])]),
+            "favorites": [order for order in visible if order["is_favorite"] is True],
+            "unregistrations": objects.visible_orders(activity.visible_orders([
+                order for order in store.pending_unregistrations() if not work_orders.in_work(order["path"])])), "scan": dict(SCAN_STATE),
             "storage":metadata_store().status() if DATABASE_ONLY else {"database_only":False}}
 
 

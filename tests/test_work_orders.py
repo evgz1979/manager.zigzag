@@ -147,7 +147,7 @@ class WorkOrderTests(unittest.TestCase):
             self.save_links(unknown, [])
         self.assertEqual(manager.order_store().get(unknown['path'])['extra_blocks'][work_orders.LINKS_BLOCK], 'Будущие данные')
 
-    def test_http_links_are_deduplicated_and_supplier_remains_in_main_list(self):
+    def test_http_links_are_deduplicated_and_production_stays_out_of_main_list(self):
         parent, supplier = self.add(self.parent), self.add(self.supplier)
         payload = {'path': self.parent, 'revision': parent['revision'], 'order_ids': [supplier['id']]}
         with patch.object(manager, 'schedule_order_sync'):
@@ -157,5 +157,27 @@ class WorkOrderTests(unittest.TestCase):
         result = json.loads(self.http(self.url('/api/work-order-links', self.parent))[2])
         self.assertEqual([item['id'] for item in result['items']], [supplier['id']])
         listed = json.loads(self.http('/api/orders')[2])['orders']
-        self.assertEqual({item['id'] for item in listed}, {parent['id'], supplier['id']})
-        self.assertEqual(len(listed), 2)
+        self.assertEqual(listed, [])
+        self.assertEqual({item['id'] for item in manager.order_store().list()}, {parent['id'], supplier['id']})
+
+    def test_main_list_excludes_all_work_paths_but_preserves_favorites_and_cards(self):
+        ordinary = self.add('Клиент/2026-10-21 - Обычный заказ')
+        production = [self.add(path) for path in (self.parent, self.supplier,
+            '#work/2026-10-21 - Без пробела', '# WORK/Раздел/2026-10-21 - Другой поставщик')]
+        store = manager.order_store()
+        starred = store.save_favorite({'path': self.parent, 'revision': production[0]['revision'], 'is_favorite': True})
+        with patch.object(OrderStore, 'target', side_effect=AssertionError('List must not read iCloud')):
+            result = json.loads(self.http('/api/orders')[2])
+        self.assertEqual([item['id'] for item in result['orders']], [ordinary['id']])
+        self.assertEqual([item['id'] for item in result['favorites']], [starred['id']])
+        for order in production:
+            self.assertEqual(json.loads(self.http(self.url('/api/order', order['path']))[2])['id'], order['id'])
+        self.assertEqual(len(store.list()), 5)
+        self.assertEqual(work_orders.in_work('Клиент/2026-10-21 - #work'), False)
+
+    def test_work_unregistration_does_not_leak_into_main_pending_list(self):
+        order = self.add(self.parent)
+        store = manager.order_store()
+        store.remove({'path': order['path'], 'revision': order['revision'], 'confirmed': True})
+        self.assertTrue(store.pending_unregistrations())
+        self.assertEqual(manager.listed_orders()['unregistrations'], [])

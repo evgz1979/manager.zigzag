@@ -235,7 +235,7 @@ class OrderStore:
             assert_unlocked(db, relative)
             parent = db.execute("SELECT * FROM orders WHERE path=? AND registered=1", (relative,)).fetchone()
             if parent is None:
-                raise FileNotFoundError("Сначала добавь заказ в общий список")
+                raise FileNotFoundError("Сначала добавь заказ в производство")
             identities = work_orders.read_links(json.loads(parent["extra_blocks"]))
             rows = {row["id"]: row for row in db.execute("SELECT id,path,title,status,registered FROM orders")}
             candidates = [work_orders.summary(row) for row in rows.values() if row["registered"] and work_orders.supplier_order(row["path"])]
