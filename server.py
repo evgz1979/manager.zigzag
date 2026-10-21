@@ -1023,7 +1023,7 @@ def read_folder(relative="", show_inactive=False):
             "newFileName": next_print_name(target) if print_view else "",
             "canCreateObjectFolder": status["folderKind"]=="client",
             "canGroupOrdersByYear": status["folderKind"]=="object",
-            "canCreateOrderFolder": status["folderKind"] in {"object", "supplier_root", "work_section", "moneys_section"} or (status["folderKind"]=="year" and order_folders.year_container(DATA_ROOT,relative)),
+            "canCreateOrderFolder": status["folderKind"] in {"object", "supplier_root", "work_root", "work_section", "moneys_section"} or (status["folderKind"]=="year" and order_folders.year_container(DATA_ROOT,relative)),
             "canCreateEventFolder": status["folderKind"] == "order",
             "canRenameFolder": folder_rename.available(relative_path(target)),
             **status}
@@ -1288,6 +1288,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(record, head=head)
             elif parsed.path == "/api/order-todos":
                 self.send_json(OrderTodos(order_store()).in_order(relative), head=head)
+            elif parsed.path == "/api/work-order-links":
+                self.send_json(order_store().work_links(relative), head=head)
             elif parsed.path == "/api/tree":
                 self.send_json(read_tree(relative, query.get("q", [""])[0], query.get("show_inactive", [""])[0] == "1"), head=head)
             elif parsed.path == "/api/folder":
@@ -1486,6 +1488,10 @@ class ManagerHandler(BaseHTTPRequestHandler):
             elif route == "/api/order-favorite":
                 record = order_store().save_favorite(payload)
                 self.send_json(record)
+                schedule_order_sync()
+                return
+            elif route == "/api/work-order-links":
+                self.send_json(order_store().save_work_links(payload))
                 schedule_order_sync()
                 return
             elif route in {"/api/client-activity", "/api/client-activity-file", "/api/object-activity", "/api/object-activity-file"}:

@@ -182,7 +182,7 @@ class SupplierOrderTests(unittest.TestCase):
         self.assertEqual(work["filesScope"], "subfolders")
         self.assertEqual(work["fileCount"], 0)
         self.assertEqual([item["name"] for item in work["directories"]], ["# glass", "# laser", "# print"])
-        self.assertFalse(work["canCreateOrderFolder"])
+        self.assertTrue(work["canCreateOrderFolder"])
         self.assertFalse(work["canRegisterOrder"])
         manager.save_note("# work", "Производство")
         self.assertEqual(manager.read_folder("# work")["note"], "Производство")

@@ -100,6 +100,10 @@
           <p id="purchaseSaveState" class="todo-save-state" role="status"></p>
         </section>
         </div>
+        <section id="workLinksSection" class="work-links-section" aria-label="Связанные заказы поставщиков" hidden>
+          <header class="todo-heading"><h2>Связанные заказы поставщиков <span id="workLinksCount" class="count-badge"></span></h2><button id="editWorkLinks" class="secondary-button" type="button" disabled>Выбрать заказы</button></header>
+          <div id="workLinksList" class="work-links-list"></div><p id="workLinksState" class="todo-save-state" role="status"></p>
+        </section>
         <section id="sketchSection" class="folder-section" aria-label="Эскизы" hidden><div class="section-heading"><h2>Эскизы</h2><span id="sketchCount"></span></div><div id="sketchTiles" class="subfolders with-event-relevance sketch-grid"></div></section>
         <section id="folderSection" class="folder-section" aria-label="Подпапки"><div class="section-heading"><h2 id="foldersTitle">Папки</h2><span id="directoryCount"></span></div><div id="subfolders" class="subfolders"></div></section>
         <section id="printWorkspace" class="print-workspace" aria-label="Задания на широкоформатную печать" hidden>
@@ -152,6 +156,14 @@
           <p id="invoiceEditorState" class="invoice-state" role="status"></p>
         </div>
         <footer class="invoice-dialog-actions"><span id="invoiceDraftHint">Черновик в базе · PDF на одной странице</span><button id="saveInvoice" class="secondary-button" type="submit">Сохранить черновик</button><button id="previewInvoice" class="secondary-button" type="button">Предпросмотр</button><button id="issueInvoice" class="primary-button" type="button">Выпустить PDF</button></footer>
+      </form>
+    </dialog>
+    <dialog id="workLinksDialog" class="confirm-dialog work-links-dialog" aria-labelledby="workLinksTitle">
+      <form id="workLinksForm">
+        <h2 id="workLinksTitle">Заказы поставщиков</h2><p>Выбери связанные заказы. Их папки останутся на прежних местах.</p>
+        <input id="workLinksSearch" type="search" placeholder="Найти заказ или поставщика…" aria-label="Поиск заказов поставщиков" autocomplete="off">
+        <div id="workLinksOptions" class="work-links-options"></div><p id="workLinksError" class="file-report-state" role="status"></p>
+        <div class="confirm-actions"><button id="cancelWorkLinks" class="secondary-button" type="button">Отмена</button><button id="saveWorkLinks" class="primary-button" type="submit">Сохранить подборку</button></div>
       </form>
     </dialog>
     <dialog id="orderTodoDialog" class="order-todo-dialog" aria-labelledby="orderTodoTitle" aria-describedby="orderTodoOrder">
@@ -249,6 +261,7 @@
     <div id="toast" class="toast" role="status" hidden></div>
     <script src="/app.js"></script>
     <script src="/invoices.js"></script>
+    <script src="/work-orders.js"></script>
     <script src="/mobile.js"></script>
   </body>
 </html>

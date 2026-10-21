@@ -70,8 +70,8 @@ def create(root, relative, order_date, title):
         raise FileNotFoundError("Папка объекта недоступна")
     role = folder_role(root, relative)["folderKind"]
     in_year = year_container(root,relative) if role=="year" else False
-    if role not in {"object", "supplier_root", "work_section", "moneys_section"} and not in_year:
-        raise ValueError("Выберите объект клиента или раздел внутри # work / # moneys")
+    if role not in {"object", "supplier_root", "work_root", "work_section", "moneys_section"} and not in_year:
+        raise ValueError("Выберите объект клиента, # work или раздел внутри # work / # moneys")
     if not isinstance(order_date, str) or not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", order_date):
         raise ValueError("Укажите дату в формате ГГГГ-ММ-ДД")
     try:

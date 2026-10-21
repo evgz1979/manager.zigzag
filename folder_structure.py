@@ -42,6 +42,8 @@ def supplier_prefix(relative):
 
 def section_prefix(relative):
     parts = Path(relative).parts
+    if parts and is_work_root(parts[0]) and (len(parts) == 1 or dated(parts[1])):
+        return parts[:1]
     if len(parts) >= 2 and (is_work_root(parts[0]) or is_moneys_root(parts[0])):
         return parts[:2]
     return supplier_prefix(relative)
@@ -110,7 +112,9 @@ def folder_role(root, relative):
     elif len(parts) == 1 and is_catalog_group(parts[0]):
         kind = "catalog_group"
     elif len(parts) >= 2 and (is_work_root(parts[0]) or is_moneys_root(parts[0])):
-        if len(parts) == 2:
+        if is_work_root(parts[0]) and dated(parts[1]):
+            kind = "order" if len(parts) == 2 else "event"
+        elif len(parts) == 2:
             if is_moneys_root(parts[0]):
                 kind = "moneys_section"
             else:

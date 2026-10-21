@@ -9,6 +9,7 @@ import uuid
 from contextlib import contextmanager
 from pathlib import Path
 import order_document as document
+import work_orders
 from order_document import money, MAX_MONEY
 from folder_structure import folder_role, is_service_folder, client_name
 from event_folder_undo import assert_unlocked, guard_database
@@ -100,6 +101,7 @@ class OrderStore:
         result["todo_items"] = document.read_todos(result["extra_blocks"])
         result["purchase_items"] = document.read_purchases(result["extra_blocks"])
         result["is_favorite"] = document.read_favorite(result["extra_blocks"])
+        result["can_group_supplier_orders"] = work_orders.direct_order(result["path"])
         exported_revision, export_format = result.pop("exported_revision"), result.pop("export_format")
         result["sync_pending"] = result["revision"] != exported_revision or (result["registered"] and export_format < document.FORMAT)
         if self.database_only:
@@ -223,6 +225,52 @@ class OrderStore:
             db.execute("""UPDATE orders SET extra_blocks=?,revision=revision+1,updated=?,sync_error=''
                 WHERE path=? AND revision=? AND registered=1""",
                 (json.dumps(blocks, ensure_ascii=False), time.time(), relative, revision))
+        return self.get(relative)
+
+    def work_links(self, relative):
+        relative = self.path(relative)
+        if not work_orders.direct_order(relative):
+            raise ValueError("Подборка доступна в заказе непосредственно внутри # work")
+        with self.connect() as db:
+            assert_unlocked(db, relative)
+            parent = db.execute("SELECT * FROM orders WHERE path=? AND registered=1", (relative,)).fetchone()
+            if parent is None:
+                raise FileNotFoundError("Сначала добавь заказ в общий список")
+            identities = work_orders.read_links(json.loads(parent["extra_blocks"]))
+            rows = {row["id"]: row for row in db.execute("SELECT id,path,title,status,registered FROM orders")}
+            candidates = [work_orders.summary(row) for row in rows.values() if row["registered"] and work_orders.supplier_order(row["path"])]
+            candidates.sort(key=lambda item: (item["supplier"].casefold(), item["title"].casefold(), item["path"]))
+            items = [work_orders.summary(rows[identity]) if identity in rows else {
+                "id": identity, "path": None, "title": "Заказ недоступен", "supplier": "", "status": None, "registered": False}
+                for identity in identities or []]
+            return {"path": relative, "revision": parent["revision"], "linked_ids": identities, "items": items, "candidates": candidates}
+
+    def save_work_links(self, payload):
+        relative = self.path(payload.get("path"))
+        identities = work_orders.checked_ids(payload.get("order_ids"))
+        if not work_orders.direct_order(relative):
+            raise ValueError("Подборка доступна в заказе непосредственно внутри # work")
+        revision = payload.get("revision")
+        if type(revision) is not int:
+            raise ValueError("Не указана версия заказа. Открой его заново")
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            assert_unlocked(db, relative)
+            parent = db.execute("SELECT extra_blocks FROM orders WHERE path=? AND revision=? AND registered=1", (relative, revision)).fetchone()
+            if parent is None:
+                raise OrderConflict("Заказ изменён в другой вкладке. Открой его заново перед изменением подборки")
+            blocks = json.loads(parent["extra_blocks"])
+            previous = work_orders.read_links(blocks)
+            updated = work_orders.write_links(blocks, identities)
+            for identity in identities:
+                target = db.execute("SELECT path,registered FROM orders WHERE id=?", (identity,)).fetchone()
+                if target:
+                    assert_unlocked(db, target["path"])
+                if identity not in previous and (not target or not target["registered"] or not work_orders.supplier_order(target["path"])):
+                    raise ValueError("Добавлять можно только зарегистрированные заказы из разделов поставщиков")
+            db.execute("""UPDATE orders SET extra_blocks=?,revision=revision+1,updated=?,sync_error=''
+                WHERE path=? AND revision=? AND registered=1""",
+                (json.dumps(updated, ensure_ascii=False), time.time(), relative, revision))
         return self.get(relative)
 
     def remove(self, payload):

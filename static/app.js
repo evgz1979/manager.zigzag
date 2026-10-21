@@ -426,7 +426,7 @@ function renderSubfolders() {
   const directories = folder.directories.filter((item) => ["work_root", "moneys_root"].includes(folder.folderKind) || !item.name.startsWith("#"));
   $("subfolders").classList.toggle("with-event-relevance", directories.some((item) => item.eventRelevance));
   $("folderSection").hidden = !directories.length;
-  $("foldersTitle").textContent = folder.canCreateEventFolder ? "События" : ["supplier_root", "work_section"].includes(folder.folderKind) ? "Заказы поставщикам" : folder.folderKind === "moneys_section" ? "Финансовые записи" : folder.folderKind === "work_root" ? "Разделы производства" : folder.folderKind === "moneys_root" ? "Финансовые разделы" : folder.path ? "Подпапки" : "Папки";
+  $("foldersTitle").textContent = folder.canCreateEventFolder ? "События" : ["supplier_root", "work_section"].includes(folder.folderKind) ? "Заказы поставщикам" : folder.folderKind === "moneys_section" ? "Финансовые записи" : folder.folderKind === "work_root" ? "Разделы и заказы производства" : folder.folderKind === "moneys_root" ? "Финансовые разделы" : folder.path ? "Подпапки" : "Папки";
   $("directoryCount").textContent = directories.length;
   $("subfolders").innerHTML = directories.map((item) => {
     const open = '<button class="subfolder' + (item.inactive ? ' inactive' : '') + '" data-path="' + escapeHtml(item.path) + '" title="' + escapeHtml(item.name) + '">' +
@@ -1016,7 +1016,7 @@ function openCreateOrderFolder() {
   $("newOrderDateLabel").textContent = finance ? "Дата записи" : "Дата заказа";
   $("newOrderTitleLabel").textContent = finance ? "Название записи" : "Название заказа";
   $("createOrderFolderTitle").textContent = finance ? "Создать финансовую запись" : supplier ? "Создать заказ поставщику" : "Создать заказ";
-  $("newOrderParentLabel").textContent = finance ? "Новая папка в финансовом разделе:" : supplier ? "Новая папка в производственном разделе:" : "Новая папка в объекте:";
+  $("newOrderParentLabel").textContent = finance ? "Новая папка в финансовом разделе:" : supplier ? "Новая папка в производственном разделе:" : state.folder.folderKind === "work_root" ? "Новый заказ в корне производства:" : "Новая папка в объекте:";
   $("newOrderTitle").placeholder = finance ? "Например, сверка с поставщиком" : supplier ? "Например, заказ поставщику" : "Например, замена вывески";
   const parts = Object.fromEntries(new Intl.DateTimeFormat("ru-RU", { timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()).map((part) => [part.type, part.value]));
   const year = state.folder.folderKind === "year" ? state.folder.name : parts.year;
