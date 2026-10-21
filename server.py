@@ -7,6 +7,7 @@ import os
 import plistlib
 import re
 import shutil
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -35,6 +36,7 @@ import event_relevance
 from order_todos import OrderTodos
 import file_trash
 import object_years
+import file_uploads
 from file_comments import FileCommentConflict
 from folder_structure import folder_role, is_catalog_group, client_name
 from folder_structure import client_path
@@ -1017,6 +1019,7 @@ def read_folder(relative="", show_inactive=False):
             "totalSize": sum(file["size"] for file in files), "counts": counts,
             "warnings": warnings, "storage":"database" if DATABASE_ONLY else "legacy", "view": "print" if print_view else "files",
             "filesScope": files_scope,
+            "upload": file_uploads.options(DATA_ROOT,relative) if files_scope=="folder" and file_uploads.available(DATA_ROOT,relative) else None,
             "newFileName": next_print_name(target) if print_view else "",
             "canCreateObjectFolder": status["folderKind"]=="client",
             "canGroupOrdersByYear": status["folderKind"]=="object",
@@ -1341,7 +1344,46 @@ class ManagerHandler(BaseHTTPRequestHandler):
     def do_HEAD(self):
         self.handle_get(head=True)
 
+    def receive_upload(self):
+        self.close_connection = True
+        try:
+            if self.headers.get('X-Manager-Upload') != '1' or self.headers.get_content_type() != 'application/octet-stream':
+                self.send_json({'error':'Загрузка доступна через кнопку «Добавить файлы»'},403)
+                return
+            origin = self.headers.get('Origin')
+            if origin and urllib.parse.urlsplit(origin).netloc != self.headers.get('Host'):
+                self.send_json({'error':'Загрузка с другой страницы запрещена'},403)
+                return
+            lengths = self.headers.get_all('Content-Length') or []
+            if self.headers.get('Transfer-Encoding') or len(lengths)!=1 or not re.fullmatch(r'[0-9]+',lengths[0]):
+                raise ValueError('Не указан размер файла')
+            query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query,keep_blank_values=True)
+            if any(len(query.get(key,[]))!=1 for key in ('path','name','token')):
+                raise ValueError('Не указана папка или имя файла')
+            self.connection.settimeout(60)
+            saved = file_uploads.receive(order_store(),query['path'][0],query['token'][0],query['name'][0],self.rfile,int(lengths[0]))
+            self.send_json(saved,201)
+        except file_uploads.UploadTooLarge as error:
+            self.send_json({'error':str(error)},413)
+        except file_uploads.UploadBusy as error:
+            self.send_json({'error':str(error)},429)
+        except (file_uploads.UploadConflict,EventRenamePending) as error:
+            self.send_json({'error':str(error)},409)
+        except FileNotFoundError as error:
+            self.send_json({'error':str(error)},404)
+        except ValueError as error:
+            self.send_json({'error':str(error)},400)
+        except (BrokenPipeError,ConnectionResetError):
+            return
+        except sqlite3.Error:
+            self.send_json({'error':'База M4 сейчас занята или недоступна. Повтори загрузку позже'},500)
+        except OSError as error:
+            self.send_json({'error':'Не удалось сохранить файл на M4: '+str(error)},500)
+
     def do_POST(self):
+        if urllib.parse.urlsplit(self.path).path == '/api/file-upload':
+            self.receive_upload()
+            return
         try:
             route = urllib.parse.urlparse(self.path).path
             length = int(self.headers.get("Content-Length", "0"))

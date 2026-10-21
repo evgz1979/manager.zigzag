@@ -17,6 +17,7 @@ const state = {
   fileComment: null, fileCommentSaving: null,
   selectedFiles: new Set(), imageReport: null,
   fileRemoval: null, fileRemoving: false, trashRestoring: false,
+  upload: null,
   newOrderParent: null, creatingOrderFolder: false,
   newObjectParent:null, creatingObject:false, objectYears:null, groupingYears:false,
   eventPlan: null, eventBusy: false,
@@ -39,6 +40,86 @@ const formatSize = (bytes) => {
 const formatDate = (seconds) => new Date(seconds * 1000).toLocaleDateString("ru", { day: "numeric", month: "short", year: "numeric" });
 const printCountLabel = (count) => count + " " + ({ one: "задание", few: "задания", many: "заданий", other: "задания" }[new Intl.PluralRules("ru").select(count)]);
 const folderParent = (path) => path.split("/").slice(0, -1).join("/");
+
+function renderUpload() {
+  const job = state.upload;
+  $("uploadPanel").hidden = !job;
+  $("chooseUploadFiles").disabled = Boolean(job?.busy);
+  $("uploadDropHint").textContent = state.folder?.upload ? "Или перетащи файлы в открытое событие · до " + state.folder.upload.maxFiles + " файлов, каждый до " + formatSize(state.folder.upload.maxBytes) : "";
+  if (!job) return;
+  $("uploadTitle").textContent = job.busy ? "Загрузка файлов · " + job.index + " из " + job.total : "Загрузка завершена";
+  $("uploadDestination").textContent = job.path;
+  $("uploadCurrent").textContent = job.busy ? (job.sent < job.size ? "Передаю: " : "Сохраняю на M4: ") + job.filename : "";
+  $("uploadProgress").hidden = !job.busy;
+  $("uploadProgress").value = job.size ? Math.round(100 * job.sent / job.size) : 100;
+  $("closeUploadPanel").hidden = job.busy;
+  const errors = job.results.filter((item) => item.error).length;
+  $("uploadSummary").textContent = job.busy ? "" : "Сохранено на M4: " + (job.results.length - errors) + " из " + job.total + (errors ? " · не удалось: " + errors : "") + (job.refreshError ? " · " + job.refreshError : "");
+  $("uploadSummary").classList.toggle("error", Boolean(errors || job.refreshError));
+  const markup = job.results.map((item) => '<li' + (item.error ? ' class="error"' : '') + '>' + escapeHtml(item.error ? item.original + " — " + item.error : item.name + " · сохранён") + '</li>').join("");
+  if ($("uploadResults").innerHTML !== markup) $("uploadResults").innerHTML = markup;
+}
+
+function sendUpload(file, job) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", apiUrl("/api/file-upload", job.path, { token:job.token, name:file.name }));
+    xhr.setRequestHeader("Content-Type", "application/octet-stream");
+    xhr.setRequestHeader("X-Manager-Upload", "1");
+    xhr.responseType = "json";
+    let painted = 0;
+    xhr.upload.addEventListener("progress", (event) => {
+      if (!event.lengthComputable) return;
+      job.sent = event.loaded;
+      if (Date.now()-painted>200 || event.loaded===event.total) { painted=Date.now(); renderUpload(); }
+    });
+    xhr.addEventListener("load", () => {
+      if (xhr.status===201 && xhr.response?.path) resolve(xhr.response);
+      else { const error=new Error(xhr.response?.error || "Не удалось загрузить файл · HTTP " + xhr.status); error.status=xhr.status; reject(error); }
+    });
+    xhr.addEventListener("error", () => reject(new Error("Нет связи с M4. Проверь файл в папке назначения перед повтором")));
+    xhr.send(file);
+  });
+}
+
+async function refreshUploadedFiles(job) {
+  const folder = state.folder;
+  if (state.view!=="folder" || folder?.path!==job.path || folder.upload?.token!==job.token) return;
+  const data = await request(folderUrl(job.path));
+  if (state.folder!==folder || data.upload?.token!==job.token) return;
+  for (const key of ["files","directories","counts","fileCount","folderCount","totalSize"]) folder[key]=data[key];
+  state.limit = Math.max(state.limit, 120 + job.results.filter((item) => !item.error).length);
+  renderFiles();
+  $("folderSummary").textContent = folder.fileCount + " файлов · " + folder.folderCount + " папок · " + formatSize(folder.totalSize);
+}
+
+async function uploadFiles(files) {
+  if (state.upload?.busy) { notify("Дождись завершения текущей загрузки",true); return; }
+  const folder = state.folder;
+  if (state.view!=="folder" || !folder?.upload) { notify("Открой событие или папку внутри заказа для добавления файлов",true); return; }
+  if (!files.length) return;
+  if (files.length>folder.upload.maxFiles) { notify("За один раз можно добавить до " + folder.upload.maxFiles + " файлов",true); return; }
+  const job = state.upload = { path:folder.path,token:folder.upload.token,maxBytes:folder.upload.maxBytes,busy:true,total:files.length,index:0,filename:"",size:0,sent:0,results:[] };
+  try {
+    for (const file of files) {
+      job.index++; job.filename=file.name; job.size=file.size; job.sent=0; renderUpload();
+      try {
+        if (file.size>job.maxBytes) throw new Error("Размер больше " + formatSize(job.maxBytes));
+        job.results.push({ original:file.name,...await sendUpload(file,job) });
+      } catch(error) {
+        job.results.push({ original:file.name,error:error.message });
+        if (error.status===404 || error.status===409) {
+          for (const pending of files.slice(job.index)) job.results.push({ original:pending.name,error:"Не передан: папка назначения изменилась" });
+          break;
+        }
+      }
+    }
+    if (job.results.some((item) => !item.error)) await refreshUploadedFiles(job).catch(() => { job.refreshError="Файлы приняты; обнови список в папке"; });
+  } finally {
+    job.busy=false;
+    renderUpload();
+  }
+}
 
 async function request(url, payload) {
   const response = await fetch(url, payload === undefined ? {} : {
@@ -464,6 +545,8 @@ function renderFolder(preserveForm = false) {
   $("notice").textContent = warnings.join(" · ");
   $("fileSearch").value = state.fileQuery;
   $("filesSection").hidden = printView || ["events", "subfolders"].includes(folder.filesScope) || Boolean(folder.filesLoading || folder.filesUnavailable);
+  $("uploadDropZone").hidden = !folder.upload;
+  renderUpload();
   $("printWorkspace").hidden = !printView;
   if (printView) {
     state.printQuery = "";
@@ -2260,7 +2343,33 @@ $("previewDialog").addEventListener("keydown", (event) => {
   if (event.key === "ArrowRight") { event.preventDefault(); stepPreview(1); }
 });
 window.addEventListener("popstate", () => run(() => openLocation()));
-window.addEventListener("beforeunload", (event) => { if (state.dirty || state.printTask?.dirty || state.printSaving || state.fileComment?.dirty || state.fileCommentSaving) { event.preventDefault(); event.returnValue = ""; } });
+window.addEventListener("beforeunload", (event) => { if (state.dirty || state.printTask?.dirty || state.printSaving || state.fileComment?.dirty || state.fileCommentSaving || state.upload?.busy) { event.preventDefault(); event.returnValue = ""; } });
+
+$("chooseUploadFiles").addEventListener("click", () => $("uploadFileInput").click());
+$("uploadFileInput").addEventListener("change", (event) => {
+  const files = Array.from(event.target.files || []);
+  event.target.value="";
+  run(() => uploadFiles(files));
+});
+$("closeUploadPanel").addEventListener("click", () => { if (!state.upload?.busy) { state.upload=null; renderUpload(); } });
+$("uploadDestination").addEventListener("click", () => { if (state.upload) run(() => navigate(state.upload.path)); });
+document.addEventListener("dragover", (event) => {
+  if (!Array.from(event.dataTransfer?.types || []).includes("Files")) return;
+  event.preventDefault();
+  document.querySelector(".content-pane").classList.toggle("upload-dragging", Boolean(state.view==="folder" && state.folder?.upload && !state.upload?.busy));
+});
+document.addEventListener("dragleave", (event) => { if (!event.relatedTarget) document.querySelector(".content-pane").classList.remove("upload-dragging"); });
+document.addEventListener("dragend", () => document.querySelector(".content-pane").classList.remove("upload-dragging"));
+document.addEventListener("drop", (event) => {
+  if (!Array.from(event.dataTransfer?.types || []).includes("Files")) return;
+  event.preventDefault();
+  document.querySelector(".content-pane").classList.remove("upload-dragging");
+  if (Array.from(event.dataTransfer.items || []).some((item) => item.webkitGetAsEntry?.()?.isDirectory)) {
+    notify("Перетащи отдельные файлы. Загрузка папок пока не поддерживается",true); return;
+  }
+  const files=Array.from(event.dataTransfer.files || []);
+  run(() => uploadFiles(files));
+});
 
 run(async () => {
   try {

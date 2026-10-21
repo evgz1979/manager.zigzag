@@ -195,6 +195,18 @@ h2 { font-size: 13px; font-weight: 600; }
 .files-toolbar { display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--line); padding-top: 23px; }
 .files-toolbar > div { margin-right: auto; }
 .files-toolbar h2 { display: flex; align-items: center; gap: 7px; }
+.upload-drop-zone { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 14px; padding: 15px; border: 1px dashed #b5cec0; border-radius: 9px; color: var(--muted); font-size: 12px; background: #f8fbf8; }
+.content-pane.upload-dragging { box-shadow: inset 0 0 0 3px var(--accent); background: #f4faf6; }
+.content-pane.upload-dragging .upload-drop-zone { border-color: var(--accent); background: var(--accent-soft); }
+.upload-panel { margin-bottom: 18px; padding: 14px 16px; border: 1px solid #b5cec0; border-radius: 9px; background: #f8fbf8; font-size: 12px; }
+.upload-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.upload-heading button { padding: 4px 9px; }
+.upload-destination { display: block; margin-top: 6px; padding: 0; border: 0; background: none; color: var(--accent); text-align: left; overflow-wrap: anywhere; }
+#uploadCurrent { margin-top: 8px; overflow-wrap: anywhere; }
+#uploadProgress { width: 100%; height: 8px; margin: 9px 0; accent-color: var(--accent); }
+.upload-results { max-height: 160px; overflow: auto; margin: 7px 0 0; padding-left: 20px; scrollbar-width: thin; }
+.upload-results li { margin-top: 4px; overflow-wrap: anywhere; }
+.upload-results .error, #uploadSummary.error { color: #a34d34; }
 .count-badge { background: #edf1ed; color: #829085; border-radius: 5px; font-size: 10px; padding: 2px 5px; font-weight: 400; }
 .files-scope { display: block; margin-top: 4px; font-size: 10px; color: #98a197; }
 .file-search { width: 196px; }

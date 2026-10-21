@@ -30,6 +30,12 @@
         <div class="content-topbar"><nav id="breadcrumbs" class="breadcrumbs" aria-label="Путь"></nav><span id="scanState" class="scan-state"></span></div>
         <header class="order-heading"><div><p id="clientLabel" class="eyebrow">КЛИЕНТЫ И ЗАКАЗЫ</p><h1 id="folderTitle">Зигзаг</h1><p id="folderSummary" class="folder-summary">Загрузка папок…</p></div><div class="folder-heading-actions"><button id="createObjectFolderButton" class="primary-button" type="button" hidden>+ Создать объект</button><button id="groupObjectYearsButton" class="secondary-button" type="button" hidden>По годам</button><button id="createOrderFolderButton" class="primary-button" type="button" hidden>+ Создать заказ</button><button id="createEventFolderButton" class="primary-button" type="button" hidden>+ Создать событие</button><button id="renameFolderButton" class="secondary-button" type="button" hidden>Переименовать папку</button><button id="openFolderButton" class="secondary-button"><svg><use href="#icon-folder"/></svg>Открыть в Finder</button><button id="addOrderButton" class="primary-button" hidden>+ Добавить в список заказов</button><button id="removeOrderButton" class="secondary-button" hidden>Убрать из списка заказов</button></div></header>
         <div id="notice" class="notice" role="status" hidden></div>
+        <section id="uploadPanel" class="upload-panel" aria-label="Загрузка файлов" hidden>
+          <div class="upload-heading"><h2 id="uploadTitle">Загрузка файлов</h2><button id="closeUploadPanel" class="secondary-button" type="button" hidden>Закрыть</button></div>
+          <button id="uploadDestination" class="upload-destination" type="button" title="Открыть папку назначения"></button>
+          <p id="uploadCurrent"></p><progress id="uploadProgress" max="100" value="0" aria-label="Загрузка текущего файла"></progress>
+          <p id="uploadSummary" role="status"></p><ul id="uploadResults" class="upload-results"></ul>
+        </section>
         <button id="loadOrderFilesButton" class="secondary-button" hidden>Повторить загрузку файлов</button>
         <section id="ordersWorkspace" class="orders-workspace" aria-label="Все заказы" hidden>
           <div id="orderStatusFilters" class="order-status-filters" aria-label="Фильтр по производственному статусу"></div>
@@ -114,7 +120,9 @@
             <div id="printEditorEmpty" class="print-editor-empty">Выберите задание или создайте новое</div>
           </div>
         </section>
-        <section id="filesSection" class="files-section" aria-label="Файлы"><div class="files-toolbar"><div><h2>Файлы <span id="fileCount" class="count-badge">0</span></h2><span class="files-scope">Из выбранной папки и всех подпапок</span></div><label class="search-field file-search"><svg><use href="#icon-search"/></svg><input id="fileSearch" type="search" placeholder="Найти файл…" aria-label="Поиск файлов заказа"></label><select id="fileSort" aria-label="Сортировка файлов"><option value="folders">По папкам</option><option value="modified">Сначала новые</option><option value="name">По имени</option></select></div><div id="fileFilters" class="file-filters" aria-label="Тип файла"></div>
+        <section id="filesSection" class="files-section" aria-label="Файлы"><div class="files-toolbar"><div><h2>Файлы <span id="fileCount" class="count-badge">0</span></h2><span class="files-scope">Из выбранной папки и всех подпапок</span></div><label class="search-field file-search"><svg><use href="#icon-search"/></svg><input id="fileSearch" type="search" placeholder="Найти файл…" aria-label="Поиск файлов заказа"></label><select id="fileSort" aria-label="Сортировка файлов"><option value="folders">По папкам</option><option value="modified">Сначала новые</option><option value="name">По имени</option></select></div>
+          <div id="uploadDropZone" class="upload-drop-zone" hidden><button id="chooseUploadFiles" class="secondary-button" type="button">+ Добавить файлы</button><span id="uploadDropHint">Или перетащи файлы в открытое событие</span><input id="uploadFileInput" type="file" multiple hidden></div>
+          <div id="fileFilters" class="file-filters" aria-label="Тип файла"></div>
           <div id="fileActions" class="file-actions" aria-label="Групповые действия с файлами">
             <label class="select-all-files" title="Выбрать все файлы текущего фильтра"><input id="selectAllFiles" type="checkbox">Выбрать все</label>
             <span id="fileSelectionCount" class="file-selection-count">Выбрано: 0</span>
