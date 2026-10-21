@@ -1019,6 +1019,7 @@ function openCreateOrderFolder() {
   $("newOrderDateLabel").textContent = finance ? "Дата записи" : "Дата заказа";
   $("newOrderTitleLabel").textContent = finance ? "Название записи" : "Название заказа";
   $("createOrderFolderTitle").textContent = finance ? "Создать финансовую запись" : supplier ? "Создать заказ поставщику" : "Создать заказ";
+  $("submitCreateOrderFolder").textContent = finance ? "Создать запись" : "Создать заказ";
   $("newOrderParentLabel").textContent = finance ? "Новая папка в финансовом разделе:" : supplier ? "Новая папка в производственном разделе:" : state.folder.folderKind === "work_root" ? "Новый заказ в корне производства:" : "Новая папка в объекте:";
   $("newOrderTitle").placeholder = finance ? "Например, сверка с поставщиком" : supplier ? "Например, заказ поставщику" : "Например, замена вывески";
   const parts = Object.fromEntries(new Intl.DateTimeFormat("ru-RU", { timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()).map((part) => [part.type, part.value]));
@@ -1052,12 +1053,13 @@ async function createOrderFolder() {
   } finally {
     state.creatingOrderFolder = false;
     controls.forEach((id) => { $(id).disabled = false; });
-    $("submitCreateOrderFolder").textContent = "Создать папку";
+    $("submitCreateOrderFolder").textContent = finance ? "Создать запись" : "Создать заказ";
   }
   $("createOrderFolderDialog").close();
   await loadTree();
   await navigate(created.path);
-  notify(finance ? "Финансовая запись создана" : "Папка заказа создана");
+  await loadOrders();
+  notify(finance ? "Финансовая запись создана" : isWorkOrderPath(created.path) ? "Заказ создан в производстве" : "Заказ создан и добавлен в список");
 }
 
 function renderNewEventName() {

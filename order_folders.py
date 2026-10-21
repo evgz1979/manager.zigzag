@@ -61,8 +61,10 @@ def create_object(root, relative, title):
         return {"path":path,"name":name,"journal":session.relative_to(root).as_posix()}
 
 
-def create(root, relative, order_date, title):
+def create(root, relative, order_date, title, *, store=None):
     root = Path(root).resolve()
+    if store and store.root.resolve() != root:
+        raise ValueError("Рабочая база относится к другому корню документов")
     if not isinstance(relative, str) or not Path(relative).parts or any(part.startswith(".") for part in Path(relative).parts):
         raise ValueError("Выберите папку объекта")
     parent = layout.safe_path(root, relative, [Path(relative).parts[0]], **layout_scope(relative))
@@ -104,6 +106,8 @@ def create(root, relative, order_date, title):
             raise OrderFolderConflict("Папка или файл с таким именем уже существует. Измените дату или название")
         path = destination.relative_to(root).as_posix()
         plan = layout.Plan(root, [Path(relative).parts[0]], **layout_scope(relative))
+        if store:
+            plan.order_registration = {"database": str(store.database.resolve()), "path": path}
         if not parent.exists():
             plan.mkdir(parent.relative_to(root).as_posix())
         plan.mkdir(path)
@@ -112,15 +116,28 @@ def create(root, relative, order_date, title):
         before = {"parent": relative, "identity": layout.identity(root/relative),
                   "children": [{"name": item.name, "identity": layout.identity(item)} for item in (root/relative).iterdir()]}
         session = plan.create_session(["Создать папку заказа из интерфейса.", "Дата: " + order_date, "Название: " + title], before)
+        if store:
+            import order_creation
+            order_creation.prepare(store, path, title, session)
+        applied = False
+        registered = False
         try:
             layout.apply(session)
+            applied = True
+            if store:
+                order_creation.register(store, path)
+                registered = True
             layout.save_json(session / ".result.json", {"status": "created", "path": path, "identity": layout.identity(destination)})
         except Exception as error:
+            if store:
+                order_creation.failed(store, path, error)
             try:
                 layout.save_json(session / ".result.json", {"status": "failed", "path": path, "error": str(error)})
             except OSError:
                 pass
             if isinstance(error, FileExistsError):
                 raise OrderFolderConflict("Путь уже занят. Существующие данные сохранены") from error
+            if store and applied and not registered:
+                raise OrderFolderConflict("Папка создана, но карточка пока не сохранена: " + path + ". Регистрация повторится автоматически в течение минуты; не создавай вторую папку. " + str(error)) from error
             raise
-    return {"path": path, "name": name, "journal": session.relative_to(root).as_posix()}
+    return {"path": path, "name": name, "journal": session.relative_to(root).as_posix(), "registered": bool(store)}

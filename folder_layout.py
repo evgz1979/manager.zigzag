@@ -7,6 +7,7 @@ import json
 import os
 import shutil
 import stat
+import sqlite3
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -106,6 +107,8 @@ class Plan:
             plan["service_roots"] = self.service_roots
         if getattr(self, "database_paths", False):
             plan["database_paths"] = True
+        if getattr(self, "order_registration", None):
+            plan["order_registration"] = self.order_registration
         save_json(session / ".plan.json", plan)
         save_json(session / ".before.json", before)
         shutil.copyfile(__file__, session / ".folder-layout.py")
@@ -170,6 +173,13 @@ def undo(session, perform=False, *, coordinate_database=False, keep_directories=
     plan = load_plan(session)
     if perform and plan.get("database_paths") and not coordinate_database:
         raise ValueError("Эта операция меняет пути базы. Используйте .restore.py из этого же журнала")
+    if perform and plan.get("order_registration"):
+        registration = plan["order_registration"]
+        # Metadata outlives documents: a portable filesystem undo must never
+        # remove the only folder of a newly registered or subsequently edited card.
+        with sqlite3.connect(Path(registration["database"]).as_uri() + "?mode=ro", uri=True) as db:
+            if db.execute("SELECT 1 FROM orders WHERE path=?", (registration["path"],)).fetchone():
+                raise ValueError("Заказ сохранён в SQLite. Файловый откат не удаляет его папку; используй «Убрать из списка» / «Убрать из производства» в менеджере")
     root = Path(plan["root"])
     with (session / ".lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)

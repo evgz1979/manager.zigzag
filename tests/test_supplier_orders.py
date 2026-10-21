@@ -47,10 +47,11 @@ class SupplierOrderTests(unittest.TestCase):
         created = self.post("/api/order-folder-create", {"path": self.section, "date": "2026-10-20", "title": "Стеклопакеты для Жуковки"})
         self.assertEqual(created["path"], self.order)
         self.assertEqual(list((self.root / self.order).iterdir()), [])
-        self.assertFalse(manager.order_store().database.exists())
-        manager.save_status(self.order, "process", "Заметка поставщику", "payment",
-                            [{"text": "Получить счёт", "done": False}])
-        order = self.post("/api/order-add", {"path": self.order})
+        created_card = manager.order_store().get(self.order)
+        self.assertTrue(created['registered'])
+        order = self.post('/api/order-save', {'path': self.order, 'revision': created_card['revision'],
+            'title': created_card['title'], 'status': 'process', 'note': 'Заметка поставщику', 'financial_status': 'payment',
+            'amount': '', 'costs': '', 'paid': '', 'todo_items': [{"text": "Получить счёт", "done": False}]})
         self.assertEqual((order["note"], order["status"], order["financial_status"]),
                          ("Заметка поставщику", "process", "payment"))
         store = manager.order_store()

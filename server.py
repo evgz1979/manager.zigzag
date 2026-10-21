@@ -27,6 +27,7 @@ import invoices
 import native_renderers
 from local_metadata import MetadataStore
 import order_folders
+import order_creation
 import event_folders
 import folder_rename
 import sketches
@@ -823,6 +824,7 @@ def metadata_worker():
         METADATA_REFRESH.clear()
         try:
             metadata_store().backup("before-migration")
+            order_creation.recover(order_store())
             if refresh or metadata_store().status()["errors"]:
                 metadata_store().migrate(sys.modules[__name__])
                 metadata_store().imported("migration","")
@@ -1410,8 +1412,15 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 schedule_order_sync()
                 return
             elif route == "/api/order-folder-create":
-                guard_database(order_store().database, payload.get("path", ""), include_children=True)
-                self.send_json(order_folders.create(DATA_ROOT, payload.get("path"), payload.get("date"), payload.get("title")), 201)
+                store = order_store()
+                guard_database(store.database, payload.get("path", ""), include_children=True)
+                try:
+                    created = order_folders.create(DATA_ROOT, payload.get("path"), payload.get("date"), payload.get("title"), store=store)
+                finally:
+                    METADATA_REFRESH.set()
+                self.send_json(created, 201)
+                schedule_order_sync()
+                schedule_todo_refresh()
                 return
             elif route == "/api/object-folder-create":
                 guard_database(order_store().database,payload.get('path',''),include_children=True)
@@ -1470,6 +1479,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 store = order_store()
                 store.path(relative)
                 store.require_order_folder(relative)
+                order_creation.retry_one(store, relative)
                 if not store.get(relative):
                     fallback = folder_status(target, directory_children(target))
                     store.import_folder(relative, fallback)

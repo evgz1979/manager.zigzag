@@ -47,8 +47,11 @@ class SectionTests(unittest.TestCase):
                 path = record["path"]
                 paths.append(path)
                 self.assertEqual(list((self.root / path).iterdir()), [])
-                manager.save_status(path, "process", "Заметка записи", "partial", [{"text": "Получить документы", "done": False}])
-                added = self.post("/api/order-add", {"path": path})
+                created_card = manager.order_store().get(path)
+                self.assertTrue(record['registered'])
+                added = self.post('/api/order-save', {'path': path, 'revision': created_card['revision'],
+                    'title': created_card['title'], 'status': 'process', 'note': 'Заметка записи', 'financial_status': 'partial',
+                    'amount': '', 'costs': '', 'paid': '', 'todo_items': [{"text": "Получить документы", "done": False}]})
                 view = event_folders.preview(self.root, path, manager.folder_note_store())
                 event = self.post("/api/event-folder-create", {"path": path, "revision": view["revision"], "title": "Согласование"})
                 note = manager.read_folder(event["path"])["folderNote"]
