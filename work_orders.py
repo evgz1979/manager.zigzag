@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 
-from folder_structure import dated, is_service_folder, is_supplier_root, is_work_root
+from folder_structure import dated, is_service_folder, is_supplier_root, is_work_root, is_print_section
 
 LINKS_BLOCK = "Связанные заказы поставщиков"
 MAX_LINKS = 200
@@ -20,7 +20,7 @@ def direct_order(relative):
 
 def supplier_order(relative):
     parts = Path(relative).parts
-    if is_service_folder(relative):
+    if is_service_folder(relative) or is_print_section(Path(relative).parent.as_posix()):
         return False
     return (len(parts) == 3 and is_work_root(parts[0]) and not dated(parts[1])) or (
         len(parts) == 2 and is_supplier_root(parts[0]))

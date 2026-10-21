@@ -93,6 +93,9 @@ h1, h2, h3, p { margin: 0; }
 .order-title-row h1 { min-width: 0; }
 .order-title-row .order-favorite-button { flex: 0 0 30px; }
 .order-folder-name { margin-top: 7px; color: var(--muted); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.print-legacy-folders { margin: 20px 0; color: var(--muted); font-size: 12px; }
+.print-legacy-folders summary { cursor: pointer; }
+.print-legacy-folders > p { margin: 12px 0; line-height: 1.5; }
 .work-links-section { margin-bottom: 23px; padding: 13px; border: 1px solid var(--line); border-radius: 8px; }
 .work-links-list { display: grid; gap: 7px; }
 .work-link-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 15px; padding: 9px 0; border-bottom: 1px solid var(--line); }

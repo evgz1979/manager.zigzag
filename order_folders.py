@@ -7,7 +7,7 @@ from datetime import date
 from pathlib import Path
 
 import folder_layout as layout
-from folder_structure import folder_role, section_prefix, YEAR, DATE, DATE_LIKE, NUMBER
+from folder_structure import folder_role, section_prefix, is_print_section, YEAR, DATE, DATE_LIKE, NUMBER
 
 LOCK = threading.RLock()
 
@@ -67,6 +67,8 @@ def create(root, relative, order_date, title, *, store=None):
         raise ValueError("Рабочая база относится к другому корню документов")
     if not isinstance(relative, str) or not Path(relative).parts or any(part.startswith(".") for part in Path(relative).parts):
         raise ValueError("Выберите папку объекта")
+    if is_print_section(relative):
+        raise ValueError("Для печати используй «Новое задание» в редакторе # print")
     parent = layout.safe_path(root, relative, [Path(relative).parts[0]], **layout_scope(relative))
     if not parent.is_dir():
         raise FileNotFoundError("Папка объекта недоступна")

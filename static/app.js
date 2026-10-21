@@ -425,6 +425,14 @@ function renderSubfolders() {
   const focused = document.activeElement?.closest("[data-relevance]");
   const focusPath = focused?.dataset.eventPath, focusValue = focused?.dataset.relevance;
   const directories = folder.directories.filter((item) => ["work_root", "moneys_root"].includes(folder.folderKind) || !item.name.startsWith("#"));
+  const printView = folder.view === "print";
+  $("printLegacyFolders").hidden = !printView || !folder.directories.length;
+  if (printView) {
+    $("folderSection").hidden = true;
+    $("printLegacyFolderCount").textContent = folder.directories.length;
+    $("printLegacyFolderList").innerHTML = folder.directories.map((item) => '<button type="button" class="subfolder" data-path="' + escapeHtml(item.path) + '">' + icon("folder") + '<span>' + escapeHtml(item.name) + '</span>' + icon("chevron") + '</button>').join("");
+    return;
+  }
   $("subfolders").classList.toggle("with-event-relevance", directories.some((item) => item.eventRelevance));
   $("folderSection").hidden = !directories.length;
   $("foldersTitle").textContent = folder.canCreateEventFolder ? "События" : ["supplier_root", "work_section"].includes(folder.folderKind) ? "Заказы поставщикам" : folder.folderKind === "moneys_section" ? "Финансовые записи" : folder.folderKind === "work_root" ? "Разделы и заказы производства" : folder.folderKind === "moneys_root" ? "Финансовые разделы" : folder.path ? "Подпапки" : "Папки";
@@ -1934,7 +1942,7 @@ $("folderTree").addEventListener("keydown", (event) => {
     else focusTree(folderParent(path));
   }
 });
-for (const id of ["auxiliaryButtons", "favoriteOrders", "breadcrumbs", "subfolders"]) {
+for (const id of ["auxiliaryButtons", "favoriteOrders", "breadcrumbs", "subfolders", "printLegacyFolderList"]) {
   $(id).addEventListener("click", (event) => {
     const button = event.target.closest("[data-path]");
     if (button) run(() => navigate(button.dataset.path));

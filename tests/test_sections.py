@@ -30,7 +30,7 @@ class SectionTests(unittest.TestCase):
         return json.loads(body)
 
     def test_work_and_financial_sections_support_records_events_todos_and_exports(self):
-        sections = ("# work/# laser", "# work/# freza", "# work/# cutter", "# work/# print", "# work/# razbor",
+        sections = ("# work/# laser", "# work/# freza", "# work/# cutter", "# work/# razbor",
                     "# moneys/# сверки", "# moneys/# Зп", "# moneys/# biils", "# moneys/Документы", "#work/Без решётки")
         paths = []
         for section in sections:
@@ -132,17 +132,22 @@ class SectionTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 folder_layout.safe_path(self.root, sibling, [section.split('/')[0]], **order_folders.layout_scope(section))
 
-    def test_print_editor_keeps_tasks_while_order_and_event_use_regular_view(self):
+    def test_print_editor_is_the_only_creation_flow_and_preserves_old_folder_access(self):
         section = "# work/# print"
         self.folder(section)
         self.file(section + "/print - 2026-10-20.txt", b"Existing print task")
         folder = manager.read_folder(section)
         self.assertEqual(folder["view"], "print")
+        self.assertFalse(folder['canCreateOrderFolder'])
         self.assertEqual([item["name"] for item in folder["files"]], ["print - 2026-10-20.txt"])
-        created = order_folders.create(self.root, section, "2026-10-20", "Печать")
-        self.assertEqual(manager.read_folder(created["path"])["view"], "files")
-        self.folder(created["path"] + "/00 - Макет")
-        self.file(created["path"] + "/00 - Макет/image.png", b"image")
-        opened = manager.read_folder(created["path"] + "/00 - Макет")
+        with self.assertRaises(ValueError):
+            order_folders.create(self.root, section, "2026-10-20", "Печать")
+        path = section + '/2026-10-20 - Прежняя папка'
+        self.folder(path + "/00 - Макет")
+        self.file(path + "/00 - Макет/image.png", b"image")
+        self.file(path + "/00 - Макет/Описание.txt", b"Do not import this as a print task")
+        self.assertFalse(manager.read_folder(path)['canRegisterOrder'])
+        self.assertEqual([item['name'] for item in manager.read_folder(section)['files']], ['print - 2026-10-20.txt'])
+        opened = manager.read_folder(path + "/00 - Макет")
         self.assertEqual(opened["view"], "files")
-        self.assertEqual([item["name"] for item in opened["files"]], ["image.png"])
+        self.assertEqual({item["name"] for item in opened["files"]}, {"image.png", 'Описание.txt'})

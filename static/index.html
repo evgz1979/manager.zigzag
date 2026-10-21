@@ -107,7 +107,7 @@
         <section id="sketchSection" class="folder-section" aria-label="Эскизы" hidden><div class="section-heading"><h2>Эскизы</h2><span id="sketchCount"></span></div><div id="sketchTiles" class="subfolders with-event-relevance sketch-grid"></div></section>
         <section id="folderSection" class="folder-section" aria-label="Подпапки"><div class="section-heading"><h2 id="foldersTitle">Папки</h2><span id="directoryCount"></span></div><div id="subfolders" class="subfolders"></div></section>
         <section id="printWorkspace" class="print-workspace" aria-label="Задания на широкоформатную печать" hidden>
-          <div class="print-toolbar"><div><h2>Задания на печать <span id="printTaskCount" class="count-badge"></span></h2><p>Широкоформатная продукция</p></div><button id="newPrintTask" class="primary-button">+ Новое задание</button></div>
+          <div class="print-toolbar"><div><h2>Список заданий <span id="printTaskCount" class="count-badge"></span></h2></div><button id="newPrintTask" class="primary-button">+ Новое задание</button></div>
           <div class="print-layout">
             <aside class="print-task-sidebar" aria-label="Список заданий">
               <label class="search-field"><svg><use href="#icon-search"/></svg><input id="printTaskSearch" type="search" placeholder="Найти задание…" aria-label="Поиск заданий на печать"></label>
@@ -124,6 +124,7 @@
             <div id="printEditorEmpty" class="print-editor-empty">Выберите задание или создайте новое</div>
           </div>
         </section>
+        <details id="printLegacyFolders" class="print-legacy-folders" hidden><summary>Прежние папки <span id="printLegacyFolderCount" class="count-badge"></span></summary><p>Сохранены для доступа к документам и прежним карточкам. Новые задания создавай в редакторе печати.</p><div id="printLegacyFolderList" class="subfolders"></div></details>
         <section id="filesSection" class="files-section" aria-label="Файлы"><div class="files-toolbar"><div><h2>Файлы <span id="fileCount" class="count-badge">0</span></h2><span class="files-scope">Из выбранной папки и всех подпапок</span></div><label class="search-field file-search"><svg><use href="#icon-search"/></svg><input id="fileSearch" type="search" placeholder="Найти файл…" aria-label="Поиск файлов заказа"></label><select id="fileSort" aria-label="Сортировка файлов"><option value="folders">По папкам</option><option value="modified">Сначала новые</option><option value="name">По имени</option></select></div>
           <div id="uploadDropZone" class="upload-drop-zone" hidden><button id="chooseUploadFiles" class="secondary-button" type="button">+ Добавить файлы</button><span id="uploadDropHint">Или перетащи файлы в открытое событие</span><input id="uploadFileInput" type="file" multiple hidden></div>
           <div id="fileFilters" class="file-filters" aria-label="Тип файла"></div>

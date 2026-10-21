@@ -391,6 +391,7 @@ class ManagerTests(unittest.TestCase):
                 self.file(relative + "/не текст.png", b"not text")
                 folder = manager.read_folder(relative)
                 self.assertEqual(folder["view"], "print")
+                self.assertFalse(folder['canCreateOrderFolder'])
                 self.assertEqual([file["name"] for file in folder["files"]], ["задание.txt"])
         self.assertEqual(manager.read_folder("Клиент")["view"], "files")
 

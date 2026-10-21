@@ -31,6 +31,11 @@ def is_moneys_root(name):
     return name.startswith("#") and name[1:].strip().casefold() == "moneys"
 
 
+def is_print_section(relative):
+    parts = Path(relative).parts
+    return len(parts) == 2 and is_work_root(parts[0]) and parts[1].startswith('#') and parts[1][1:].strip().casefold() == 'print'
+
+
 def supplier_prefix(relative):
     parts = Path(relative).parts
     if parts and is_supplier_root(parts[0]):
@@ -151,6 +156,7 @@ def folder_role(root, relative):
                     kind = "group" if grouped_orders or nested_numbers or (len(NUMBER.match(name)[0]) == 2 and grouped_folders) else "order"
             else:
                 kind = "object"
-    allowed = kind == "order"
+    print_archive = len(parts) == 3 and is_print_section(Path(*parts[:2]).as_posix())
+    allowed = kind == "order" and not print_archive
     return {"folderKind": kind, "folderKindLabel": LABELS[kind], "canRegisterOrder": allowed,
-            "registrationHint": "" if allowed else LABELS[kind] + " — не заказ. Выберите папку конкретного заказа по дате или номеру."}
+            "registrationHint": "Задания печати создаются в отдельном редакторе # print. Прежняя папка сохранена для доступа к данным." if print_archive else "" if allowed else LABELS[kind] + " — не заказ. Выберите папку конкретного заказа по дате или номеру."}

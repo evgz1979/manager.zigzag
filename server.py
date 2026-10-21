@@ -40,7 +40,7 @@ import object_years
 import file_uploads
 import work_orders
 from file_comments import FileCommentConflict
-from folder_structure import folder_role, is_catalog_group, client_name
+from folder_structure import folder_role, is_catalog_group, client_name, is_print_section
 from folder_structure import client_path
 from client_activity import ClientActivity, ClientActivityConflict
 from client_activity import is_inactive
@@ -134,7 +134,7 @@ def print_target(relative, file=False):
     if any((DATA_ROOT / Path(*Path(relative).parts[:index + 1])).is_symlink() for index in range(len(Path(relative).parts))):
         raise ValueError("Символические ссылки не редактируются")
     folder = relative_path(target.parent) if file else relative_path(target)
-    if not is_print_folder(folder):
+    if not is_print_section(folder):
         raise ValueError("Редактирование доступно только в # work/# print")
     if file:
         if not target.is_file():
@@ -281,6 +281,8 @@ def _read_print_task(relative):
         current = metadata_store().get("print",relative)
         if current:
             return {**current,"name":Path(relative).name,"modified":current["updated"],"storage":"database"}
+        if metadata_store().is_publication(relative):
+            raise ValueError("Это выпущенный документ, он не создаёт отдельное задание печати")
         target = print_target(relative,file=True)
         raw = metadata_store().archive(target)
         text,_ = decode_print_document(target,raw)
@@ -942,11 +944,11 @@ def read_folder(relative="", show_inactive=False):
     if not show_inactive:
         directories = [item for item in directories if not is_inactive(relative_path(item), hidden_children)]
     files, warnings = [], []
-    print_view = is_print_folder(relative) and len(Path(relative).parts) == 2
+    print_view = is_print_section(relative)
     files_scope = "events" if status["folderKind"] == "order" or status.get("order") else (
         "subfolders" if not print_view and status["folderKind"] in {"client", "object", "catalog_group", "supplier_root", "work_root", "moneys_root", "work_section", "moneys_section"} else "folder")
     hide_files = files_scope != "folder"
-    folder_count = len(directories) if hide_files else 0
+    folder_count = len(directories) if hide_files or print_view else 0
 
     def walk_error(error):
         warnings.append(f"Не удалось прочитать папку: {error.filename}")
@@ -954,6 +956,8 @@ def read_folder(relative="", show_inactive=False):
     for current, dirs, names in (() if hide_files else os.walk(target, onerror=walk_error, followlinks=False)):
         current_path = Path(current)
         dirs[:] = [name for name in dirs if visible(current_path / name)]
+        if print_view:
+            dirs[:] = []  # The print editor owns only immediate task sources.
         folder_count += len(dirs)
         if target == DATA_ROOT:
             dirs[:] = []  # List clients at home without scanning all their orders.
@@ -961,6 +965,8 @@ def read_folder(relative="", show_inactive=False):
             if name in (STATUS_DOCUMENT_NAME, "!order.txt", *LEGACY_STATUS_DOCUMENT_NAMES):
                 continue
             file = current_path / name
+            if print_view and (file.suffix.lower() not in PRINT_TEXT_EXTENSIONS or (DATABASE_ONLY and metadata_store().is_publication(relative_path(file)))):
+                continue
             if not visible(file) or not file.is_file():
                 continue
             try:
@@ -969,7 +975,7 @@ def read_folder(relative="", show_inactive=False):
                 warnings.append(f"Не удалось прочитать файл: {name}")
                 continue
             try:
-                comment = read_file_comment(file)["comment"]
+                comment = "" if print_view else read_file_comment(file)["comment"]
             except (OSError, ValueError):
                 comment = ""
                 warnings.append(f"Не удалось прочитать комментарий: {name}")
@@ -1029,7 +1035,7 @@ def read_folder(relative="", show_inactive=False):
             "newFileName": next_print_name(target) if print_view else "",
             "canCreateObjectFolder": status["folderKind"]=="client",
             "canGroupOrdersByYear": status["folderKind"]=="object",
-            "canCreateOrderFolder": status["folderKind"] in {"object", "supplier_root", "work_root", "work_section", "moneys_section"} or (status["folderKind"]=="year" and order_folders.year_container(DATA_ROOT,relative)),
+            "canCreateOrderFolder": not print_view and (status["folderKind"] in {"object", "supplier_root", "work_root", "work_section", "moneys_section"} or (status["folderKind"]=="year" and order_folders.year_container(DATA_ROOT,relative))),
             "canCreateEventFolder": status["folderKind"] == "order",
             "canRenameFolder": folder_rename.available(relative_path(target)),
             **status}
