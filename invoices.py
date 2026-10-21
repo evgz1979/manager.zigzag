@@ -1,5 +1,7 @@
 """Invoice drafts, immutable issued PDFs and a durable folder-copy outbox."""
 from contextlib import contextmanager
+import base64
+import binascii
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import hashlib
@@ -12,6 +14,7 @@ import tempfile
 import threading
 import time
 import uuid
+import unicodedata
 from zoneinfo import ZoneInfo
 
 from event_folder_undo import assert_unlocked
@@ -21,6 +24,8 @@ import orders
 
 BUILD_LOCK = threading.Lock()
 SYNC_LOCK = threading.Lock()
+MAX_EXTERNAL_BYTES = 20 * 1024 * 1024
+EXTERNAL_REQUEST_LIMIT = ((MAX_EXTERNAL_BYTES + 2) // 3) * 4 + 64 * 1024
 DEFAULT_SELLER = {
     "name": "ИП ЗАЙЦЕВ ЕВГЕНИЙ КОНСТАНТИНОВИЧ", "inn": "280404583555", "kpp": "",
     "address": "141703, Россия, Московская обл., г. Долгопрудный, ул. Набережная, д. 29, корп. 1, кв. 181",
@@ -41,6 +46,12 @@ FIELDS = {"kind": 20, "number": 40, "date": 10, "due_date": 10, "buyer_name": 30
 
 class InvoiceConflict(ValueError):
     pass
+
+
+def external_comment(value):
+    if not isinstance(value, str) or len(value) > 5000 or any(ord(c) < 32 and c not in '\n\r\t' for c in value):
+        raise ValueError("Комментарий к счёту: до 5000 символов")
+    return value
 
 
 def today():
@@ -191,7 +202,7 @@ class InvoiceStore:
     def record(row):
         result = {key: row[key] for key in row.keys() if key != "pdf"}
         result["data"] = json.loads(result["data"])
-        result["sync_pending"] = result["state"] == "issued" and not result["exported"]
+        result["sync_pending"] = result["state"] in {"issued", "external"} and not result["exported"]
         result["pdf_path"] = str(Path(result["path"]) / "# bills" / result["filename"]) if result["filename"] else None
         return result
 
@@ -216,6 +227,68 @@ class InvoiceStore:
     def get(self, path, identity):
         with self.connect() as db:
             return self.record(self.current(db, path, identity))
+
+    def upload(self, payload):
+        path, identity, name = self.store.path(payload.get('path')), payload.get('id'), payload.get('name')
+        try:
+            if str(uuid.UUID(identity)) != identity:
+                raise ValueError()
+        except (ValueError, TypeError, AttributeError):
+            raise ValueError("Не указан идентификатор внешнего счёта") from None
+        if not isinstance(name, str) or not name or name.startswith('.') or any(c in '/\\:' or ord(c) < 32 or ord(c) == 127 for c in name):
+            raise ValueError("Недопустимое имя PDF")
+        name = unicodedata.normalize('NFC', name)
+        if len(os.fsencode(name)) > 255 or Path(name).suffix.casefold() != '.pdf':
+            raise ValueError("Выбери PDF-файл с именем до 255 байт")
+        comment = external_comment(payload.get('comment', ''))
+        encoded = payload.get('pdf')
+        if not isinstance(encoded, str) or len(encoded) > ((MAX_EXTERNAL_BYTES + 2) // 3) * 4:
+            raise ValueError("PDF может занимать до 20 МБ")
+        try:
+            pdf = base64.b64decode(encoded, validate=True)
+        except (ValueError, binascii.Error):
+            raise ValueError("Не удалось прочитать переданный PDF. Повтори загрузку") from None
+        if len(pdf) > MAX_EXTERNAL_BYTES:
+            raise ValueError("PDF может занимать до 20 МБ")
+        if not pdf.startswith(b'%PDF-') or b'%%EOF' not in pdf[-2048:]:
+            raise ValueError("Файл не похож на завершённый PDF. Выбери исходный PDF ещё раз")
+        stem = Path(name).stem
+        suffix = ' - ' + identity[:8] + '.pdf'
+        while len(os.fsencode(stem + suffix)) > 255:
+            stem = stem[:-1]
+        filename = stem + suffix
+        with self.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            self.owner(db, path, active=True)
+            existing = db.execute('SELECT * FROM invoices WHERE id=?', (identity,)).fetchone()
+            if existing:
+                if existing['path'] != path or existing['state'] != 'external' or json.loads(existing['data'])['original_name'] != name or existing['pdf'] != pdf:
+                    raise InvoiceConflict("Этот идентификатор уже относится к другому счёту")
+                return self.record(existing)  # Retry never resets a later comment edit.
+            data = {'kind': 'external', 'original_name': name, 'comment': comment, 'date': today().isoformat()}
+            stamp = time.time()
+            # External invoices do not consume or reserve annual invoice numbers.
+            db.execute("""INSERT INTO invoices(id,path,year,number,revision,state,data,pdf,filename,created,updated)
+                VALUES (?,?,0,?,1,'external',?,?,?,?,?)""",
+                (identity, path, identity, json.dumps(data, ensure_ascii=False), pdf, filename, stamp, stamp))
+            return self.record(self.current(db, path, identity))
+
+    def save_comment(self, payload):
+        comment = external_comment(payload.get('comment'))
+        with self.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            row = self.current(db, payload.get('path'), payload.get('id'))
+            self.owner(db, row['path'], active=True)
+            if row['state'] != 'external' or type(payload.get('revision')) is not int or row['revision'] != payload['revision']:
+                raise InvoiceConflict("Счёт уже изменён. Твой комментарий остался в форме; открой актуальную версию отдельно")
+            data = json.loads(row['data'])
+            if data.get('comment', '') == comment:
+                return self.record(row)
+            db.execute('INSERT INTO invoice_history VALUES (?,?,?,?)', (row['id'], row['revision'], row['data'], time.time()))
+            data['comment'] = comment
+            db.execute('UPDATE invoices SET data=?,revision=revision+1,updated=? WHERE id=?',
+                       (json.dumps(data, ensure_ascii=False), time.time(), row['id']))
+            return self.record(self.current(db, row['path'], row['id']))
 
     def create(self, payload):
         path, identity = payload.get("path"), payload.get("id")
@@ -248,6 +321,8 @@ class InvoiceStore:
                         terms=DEFAULT_TERMS, items=[{"name": owner["title"], "unit": "шт", "quantity": "1", "price": "0"}])
             if payload.get("source"):
                 source = self.current(db, path, payload["source"])
+                if source['state'] == 'external':
+                    raise ValueError("Внешний PDF нельзя использовать как черновик редактора")
                 data.update(json.loads(source["data"]))
                 data.update(number=number, date=today().isoformat(), due_date=(today() + timedelta(days=7)).isoformat(), work_start="", work_end="")
             data = validate(data)
@@ -280,6 +355,8 @@ class InvoiceStore:
             row = self.current(db, payload.get("path"), payload.get("id"))
             if row["state"] == "issued":
                 return self.record(row)  # A retry after a lost HTTP response is safe.
+            if row['state'] != 'draft':
+                raise ValueError("Внешний PDF уже прикреплён; выпуск в редакторе ему не нужен")
             if type(payload.get("revision")) is not int or payload["revision"] != row["revision"]:
                 raise InvoiceConflict("Черновик изменился. Обнови его перед выпуском")
             data = validate(json.loads(row["data"]), issuing=True)
@@ -304,12 +381,14 @@ class InvoiceStore:
     def pdf(self, path, identity):
         with self.connect() as db:
             row = self.current(db, path, identity)
-            if row["state"] != "issued":
+            if row["state"] not in {"issued", "external"}:
                 raise ValueError("Сначала выпусти PDF")
             return row["pdf"], row["filename"]
 
     def preview(self, path, identity):
         record = self.get(path, identity)
+        if record['state'] == 'external':
+            return self.pdf(path, identity)[0]
         data = validate(record["data"], issuing=True)
         return render({**data, "preview": True}, self.app_dir, self.store.database.parent)
 
@@ -318,7 +397,7 @@ class InvoiceStore:
             return
         try:
             with self.connect() as db:
-                pending = [row[0] for row in db.execute("SELECT id FROM invoices WHERE state='issued' AND exported=0")]
+                pending = [row[0] for row in db.execute("SELECT id FROM invoices WHERE state IN ('issued','external') AND exported=0")]
             for identity in pending:
                 # Coordinate path changes with the existing folder rename protocol.
                 with orders.SYNC_LOCK:

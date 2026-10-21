@@ -1400,14 +1400,26 @@ class ManagerHandler(BaseHTTPRequestHandler):
             return
         try:
             route = urllib.parse.urlparse(self.path).path
+            if route == '/api/invoice-upload':
+                origin = self.headers.get('Origin')
+                if self.headers.get_content_type() != 'application/json' or (origin and urllib.parse.urlsplit(origin).netloc != self.headers.get('Host')):
+                    raise ValueError('Прикрепляй PDF через кнопку «Прикрепить PDF» в заказе')
             length = int(self.headers.get("Content-Length", "0"))
-            if length < 0 or length > (1024 * 1024 if route in {"/api/file-comment", "/api/order-save", "/api/status"} else 256 * 1024):
+            limit = invoices.EXTERNAL_REQUEST_LIMIT if route == '/api/invoice-upload' else (1024 * 1024 if route in {"/api/file-comment", "/api/order-save", "/api/status"} else 256 * 1024)
+            if length < 0 or length > limit:
                 raise ValueError("Слишком большой запрос")
             payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
             if not isinstance(payload, dict):
                 raise ValueError("Некорректный запрос")
             if route == "/api/invoice-create":
                 self.send_json(invoice_store().create(payload), 201)
+                return
+            elif route == '/api/invoice-upload':
+                self.send_json(invoice_store().upload(payload), 201)
+                schedule_order_sync()
+                return
+            elif route == '/api/invoice-comment':
+                self.send_json(invoice_store().save_comment(payload))
                 return
             elif route == "/api/invoice-save":
                 self.send_json(invoice_store().save(payload))

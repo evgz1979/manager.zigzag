@@ -92,7 +92,7 @@ def reserved_names(db, relative):
             for row in db.execute(f'SELECT path FROM {table}'):
                 reserve(row[0])
     if 'invoices' in tables:
-        for path, name in db.execute("SELECT path,filename FROM invoices WHERE state='issued'"):
+        for path, name in db.execute("SELECT path,filename FROM invoices WHERE state IN ('issued','external')"):
             if name:
                 reserve((Path(path)/'# bills'/name).as_posix())
     return names

@@ -1,6 +1,6 @@
 /* Invoice fields live in SQLite; a browser draft is never the saved copy. */
 (() => {
-  let editor = null, listedPath = null, listMarkup = null, loading = 0, pendingCreate = null;
+  let editor = null, attachment = null, listedPath = null, listMarkup = null, loading = 0, pendingCreate = null;
   const fields = { kind: "invoiceKind", number: "invoiceNumber", date: "invoiceDate", due_date: "invoiceDue",
     buyer_name: "invoiceBuyer", buyer_inn: "invoiceBuyerInn", buyer_kpp: "invoiceBuyerKpp", buyer_address: "invoiceBuyerAddress",
     note: "invoiceNote", work_start: "invoiceWorkStart", work_end: "invoiceWorkEnd", terms: "invoiceTerms" };
@@ -30,12 +30,15 @@
       const result = await request(apiUrl("/api/invoices", folder.path));
       if (version !== loading || state.folder?.path !== folder.path) return;
       $("invoiceCount").textContent = result.items.length || "";
-      $("invoiceListState").textContent = result.items.length ? "" : "Выпиши первый счёт по этому заказу.";
+      $("invoiceListState").textContent = result.items.length ? "" : "Прикрепи PDF или выпиши счёт по этому заказу.";
       const markup = result.items.map((record) => {
-        const label = (record.data.kind === "contract" ? "Счёт-договор" : "Счёт") + " № " + record.number;
+        const external = record.state === "external";
+        const label = external ? record.data.original_name : (record.data.kind === "contract" ? "Счёт-договор" : "Счёт") + " № " + record.number;
+        const date = record.data.date.split("-").reverse().join(".");
+        const comment = external && record.data.comment ? '<small class="invoice-row-comment">' + escapeHtml(record.data.comment) + '</small>' : '';
         const sync = record.state === "draft" ? "Черновик" : record.sync_error ? "PDF в базе · " + record.sync_error + " · автоповтор" : record.sync_pending ? "PDF в базе · копия в # bills ожидает выгрузки" : "PDF в # bills";
-        return '<div class="invoice-row"><button type="button" class="invoice-row-name" data-invoice-edit="' + record.id + '">' + escapeHtml(label) + '<small>' + escapeHtml(record.data.date.split("-").reverse().join(".")) + '</small></button><strong>' + cash(record.data.total) + '</strong><span class="invoice-row-state' + (record.sync_error ? ' error' : '') + '">' + escapeHtml(sync) + '</span>' +
-          (record.state === "issued" ? '<a class="secondary-button" href="' + escapeHtml(pdfUrl(record)) + '" target="_blank" rel="noopener">PDF ↗</a>' : '') + '<button class="secondary-button" type="button" data-invoice-copy="' + record.id + '">На основе</button></div>';
+        return '<div class="invoice-row"><button type="button" class="invoice-row-name" data-invoice-edit="' + record.id + '">' + escapeHtml(label) + '<small>' + escapeHtml((external ? 'Внешний · ' : '') + date) + '</small>' + comment + '</button>' + (external ? '' : '<strong>' + cash(record.data.total) + '</strong>') + '<span class="invoice-row-state' + (record.sync_error ? ' error' : '') + '">' + escapeHtml(sync) + '</span>' +
+          (record.state !== "draft" ? '<a class="secondary-button" href="' + escapeHtml(pdfUrl(record)) + '" target="_blank" rel="noopener">PDF ↗</a>' : '') + (external ? '' : '<button class="secondary-button" type="button" data-invoice-copy="' + record.id + '">На основе</button>') + '</div>';
       }).join("");
       if (markup !== listMarkup) {
         $("invoiceList").innerHTML = markup;
@@ -45,6 +48,74 @@
       $("invoiceList").invoiceRecords = result.items;
     } catch (error) {
       if (version === loading && state.folder?.path === folder.path) $("invoiceListState").textContent = error.message;
+    }
+  }
+
+  function newIdentity() {
+    // crypto.randomUUID is unavailable on HTTP LAN origins.
+    const bytes = crypto.getRandomValues(new Uint8Array(16)); bytes[6] = (bytes[6] & 15) | 64; bytes[8] = (bytes[8] & 63) | 128;
+    const hex = [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+    return hex.slice(0, 8) + "-" + hex.slice(8, 12) + "-" + hex.slice(12, 16) + "-" + hex.slice(16, 20) + "-" + hex.slice(20);
+  }
+
+  function showExternal(record = null) {
+    const path = record?.path || state.folder?.path;
+    if (!path || !state.folder?.order) return;
+    attachment = { path, record, id: record?.id || newIdentity(), busy: false, saved: record?.data.comment || "" };
+    $("externalInvoiceTitle").textContent = record ? "Внешний счёт" : "Прикрепить внешний счёт";
+    $("externalInvoicePath").textContent = path;
+    $("externalInvoiceFile").value = "";
+    $("externalInvoiceFile").required = !record;
+    $("externalInvoiceFileLabel").hidden = Boolean(record);
+    $("externalInvoiceName").hidden = !record;
+    $("externalInvoiceName").textContent = record?.data.original_name || "";
+    $("externalInvoiceComment").value = attachment.saved;
+    $("externalInvoiceState").textContent = "";
+    $("externalInvoiceState").classList.remove("error");
+    $("externalInvoicePdf").hidden = !record;
+    if (record) $("externalInvoicePdf").href = pdfUrl(record);
+    $("saveExternalInvoice").textContent = record ? "Сохранить комментарий" : "Прикрепить";
+    $("externalInvoiceDialog").showModal();
+    (record ? $("externalInvoiceComment") : $("externalInvoiceFile")).focus();
+  }
+
+  function closeExternal() {
+    if (attachment?.busy) return;
+    attachment = null;
+    $("externalInvoiceDialog").close();
+  }
+
+  async function saveExternal() {
+    const current = attachment;
+    if (!current || current.busy) return;
+    const file = $("externalInvoiceFile").files[0], comment = $("externalInvoiceComment").value;
+    const status = $("externalInvoiceState");
+    if (!current.record && (!file || !/\.pdf$/i.test(file.name) || file.size > 20 * 1024 * 1024)) {
+      status.textContent = "Выбери PDF до 20 МБ."; status.classList.add("error"); return;
+    }
+    current.busy = true;
+    for (const id of ["externalInvoiceFile", "externalInvoiceComment", "saveExternalInvoice", "closeExternalInvoice"]) $(id).disabled = true;
+    status.classList.remove("error");
+    status.textContent = current.record ? "Сохранение комментария…" : "Загрузка PDF на M4…";
+    try {
+      if (!current.record) {
+        const pdf = await new Promise((resolve, reject) => {
+          const reader = new FileReader(); reader.onerror = () => reject(new Error("Не удалось прочитать PDF на этом компьютере"));
+          reader.onload = () => resolve(String(reader.result).split(",")[1]); reader.readAsDataURL(file);
+        });
+        current.record = await request("/api/invoice-upload", { path: current.path, id: current.id, name: file.name, comment, pdf });
+      }
+      if (current.record.data.comment !== comment) current.record = await request("/api/invoice-comment", {
+        path: current.path, id: current.record.id, revision: current.record.revision, comment,
+      });
+      current.saved = comment;
+      current.busy = false;
+      closeExternal();
+      await refreshList(true);
+    } catch (error) { status.textContent = error.message + " Ввод остался в форме."; status.classList.add("error"); }
+    finally {
+      current.busy = false;
+      for (const id of ["externalInvoiceFile", "externalInvoiceComment", "saveExternalInvoice", "closeExternalInvoice"]) $(id).disabled = false;
     }
   }
 
@@ -142,10 +213,7 @@
     const path = state.folder?.path;
     if (!path || !state.folder.order) return;
     if (!pendingCreate || pendingCreate.path !== path || pendingCreate.source !== source) {
-      // crypto.randomUUID is unavailable on HTTP LAN origins.
-      const bytes = crypto.getRandomValues(new Uint8Array(16)); bytes[6] = (bytes[6] & 15) | 64; bytes[8] = (bytes[8] & 63) | 128;
-      const hex = [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
-      pendingCreate = { path, source, id: hex.slice(0, 8) + "-" + hex.slice(8, 12) + "-" + hex.slice(12, 16) + "-" + hex.slice(16, 20) + "-" + hex.slice(20) };
+      pendingCreate = { path, source, id: newIdentity() };
     }
     $("newInvoice").disabled = true;
     try {
@@ -175,6 +243,11 @@
   $("closeInvoice").addEventListener("click", () => action(close));
   $("invoiceDialog").addEventListener("cancel", (event) => { event.preventDefault(); action(close); });
   $("newInvoice").addEventListener("click", () => action(() => create()));
+  $("attachInvoice").addEventListener("click", () => showExternal());
+  $("closeExternalInvoice").addEventListener("click", closeExternal);
+  $("externalInvoiceDialog").addEventListener("cancel", (event) => { event.preventDefault(); closeExternal(); });
+  $("externalInvoiceForm").addEventListener("submit", (event) => { event.preventDefault(); saveExternal(); });
+  $("externalInvoiceFile").addEventListener("change", () => { if (attachment && !attachment.busy) attachment.id = newIdentity(); });
   $("addInvoiceItem").addEventListener("click", () => {
     if (!editor || editor.record.state !== "draft") return;
     if ($("invoiceItems").rows.length >= 40) { message("До 40 позиций; PDF должен поместиться на одну страницу.", true); return; }
@@ -192,7 +265,7 @@
     if (copy) action(() => create(copy.dataset.invoiceCopy));
     else if (edit) {
       const record = $("invoiceList").invoiceRecords?.find((item) => item.id === edit.dataset.invoiceEdit && item.path === state.folder?.path);
-      if (record) show(record);
+      if (record) { if (record.state === "external") showExternal(record); else show(record); }
     }
   });
   $("previewInvoice").addEventListener("click", () => {
@@ -223,7 +296,7 @@
   }));
   document.addEventListener("manager-folder-rendered", () => refreshList());
   window.addEventListener("beforeunload", (event) => {
-    if (editor?.dirty || editor?.saving || editor?.issuing) { event.preventDefault(); event.returnValue = ""; }
+    if (editor?.dirty || editor?.saving || editor?.issuing || attachment?.busy || (attachment && $("externalInvoiceComment").value !== attachment.saved)) { event.preventDefault(); event.returnValue = ""; }
   });
   setInterval(() => { if (!document.hidden && state.view !== "orders" && !$("invoiceSection").hidden) refreshList(true); }, 5000);
   refreshList();

@@ -11,6 +11,29 @@ from event_folder_undo import assert_unlocked
 KIND = "order_creation"
 
 
+def complete_service_folders(store, path, session, plan, journal):
+    """Finish only our missing mkdir steps after the order folder is proven owned."""
+    completed = {item['id']: item for item in journal if item['phase'] == 'commit'}
+    for index, operation in enumerate(plan['operations'], 1):
+        relative = operation['destination']
+        if Path(relative).parent.as_posix() != path:
+            continue
+        if operation['operation'] != 'mkdir' or Path(relative).name not in {'# bills', '# cdr'}:
+            raise ValueError('Неизвестный шаг создания служебной папки; проверь журнал')
+        target = layout.safe_path(store.root, relative, plan['clients'], service_roots=plan.get('service_roots', ()))
+        if index in completed:
+            if not target.is_dir() or layout.identity(target) != completed[index]['identity']:
+                raise ValueError('Служебная папка была заменена после создания: ' + relative)
+            continue
+        if layout.exists(target):
+            raise ValueError('Путь служебной папки занят без подтверждения в журнале: ' + relative)
+        layout.append(session, {'phase': 'intent', 'id': index, **operation})
+        target.mkdir()
+        layout.append(session, {'phase': 'commit', 'id': index, 'identity': layout.identity(target)})
+    if not any(item['phase'] == 'complete' for item in journal):
+        layout.append(session, {'phase': 'complete', 'operations': len(plan['operations'])})
+
+
 def prepare(store, path, title, session):
     data = {"state": "pending", "title": title, "order_id": str(uuid.uuid4()),
             "session": str(session.resolve()), "error": ""}
@@ -58,6 +81,7 @@ def register(store, path):
         target = store.target(path)
         if layout.identity(target) != committed["identity"]:
             raise ValueError("Папка была заменена после создания; автоматическая регистрация остановлена")
+        complete_service_folders(store, path, session, plan, journal)
         store.require_order_folder(path)
         existing = db.execute("SELECT id FROM orders WHERE path=?", (path,)).fetchone()
         if existing and existing["id"] != data["order_id"]:

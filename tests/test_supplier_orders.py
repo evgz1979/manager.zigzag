@@ -46,7 +46,7 @@ class SupplierOrderTests(unittest.TestCase):
         self.assertIn(self.section, [item["path"] for item in manager.read_tree("# work")["children"]])
         created = self.post("/api/order-folder-create", {"path": self.section, "date": "2026-10-20", "title": "Стеклопакеты для Жуковки"})
         self.assertEqual(created["path"], self.order)
-        self.assertEqual(list((self.root / self.order).iterdir()), [])
+        self.assertEqual({item.name for item in (self.root / self.order).iterdir()}, {'# bills', '# cdr'})
         created_card = manager.order_store().get(self.order)
         self.assertTrue(created['registered'])
         order = self.post('/api/order-save', {'path': self.order, 'revision': created_card['revision'],
@@ -84,7 +84,8 @@ class SupplierOrderTests(unittest.TestCase):
         opened = manager.read_folder(self.order)
         self.assertFalse(opened["service"])
         self.assertEqual(opened["order"]["note"], "Заметка поставщику")
-        self.assertEqual(opened["directories"][0]["eventRelevance"]["value"], "active")
+        opened_event = next(item for item in opened['directories'] if item['path'] == event['path'])
+        self.assertEqual(opened_event["eventRelevance"]["value"], "active")
         self.assertIn("[Заказ]", (self.root / self.order / "!.txt").read_text())
         self.assertIn("Проверить формулу", (self.root / event["path"] / "!.txt").read_text())
         self.assertIn("[Актуальность события]\nАктуально", (self.root / event["path"] / "!.txt").read_text())

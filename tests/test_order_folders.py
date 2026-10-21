@@ -26,7 +26,7 @@ class OrderFolderTests(unittest.TestCase):
         self.folder("Клиент/Адрес")
         return order_folders.create(self.root, changes.get("path", "Клиент/Адрес"), changes.get("date", "2026-10-19"), changes.get("title", "Вывеска"))
 
-    def test_http_creates_empty_folder_and_registers_card_with_safe_portable_journal(self):
+    def test_http_creates_service_folders_and_registers_card_with_safe_portable_journal(self):
         manager.DATABASE_ONLY = True
         self.folder("Клиент/Адрес")
         self.file("Клиент/Адрес/!.txt", b"parent note")
@@ -36,7 +36,8 @@ class OrderFolderTests(unittest.TestCase):
         created = json.loads(body)
         self.assertEqual(created["path"], "Клиент/Адрес/2026-10-19 - Новая вывеска")
         target = self.root / created["path"]
-        self.assertEqual(list(target.iterdir()), [])
+        self.assertEqual({item.name for item in target.iterdir()}, {'# bills', '# cdr'})
+        self.assertTrue(all(not list(item.iterdir()) for item in target.iterdir()))
         self.assertTrue(created['registered'])
         card = manager.order_store().get(created['path'])
         self.assertEqual((card['title'], card['status'], card['note']), ('Новая вывеска', 'new', ''))
@@ -45,7 +46,7 @@ class OrderFolderTests(unittest.TestCase):
         session = self.root / created["journal"]
         self.assertTrue((session / ".before.json").exists())
         self.assertEqual(json.loads((session / ".result.json").read_text())["status"], "created")
-        self.assertEqual([x["phase"] for x in layout.records(session)], ["session_created", "intent", "commit", "complete"])
+        self.assertEqual([x["phase"] for x in layout.records(session)], ["session_created", "intent", "commit", "intent", "commit", "intent", "commit", "complete"])
         undone = subprocess.run([sys.executable, str(session / ".folder-layout.py"), "undo", str(session), "--apply"], capture_output=True)
         self.assertNotEqual(undone.returncode, 0)
         self.assertIn('SQLite', undone.stderr.decode())
@@ -61,6 +62,7 @@ class OrderFolderTests(unittest.TestCase):
                 status, _, body = self.http('/api/order-folder-create', 'POST', json.dumps({'path': parent, 'date': '2026-10-21', 'title': 'Новый ' + str(index)}))
             self.assertEqual(status, 201, body)
             created = json.loads(body)
+            self.assertEqual({item.name for item in (self.root / created['path']).iterdir()}, {'# bills', '# cdr'})
             card = manager.order_store().get(created['path'])
             self.assertIsNotNone(card)
             self.assertEqual(card['title'], 'Новый ' + str(index))
@@ -114,6 +116,25 @@ class OrderFolderTests(unittest.TestCase):
         self.assertFalse((self.root / path).exists())
         self.assertEqual(manager.order_store().get(path), card)
 
+    def test_restart_finishes_missing_service_mkdir_before_registration(self):
+        manager.DATABASE_ONLY = True
+        self.folder('Клиент/Адрес')
+        real_mkdir = layout.Path.mkdir
+        def interrupted(target, *args, **kwargs):
+            if target.name == '# cdr':
+                raise OSError('Прервана запись')
+            return real_mkdir(target, *args, **kwargs)
+        with patch.object(layout.Path, 'mkdir', interrupted):
+            with self.assertRaises(OSError):
+                order_folders.create(self.root, 'Клиент/Адрес', '2026-10-21', 'Восстановление папок', store=manager.order_store())
+        path = 'Клиент/Адрес/2026-10-21 - Восстановление папок'
+        self.assertIsNone(manager.order_store().get(path))
+        self.file(path + '/# bills/Сохранить.pdf', b'new user file')
+        order_creation.recover(manager.order_store())
+        self.assertIsNotNone(manager.order_store().get(path))
+        self.assertTrue((self.root / path / '# cdr').is_dir())
+        self.assertEqual((self.root / path / '# bills/Сохранить.pdf').read_bytes(), b'new user file')
+
     def test_explicit_add_retries_pending_manager_creation_with_same_identity(self):
         manager.DATABASE_ONLY = True
         self.folder('Клиент/Адрес')
@@ -132,7 +153,7 @@ class OrderFolderTests(unittest.TestCase):
         self.folder('Клиент/Адрес')
         real_apply = layout.apply
         def conflict(session):
-            destination = self.root / layout.load_plan(session)['operations'][-1]['destination']
+            destination = self.root / json.loads((session / '.before.json').read_text())['parent'] / '2026-10-21 - Конфликт'
             destination.mkdir()
             (destination / 'external.txt').write_bytes(b'preserve')
             real_apply(session)

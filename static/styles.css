@@ -516,6 +516,14 @@ h2 { font-size: 13px; font-weight: 600; }
 .invoice-section { margin: 18px 0; border: 1px solid var(--border, #e1e4e9); border-radius: 12px; padding: 12px 15px; }
 .invoice-section-heading, .invoice-total-row, .invoice-dialog-heading, .invoice-dialog-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .invoice-section-heading h2 { margin: 0; font-size: 15px; }
+.invoice-section-heading { flex-wrap: wrap; }
+.invoice-section-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.invoice-section-actions button { padding: 6px 8px; font-size: 11px; }
+.external-invoice-dialog { width: min(560px, calc(100vw - 24px)); }
+.external-invoice-name { margin: 0 0 15px; overflow-wrap: anywhere; font-size: 14px; font-weight: 600; }
+.external-invoice-comment { margin-top: 15px; }
+.invoice-row-name .invoice-row-comment { color: #596b63; white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.invoice-row-name { overflow-wrap: anywhere; }
 .invoice-list { margin-top: 7px; }
 .invoice-row { display: flex; gap: 12px; align-items: center; padding: 7px 0; border-top: 1px solid #eef0f3; font-size: 12px; }
 .invoice-row-name { border: 0; background: transparent; padding: 0; text-align: left; font: inherit; font-weight: 600; cursor: pointer; min-width: 125px; color: inherit; }

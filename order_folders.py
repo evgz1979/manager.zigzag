@@ -113,6 +113,8 @@ def create(root, relative, order_date, title, *, store=None):
         if not parent.exists():
             plan.mkdir(parent.relative_to(root).as_posix())
         plan.mkdir(path)
+        for service in ('# bills', '# cdr'):
+            plan.mkdir((Path(path) / service).as_posix())
         if not plan.operations:
             raise OrderFolderConflict("Папка или файл с таким именем уже существует. Измените дату или название")
         before = {"parent": relative, "identity": layout.identity(root/relative),

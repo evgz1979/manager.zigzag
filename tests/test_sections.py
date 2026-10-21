@@ -46,7 +46,7 @@ class SectionTests(unittest.TestCase):
                 record = self.post("/api/order-folder-create", {"path": section, "date": "2026-10-20", "title": "Запись"})
                 path = record["path"]
                 paths.append(path)
-                self.assertEqual(list((self.root / path).iterdir()), [])
+                self.assertEqual({item.name for item in (self.root / path).iterdir()}, {'# bills', '# cdr'})
                 created_card = manager.order_store().get(path)
                 self.assertTrue(record['registered'])
                 added = self.post('/api/order-save', {'path': path, 'revision': created_card['revision'],
@@ -62,7 +62,8 @@ class SectionTests(unittest.TestCase):
                 self.assertEqual(opened["view"], "files")
                 self.assertTrue(opened["canCreateEventFolder"])
                 self.assertEqual(opened["order"]["id"], added["id"])
-                self.assertEqual(opened["directories"][0]["eventRelevance"]["value"], "check")
+                opened_event = next(item for item in opened['directories'] if item['path'] == event['path'])
+                self.assertEqual(opened_event["eventRelevance"]["value"], "check")
                 self.assertEqual(manager.read_folder(event["path"])["view"], "files")
         store, notes = manager.order_store(), manager.folder_note_store()
         self.assertEqual(store.discard_service_orders(), 0)
