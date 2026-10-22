@@ -92,7 +92,7 @@ h1, h2, h3, p { margin: 0; }
 .order-heading > div { min-width: 0; }
 .order-title-row { display: flex; align-items: flex-start; gap: 8px; }
 .order-title-row h1 { min-width: 0; }
-.work-supplier-name { display: inline-block; max-width: 100%; margin-right: .25em; padding: .06em .28em; border-radius: 7px; background: hsl(var(--supplier-hue) 75% 88%); color: hsl(var(--supplier-hue) 70% 33%); font-size: 1em; font-weight: 750; letter-spacing: .01em; text-transform: uppercase; vertical-align: baseline; overflow-wrap: anywhere; }
+.work-supplier-name { display: inline-block; max-width: 100%; margin-right: .25em; padding: .06em .28em; border-radius: 7px; background: hsl(var(--supplier-hue) 40% 96%); color: hsl(var(--supplier-hue) 45% 32%); font-size: 1em; font-weight: 750; letter-spacing: .01em; text-transform: uppercase; vertical-align: baseline; overflow-wrap: anywhere; }
 .order-title-row .order-favorite-button { flex: 0 0 30px; }
 .order-folder-name { margin-top: 7px; color: var(--muted); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
 .print-legacy-folders { margin: 20px 0; color: var(--muted); font-size: 12px; }
@@ -183,9 +183,9 @@ h2 { font-size: 13px; font-weight: 600; }
 .subfolder > svg:first-child { width: 21px; height: 21px; color: #93a586; fill: #e3ebd8; }
 .subfolder > svg:last-child { width: 12px; height: 12px; color: #a9b3a9; margin-left: auto; }
 .subfolder span { flex: 1; overflow-wrap: anywhere; }
-.work-supplier-button { background: hsl(var(--supplier-hue) 75% 88%); color: hsl(var(--supplier-hue) 70% 33%); border-color: hsl(var(--supplier-hue) 50% 68%); font-weight: 600; }
-.work-supplier-button:hover { background: hsl(var(--supplier-hue) 75% 84%); border-color: hsl(var(--supplier-hue) 50% 55%); }
-.work-supplier-button > svg:first-child { color: inherit; fill: hsl(var(--supplier-hue) 50% 75%); }
+.work-supplier-button { background: hsl(var(--supplier-hue) 40% 96%); color: hsl(var(--supplier-hue) 45% 32%); border-color: hsl(var(--supplier-hue) 30% 84%); font-weight: 600; }
+.work-supplier-button:hover { background: hsl(var(--supplier-hue) 40% 93%); border-color: hsl(var(--supplier-hue) 30% 70%); }
+.work-supplier-button > svg:first-child { color: inherit; fill: hsl(var(--supplier-hue) 30% 86%); }
 .work-supplier-button > svg:last-child { color: inherit; opacity: .6; }
 .work-supplier-name.supplier-neutral, .work-supplier-button.supplier-neutral { background: #f0f1f2; color: #6b7278; border-color: #d6dadd; }
 .work-supplier-button.supplier-neutral:hover { background: #e7e9eb; }
