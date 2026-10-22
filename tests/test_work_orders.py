@@ -66,8 +66,8 @@ class WorkOrderTests(unittest.TestCase):
         store = manager.order_store()
         with store.connect() as db, patch('icloud_access.read_bytes', side_effect=AssertionError('No iCloud reads')):
             newtek = work_orders.supplier_color(db, self.supplier)
-            self.assertEqual(newtek, {'hue': 114, 'neutral': False})
-            self.assertEqual(work_orders.supplier_color(db, '# work/# antares/Заказ'), {'hue': 190, 'neutral': False})
+            self.assertEqual(newtek, {'hue': 125, 'neutral': False})
+            self.assertEqual(work_orders.supplier_color(db, '# work/# antares/Заказ'), {'hue': 0, 'neutral': False})
             self.assertTrue(work_orders.supplier_color(db, '# work/# razbor')['neutral'])
             before = dict(db.execute("SELECT * FROM metadata_records WHERE kind=? AND path=?",
                                      (work_orders.SUPPLIER_COLOR_KIND, '# work/# newtek')).fetchone())
@@ -96,6 +96,36 @@ class WorkOrderTests(unittest.TestCase):
         self.assertEqual(saved['work_supplier_color'], button['supplierColor'])
         self.assertEqual(saved['revision'], order['revision'])
         self.assertEqual(saved['extra_blocks'], order['extra_blocks'])
+
+    def test_old_similar_supplier_colors_change_once_with_history_and_stable_identities(self):
+        manager.DATABASE_ONLY = True
+        old_hues = {'antares': 190, 'cutter': 303, 'freza': 176, 'glass': 28,
+                    'himlex': 107, 'laser': 115, 'newtek': 114, 'print': 197, 'razbor': 266}
+        with manager.order_store().connect() as db:
+            for name, hue in old_hues.items():
+                data = {'version': 1, 'hue': hue, 'neutral': name == 'razbor', 'extra': 'Keep'}
+                db.execute("INSERT INTO metadata_records VALUES (?,?,?,?,1,?)",
+                           ('color-' + name, work_orders.SUPPLIER_COLOR_KIND, '# work/# ' + name, json.dumps(data), 1))
+            colors = {name: work_orders.supplier_color(db, '# work/# ' + name) for name in old_hues}
+            hues = [color['hue'] for color in colors.values() if not color['neutral']]
+            self.assertEqual(len(set(hues)), 8)
+            self.assertGreaterEqual(min(min((a-b) % 360, (b-a) % 360) for a in hues for b in hues if a != b), 25)
+            self.assertTrue(colors['razbor']['neutral'])
+            for name in old_hues:
+                row = db.execute("SELECT * FROM metadata_records WHERE id=?", ('color-' + name,)).fetchone()
+                self.assertEqual(row['revision'], 2)
+                data = json.loads(row['data'])
+                self.assertEqual(data['palette'], 2)
+                self.assertEqual(data['version'], 1)  # The prior reader can still read these colors.
+                self.assertEqual(data['extra'], 'Keep')
+                history = db.execute("SELECT data FROM metadata_history WHERE identity=?", ('color-' + name,)).fetchone()
+                self.assertEqual(json.loads(json.loads(history['data'])['data'])['hue'], old_hues[name])
+                self.assertEqual(work_orders.supplier_color(db, '# work/# ' + name), colors[name])
+            self.assertEqual(db.execute("SELECT count(*) FROM metadata_history").fetchone()[0], 9)
+            new_color = work_orders.supplier_color(db, '# work/# Another supplier')
+            self.assertNotIn(new_color['hue'], hues)
+            self.assertFalse(new_color['neutral'])
+            self.assertEqual({name: work_orders.supplier_color(db, '# work/# ' + name) for name in old_hues}, colors)
 
     def test_supplier_color_follows_database_path_rewrite_and_undo_with_history(self):
         manager.DATABASE_ONLY = True

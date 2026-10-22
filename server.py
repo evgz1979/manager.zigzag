@@ -1705,6 +1705,7 @@ def main():
         with metadata_store().connect():
             pass
         metadata_store().backup("before-migration")
+        metadata_store().backup("before-supplier-palette-v2")
     discarded = order_store().discard_service_orders() if not DATABASE_ONLY else 0
     if discarded:
         print(f"Тестовые регистрации служебных папок убраны: {discarded}", flush=True)

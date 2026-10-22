@@ -11,6 +11,11 @@ from folder_structure import dated, is_service_folder, is_supplier_root, is_work
 LINKS_BLOCK = "Связанные заказы поставщиков"
 MAX_LINKS = 200
 SUPPLIER_COLOR_KIND = "work_supplier_color"
+SUPPLIER_PALETTE_VERSION = 2
+SUPPLIER_PALETTE = {
+    "antares": 0, "cutter": 270, "freza": 180, "glass": 30,
+    "himlex": 55, "laser": 215, "newtek": 125, "print": 325,
+}
 
 
 def in_work(relative):
@@ -31,8 +36,25 @@ def supplier_name(relative):
     return parts[1][1:].strip() if parts[1].startswith('#') else parts[1]
 
 
+def new_supplier_hue(db, name):
+    """Choose the least occupied hue; only the new supplier gets this color."""
+    used = list(SUPPLIER_PALETTE.values())
+    for row in db.execute("SELECT data FROM metadata_records WHERE kind=?", (SUPPLIER_COLOR_KIND,)).fetchall():
+        try:
+            data = json.loads(row["data"])
+            if isinstance(data, dict) and type(data.get("hue")) is int and not data.get("neutral"):
+                used.append(data["hue"] % 360)
+        except ValueError:
+            pass  # Unknown records are retained as they are.
+    seed = 0
+    for character in name:
+        seed = (seed * 31 + ord(character)) & 0xffffffff
+    candidates = [(seed + offset) % 360 for offset in range(360)]
+    return max(candidates, key=lambda hue: min(min((hue - other) % 360, (other - hue) % 360) for other in used))
+
+
 def supplier_color(db, relative):
-    """Pin the existing heading color to the section path, entirely in SQLite."""
+    """Persist a distinct palette per section, with a one-time v1 conversion."""
     parts = Path(relative).parts
     if len(parts) < 2 or not is_work_root(parts[0]) or dated(parts[1]):
         return None
@@ -42,22 +64,28 @@ def supplier_color(db, relative):
         from local_metadata import schema, audit
         schema(db)
         audit(db, "metadata_records")
-    row = db.execute("SELECT data FROM metadata_records WHERE kind=? AND path=?", (SUPPLIER_COLOR_KIND, path)).fetchone()
+    name = parts[1][1:].strip() if parts[1].startswith('#') else parts[1]
+    name = unicodedata.normalize("NFC", name).lower()
+    row = db.execute("SELECT * FROM metadata_records WHERE kind=? AND path=?", (SUPPLIER_COLOR_KIND, path)).fetchone()
     if row is None:
-        name = parts[1][1:].strip() if parts[1].startswith('#') else parts[1]
-        name = unicodedata.normalize("NFC", name).lower()
-        # Match the previous JavaScript heading hash, including unsigned overflow.
-        color = 0
-        for character in name:
-            color = (color * 31 + ord(character)) & 0xffffffff
-        data = {"version": 1, "hue": color % 360, "neutral": name == "razbor"}
+        hue = SUPPLIER_PALETTE[name] if name in SUPPLIER_PALETTE else 0 if name == "razbor" else new_supplier_hue(db, name)
+        data = {"version": 1, "palette": SUPPLIER_PALETTE_VERSION, "hue": hue, "neutral": name == "razbor"}
         db.execute("INSERT OR IGNORE INTO metadata_records VALUES (?,?,?,?,1,?)",
                    (str(uuid.uuid4()), SUPPLIER_COLOR_KIND, path, json.dumps(data), time.time()))
-        row = db.execute("SELECT data FROM metadata_records WHERE kind=? AND path=?", (SUPPLIER_COLOR_KIND, path)).fetchone()
+        row = db.execute("SELECT * FROM metadata_records WHERE kind=? AND path=?", (SUPPLIER_COLOR_KIND, path)).fetchone()
     data = json.loads(row["data"])
-    if (not isinstance(data, dict) or data.get("version") != 1 or type(data.get("hue")) is not int or not 0 <= data["hue"] < 360
+    if (not isinstance(data, dict) or type(data.get("version")) is not int or data["version"] != 1
+            or ("palette" in data and (type(data["palette"]) is not int or data["palette"] != SUPPLIER_PALETTE_VERSION))
+            or type(data.get("hue")) is not int or not 0 <= data["hue"] < 360
             or type(data.get("neutral")) is not bool):
         raise ValueError("Неизвестный цвет поставщика сохранён в базе без изменений")
+    if "palette" not in data:
+        data = {**data, "palette": SUPPLIER_PALETTE_VERSION,
+                "hue": SUPPLIER_PALETTE.get(name, data["hue"]), "neutral": name == "razbor" or data["neutral"]}
+        result = db.execute("UPDATE metadata_records SET data=?,revision=revision+1,updated=? WHERE id=? AND revision=?",
+                            (json.dumps(data), time.time(), row["id"], row["revision"]))
+        if not result.rowcount:
+            return supplier_color(db, relative)
     return {"hue": data["hue"], "neutral": data["neutral"]}
 
 

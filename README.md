@@ -6,7 +6,7 @@
 
 ## Документация проекта
 
-[Постоянный справочник](docs/README.md): [структура](docs/folder-structure.md), [хранение и восстановление](docs/data-storage.md), [операции и деплой](docs/operations.md). Правила разработки — [AGENTS.md](AGENTS.md). Версия документации **2.19.0**.
+[Постоянный справочник](docs/README.md): [структура](docs/folder-structure.md), [хранение и восстановление](docs/data-storage.md), [операции и деплой](docs/operations.md). Правила разработки — [AGENTS.md](AGENTS.md). Версия документации **2.20.0**.
 
 ## Настройка
 
