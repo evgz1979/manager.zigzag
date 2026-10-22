@@ -1035,9 +1035,11 @@ def read_folder(relative="", show_inactive=False):
             if work_orders.supplier_name(relative):
                 supplier_color = work_orders.supplier_color(db, relative)
             if status["folderKind"] == "work_root":
+                favorites = work_orders.supplier_favorites(db, relative, [node["path"] for node in nodes if node["name"].startswith("#")])
                 for node in nodes:
                     if node["name"].startswith("#"):
                         node["supplierColor"] = work_orders.supplier_color(db, node["path"])
+                        node["supplierFavorite"] = favorites[unicodedata.normalize("NFC", node["path"])]
     return {"name": target.name, "path": relative_path(target), "client": client_name(relative),
             "workSupplier": work_orders.supplier_name(relative),
             "workSupplierColor": supplier_color,
@@ -1273,6 +1275,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json({"status": "ok", "release": RELEASE_ID, "root": str(DATA_ROOT)}, head=head)
             elif parsed.path == "/api/orders":
                 self.send_json(listed_orders(), head=head)
+            elif parsed.path == "/api/work-supplier-favorites":
+                self.send_json(work_orders.read_supplier_favorites(order_store(), relative), head=head)
             elif parsed.path == "/api/storage":
                 self.send_json(metadata_store().status() if DATABASE_ONLY else {"database_only":False},head=head)
             elif parsed.path == "/api/invoices":
@@ -1558,6 +1562,9 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(record)
                 schedule_order_sync()
                 return
+            elif route == "/api/work-supplier-favorite":
+                self.send_json(work_orders.save_supplier_favorite(order_store(), payload))
+                return
             elif route == "/api/work-order-links":
                 self.send_json(order_store().save_work_links(payload))
                 schedule_order_sync()
@@ -1691,7 +1698,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": True})
         except FileNotFoundError as error:
             self.send_json({"error": str(error)}, 404)
-        except (invoices.InvoiceConflict, PrintConflict, OrderConflict, ClientActivityConflict, FileCommentConflict, file_trash.TrashConflict, order_folders.OrderFolderConflict, object_years.YearGroupConflict, folder_rename.FolderRenameConflict, FolderNoteConflict, event_folders.EventFolderConflict, EventRenamePending) as error:
+        except (invoices.InvoiceConflict, PrintConflict, OrderConflict, work_orders.SupplierFavoriteConflict, ClientActivityConflict, FileCommentConflict, file_trash.TrashConflict, order_folders.OrderFolderConflict, object_years.YearGroupConflict, folder_rename.FolderRenameConflict, FolderNoteConflict, event_folders.EventFolderConflict, EventRenamePending) as error:
             self.send_json({"error": str(error)}, 409)
         except (ValueError, UnicodeDecodeError) as error:
             self.send_json({"error": str(error)}, 400)

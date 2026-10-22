@@ -13,7 +13,7 @@ const state = {
   printTask: null, printSaving: null, printQuery: "",
   view: "orders", orders: [], orderFilter: "all", financialFilter: "all", orderQuery: "", orderSort: "updated", orderDirection: -1, scan: null, ordersRequest: 0,
   unregistrations: [], removeOrder: null, removingOrder: false,
-  favoriteSaving: new Set(), favoriteOrders: [],
+  favoriteSaving: new Set(), favoriteOrders: [], supplierFavoriteSaving: new Set(), supplierFavoriteFocus: null,
   fileComment: null, fileCommentSaving: null,
   selectedFiles: new Set(), imageReport: null,
   fileRemoval: null, fileRemoving: false, trashRestoring: false,
@@ -425,18 +425,37 @@ async function openSketch(path, key) {
 
 function subfolderButton(item) {
   const color = item.supplierColor;
-  return '<button type="button" class="subfolder' + (item.inactive ? ' inactive' : '') + (color ? ' work-supplier-button' + (color.neutral ? ' supplier-neutral' : '') : '') +
+  const open = '<button type="button" class="subfolder' + (item.inactive ? ' inactive' : '') + (color ? ' work-supplier-button' + (color.neutral ? ' supplier-neutral' : '') : '') +
     '"' + (color ? ' style="--supplier-hue:' + Number(color.hue) + '"' : '') + ' data-path="' + escapeHtml(item.path) + '" title="' + escapeHtml(item.name) + '">' +
     icon("folder") + '<span>' + escapeHtml(item.name) + "</span>" + icon("chevron") + "</button>";
+  const favorite = item.supplierFavorite;
+  if (!favorite) return open;
+  const label = (favorite.is_favorite ? "Убрать раздел из избранного: " : "Добавить раздел в избранное: ") + item.name;
+  return '<div class="work-supplier-tile" data-supplier-tile="' + escapeHtml(item.path) + '">' + open +
+    '<button type="button" class="order-favorite-button work-supplier-star" data-supplier-favorite="' + escapeHtml(item.path) +
+    '" aria-pressed="' + Boolean(favorite.is_favorite) + '" aria-label="' + escapeHtml(label) + '" title="' +
+    escapeHtml(favorite.editable ? label : "Неизвестная отметка избранного сохранена без изменений") + '"' +
+    (state.supplierFavoriteSaving.has(item.path) || !favorite.editable ? ' disabled' : '') + '><span aria-hidden="true">' +
+    (favorite.is_favorite ? "★" : "☆") + '</span></button></div>';
 }
 
 function renderSubfolders() {
   const folder = state.folder;
   const focused = document.activeElement?.closest("[data-relevance]");
   const focusPath = focused?.dataset.eventPath, focusValue = focused?.dataset.relevance;
+  const focusedSupplier = document.activeElement?.closest("[data-supplier-favorite]")?.dataset.supplierFavorite;
+  const scroll = document.querySelector(".content-pane").scrollTop;
   const visibleDirectories = folder.directories.filter((item) => ["work_root", "moneys_root"].includes(folder.folderKind) || !item.name.startsWith("#"));
   const workRoot = folder.folderKind === "work_root";
-  const directories = workRoot ? visibleDirectories.filter((item) => item.name.startsWith("#")) : visibleDirectories;
+  let directories = workRoot ? visibleDirectories.filter((item) => item.name.startsWith("#")) : visibleDirectories;
+  let supplierDividerAfter = 0;
+  if (workRoot) {
+    const primary = directories.filter((item) => item.supplierFavorite?.is_favorite === true).sort((a,b) =>
+      (a.supplierFavorite.position ?? Number.MAX_SAFE_INTEGER) - (b.supplierFavorite.position ?? Number.MAX_SAFE_INTEGER) || a.name.localeCompare(b.name, "ru", { numeric: true }));
+    const other = directories.filter((item) => item.supplierFavorite?.is_favorite !== true);
+    directories = [...primary, ...other];
+    if (primary.length && other.length) supplierDividerAfter = primary.length;
+  }
   const workOrders = workRoot ? visibleDirectories.filter((item) => !item.name.startsWith("#")) : [];
   $("workOrdersSection").hidden = !workOrders.length;
   $("workOrdersSection").classList.toggle("with-sections", Boolean(directories.length));
@@ -454,10 +473,10 @@ function renderSubfolders() {
   $("folderSection").hidden = !directories.length;
   $("foldersTitle").textContent = folder.canCreateEventFolder ? "События" : ["supplier_root", "work_section"].includes(folder.folderKind) ? "Заказы поставщикам" : folder.folderKind === "moneys_section" ? "Финансовые записи" : workRoot ? "Разделы производства" : folder.folderKind === "moneys_root" ? "Финансовые разделы" : folder.path ? "Подпапки" : "Папки";
   $("directoryCount").textContent = directories.length;
-  $("subfolders").innerHTML = directories.map((item) => {
+  $("subfolders").innerHTML = directories.map((item, index) => {
     const open = subfolderButton(item);
     const relevance = item.eventRelevance;
-    if (!relevance) return open;
+    if (!relevance) return (supplierDividerAfter && index === supplierDividerAfter ? '<hr class="work-supplier-divider">' : "") + open;
     const message = item.relevanceSaving ? "Сохраняю…" : relevance.error || (relevance.sync_pending
       ? relevance.sync_error ? "В базе сохранено · не выгружено: " + relevance.sync_error : "В базе сохранено · ожидает выгрузки" : "");
     return '<div class="event-folder" data-relevance-state="' + escapeHtml(relevance.value || "none") + '" aria-busy="' + Boolean(item.relevanceSaving) + '">' + open +
@@ -467,6 +486,54 @@ function renderSubfolders() {
       '</div>' + (message ? '<p class="event-export' + (relevance.error || relevance.sync_error ? " error" : "") + '" role="status">' + escapeHtml(message) + '</p>' : "") + '</div>';
   }).join("");
   if (focusPath) [...$("subfolders").querySelectorAll("[data-relevance]")].find((button) => button.dataset.eventPath === focusPath && button.dataset.relevance === focusValue)?.focus();
+  if (focusedSupplier) focusSupplierStar(focusedSupplier);
+  if (workRoot) document.querySelector(".content-pane").scrollTop = scroll;
+}
+
+function focusSupplierStar(path) {
+  [...$("subfolders").querySelectorAll("[data-supplier-favorite]")].find((button) => button.dataset.supplierFavorite === path)?.focus({ preventScroll: true });
+}
+
+async function refreshSupplierFavorites(folder) {
+  if (folder?.folderKind !== "work_root" || state.folder !== folder) return;
+  const records = await request(apiUrl("/api/work-supplier-favorites", folder.path));
+  if (state.folder !== folder) return;
+  let changed = false;
+  for (const item of folder.directories) {
+    const saved = records[String(item.path).normalize("NFC")];
+    const currentRevision = String(item.supplierFavorite?.revision || "").split(":"), savedRevision = String(saved?.revision || "").split(":");
+    const older = savedRevision[0] === currentRevision[0] && Number(savedRevision[1]) < Number(currentRevision[1]);
+    if (saved && !older && !state.supplierFavoriteSaving.has(item.path) && JSON.stringify(saved) !== JSON.stringify(item.supplierFavorite)) {
+      item.supplierFavorite = saved;
+      changed = true;
+    }
+  }
+  if (changed) renderSubfolders();
+}
+
+async function toggleSupplierFavorite(path) {
+  const folder = state.folder, item = folder?.directories.find((entry) => entry.path === path);
+  if (folder?.folderKind !== "work_root" || !item?.supplierFavorite?.editable || state.supplierFavoriteSaving.has(path)) return;
+  state.supplierFavoriteSaving.add(path);
+  state.supplierFavoriteFocus = path;
+  renderSubfolders();
+  try {
+    item.supplierFavorite = await request("/api/work-supplier-favorite", {
+      path, revision: item.supplierFavorite.revision, is_favorite: !item.supplierFavorite.is_favorite,
+    });
+  } catch (error) {
+    if (error.status === 409) {
+      state.supplierFavoriteSaving.delete(path);
+      await refreshSupplierFavorites(folder);
+    }
+    throw error;
+  } finally {
+    state.supplierFavoriteSaving.delete(path);
+    if (state.folder === folder) {
+      renderSubfolders();
+      if (state.supplierFavoriteFocus === path && document.activeElement === document.body) focusSupplierStar(path);
+    }
+  }
 }
 
 async function refreshEventRelevance(folder) {
@@ -2069,6 +2136,8 @@ for (const id of ["auxiliaryButtons", "favoriteOrders", "breadcrumbs", "subfolde
   });
 }
 $("subfolders").addEventListener("click", (event) => {
+  const star = event.target.closest("[data-supplier-favorite]");
+  if (star) { run(() => toggleSupplierFavorite(star.dataset.supplierFavorite)); return; }
   const button = event.target.closest("[data-relevance]");
   if (button) run(() => saveEventRelevance(button.dataset.eventPath, button.dataset.relevance));
 });
@@ -2312,6 +2381,7 @@ setInterval(() => {
   }
   if (state.view !== "orders" && state.folder?.canCreateEventFolder) refreshEventRelevance(state.folder).catch(() => {});
   if (state.view !== "orders" && state.folder?.sketches?.length) refreshSketchRelevance(state.folder).catch(() => {});
+  if (state.view !== "orders" && state.folder?.folderKind === "work_root") refreshSupplierFavorites(state.folder).catch(() => {});
   if (state.view !== "orders") loadDescendantTodos(state.folder);
   loadOrders().catch(() => { if (state.view === "orders") $("ordersSyncState").textContent = "Нет связи с сервером · показаны последние загруженные данные"; });
   if (state.view !== "orders" && !state.folder?.order && state.folder?.folderNote && !state.dirty && !state.saving) {

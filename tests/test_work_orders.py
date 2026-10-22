@@ -2,6 +2,7 @@ import json
 import subprocess
 import sys
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import event_folders
@@ -154,6 +155,93 @@ class WorkOrderTests(unittest.TestCase):
 
     def save_links(self, parent, identities):
         return manager.order_store().save_work_links({'path': parent['path'], 'revision': parent['revision'], 'order_ids': identities})
+
+    def test_supplier_stars_seed_once_and_new_sections_start_unstarred(self):
+        manager.DATABASE_ONLY = True
+        for name in ('# antares', '#HIMLEX', '# newtek', '#glass', '# cutter'):
+            self.folder('# work/' + name)
+        self.folder(self.parent)
+        root = manager.read_folder('# work')
+        nodes = {node['name']: node for node in root['directories']}
+        selected = sorted((node for node in nodes.values() if node.get('supplierFavorite', {}).get('is_favorite')),
+                          key=lambda node: node['supplierFavorite']['position'])
+        self.assertEqual([node['name'] for node in selected], ['# antares', '#HIMLEX', '# newtek', '#glass'])
+        self.assertFalse(nodes['# cutter']['supplierFavorite']['is_favorite'])
+        self.assertNotIn('supplierFavorite', nodes[self.parent.split('/')[-1]])
+        self.folder('# work/# new supplier')
+        next_root = manager.read_folder('# work')
+        later = next(node for node in next_root['directories'] if node['name'] == '# new supplier')
+        self.assertFalse(later['supplierFavorite']['is_favorite'])
+        self.assertEqual(next(node for node in next_root['directories'] if node['name'] == '# antares')['supplierFavorite'],
+                         nodes['# antares']['supplierFavorite'])
+        # A default supplier created only after initialization also starts unstarred.
+        self.folder('#work/# cutter')
+        manager.read_folder('#work')
+        self.folder('#work/#glass')
+        self.assertFalse(next(node for node in manager.read_folder('#work')['directories'] if node['name'] == '#glass')['supplierFavorite']['is_favorite'])
+
+    def test_supplier_star_http_is_partial_versioned_audited_and_readable_offline(self):
+        manager.DATABASE_ONLY = True
+        order = self.add(self.supplier)
+        self.folder('# work/# cutter')
+        nodes = {node['path']: node for node in manager.read_folder('# work')['directories']}
+        path = '# work/# cutter'
+        old = nodes[path]['supplierFavorite']
+        payload = {'path': path, 'revision': old['revision'], 'is_favorite': True}
+        original_stat = Path.stat
+        def local_only_stat(path, *args, **kwargs):
+            if path == self.root or self.root in path.parents:
+                raise AssertionError('Supplier stars must not touch iCloud folders')
+            return original_stat(path, *args, **kwargs)
+        with patch.object(Path, 'stat', local_only_stat):
+            status, _, body = self.http('/api/work-supplier-favorite', 'POST', json.dumps(payload))
+        self.assertEqual(status, 200, body)
+        saved = json.loads(body)
+        self.assertTrue(saved['is_favorite'])
+        self.assertGreater(saved['position'], nodes['# work/# newtek']['supplierFavorite']['position'])
+        self.assertEqual(self.http('/api/work-supplier-favorite', 'POST', json.dumps(payload))[0], 409)
+        with patch('folder_structure.os.scandir', side_effect=AssertionError('No iCloud reads')):
+            records = json.loads(self.http(self.url('/api/work-supplier-favorites', '# work'))[2])
+            self.assertEqual(records[path], saved)
+            self.assertEqual(manager.order_store().get(self.supplier), order)
+        with manager.order_store().connect() as db:
+            row = db.execute("SELECT * FROM metadata_records WHERE kind=? AND path=?", (work_orders.SUPPLIER_FAVORITE_KIND, path)).fetchone()
+            self.assertEqual(row['revision'], 2)
+            history = db.execute("SELECT data FROM metadata_history WHERE identity=?", (row['id'],)).fetchone()
+            self.assertFalse(json.loads(json.loads(history['data'])['data'])['is_favorite'])
+        off = work_orders.save_supplier_favorite(manager.order_store(), {**payload, 'revision': saved['revision'], 'is_favorite': False})
+        self.assertFalse(off['is_favorite'])
+        self.assertEqual(off['position'], saved['position'])
+        self.assertEqual({node['path']: node['supplierColor'] for node in manager.read_folder('# work')['directories']},
+                         {path: node['supplierColor'] for path, node in nodes.items()})
+
+    def test_supplier_star_scope_unknown_values_and_path_rewrite(self):
+        manager.DATABASE_ONLY = True
+        self.folder('# work/# antares')
+        manager.read_folder('# work')
+        store = manager.order_store()
+        original = work_orders.read_supplier_favorites(store, '# work')['# work/# antares']
+        for path in ('# work', self.parent, self.supplier, '# moneys/# antares', '../# work/# antares'):
+            with self.subTest(path=path), self.assertRaises(ValueError):
+                work_orders.save_supplier_favorite(store, {'path': path, 'revision': original['revision'], 'is_favorite': True})
+        for value in (1, 'yes', None):
+            with self.assertRaises(ValueError):
+                work_orders.save_supplier_favorite(store, {'path': original['path'], 'revision': original['revision'], 'is_favorite': value})
+        with store.connect() as db:
+            folder_rename_undo.rewrite(db, '# work/# antares', '# work/# renamed')
+        self.folder('# work/# renamed')
+        moved = work_orders.read_supplier_favorites(store, '# work')['# work/# renamed']
+        self.assertTrue(moved['is_favorite'])
+        self.assertEqual(moved['revision'].split(':')[0], original['revision'].split(':')[0])
+        with store.connect() as db:
+            unknown = '{"version":99,"future":"Keep"}'
+            db.execute("UPDATE metadata_records SET data=? WHERE kind=? AND path=?", (unknown, work_orders.SUPPLIER_FAVORITE_KIND, moved['path']))
+        future = work_orders.read_supplier_favorites(store, '# work')[moved['path']]
+        self.assertFalse(future['editable'])
+        with self.assertRaises(ValueError):
+            work_orders.save_supplier_favorite(store, {**future, 'is_favorite': False})
+        with store.connect() as db:
+            self.assertEqual(db.execute("SELECT data FROM metadata_records WHERE kind=? AND path=?", (work_orders.SUPPLIER_FAVORITE_KIND, moved['path'])).fetchone()[0], unknown)
 
     def test_create_direct_work_order_events_uploads_and_standalone_undo(self):
         for root in ('# work', '#work'):
