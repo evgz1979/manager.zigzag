@@ -32,6 +32,34 @@ class WorkOrderTests(unittest.TestCase):
             'financial_status': 'partial', 'note': 'Сохранить заметку', 'amount': 10000, 'costs': 2000, 'paid': 5000,
             'extra_blocks': blocks or {'Особое': 'Не менять', 'Задачи': '- [ ] Проверить размеры'}})
 
+    def test_supplier_heading_uses_the_actual_section_without_document_reads(self):
+        cases = {
+            self.supplier: 'newtek', self.supplier + '/00 - Событие': 'newtek',
+            self.supplier + '/# bills/Глубже': 'newtek',
+            '#work/#antares/Любое имя/01 - Событие': 'antares',
+            '# work/Новый поставщик/Без даты/Событие': 'Новый поставщик',
+            '# work/2026-06 июнь/Заказ': '2026-06 июнь',
+            '# work': '', '#work/#newtek': '', self.parent: '',
+            self.parent + '/00 - Событие': '',
+            '#work/26-10-21 - Общий/Событие': '',
+            '#work/2026-00-00 - Общий/# bills/Глубже': '',
+            '# moneys/#newtek/Заказ/Событие': '',
+            '# glass/Заказ/Событие': '', 'Клиент/Объект/Заказ/Событие': '',
+        }
+        with patch('folder_structure.os.scandir', side_effect=AssertionError('No iCloud reads')):
+            for path, expected in cases.items():
+                with self.subTest(path=path):
+                    self.assertEqual(work_orders.supplier_name(path), expected)
+
+    def test_supplier_is_available_on_the_sqlite_order_and_event_page(self):
+        self.add(self.supplier)
+        event = self.supplier + '/00 - Событие'
+        self.folder(event)
+        with patch('folder_structure.os.scandir', side_effect=AssertionError('No iCloud reads')):
+            self.assertEqual(manager.order_store().get(self.supplier)['work_supplier'], 'newtek')
+        self.assertEqual(manager.read_folder(self.supplier)['workSupplier'], 'newtek')
+        self.assertEqual(manager.read_folder(event)['workSupplier'], 'newtek')
+
     def save_links(self, parent, identities):
         return manager.order_store().save_work_links({'path': parent['path'], 'revision': parent['revision'], 'order_ids': identities})
 

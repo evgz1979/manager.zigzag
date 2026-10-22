@@ -18,6 +18,14 @@ def direct_order(relative):
     return len(parts) == 2 and is_work_root(parts[0]) and dated(parts[1])
 
 
+def supplier_name(relative):
+    """Actual #work section, without inspecting folders or assigning a root order."""
+    parts = Path(relative).parts
+    if len(parts) < 3 or not is_work_root(parts[0]) or dated(parts[1]):
+        return ""
+    return parts[1][1:].strip() if parts[1].startswith('#') else parts[1]
+
+
 def supplier_order(relative):
     parts = Path(relative).parts
     if is_service_folder(relative) or is_print_section(Path(relative).parent.as_posix()):

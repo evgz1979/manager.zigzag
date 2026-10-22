@@ -589,7 +589,15 @@ function resizeOrderNote() {
 function renderOrderHeading() {
   const folder = state.folder;
   const order = folder?.order;
-  $("folderTitle").textContent = folder?.view === "print" ? "Задания на печать" : folder?.path ? order?.title || folder.draftCard?.title || folder.name : "Клиенты и заказы";
+  const supplier = folder?.workSupplier ?? order?.work_supplier ?? "";
+  const supplierLabel = $("workSupplierName");
+  supplierLabel.hidden = !supplier;
+  supplierLabel.textContent = supplier;
+  supplierLabel.setAttribute("aria-label", "Поставщик: " + supplier);
+  let color = 0;
+  for (const character of normalize(supplier)) color = (Math.imul(color, 31) + character.codePointAt(0)) >>> 0;
+  supplierLabel.style.setProperty("--supplier-hue", String(color % 360));
+  $("folderTitleText").textContent = folder?.view === "print" ? "Задания на печать" : folder?.path ? order?.title || folder.draftCard?.title || folder.name : "Клиенты и заказы";
   const showFolderName = Boolean(order || folder?.folderKind === "order");
   $("orderFolderName").hidden = !showFolderName;
   $("orderFolderName").textContent = showFolderName ? "Папка: " + folder.name : "";
@@ -1621,7 +1629,8 @@ async function showOrders({ history = true } = {}) {
   $("notice").hidden = true;
   $("loadOrderFilesButton").hidden = true;
   $("breadcrumbs").innerHTML = '<button aria-current="page">Все заказы</button>';
-  $("folderTitle").textContent = "Все заказы";
+  $("workSupplierName").hidden = true;
+  $("folderTitleText").textContent = "Все заказы";
   $("orderFolderName").hidden = true;
   $("orderPageFavorite").hidden = true;
   $("clientLabel").textContent = "ЗИГЗАГ · ОБЩИЙ СПИСОК";

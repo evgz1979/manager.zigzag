@@ -1030,6 +1030,7 @@ def read_folder(relative="", show_inactive=False):
     breadcrumbs.extend({"name": part, "path": Path(*parts[:index + 1]).as_posix()} for index, part in enumerate(parts))
     sketch_files = read_sketches(directories, warnings) if status["folderKind"] == "order" else []
     return {"name": target.name, "path": relative_path(target), "client": client_name(relative),
+            "workSupplier": work_orders.supplier_name(relative),
             "root": str(DATA_ROOT), "breadcrumbs": breadcrumbs,
             "directories": nodes, "files": files, "sketches": sketch_files,
             "fileCount": len(files), "folderCount": folder_count,

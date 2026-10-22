@@ -91,6 +91,7 @@ h1, h2, h3, p { margin: 0; }
 .order-heading > div { min-width: 0; }
 .order-title-row { display: flex; align-items: flex-start; gap: 8px; }
 .order-title-row h1 { min-width: 0; }
+.work-supplier-name { display: inline-block; max-width: 100%; margin-right: .25em; padding: .06em .28em; border-radius: 7px; background: hsl(var(--supplier-hue) 75% 95%); color: hsl(var(--supplier-hue) 70% 33%); font-size: 1em; font-weight: 750; letter-spacing: .01em; text-transform: uppercase; vertical-align: baseline; overflow-wrap: anywhere; }
 .order-title-row .order-favorite-button { flex: 0 0 30px; }
 .order-folder-name { margin-top: 7px; color: var(--muted); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
 .print-legacy-folders { margin: 20px 0; color: var(--muted); font-size: 12px; }

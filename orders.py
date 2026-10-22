@@ -95,6 +95,7 @@ class OrderStore:
         result = dict(row)
         result["registered"] = bool(result["registered"])
         result["client"] = client_name(result["path"])
+        result["work_supplier"] = work_orders.supplier_name(result["path"])
         result["profit"] = result["amount"] - result["costs"] if result["amount"] is not None and result["costs"] is not None else None
         result["debt"] = result["amount"] - result["paid"] if result["amount"] is not None and result["paid"] is not None else None
         result["extra_blocks"] = json.loads(result["extra_blocks"])
