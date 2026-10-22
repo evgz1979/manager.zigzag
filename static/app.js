@@ -497,8 +497,11 @@ function renderFolder(preserveForm = false) {
   const printView = folder.view === "print";
   const service = Boolean(folder.service);
   const noteOnly = service || Boolean(folder.noteOnly);
+  const workCard = isWorkOrderPath(folder.path);
   const hasTodo = Boolean(folder.path) && (!noteOnly || Boolean(folder.eventFolder));
-  $("orderFinanceOverview").hidden = !hasDescendantTodos(folder);
+  const showFinance = hasDescendantTodos(folder) && !workCard;
+  $("orderFinanceOverview").hidden = !showFinance;
+  $("purchasePanel").hidden = !showFinance;
   $("orderOverview").hidden = !folder.path || (printView && !folder.eventFolder);
   $("orderOverview").classList.toggle("with-todos", hasTodo);
   $("todoPanel").hidden = !hasTodo;
@@ -516,9 +519,10 @@ function renderFolder(preserveForm = false) {
   renderDescendantTodos();
   $("orderDetails").hidden = !folder.path;
   $("folderDetailsTitle").textContent = noteOnly ? "Заметка" : "Карточка заказа";
-  $("statusBadge").hidden = noteOnly;
-  $("statusLabel").hidden = noteOnly;
-  $("orderStatusFields").hidden = noteOnly;
+  $("statusLabel").hidden = noteOnly || workCard;
+  $("orderStatusFields").hidden = noteOnly || workCard;
+  $("orderTitleLabel").hidden = noteOnly || !folder.order;
+  $("financialFields").hidden = noteOnly || workCard || !folder.order;
   $("statusForm").classList.toggle("note-only", noteOnly);
   $("orderNote").placeholder = noteOnly ? "Заметка к этой папке" : "Что важно по этому заказу";
   $("removeOrderButton").hidden = !folder.order;
@@ -539,8 +543,6 @@ function renderFolder(preserveForm = false) {
     $("purchaseNewText").value = "";
     renderPurchases();
     $("orderDetails").open = noteOnly || Boolean(folder.note || folder.order);
-    $("orderTitleLabel").hidden = noteOnly || !folder.order;
-    $("financialFields").hidden = noteOnly || !folder.order;
     $("orderTitleInput").value = folder.order?.title || folder.draftCard?.title || folder.name;
     for (const [field, key] of [["orderAmount", "amount"], ["orderCosts", "costs"], ["orderPaid", "paid"]]) {
       const card = folder.order || folder.draftCard;
@@ -613,12 +615,14 @@ function renderOrderHeading() {
 }
 
 function renderStatus() {
+  const hideStatuses = state.folder.service || state.folder.noteOnly || isWorkOrderPath(state.folder.path);
+  $("statusBadge").hidden = hideStatuses;
   $("statusBadge").textContent = statusLabels[state.folder.status] || state.folder.status;
   $("statusBadge").dataset.status = state.folder.status;
   const financial = state.folder.financial_status || "unspecified";
   $("financialStatusBadge").textContent = financialStatusLabels[financial];
   $("financialStatusBadge").dataset.financialStatus = financial;
-  $("financialStatusBadge").hidden = state.folder.service || state.folder.noteOnly || financial === "unspecified";
+  $("financialStatusBadge").hidden = hideStatuses || financial === "unspecified";
   $("saveStatusButton").textContent = state.dirty ? "Сохранить изменения" : "Сохранить";
   const folderNote = state.folder.folderNote;
   $("todoSaveState").textContent = state.saving ? "Сохраняю…" : state.dirty ? "Есть несохранённые изменения" : folderNote?.storage === "database" ? "Сохранено в базе" : folderNote?.sync_error ? "Сохранено в базе. Выгрузка: " + folderNote.sync_error : folderNote?.sync_pending ? "Сохранено в базе · ожидает выгрузки в папку" : folderNote ? folderNote.file_exists ? "Сохранено в базе и в !.txt этой папки" : "Автоматическое сохранение в эту папку" : "Сохранено";
@@ -1351,7 +1355,7 @@ function currentOrderValues() {
     ...(state.folder.folderNote && Array.isArray(state.folder.todo_items) ? { todo_items: state.folder.todo_items.map((item) => ({ ...item })) } : {}) };
   return { status: $("statusSelect").value, financial_status: $("financialStatusSelect").value, note: $("orderNote").value, title: $("orderTitleInput").value,
     ...(Array.isArray(state.folder?.todo_items) ? { todo_items: state.folder.todo_items.map((item) => ({ ...item })) } : {}),
-    ...(hasDescendantTodos(state.folder) && Array.isArray(state.folder?.purchase_items) ? { purchase_items: state.folder.purchase_items.map((item) => ({ ...item, suppliers: [...(item.suppliers || [])] })) } : {}),
+    ...(!isWorkOrderPath(state.folder?.path) && hasDescendantTodos(state.folder) && Array.isArray(state.folder?.purchase_items) ? { purchase_items: state.folder.purchase_items.map((item) => ({ ...item, suppliers: [...(item.suppliers || [])] })) } : {}),
     amount: $("orderAmount").value, costs: $("orderCosts").value, paid: $("orderPaid").value };
 }
 

@@ -17,7 +17,7 @@
 
   async function refreshList(force = false) {
     const folder = state.folder;
-    const visible = Boolean(folder?.order);
+    const visible = Boolean(folder?.order) && !isWorkOrderPath(folder.path);
     $("invoiceSection").hidden = !visible;
     if (!visible) { listedPath = null; ++loading; return; }
     if (listedPath === folder.path && !force) return;
