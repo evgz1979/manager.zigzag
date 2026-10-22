@@ -1029,8 +1029,18 @@ def read_folder(relative="", show_inactive=False):
     breadcrumbs = [{"name": DATA_ROOT.name, "path": ""}]
     breadcrumbs.extend({"name": part, "path": Path(*parts[:index + 1]).as_posix()} for index, part in enumerate(parts))
     sketch_files = read_sketches(directories, warnings) if status["folderKind"] == "order" else []
+    supplier_color = None
+    if work_orders.in_work(relative):
+        with order_store().connect() as db:
+            if work_orders.supplier_name(relative):
+                supplier_color = work_orders.supplier_color(db, relative)
+            if status["folderKind"] == "work_root":
+                for node in nodes:
+                    if node["name"].startswith("#"):
+                        node["supplierColor"] = work_orders.supplier_color(db, node["path"])
     return {"name": target.name, "path": relative_path(target), "client": client_name(relative),
             "workSupplier": work_orders.supplier_name(relative),
+            "workSupplierColor": supplier_color,
             "root": str(DATA_ROOT), "breadcrumbs": breadcrumbs,
             "directories": nodes, "files": files, "sketches": sketch_files,
             "fileCount": len(files), "folderCount": folder_count,

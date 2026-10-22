@@ -7,6 +7,7 @@ from unittest.mock import patch
 import event_folders
 import file_uploads
 import folder_rename
+import folder_rename_undo
 import order_folders
 import work_orders
 from folder_structure import folder_role, is_service_folder
@@ -59,6 +60,67 @@ class WorkOrderTests(unittest.TestCase):
             self.assertEqual(manager.order_store().get(self.supplier)['work_supplier'], 'newtek')
         self.assertEqual(manager.read_folder(self.supplier)['workSupplier'], 'newtek')
         self.assertEqual(manager.read_folder(event)['workSupplier'], 'newtek')
+
+    def test_supplier_colors_are_pinned_offline_and_survive_new_suppliers_and_restarts(self):
+        manager.DATABASE_ONLY = True
+        store = manager.order_store()
+        with store.connect() as db, patch('icloud_access.read_bytes', side_effect=AssertionError('No iCloud reads')):
+            newtek = work_orders.supplier_color(db, self.supplier)
+            self.assertEqual(newtek, {'hue': 114, 'neutral': False})
+            self.assertEqual(work_orders.supplier_color(db, '# work/# antares/Заказ'), {'hue': 190, 'neutral': False})
+            self.assertTrue(work_orders.supplier_color(db, '# work/# razbor')['neutral'])
+            before = dict(db.execute("SELECT * FROM metadata_records WHERE kind=? AND path=?",
+                                     (work_orders.SUPPLIER_COLOR_KIND, '# work/# newtek')).fetchone())
+            work_orders.supplier_color(db, '# work/# Новый поставщик')
+            self.assertEqual(work_orders.supplier_color(db, self.supplier + '/00 - Событие/# bills'), newtek)
+            for path in (self.parent, self.parent + '/00 - Событие', '# work', '# moneys/# newtek/Заказ'):
+                self.assertIsNone(work_orders.supplier_color(db, path))
+        restarted = OrderStore(store.root, store.database.parent, store.labels)
+        with restarted.connect() as db:
+            self.assertEqual(work_orders.supplier_color(db, self.supplier), newtek)
+            after = dict(db.execute("SELECT * FROM metadata_records WHERE id=?", (before['id'],)).fetchone())
+            self.assertEqual(after, before)  # Reads do not change the version, identity or timestamp.
+
+    def test_supplier_color_is_shared_by_root_button_order_and_event(self):
+        manager.DATABASE_ONLY = True
+        order = self.add(self.supplier)
+        event = self.supplier + '/00 - Событие'
+        self.folder(event)
+        root = manager.read_folder('# work')
+        button = next(node for node in root['directories'] if node['path'] == '# work/# newtek')
+        self.assertEqual(button['supplierColor'], order['work_supplier_color'])
+        self.assertEqual(manager.read_folder(self.supplier)['workSupplierColor'], button['supplierColor'])
+        self.assertEqual(manager.read_folder(event)['workSupplierColor'], button['supplierColor'])
+        with patch('folder_structure.os.scandir', side_effect=AssertionError('No iCloud reads')):
+            saved = manager.order_store().get(self.supplier)
+        self.assertEqual(saved['work_supplier_color'], button['supplierColor'])
+        self.assertEqual(saved['revision'], order['revision'])
+        self.assertEqual(saved['extra_blocks'], order['extra_blocks'])
+
+    def test_supplier_color_follows_database_path_rewrite_and_undo_with_history(self):
+        manager.DATABASE_ONLY = True
+        store = manager.order_store()
+        source, destination = '# work/# newtek', '# work/# Другое имя'
+        with store.connect() as db:
+            color = work_orders.supplier_color(db, source)
+            row = db.execute("SELECT * FROM metadata_records WHERE kind=? AND path=?", (work_orders.SUPPLIER_COLOR_KIND, source)).fetchone()
+            folder_rename_undo.rewrite(db, source, destination)
+            self.assertEqual(work_orders.supplier_color(db, destination + '/Заказ/Событие'), color)
+            moved = db.execute("SELECT * FROM metadata_records WHERE id=?", (row['id'],)).fetchone()
+            self.assertEqual(moved['revision'], row['revision'] + 1)
+            folder_rename_undo.rewrite(db, destination, source)
+            self.assertEqual(work_orders.supplier_color(db, source), color)
+            self.assertEqual(db.execute("SELECT count(*) FROM metadata_history WHERE identity=?", (row['id'],)).fetchone()[0], 2)
+
+    def test_unknown_supplier_color_is_not_overwritten(self):
+        manager.DATABASE_ONLY = True
+        with manager.order_store().connect() as db:
+            work_orders.supplier_color(db, '# work/# newtek')
+            unknown = '{"version": 99, "future": "Сохранить"}'
+            db.execute("UPDATE metadata_records SET data=? WHERE kind=?", (unknown, work_orders.SUPPLIER_COLOR_KIND))
+            with self.assertRaises(ValueError):
+                work_orders.supplier_color(db, self.supplier)
+            self.assertEqual(db.execute("SELECT data FROM metadata_records WHERE kind=?", (work_orders.SUPPLIER_COLOR_KIND,)).fetchone()[0], unknown)
 
     def save_links(self, parent, identities):
         return manager.order_store().save_work_links({'path': parent['path'], 'revision': parent['revision'], 'order_ids': identities})

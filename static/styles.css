@@ -182,6 +182,13 @@ h2 { font-size: 13px; font-weight: 600; }
 .subfolder > svg:first-child { width: 21px; height: 21px; color: #93a586; fill: #e3ebd8; }
 .subfolder > svg:last-child { width: 12px; height: 12px; color: #a9b3a9; margin-left: auto; }
 .subfolder span { flex: 1; overflow-wrap: anywhere; }
+.work-supplier-button { background: hsl(var(--supplier-hue) 75% 95%); color: hsl(var(--supplier-hue) 70% 33%); border-color: hsl(var(--supplier-hue) 50% 82%); font-weight: 600; }
+.work-supplier-button:hover { background: hsl(var(--supplier-hue) 75% 91%); border-color: hsl(var(--supplier-hue) 50% 65%); }
+.work-supplier-button > svg:first-child { color: inherit; fill: hsl(var(--supplier-hue) 50% 85%); }
+.work-supplier-button > svg:last-child { color: inherit; opacity: .6; }
+.work-supplier-name.supplier-neutral, .work-supplier-button.supplier-neutral { background: #f0f1f2; color: #6b7278; border-color: #d6dadd; }
+.work-supplier-button.supplier-neutral:hover { background: #e7e9eb; }
+.work-supplier-button.supplier-neutral > svg:first-child { fill: #dfe2e4; }
 .event-folder { min-width: 0; border: 1px solid var(--line); border-radius: 7px; background: #fcfdfb; align-self: start; }
 .subfolders.with-event-relevance { grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); }
 .event-folder > .subfolder { width: 100%; border: 0; background: none; }

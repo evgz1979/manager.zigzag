@@ -251,7 +251,7 @@ class MobileBridge:
                 row = db.execute("SELECT * FROM orders WHERE id=? AND registered=1", (operation["order_id"],)).fetchone()
                 if not row:
                     raise MobileConflict("Заказ убран из списка или имеет другой идентификатор")
-                record = self.store.record(row)
+                record = self.store.record(row, db)
                 assert_unlocked(db, record["path"])
                 if operation["kind"] == "file_comment":
                     self.apply_file(db, operation, raw, digest, record, previous)

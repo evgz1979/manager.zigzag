@@ -423,7 +423,9 @@ async function openSketch(path, key) {
 }
 
 function subfolderButton(item) {
-  return '<button type="button" class="subfolder' + (item.inactive ? ' inactive' : '') + '" data-path="' + escapeHtml(item.path) + '" title="' + escapeHtml(item.name) + '">' +
+  const color = item.supplierColor;
+  return '<button type="button" class="subfolder' + (item.inactive ? ' inactive' : '') + (color ? ' work-supplier-button' + (color.neutral ? ' supplier-neutral' : '') : '') +
+    '"' + (color ? ' style="--supplier-hue:' + Number(color.hue) + '"' : '') + ' data-path="' + escapeHtml(item.path) + '" title="' + escapeHtml(item.name) + '">' +
     icon("folder") + '<span>' + escapeHtml(item.name) + "</span>" + icon("chevron") + "</button>";
 }
 
@@ -607,9 +609,9 @@ function renderOrderHeading() {
   supplierLabel.hidden = !supplier;
   supplierLabel.textContent = supplier;
   supplierLabel.setAttribute("aria-label", "Поставщик: " + supplier);
-  let color = 0;
-  for (const character of normalize(supplier)) color = (Math.imul(color, 31) + character.codePointAt(0)) >>> 0;
-  supplierLabel.style.setProperty("--supplier-hue", String(color % 360));
+  const color = folder?.workSupplierColor ?? order?.work_supplier_color;
+  supplierLabel.style.setProperty("--supplier-hue", String(color?.hue ?? 0));
+  supplierLabel.classList.toggle("supplier-neutral", Boolean(color?.neutral));
   $("folderTitleText").textContent = folder?.view === "print" ? "Задания на печать" : folder?.path ? order?.title || folder.draftCard?.title || folder.name : "Клиенты и заказы";
   const showFolderName = Boolean(order || folder?.folderKind === "order");
   $("orderFolderName").hidden = !showFolderName;

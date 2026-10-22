@@ -89,13 +89,14 @@ class OrderStore:
             raise FileNotFoundError("Папка заказа недоступна. Данные сохранены в базе; проверьте iCloud и путь заказа.")
         return target
 
-    def record(self,row):
+    def record(self,row,db):
         if row is None:
             return None
         result = dict(row)
         result["registered"] = bool(result["registered"])
         result["client"] = client_name(result["path"])
         result["work_supplier"] = work_orders.supplier_name(result["path"])
+        result["work_supplier_color"] = work_orders.supplier_color(db, result["path"]) if result["work_supplier"] else None
         result["profit"] = result["amount"] - result["costs"] if result["amount"] is not None and result["costs"] is not None else None
         result["debt"] = result["amount"] - result["paid"] if result["amount"] is not None and result["paid"] is not None else None
         result["extra_blocks"] = json.loads(result["extra_blocks"])
@@ -115,13 +116,13 @@ class OrderStore:
         with self.connect() as db:
             assert_unlocked(db, relative)
             row = db.execute("SELECT * FROM orders WHERE path=?", (relative,)).fetchone()
-            return self.record(row) if row and (include_unregistered or row["registered"]) else None
+            return self.record(row, db) if row and (include_unregistered or row["registered"]) else None
 
     def list(self, *, include_unregistered=False):
         if not self.database.exists():
             return []
         with self.connect() as db:
-            return [self.record(row) for row in db.execute("SELECT * FROM orders ORDER BY updated DESC, path")
+            return [self.record(row, db) for row in db.execute("SELECT * FROM orders ORDER BY updated DESC, path").fetchall()
                     if not any(part.startswith('.') for part in Path(row['path']).parts)
                     and not is_service_folder(row["path"]) and (include_unregistered or row["registered"])]
 
@@ -291,7 +292,7 @@ class OrderStore:
             if self.database_only:
                 import folder_notes
                 folder_notes.schema(db)
-                body = self.record(db.execute("SELECT * FROM orders WHERE path=?",(relative,)).fetchone())
+                body = self.record(db.execute("SELECT * FROM orders WHERE path=?",(relative,)).fetchone(), db)
                 db.execute("""INSERT INTO folder_notes VALUES (?,?,?,?,1,1,'database',?,'')
                     ON CONFLICT(path) DO UPDATE SET document=excluded.document,revision=folder_notes.revision+1,updated=excluded.updated""",
                     (relative,str(uuid.uuid4()),"",json.dumps(body,ensure_ascii=False),time.time()))
