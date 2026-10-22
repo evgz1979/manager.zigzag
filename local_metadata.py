@@ -224,6 +224,8 @@ class MetadataStore:
         with self.connect() as db:
             rows = list(db.execute("SELECT * FROM metadata_publications WHERE published=0"))
         for row in rows:
+            if any(part.startswith('.') for part in Path(row['path']).parts):
+                continue
             error = ""
             try:
                 with self.connect() as db:

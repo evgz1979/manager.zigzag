@@ -19,6 +19,18 @@ PREVIOUS = "20261019T170000Z-abcdef12"
 
 
 class DeploymentTests(unittest.TestCase):
+    def test_old_code_cannot_expose_trashed_supplier_events(self):
+        release = self.base / 'old-events'
+        release.mkdir()
+        with sqlite3.connect(self.db) as db:
+            db.execute('CREATE TABLE folder_renames (session TEXT,state TEXT,mappings TEXT,paths_applied INTEGER)')
+            db.execute("INSERT INTO folder_renames VALUES ('journal','complete',?,1)",
+                       (json.dumps([{'kind': 'supplier-event-trash'}]),))
+        with self.assertRaisesRegex(RuntimeError, 'события в корзине'):
+            remote.check_event_rename_compatibility(self.db, release)
+        (release / 'event_trash.py').write_text('EVENT_TRASH_VERSION = 1')
+        remote.check_event_rename_compatibility(self.db, release)
+
     def test_old_code_cannot_restore_trashed_invoices_into_active_list(self):
         release = self.base / 'old-invoices'
         release.mkdir()

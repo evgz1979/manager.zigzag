@@ -203,6 +203,13 @@ def check_event_rename_compatibility(database, release_dir):
                 and db.execute("SELECT 1 FROM sqlite_master WHERE name='event_renames'").fetchone()
                 and db.execute("SELECT 1 FROM event_renames WHERE state='pending' LIMIT 1").fetchone()):
             raise RuntimeError("Есть прерванное переименование событий. Завершите его откат перед переключением на старый код")
+        if db.execute("SELECT 1 FROM sqlite_master WHERE name='folder_renames'").fetchone():
+            active = any(pair.get('kind') == 'supplier-event-trash'
+                         for (mappings,) in db.execute("SELECT mappings FROM folder_renames WHERE state!='undone'")
+                         for pair in json.loads(mappings))
+            source = release_dir / 'event_trash.py'
+            if active and (not source.is_file() or 'EVENT_TRASH_VERSION = 1' not in source.read_text(encoding='utf-8')):
+                raise RuntimeError('Есть события в корзине. Старый код не поддерживает их хранение; откат заблокирован')
         if (not (release_dir / "folder_rename_undo.py").is_file()
                 and db.execute("SELECT 1 FROM sqlite_master WHERE name='folder_renames'").fetchone()
                 and db.execute("SELECT 1 FROM folder_renames WHERE state='pending' LIMIT 1").fetchone()):

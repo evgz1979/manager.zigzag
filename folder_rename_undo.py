@@ -24,6 +24,12 @@ def metadata_paths(db, source, destination, *, apply=False):
     """Self-contained: this module is copied into standalone restoration journals."""
     source,destination = (unicodedata.normalize("NFC",value) for value in (source,destination))
     exists = lambda name: db.execute("SELECT 1 FROM sqlite_master WHERE name=?", (name,)).fetchone()
+    if exists("folder_renames"):
+        for (mappings,) in db.execute("SELECT mappings FROM folder_renames WHERE state='complete'"):
+            for pair in json.loads(mappings):
+                stored = pair['destination']
+                if pair.get('kind') == 'supplier-event-trash' and stored != source and inside(stored, source):
+                    raise ValueError("Сначала восстанови события из корзины в этой папке")
     if exists("metadata_file_moves"):
         for old, new in db.execute("SELECT source,destination FROM metadata_file_moves WHERE state!='restored'"):
             if any(inside(path, root) for path in (old,new) for root in (source,destination)):

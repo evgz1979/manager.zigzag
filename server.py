@@ -31,6 +31,7 @@ import order_folders
 import order_creation
 import event_folders
 import folder_rename
+import event_trash
 import sketches
 from event_folder_undo import EventRenamePending, guard_database
 from folder_notes import FolderNotes, FolderNoteConflict, parent_order
@@ -1041,6 +1042,8 @@ def read_folder(relative="", show_inactive=False):
             "canCreateOrderFolder": not print_view and (status["folderKind"] in {"object", "supplier_root", "work_root", "work_section", "moneys_section"} or (status["folderKind"]=="year" and order_folders.year_container(DATA_ROOT,relative))),
             "canCreateEventFolder": status["folderKind"] == "order",
             "canRenameFolder": folder_rename.available(relative_path(target)),
+            "canDeleteEvent": event_trash.available(relative_path(target)),
+            "hasEventTrash": work_orders.supplier_order(relative_path(target)) or event_trash.available(relative_path(target)),
             **status}
 
 
@@ -1616,6 +1619,22 @@ class ManagerHandler(BaseHTTPRequestHandler):
             elif route == "/api/files-trash-preview":
                 self.send_json(file_trash.preview(DATA_ROOT, payload.get("path", ""), payload.get("files")))
                 return
+            elif route == "/api/event-trash-preview":
+                self.send_json(event_trash.preview(order_store(), payload.get('path')))
+                return
+            elif route == "/api/event-trash":
+                with RUN_LOCK, file_comments.LOCK, PRINT_LOCK, STATUS_LOCK:
+                    result = event_trash.remove(order_store(), payload)
+                self.send_json(result)
+                schedule_todo_refresh()
+                return
+            elif route == "/api/event-trash-restore":
+                with RUN_LOCK, file_comments.LOCK, PRINT_LOCK, STATUS_LOCK:
+                    result = event_trash.restore(order_store(), payload.get('session'))
+                self.send_json(result)
+                schedule_order_sync()
+                schedule_todo_refresh()
+                return
             elif route == "/api/files-trash":
                 with file_comments.LOCK:
                     guard_database(order_store().database, payload.get("path", ""), include_children=True)
@@ -1623,7 +1642,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(result)
                 return
             elif route == "/api/files-trash-list":
-                self.send_json({"sessions": file_trash.list_sessions(DATA_ROOT)})
+                self.send_json({"sessions": file_trash.list_sessions(DATA_ROOT), "events": event_trash.list_sessions(order_store())})
                 return
             elif route == "/api/files-trash-restore":
                 with file_comments.LOCK:

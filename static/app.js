@@ -22,6 +22,7 @@ const state = {
   newObjectParent:null, creatingObject:false, objectYears:null, groupingYears:false,
   eventPlan: null, eventBusy: false,
   folderRename: null, folderRenaming: false,
+  eventRemoval: null, eventRemoving: false,
   orderTodoPath: null, orderTodoMarkup: null, orderTodoKind: "todos",
 };
 let searchTimer, toastTimer, todoSaveTimer, previewVersion = 0, treeSearchVersion = 0, printReadVersion = 0;
@@ -528,6 +529,8 @@ function renderFolder(preserveForm = false) {
   $("createOrderFolderButton").textContent = folder.folderKind === "moneys_section" ? "+ Создать запись" : ["supplier_root", "work_section"].includes(folder.folderKind) ? "+ Создать заказ поставщику" : "+ Создать заказ";
   $("createEventFolderButton").hidden = folder.canCreateEventFolder !== true;
   $("renameFolderButton").hidden = folder.canRenameFolder !== true;
+  $("deleteEventButton").hidden = folder.canDeleteEvent !== true;
+  $("openEventTrash").hidden = folder.hasEventTrash !== true;
   if (!preserveForm) {
     folder.todo_items = folder.order ? folder.order.todo_items : folder.todo_items === undefined ? [] : folder.todo_items;
     folder.purchase_items = folder.order ? folder.order.purchase_items : folder.purchase_items === undefined ? [] : folder.purchase_items;
@@ -835,7 +838,10 @@ async function removeSelectedFiles() {
 
 async function loadFileTrash() {
   const data = await request("/api/files-trash-list", {});
-  $("fileTrashList").innerHTML = data.sessions.map((session) => '<section class="file-trash-session"><strong>' +
+  const events = (data.events || []).map((session) => '<section class="file-trash-session"><strong>Событие · ' +
+    escapeHtml(new Date(session.created).toLocaleString("ru", { timeZone: "Europe/Moscow" })) + '</strong><p>' + escapeHtml(session.path) +
+    '</p>' + (session.pending ? '<p>Операция прервана. Доступно восстановление.</p>' : '') + '<button class="secondary-button" data-restore-event="' + escapeHtml(session.session) + '">Восстановить событие</button></section>').join("");
+  $("fileTrashList").innerHTML = events + data.sessions.map((session) => '<section class="file-trash-session"><strong>' +
     escapeHtml(new Date(session.created).toLocaleString("ru", { timeZone: "Europe/Moscow" })) + ' · файлов: ' + session.count + '</strong><p>' + escapeHtml(session.folder) +
     '</p><ul class="file-operation-list">' + session.files.map((path) => '<li>' + escapeHtml(path) + '</li>').join("") + '</ul><button class="secondary-button" data-restore-session="' + session.session + '">Восстановить</button></section>').join("") || '<p>Корзина пуста.</p>';
 }
@@ -844,6 +850,73 @@ async function openFileTrash() {
   $("fileTrashDialogState").textContent = "";
   await loadFileTrash();
   if (!$("fileTrashDialog").open) $("fileTrashDialog").showModal();
+}
+
+async function confirmEventRemoval() {
+  const folder = state.folder;
+  if (!folder?.canDeleteEvent || state.eventRemoving) return;
+  await saveCurrentStatus();
+  const preview = await request("/api/event-trash-preview", { path: folder.path });
+  if (state.folder !== folder) return;
+  state.eventRemoval = { ...preview, folder };
+  $("deleteEventPath").textContent = preview.path;
+  $("deleteEventCount").textContent = "Вложенных файлов и папок: " + preview.count;
+  $("deleteEventError").hidden = true;
+  $("deleteEventDialog").showModal();
+  $("cancelDeleteEvent").focus();
+}
+
+async function removeEvent() {
+  const removal = state.eventRemoval;
+  if (!removal || state.eventRemoving) return;
+  state.eventRemoving = true;
+  ["confirmDeleteEvent", "cancelDeleteEvent"].forEach((id) => { $(id).disabled = true; });
+  $("deleteEventError").hidden = true;
+  let result;
+  try {
+    result = await request("/api/event-trash", { path: removal.path, revision: removal.revision, confirmed: true });
+  } catch (error) {
+    $("deleteEventError").textContent = error.message;
+    $("deleteEventError").hidden = false;
+    return;
+  } finally {
+    state.eventRemoving = false;
+    ["confirmDeleteEvent", "cancelDeleteEvent"].forEach((id) => { $(id).disabled = false; });
+  }
+  $("deleteEventDialog").close();
+  state.expanded = new Set([...state.expanded].filter((path) => path !== removal.path && !path.startsWith(removal.path + "/")));
+  await reloadClientTrees();
+  if (state.folder === removal.folder) {
+    // The saved editor belongs to the old path and must never save there again.
+    state.dirty = false;
+    await navigate(result.path);
+  }
+  await loadOrders();
+  notify("Событие перемещено в корзину. Восстановление — «Корзина событий»");
+}
+
+async function restoreEventSession(session) {
+  if (state.trashRestoring) return;
+  state.trashRestoring = true;
+  $("fileTrashList").querySelectorAll("button").forEach((button) => { button.disabled = true; });
+  try {
+    await request("/api/event-trash-restore", { session });
+    await loadFileTrash();
+    await reloadClientTrees();
+    if (state.folder) {
+      await loadOrderFiles(state.folder.path, state.navigation);
+      await loadDescendantTodos(state.folder);
+    }
+    await loadOrders();
+    $("fileTrashDialogState").classList.remove("error");
+    $("fileTrashDialogState").textContent = "Событие, вложения и заметки восстановлены.";
+  } catch (error) {
+    $("fileTrashDialogState").classList.add("error");
+    $("fileTrashDialogState").textContent = error.message;
+  } finally {
+    state.trashRestoring = false;
+    $("fileTrashList").querySelectorAll("button").forEach((button) => { button.disabled = false; });
+  }
 }
 
 async function restoreFileSession(session) {
@@ -1538,6 +1611,8 @@ async function showOrders({ history = true } = {}) {
   $("createOrderFolderButton").hidden = true;
   $("createEventFolderButton").hidden = true;
   $("renameFolderButton").hidden = true;
+  $("deleteEventButton").hidden = true;
+  $("openEventTrash").hidden = true;
   $("notice").hidden = true;
   $("loadOrderFilesButton").hidden = true;
   $("breadcrumbs").innerHTML = '<button aria-current="page">Все заказы</button>';
@@ -2036,8 +2111,16 @@ $("deleteFilesForm").addEventListener("submit", (event) => { event.preventDefaul
 $("cancelDeleteFiles").addEventListener("click", () => $("deleteFilesDialog").close());
 $("deleteFilesDialog").addEventListener("cancel", (event) => { if (state.fileRemoving) event.preventDefault(); });
 $("openFileTrash").addEventListener("click", () => run(openFileTrash));
+$("openEventTrash").addEventListener("click", () => run(openFileTrash));
+$("deleteEventButton").addEventListener("click", () => run(confirmEventRemoval));
+$("deleteEventForm").addEventListener("submit", (event) => { event.preventDefault(); run(removeEvent); });
+$("cancelDeleteEvent").addEventListener("click", () => $("deleteEventDialog").close());
+$("deleteEventDialog").addEventListener("cancel", (event) => { if (state.eventRemoving) event.preventDefault(); });
+$("deleteEventDialog").addEventListener("close", () => { state.eventRemoval = null; });
 $("closeFileTrash").addEventListener("click", () => $("fileTrashDialog").close());
 $("fileTrashList").addEventListener("click", (event) => {
+  const eventButton = event.target.closest("[data-restore-event]");
+  if (eventButton) { run(() => restoreEventSession(eventButton.dataset.restoreEvent)); return; }
   const button = event.target.closest("[data-restore-session]");
   if (button) run(() => restoreFileSession(button.dataset.restoreSession));
 });

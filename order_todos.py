@@ -53,6 +53,8 @@ class OrderTodos:
                     if row["path"] in by_path:
                         by_path[row["path"]]["todo_index"] = {"checked": row["checked"], "error": row["error"]}
         for row in sorted(rows, key=lambda value: path_key(value["path"])):
+            if any(part.startswith('.') for part in Path(row['path']).parts):
+                continue
             if row["path"] in by_path or (row["path"] in missing and not include_missing):
                 continue
             # Ближайший зарегистрированный предок исключает дубли прежних вложенных регистраций.

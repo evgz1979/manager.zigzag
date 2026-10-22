@@ -121,7 +121,8 @@ class OrderStore:
             return []
         with self.connect() as db:
             return [self.record(row) for row in db.execute("SELECT * FROM orders ORDER BY updated DESC, path")
-                    if not is_service_folder(row["path"]) and (include_unregistered or row["registered"])]
+                    if not any(part.startswith('.') for part in Path(row['path']).parts)
+                    and not is_service_folder(row["path"]) and (include_unregistered or row["registered"])]
 
     def pending_unregistrations(self):
         return [{"path": record["path"], "sync_error": record["sync_error"]}

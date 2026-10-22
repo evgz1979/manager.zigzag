@@ -382,6 +382,8 @@ class InvoiceStore:
             with orders.SYNC_LOCK, file_comments.LOCK:
                 with self.connect() as db:
                     row = db.execute('SELECT * FROM invoices WHERE id=?', (identity,)).fetchone()
+                    if any(part.startswith('.') for part in Path(row['path']).parts):
+                        continue
                     marker = json.loads(row['data']).get('_trash')
                     if not marker or marker['state'] != 'pending':
                         continue
@@ -524,6 +526,8 @@ class InvoiceStore:
                     try:
                         with self.connect() as db:
                             row = db.execute("SELECT * FROM invoices WHERE id=?", (identity,)).fetchone()
+                            if any(part.startswith('.') for part in Path(row['path']).parts):
+                                continue
                             if json.loads(row['data']).get('_trash'):
                                 continue
                             assert_unlocked(db, row["path"])
