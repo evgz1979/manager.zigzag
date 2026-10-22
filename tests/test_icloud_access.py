@@ -68,6 +68,20 @@ class CloudReadTests(unittest.TestCase):
             access.read_bytes(self.card)
         self.assertEqual(self.card.stat().st_size, access.MAX_BYTES + 1)
 
+    def test_explicit_journal_limit_preserves_the_default_card_limit(self):
+        raw = b'x' * (access.MAX_BYTES + 1)
+        self.card.write_bytes(raw)
+        with self.assertRaises(ValueError):
+            access.read_bytes(self.card)
+        self.assertEqual(access.read_bytes(self.card, max_bytes=20 * access.MAX_BYTES), raw)
+        with patch.object(access.sys, 'platform', 'darwin'), \
+                patch.object(access, '_plain_read', side_effect=OSError(errno.EDEADLK, 'deadlock')), \
+                patch.object(access, 'renderer', return_value=Path('/helper')), \
+                patch.object(access.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, raw)) as run:
+            self.assertEqual(access.read_bytes(self.card, max_bytes=20 * access.MAX_BYTES), raw)
+        self.assertEqual(run.call_args.args[0][-1], str(20 * access.MAX_BYTES))
+        self.assertEqual(self.card.read_bytes(), raw)
+
     @unittest.skipUnless(sys.platform == "darwin", "Foundation requires macOS")
     def test_native_helper_reads_exact_bytes_and_rejects_symlinks_and_size(self):
         source = Path(__file__).resolve().parents[1] / "icloud_read.swift"

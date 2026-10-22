@@ -1,4 +1,5 @@
 import json
+import errno
 import subprocess
 import unittest
 from unittest.mock import patch
@@ -166,6 +167,49 @@ class FileTrashTests(unittest.TestCase):
         response = subprocess.run(['/usr/bin/python3', str(script)], cwd=self.base, capture_output=True, check=True)
         self.assertFalse(json.loads(response.stdout)['error'])
         self.assertEqual((self.root / self.document).read_bytes(), b'0123456789')
+
+    def test_unreadable_plan_keeps_other_sessions_and_retries_without_mutation(self):
+        first = self.remove()
+        second_file = self.scope + '/Фото/второй.txt'
+        self.file(second_file, b'second original')
+        second = self.remove([second_file])
+        blocked = trash.session_path(self.root, first['session']) / '.plan.json'
+        before = blocked.read_bytes()
+        def reader(path):
+            if path == blocked:
+                raise OSError(errno.EDEADLK, 'iCloud unavailable')
+            return path.read_bytes()
+        errors = []
+        sessions = trash.list_sessions(self.root, reader=reader, errors=errors)
+        self.assertEqual([item['session'] for item in sessions], [second['session']])
+        self.assertEqual(errors[0]['session'], first['session'])
+        self.assertEqual(blocked.read_bytes(), before)
+        self.assertEqual(len(trash.list_sessions(self.root)), 2)
+
+    def test_http_plan_uses_coordinated_icloud_recovery_and_reports_timeout(self):
+        result = self.remove()
+        access = manager.icloud_access
+        plain = access._plain_read
+        def blocked(path, max_bytes=access.MAX_BYTES):
+            if path.name == '.plan.json':
+                raise OSError(errno.EDEADLK, 'Resource deadlock avoided')
+            return plain(path, max_bytes)
+        with patch.object(access.sys, 'platform', 'darwin'), \
+                patch.object(access, '_plain_read', side_effect=blocked), \
+                patch.object(access, '_coordinated_read', side_effect=plain) as recovery:
+            status, _, body = self.http('/api/files-trash-list', 'POST', '{}')
+        self.assertEqual(status, 200, body)
+        data = json.loads(body)
+        self.assertEqual(data['sessions'][0]['session'], result['session'])
+        self.assertFalse(data['warning'])
+        self.assertEqual(recovery.call_args.args[1], 20 * 1024 * 1024)
+        with patch.object(access.sys, 'platform', 'darwin'), \
+                patch.object(access, '_plain_read', side_effect=blocked), \
+                patch.object(access, '_coordinated_read', side_effect=subprocess.TimeoutExpired('helper', 8)):
+            status, _, body = self.http('/api/files-trash-list', 'POST', '{}')
+        self.assertEqual(status, 200, body)
+        self.assertTrue(json.loads(body)['warning'])
+        self.assertEqual(trash.list_sessions(self.root)[0]['session'], result['session'])
 
     def test_http_confirmation_conflict_removal_listing_and_restore(self):
         status, _, body = self.http('/api/files-trash-preview', 'POST', json.dumps({'path': self.scope, 'files': [self.document]}))

@@ -25,6 +25,7 @@ from mobile_sync import MobileBridge, RUN_LOCK
 import image_reports
 import invoices
 import native_renderers
+import icloud_access
 import spreadsheet_preview
 from local_metadata import MetadataStore
 import order_folders
@@ -1641,8 +1642,17 @@ class ManagerHandler(BaseHTTPRequestHandler):
                     result = file_trash.remove(DATA_ROOT, payload.get("path", ""), payload.get("files"), payload.get("confirmed"),database=order_store().database if DATABASE_ONLY else None)
                 self.send_json(result)
                 return
-            elif route == "/api/files-trash-list":
-                self.send_json({"sessions": file_trash.list_sessions(DATA_ROOT), "events": event_trash.list_sessions(order_store())})
+            elif route in {"/api/files-trash-list", "/api/event-trash-list"}:
+                events = event_trash.list_sessions(order_store())
+                sessions, errors = [], []
+                if route == "/api/files-trash-list":
+                    try:
+                        sessions = file_trash.list_sessions(DATA_ROOT, errors=errors,
+                            reader=lambda path: icloud_access.read_bytes(path, max_bytes=20 * 1024 * 1024))
+                    except (OSError, ValueError, sqlite3.Error):
+                        errors.append({"session": None})
+                warning = "Часть корзины файлов сейчас недоступна. Список файлов может быть неполным; закрой и открой корзину ещё раз. События показаны из базы." if errors else ""
+                self.send_json({"sessions": sessions, "events": events, "warning": warning})
                 return
             elif route == "/api/files-trash-restore":
                 with file_comments.LOCK:

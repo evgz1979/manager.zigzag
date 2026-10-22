@@ -104,10 +104,10 @@ def session_path(root, token):
     return checked(root, (HISTORY / ('.' + token)).as_posix(), hidden=True)
 
 
-def read_plan(root, token):
+def read_plan(root, token, *, reader=None):
     session = session_path(root, token)
     plan_path = checked(root, (session.relative_to(root) / '.plan.json').as_posix(), hidden=True)
-    plan = json.loads(plan_path.read_text(encoding='utf-8'))
+    plan = json.loads(reader(plan_path).decode('utf-8') if reader else plan_path.read_text(encoding='utf-8'))
     if plan.get('kind') != 'file-trash' or plan.get('root') != str(root) or plan.get('session') != token:
         raise ValueError('План корзины не соответствует корню документов')
     for operation in plan['operations']:
@@ -293,7 +293,7 @@ def restore_invoice_record(plan):
         db.execute('UPDATE invoices SET data=?,revision=revision+1,updated=? WHERE id=?', (json.dumps(data, ensure_ascii=False), time.time(), row[0]))
 
 
-def list_sessions(root):
+def list_sessions(root, *, reader=None, errors=None):
     root = Path(root).resolve()
     folder = checked(root, HISTORY.as_posix(), hidden=True)
     if not folder.exists():
@@ -303,10 +303,15 @@ def list_sessions(root):
         if not session.name.startswith('.') or not re.fullmatch('[a-f0-9]{32}', session.name[1:]):
             continue
         try:
-            _, plan = read_plan(root, session.name[1:])
+            _, plan = read_plan(root, session.name[1:], reader=reader)
+            record = describe(root, plan)
         except (FileNotFoundError, json.JSONDecodeError):
             continue  # An interrupted preparation never moved any user files.
-        record = describe(root, plan)
+        except (OSError, ValueError, sqlite3.Error) as error:
+            if errors is None:
+                raise
+            errors.append({'session': session.name[1:], 'error': str(error)})
+            continue
         if record['count']:
             result.append(record)
     return sorted(result, key=lambda record: record['created'], reverse=True)

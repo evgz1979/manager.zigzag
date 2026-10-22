@@ -23,6 +23,7 @@ const state = {
   eventPlan: null, eventBusy: false,
   folderRename: null, folderRenaming: false,
   eventRemoval: null, eventRemoving: false,
+  trashEventsOnly: false,
   orderTodoPath: null, orderTodoMarkup: null, orderTodoKind: "todos",
 };
 let searchTimer, toastTimer, todoSaveTimer, previewVersion = 0, treeSearchVersion = 0, printReadVersion = 0;
@@ -837,16 +838,20 @@ async function removeSelectedFiles() {
 }
 
 async function loadFileTrash() {
-  const data = await request("/api/files-trash-list", {});
+  const data = await request(state.trashEventsOnly ? "/api/event-trash-list" : "/api/files-trash-list", {});
   const events = (data.events || []).map((session) => '<section class="file-trash-session"><strong>Событие · ' +
     escapeHtml(new Date(session.created).toLocaleString("ru", { timeZone: "Europe/Moscow" })) + '</strong><p>' + escapeHtml(session.path) +
     '</p>' + (session.pending ? '<p>Операция прервана. Доступно восстановление.</p>' : '') + '<button class="secondary-button" data-restore-event="' + escapeHtml(session.session) + '">Восстановить событие</button></section>').join("");
   $("fileTrashList").innerHTML = events + data.sessions.map((session) => '<section class="file-trash-session"><strong>' +
     escapeHtml(new Date(session.created).toLocaleString("ru", { timeZone: "Europe/Moscow" })) + ' · файлов: ' + session.count + '</strong><p>' + escapeHtml(session.folder) +
-    '</p><ul class="file-operation-list">' + session.files.map((path) => '<li>' + escapeHtml(path) + '</li>').join("") + '</ul><button class="secondary-button" data-restore-session="' + session.session + '">Восстановить</button></section>').join("") || '<p>Корзина пуста.</p>';
+    '</p><ul class="file-operation-list">' + session.files.map((path) => '<li>' + escapeHtml(path) + '</li>').join("") + '</ul><button class="secondary-button" data-restore-session="' + session.session + '">Восстановить</button></section>').join("") || (data.warning ? '<p>Список файлов сейчас недоступен.</p>' : '<p>Корзина пуста.</p>');
+  $("fileTrashWarning").hidden = !data.warning;
+  $("fileTrashWarning").textContent = data.warning || "";
 }
 
-async function openFileTrash() {
+async function openFileTrash(eventsOnly = false) {
+  state.trashEventsOnly = eventsOnly;
+  $("fileTrashTitle").textContent = eventsOnly ? "Корзина событий" : "Корзина менеджера";
   $("fileTrashDialogState").textContent = "";
   await loadFileTrash();
   if (!$("fileTrashDialog").open) $("fileTrashDialog").showModal();
@@ -2111,7 +2116,7 @@ $("deleteFilesForm").addEventListener("submit", (event) => { event.preventDefaul
 $("cancelDeleteFiles").addEventListener("click", () => $("deleteFilesDialog").close());
 $("deleteFilesDialog").addEventListener("cancel", (event) => { if (state.fileRemoving) event.preventDefault(); });
 $("openFileTrash").addEventListener("click", () => run(openFileTrash));
-$("openEventTrash").addEventListener("click", () => run(openFileTrash));
+$("openEventTrash").addEventListener("click", () => run(() => openFileTrash(true)));
 $("deleteEventButton").addEventListener("click", () => run(confirmEventRemoval));
 $("deleteEventForm").addEventListener("submit", (event) => { event.preventDefault(); run(removeEvent); });
 $("cancelDeleteEvent").addEventListener("click", () => $("deleteEventDialog").close());

@@ -1,5 +1,6 @@
 """Supplier event removal: data preservation, stale confirmations and crash recovery."""
 import json
+import errno
 import shutil
 import sqlite3
 import subprocess
@@ -174,3 +175,26 @@ class EventTrashTests(unittest.TestCase):
             status, _, body = self.http('/api/event-trash-restore', 'POST', json.dumps({'session': token}))
         self.assertEqual(status, 200, body)
         self.assertTrue(self.file_path.exists())
+
+    def test_event_basket_is_database_only_even_when_icloud_file_basket_fails(self):
+        result = self.remove()
+        with patch.object(manager.file_trash, 'list_sessions', side_effect=AssertionError('no file basket reads')), \
+                patch.object(manager.icloud_access, 'read_bytes', side_effect=AssertionError('no iCloud reads')):
+            status, _, body = self.http('/api/event-trash-list', 'POST', '{}')
+        self.assertEqual(status, 200, body)
+        data = json.loads(body)
+        self.assertEqual([item['session'] for item in data['events']], [result['session']])
+        self.assertEqual(data['sessions'], [])
+        self.assertFalse(data['warning'])
+        self.assertFalse((self.root / self.event).exists())
+
+    def test_general_basket_keeps_events_and_warning_when_file_basket_is_unavailable(self):
+        result = self.remove()
+        with patch.object(manager.file_trash, 'list_sessions', side_effect=OSError(errno.EDEADLK, 'Resource deadlock avoided')):
+            status, _, body = self.http('/api/files-trash-list', 'POST', '{}')
+        self.assertEqual(status, 200, body)
+        data = json.loads(body)
+        self.assertEqual(data['events'][0]['session'], result['session'])
+        self.assertTrue(data['warning'])
+        self.assertNotIn('Resource deadlock', data['warning'])
+        self.assertEqual(event_trash.list_sessions(self.store)[0]['session'], result['session'])

@@ -277,7 +277,7 @@
     <dialog id="deleteFilesDialog" class="confirm-dialog" aria-labelledby="deleteFilesTitle">
       <form id="deleteFilesForm"><h2 id="deleteFilesTitle">Переместить файлы в корзину?</h2><p id="deleteFilesCount"></p><ul id="deleteFilesList" class="file-operation-list"></ul><p>Файлы и их комментарии сохранятся в корзине менеджера. Их можно будет восстановить кнопкой «Корзина».</p><div class="confirm-actions"><button id="cancelDeleteFiles" class="secondary-button" type="button">Отмена</button><button id="confirmDeleteFiles" class="danger-button" type="submit">В корзину</button></div></form>
     </dialog>
-    <dialog id="fileTrashDialog" class="confirm-dialog file-trash-dialog" aria-labelledby="fileTrashTitle"><h2 id="fileTrashTitle">Корзина менеджера</h2><div id="fileTrashList"></div><p id="fileTrashDialogState" class="file-report-state" role="status"></p><div class="confirm-actions"><button id="closeFileTrash" class="secondary-button" type="button">Закрыть</button></div></dialog>
+    <dialog id="fileTrashDialog" class="confirm-dialog file-trash-dialog" aria-labelledby="fileTrashTitle"><h2 id="fileTrashTitle">Корзина менеджера</h2><div id="fileTrashList"></div><p id="fileTrashWarning" class="file-report-state error" role="status" hidden></p><p id="fileTrashDialogState" class="file-report-state" role="status"></p><div class="confirm-actions"><button id="closeFileTrash" class="secondary-button" type="button">Закрыть</button></div></dialog>
     <div id="toast" class="toast" role="status" hidden></div>
     <script src="/spreadsheet-preview.js"></script>
     <script src="/app.js"></script>
