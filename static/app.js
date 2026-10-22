@@ -304,10 +304,11 @@ function updateFolderActivity(folder, activity) {
 
 function renderClientActivity() {
   const folder = state.folder, activity = folderActivity(folder);
+  $("folderFooter").hidden = !activity;
   $("clientActivityCard").hidden = !activity;
   if (!activity) return;
   const object = Boolean(folder.objectActivity), entity = object ? "объекта" : "клиента";
-  $("clientActivityCard").setAttribute("aria-label", object ? "Карточка объекта" : "Карточка клиента");
+  $("clientActivityCard").setAttribute("aria-label", object ? "Активность объекта" : "Активность клиента");
   $("activityLabel").textContent = object ? "Неактивный объект" : "Неактивный клиент";
   $("activityHint").textContent = "Заказы и To-do неактивного " + entity + " скрыты на главной. Сними отметку, чтобы вернуть их.";
   $("clientInactive").checked = activity.inactive;

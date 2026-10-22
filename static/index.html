@@ -57,12 +57,6 @@
           <p class="orders-hint">Итоги рассчитаны по текущему фильтру. Прибыль = сумма − затраты, остаток = сумма − оплачено. Прочерк означает, что сумма ещё не указана; отрицательный остаток — переплата.</p>
         </section>
         <div id="folderView">
-        <section id="clientActivityCard" class="client-activity-card" aria-label="Карточка клиента" hidden>
-          <label><input id="clientInactive" type="checkbox"><span id="activityLabel">Неактивный клиент</span></label>
-          <p id="activityHint">Заказы и To-do неактивного клиента скрыты на главной. Сними отметку, чтобы вернуть их.</p>
-          <p id="clientActivityState" role="status"></p>
-          <button id="clientActivityAcceptFile" class="secondary-button" type="button" hidden>Принять отметку из файла</button>
-        </section>
         <div id="orderOverview" class="order-overview">
         <details id="orderDetails" class="order-details" hidden><summary><span id="statusBadge" class="status-badge">Новый</span><span id="financialStatusBadge" class="status-badge" hidden></span><span id="folderDetailsTitle">Карточка заказа</span><span class="details-chevron">⌄</span></summary><form id="statusForm" class="status-form"><label id="orderTitleLabel" class="order-title-label" hidden>Название заказа<input id="orderTitleInput" type="text" maxlength="500" autocomplete="off"></label><div id="orderStatusFields" class="order-status-fields"><label id="statusLabel">Производственный статус<select id="statusSelect" name="status"><option value="new">Новый</option><option value="measure">Замеры</option><option value="process">Расчеты</option><option value="workshop">В цех</option><option value="install">Монтаж</option><option value="rework">Переделка/доделка</option><option value="finishing">Завершение/добивка</option><option value="deferred">Отложен/возможно</option><option value="unspecified">Не указан</option><option value="done">Готово</option><option value="done_but">Готово, но…</option><option value="cancelled">Отменён</option></select></label><label id="financialStatusLabel">Финансовый статус<select id="financialStatusSelect" name="financial_status"><option value="unspecified">Не указан</option><option value="payment">На оплате</option><option value="partial">Частично оплачен</option><option value="paid">Оплачен</option></select></label></div><label class="note-label">Заметка<textarea id="orderNote" name="note" rows="2" placeholder="Что важно по этому заказу"></textarea></label><div id="financialFields" class="financial-fields" hidden>
           <label>Сумма заказа, ₽<input id="orderAmount" type="text" inputmode="decimal" placeholder="Не указано" autocomplete="off"></label>
@@ -142,6 +136,14 @@
             <span id="fileTrashState" class="file-report-state" role="status"></span>
           </div>
           <div id="files" class="files"></div></section>
+        <footer id="folderFooter" class="folder-footer" aria-label="Настройки папки" hidden>
+          <section id="clientActivityCard" class="client-activity-card" aria-label="Активность клиента" hidden>
+            <label><input id="clientInactive" type="checkbox"><span id="activityLabel">Неактивный клиент</span></label>
+            <p id="activityHint">Заказы и To-do неактивного клиента скрыты на главной. Сними отметку, чтобы вернуть их.</p>
+            <p id="clientActivityState" role="status"></p>
+            <button id="clientActivityAcceptFile" class="secondary-button" type="button" hidden>Принять отметку из файла</button>
+          </section>
+        </footer>
         </div>
       </section>
     </main>
