@@ -1,10 +1,10 @@
 import Foundation
 import Darwin
 
-// Только чтение одного небольшого файла. Таймаут процесса задаёт вызывающий Python.
+// Только чтение одного файла с явным пределом. Таймаут процесса задаёт вызывающий Python.
 do {
     guard CommandLine.arguments.count == 3,
-          let limit = Int(CommandLine.arguments[2]), limit > 0, limit <= 1_048_576 else {
+          let limit = Int(CommandLine.arguments[2]), limit > 0, limit <= 20_971_520 else {
         throw NSError(domain: "ZigzagRead", code: 1,
                       userInfo: [NSLocalizedDescriptionKey: "Некорректный запрос чтения"])
     }
@@ -27,7 +27,7 @@ do {
             guard attributes[.type] as? FileAttributeType == .typeRegular,
                   let size = attributes[.size] as? NSNumber, size.intValue <= limit else {
                 throw NSError(domain: "ZigzagRead", code: 2,
-                              userInfo: [NSLocalizedDescriptionKey: "Нужен обычный файл до 1 МБ"])
+                              userInfo: [NSLocalizedDescriptionKey: "Нужен обычный файл в пределах указанного размера"])
             }
             let file = try FileHandle(forReadingFrom: localURL)
             defer { try? file.close() }

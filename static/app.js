@@ -1708,6 +1708,7 @@ async function showPreview(path) {
   await saveFileComment();
   const file = state.folder.files.find((item) => item.path === path);
   if (!file) return;
+  SpreadsheetPreview.close();
   const version = ++previewVersion;
   state.preview = file;
   $("previewTitle").textContent = file.name;
@@ -1732,6 +1733,11 @@ async function showPreview(path) {
     media.addEventListener("error", () => {
       if (version === previewVersion) previewUnavailable("Не удалось показать изображение. Откройте оригинал на Mac.");
     }, { once: true });
+  } else if (file.preview === "spreadsheet") {
+    SpreadsheetPreview.open($("previewBody"), apiUrl("/api/spreadsheet", path), (message) => {
+      if (version === previewVersion) previewUnavailable(message);
+    });
+    return;
   } else if (file.preview === "pdf") {
     $("previewBody").textContent = "Загрузка PDF…";
     try {
@@ -1895,6 +1901,13 @@ function previewUnavailable(message) {
   button.addEventListener("click", () => run(() => openNative(state.preview.path)));
   wrapper.append(label, text, button);
   $("previewBody").replaceChildren(wrapper);
+}
+
+function setPreviewExpanded(expanded) {
+  $("previewDialog").classList.toggle("preview-expanded", expanded);
+  $("previewExpand").textContent = expanded ? "Свернуть" : "Развернуть";
+  $("previewExpand").setAttribute("aria-pressed", String(expanded));
+  $("previewExpand").title = expanded ? "Вернуть комментарии" : "Документ на всё окно";
 }
 
 function stepPreview(direction) {
@@ -2389,7 +2402,7 @@ window.addEventListener("keydown", (event) => {
 });
 $("previewClose").addEventListener("click", () => run(closePreview));
 $("previewDialog").addEventListener("cancel", (event) => { event.preventDefault(); run(closePreview); });
-$("previewDialog").addEventListener("close", () => { ++previewVersion; $("previewBody").replaceChildren(); state.preview = null; state.fileComment = null; });
+$("previewDialog").addEventListener("close", () => { ++previewVersion; SpreadsheetPreview.close(); setPreviewExpanded(false); $("previewBody").replaceChildren(); state.preview = null; state.fileComment = null; });
 $("fileCommentText").addEventListener("input", () => {
   if (!state.fileComment?.loaded) return;
   state.fileComment.draft = $("fileCommentText").value;
@@ -2402,8 +2415,9 @@ $("reloadFileComment").addEventListener("click", () => run(() => loadFileComment
 $("previewPrevious").addEventListener("click", () => stepPreview(-1));
 $("previewNext").addEventListener("click", () => stepPreview(1));
 $("previewNative").addEventListener("click", () => run(() => openNative(state.preview.path)));
+$("previewExpand").addEventListener("click", () => setPreviewExpanded(!$("previewDialog").classList.contains("preview-expanded")));
 $("previewDialog").addEventListener("keydown", (event) => {
-  if (["INPUT", "TEXTAREA"].includes(event.target.tagName)) return;
+  if (["INPUT", "TEXTAREA", "SELECT"].includes(event.target.tagName) || event.target.closest(".spreadsheet-viewer")) return;
   if (event.key === "ArrowLeft") { event.preventDefault(); stepPreview(-1); }
   if (event.key === "ArrowRight") { event.preventDefault(); stepPreview(1); }
 });

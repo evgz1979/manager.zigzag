@@ -25,6 +25,7 @@ from mobile_sync import MobileBridge, RUN_LOCK
 import image_reports
 import invoices
 import native_renderers
+import spreadsheet_preview
 from local_metadata import MetadataStore
 import order_folders
 import order_creation
@@ -105,7 +106,7 @@ EXT_GROUPS = {
     "audio": {".mp3", ".wav", ".m4a", ".ogg", ".aac", ".flac"},
     "pdf": {".pdf"},
     "design": {".cdr", ".ai", ".eps", ".svg", ".psd", ".dxf"},
-    "docs": {".doc", ".docx", ".xls", ".xlsx", ".txt", ".rtf", ".md", ".csv"},
+    "docs": {".doc", ".docx", ".xls", ".xlsx", ".xlsm", ".xlsb", ".txt", ".rtf", ".md", ".csv"},
 }
 TEXT_EXTENSIONS = {".txt", ".md", ".csv", ".tsv", ".json", ".ini", ".log", ".yaml", ".yml", ".xml", ".py", ".js", ".css"}
 BROWSER_IMAGES = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif", ".bmp", ".svg"}
@@ -537,6 +538,8 @@ def file_group(path):
 
 def preview_kind(path):
     ext = path.suffix.lower()
+    if ext in spreadsheet_preview.EXTENSIONS:
+        return "spreadsheet"
     if ext in BROWSER_IMAGES or ext in {".heic", ".heif", ".tif", ".tiff"}:
         return "image"
     if ext == ".pdf":
@@ -1312,11 +1315,21 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 target = comment_file(relative)
                 self.send_json({"path": relative, "comment_key": file_comments.binding(target),
                                 **read_file_comment(target)}, head=head)
-            elif parsed.path in {"/api/file", "/api/preview", "/api/text", "/api/pdf", "/api/pdf-page"}:
+            elif parsed.path in {"/api/file", "/api/preview", "/api/text", "/api/pdf", "/api/pdf-page", "/api/spreadsheet"}:
                 target = safe_path(relative)
                 if not target.is_file():
                     raise FileNotFoundError("Файл не найден")
-                if parsed.path == "/api/pdf":
+                if parsed.path == "/api/spreadsheet":
+                    body = spreadsheet_preview.read_bytes(target)
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/octet-stream")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.send_header("Cache-Control", "no-store")
+                    self.send_header("X-Content-Type-Options", "nosniff")
+                    self.end_headers()
+                    if not head:
+                        self.wfile.write(body)
+                elif parsed.path == "/api/pdf":
                     self.send_json(pdf_info(target), head=head)
                 elif parsed.path == "/api/pdf-page":
                     self.send_file(pdf_page(target, int(query.get("page", ["0"])[0])), head=head, private=True)

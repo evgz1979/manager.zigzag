@@ -236,7 +236,7 @@
       <div class="confirm-actions"><button id="mobileEnable" class="primary-button" type="button">Подготовить обмен</button><button id="mobileRefresh" class="secondary-button" type="button">Обновить сейчас</button><button id="mobilePause" class="secondary-button" type="button">Приостановить</button><button id="mobileClose" class="secondary-button" type="button">Закрыть</button></div>
     </dialog>
     <dialog id="previewDialog" class="preview-dialog">
-      <header class="preview-header"><div><strong id="previewTitle"></strong><span id="previewPath"></span></div><div class="preview-actions"><button id="previewPrevious" title="Предыдущий файл" aria-label="Предыдущий файл">←</button><button id="previewNext" title="Следующий файл" aria-label="Следующий файл">→</button><button id="previewNative">Открыть на Mac</button><a id="previewDownload" class="secondary-button">Скачать</a><button id="previewClose" title="Закрыть" aria-label="Закрыть">✕</button></div></header>
+      <header class="preview-header"><div><strong id="previewTitle"></strong><span id="previewPath"></span></div><div class="preview-actions"><button id="previewPrevious" title="Предыдущий файл" aria-label="Предыдущий файл">←</button><button id="previewNext" title="Следующий файл" aria-label="Следующий файл">→</button><button id="previewExpand" aria-pressed="false" title="Документ на всё окно">Развернуть</button><button id="previewNative">Открыть на Mac</button><a id="previewDownload" class="secondary-button">Скачать</a><button id="previewClose" title="Закрыть" aria-label="Закрыть">✕</button></div></header>
       <div class="preview-content">
         <aside class="preview-folder-note" aria-labelledby="previewFolderNoteLabel"><label id="previewFolderNoteLabel" for="previewFolderNote">Комментарий к папке</label><p id="previewFolderNotePath" class="preview-folder-note-path"></p><textarea id="previewFolderNote" readonly spellcheck="false" placeholder="Комментария к папке пока нет"></textarea></aside>
         <div id="previewBody" class="preview-body"></div>
@@ -276,6 +276,7 @@
     </dialog>
     <dialog id="fileTrashDialog" class="confirm-dialog file-trash-dialog" aria-labelledby="fileTrashTitle"><h2 id="fileTrashTitle">Корзина менеджера</h2><div id="fileTrashList"></div><p id="fileTrashDialogState" class="file-report-state" role="status"></p><div class="confirm-actions"><button id="closeFileTrash" class="secondary-button" type="button">Закрыть</button></div></dialog>
     <div id="toast" class="toast" role="status" hidden></div>
+    <script src="/spreadsheet-preview.js"></script>
     <script src="/app.js"></script>
     <script src="/invoices.js"></script>
     <script src="/work-orders.js"></script>
