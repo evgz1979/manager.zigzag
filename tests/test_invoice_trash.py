@@ -33,6 +33,16 @@ class InvoiceTrashTests(unittest.TestCase):
     def remove(self, record):
         return self.store().remove({**record, 'confirmed': True})
 
+    def test_list_status_survives_trash_and_restore(self):
+        record = self.store().save_list_status({**self.attached(), 'value': 'sent'})
+        deleted = self.remove(record)
+        self.assertEqual(deleted['list_status'], 'sent')
+        self.store().sync()
+        restored = self.store().restore(deleted)
+        self.assertEqual(restored['list_status'], 'sent')
+        self.assertEqual(restored['data'], record['data'])
+        self.assertEqual(self.store().pdf(self.path, record['id'])[0], self.pdf)
+
     def test_delete_restore_preserves_pdf_invoice_and_file_comments(self):
         record = self.attached()
         before = manager.order_store().get(self.path)

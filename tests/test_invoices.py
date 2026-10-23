@@ -52,6 +52,23 @@ class InvoiceTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 self.save(row)
 
+    def test_list_status_survives_draft_edits_and_issue_and_new_copy_is_unmarked(self):
+        draft = self.draft()
+        marked = self.store().save_list_status({**draft, 'value': 'later'})
+        marked['data']['note'] = 'Правка текста черновика'
+        marked['data']['_list_status'] = 'sent'  # Only the partial status endpoint may change this field.
+        saved = self.save(marked)
+        self.assertEqual(saved['list_status'], 'later')
+        issued = self.issue(saved)
+        self.assertEqual(issued['list_status'], 'later')
+        pdf = self.store().pdf(self.path, issued['id'])
+        sent = self.store().save_list_status({**issued, 'value': 'sent'})
+        self.assertEqual(sent['list_status'], 'sent')
+        self.assertEqual(self.store().pdf(self.path, issued['id']), pdf)
+        copy = self.store().create({'path': self.path, 'id': str(uuid.uuid4()), 'source': sent['id']})
+        self.assertEqual(copy['list_status'], 'none')
+        self.assertEqual(copy['data']['note'], saved['data']['note'])
+
     def test_create_is_idempotent_numbering_is_annual_and_concurrent(self):
         first = self.draft()
         self.assertEqual(self.store().create({"id": first["id"], "path": self.path})["id"], first["id"])

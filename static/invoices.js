@@ -2,6 +2,8 @@
 (() => {
   let editor = null, attachment = null, listedPath = null, listMarkup = null, trashMarkup = null, loading = 0, pendingCreate = null;
   let pendingRemoval = null, removing = false;
+  const statusSaving = new Set();
+  const listStatusLabels = { active: "Актуально", inactive: "Неактуально", later: "Позже", sent: "Отправлен" };
   const invoiceLabel = (record) => record.state === 'external' ? record.data.original_name : (record.data.kind === 'contract' ? 'Счёт-договор' : 'Счёт') + ' № ' + record.number;
   const fields = { kind: "invoiceKind", number: "invoiceNumber", date: "invoiceDate", due_date: "invoiceDue",
     buyer_name: "invoiceBuyer", buyer_inn: "invoiceBuyerInn", buyer_kpp: "invoiceBuyerKpp", buyer_address: "invoiceBuyerAddress",
@@ -14,6 +16,63 @@
     $("invoiceEditorState").textContent = text;
     $("invoiceEditorState").classList.toggle("error", error);
   };
+
+  function renderInvoiceList(records) {
+    const focused = document.activeElement?.closest('[data-invoice-status]');
+    const focusKey = focused ? { id: focused.dataset.invoiceStatus, value: focused.dataset.value } : null;
+    const markup = records.map((record) => {
+      const external = record.state === "external";
+      const label = invoiceLabel(record);
+      const date = record.data.date.split("-").reverse().join(".");
+      const details = (external ? 'Внешний · ' : '') + date;
+      const comment = external ? record.data.comment?.trim() : '';
+      const heading = comment || label;
+      const secondary = (comment ? label + ' · ' : '') + details;
+      const sync = record.state === "draft" ? "Черновик" : record.sync_error ? "PDF в базе · " + record.sync_error + " · автоповтор" : record.sync_pending ? "PDF в базе · копия в # bills ожидает выгрузки" : "PDF в # bills";
+      const busy = statusSaving.has(record.id);
+      const status = record.list_status === undefined ? 'none' : record.list_status;
+      const buttons = '<div class="invoice-list-status" role="group" aria-label="Отметка счёта · ' + escapeHtml(label) + '" aria-busy="' + busy + '">' +
+        Object.entries(listStatusLabels).map(([value, name]) => '<button type="button" class="secondary-button" data-invoice-status="' + record.id + '" data-value="' + value + '" aria-pressed="' + (status === value) + '" title="' + (status === null ? 'Неизвестная отметка сохранена без замены' : status === value ? 'Снять отметку «' + name + '»' : name) + '"' + (busy || status === null ? ' disabled' : '') + '>' + name + '</button>').join('') + '</div>';
+      return '<div class="invoice-row"><button type="button" class="invoice-row-name" data-invoice-' + (external ? 'view' : 'edit') + '="' + record.id + '"><span class="invoice-row-label' + (comment ? ' invoice-row-comment' : '') + '" title="' + escapeHtml(heading) + '">' + escapeHtml(heading) + '</span><small class="invoice-row-meta" title="' + escapeHtml(secondary + ' · ' + sync) + '">' + escapeHtml(secondary) + '<span class="invoice-row-state' + (record.sync_error ? ' error' : '') + '"> · ' + escapeHtml(sync) + '</span></small></button><div class="invoice-row-actions">' + (external ? '' : '<strong>' + cash(record.data.total) + '</strong>') + buttons +
+        (external ? '<button class="secondary-button" type="button" data-invoice-view="' + record.id + '">PDF</button>' : record.state !== "draft" ? '<a class="secondary-button" href="' + escapeHtml(pdfUrl(record)) + '" target="_blank" rel="noopener">PDF ↗</a>' : '') + (external ? '' : '<button class="secondary-button" type="button" data-invoice-copy="' + record.id + '">На основе</button>') + '<button class="secondary-button invoice-remove" type="button" data-invoice-remove="' + record.id + '" title="В корзину" aria-label="' + escapeHtml('В корзину · ' + label) + '">×</button></div></div>';
+    }).join("");
+    if (markup !== listMarkup) {
+      $("invoiceList").innerHTML = markup;
+      listMarkup = markup;
+      if (focusKey && document.activeElement === document.body) focusStatusButton(focusKey);
+    }
+    // Store records on this exact list, independent of grid positions.
+    $("invoiceList").invoiceRecords = records;
+  }
+
+  function focusStatusButton(key) {
+    [...$("invoiceList").querySelectorAll('[data-invoice-status]')].find((button) =>
+      button.dataset.invoiceStatus === key.id && button.dataset.value === key.value)?.focus({ preventScroll: true });
+  }
+
+  async function toggleListStatus(record, value) {
+    if (statusSaving.has(record.id)) return;
+    const focusKey = { id: record.id, value };
+    statusSaving.add(record.id);
+    renderInvoiceList($("invoiceList").invoiceRecords || []);
+    try {
+      const saved = await request('/api/invoice-list-status', { path: record.path, id: record.id, revision: record.revision,
+        value: record.list_status === value ? 'none' : value });
+      if (state.folder?.path === record.path) {
+        renderInvoiceList(($("invoiceList").invoiceRecords || []).map((item) => item.id === saved.id ? saved : item));
+        await refreshList(true);
+      }
+    } catch (error) {
+      if (state.folder?.path === record.path) await refreshList(true);
+      throw error;
+    } finally {
+      statusSaving.delete(record.id);
+      if (state.folder?.path === record.path) {
+        renderInvoiceList($("invoiceList").invoiceRecords || []);
+        if (document.activeElement === document.body) focusStatusButton(focusKey);
+      }
+    }
+  }
 
   async function refreshList(force = false) {
     const folder = state.folder;
@@ -34,22 +93,7 @@
       if (version !== loading || state.folder?.path !== folder.path) return;
       $("invoiceCount").textContent = result.items.length || "";
       $("invoiceListState").textContent = result.items.length ? "" : "Прикрепи PDF или выпиши счёт по этому заказу.";
-      const markup = result.items.map((record) => {
-        const external = record.state === "external";
-        const label = invoiceLabel(record);
-        const date = record.data.date.split("-").reverse().join(".");
-        const details = (external ? 'Внешний · ' : '') + date;
-        const comment = external && record.data.comment ? ' · ' + record.data.comment : '';
-        const sync = record.state === "draft" ? "Черновик" : record.sync_error ? "PDF в базе · " + record.sync_error + " · автоповтор" : record.sync_pending ? "PDF в базе · копия в # bills ожидает выгрузки" : "PDF в # bills";
-        return '<div class="invoice-row"><button type="button" class="invoice-row-name" data-invoice-' + (external ? 'view' : 'edit') + '="' + record.id + '"><span class="invoice-row-label" title="' + escapeHtml(label) + '">' + escapeHtml(label) + '</span><small class="invoice-row-meta" title="' + escapeHtml(details + comment + ' · ' + sync) + '">' + escapeHtml(details) + '<span class="invoice-row-comment">' + escapeHtml(comment) + '</span><span class="invoice-row-state' + (record.sync_error ? ' error' : '') + '"> · ' + escapeHtml(sync) + '</span></small></button>' + (external ? '' : '<strong>' + cash(record.data.total) + '</strong>') +
-          (external ? '<button class="secondary-button" type="button" data-invoice-view="' + record.id + '">PDF</button>' : record.state !== "draft" ? '<a class="secondary-button" href="' + escapeHtml(pdfUrl(record)) + '" target="_blank" rel="noopener">PDF ↗</a>' : '') + (external ? '' : '<button class="secondary-button" type="button" data-invoice-copy="' + record.id + '">На основе</button>') + '<button class="secondary-button invoice-remove" type="button" data-invoice-remove="' + record.id + '" title="В корзину" aria-label="' + escapeHtml('В корзину · ' + label) + '">×</button></div>';
-      }).join("");
-      if (markup !== listMarkup) {
-        $("invoiceList").innerHTML = markup;
-        listMarkup = markup;
-      }
-      // Store records on this exact list, independent of grid positions.
-      $("invoiceList").invoiceRecords = result.items;
+      renderInvoiceList(result.items);
       const trashed = result.trash || [];
       $("invoiceTrash").hidden = !trashed.length;
       $("invoiceTrashCount").textContent = trashed.length;
@@ -312,6 +356,12 @@
     event.target.closest("tr").remove(); changed();
   });
   $("invoiceList").addEventListener("click", (event) => {
+    const status = event.target.closest('[data-invoice-status]');
+    if (status) {
+      const record = $("invoiceList").invoiceRecords?.find((item) => item.id === status.dataset.invoiceStatus && item.path === state.folder?.path);
+      if (record) action(() => toggleListStatus(record, status.dataset.value));
+      return;
+    }
     const remove = event.target.closest('[data-invoice-remove]');
     if (remove) {
       const record = $("invoiceList").invoiceRecords?.find((item) => item.id === remove.dataset.invoiceRemove && item.path === state.folder?.path);

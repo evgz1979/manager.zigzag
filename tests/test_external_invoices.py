@@ -71,6 +71,55 @@ class ExternalInvoiceTests(unittest.TestCase):
             old = db.execute('SELECT data FROM invoice_history WHERE id=? AND revision=?', (record['id'], record['revision'])).fetchone()
         self.assertEqual(json.loads(old[0])['comment'], payload['comment'])
 
+    def test_list_status_is_versioned_partial_and_does_not_change_pdf_or_order(self):
+        record = self.store().upload(self.payload())
+        initial = record
+        order = manager.order_store().get(self.path)
+        self.assertEqual(record['list_status'], 'none')
+        for value in ('active', 'inactive', 'later', 'sent', 'none'):
+            previous = record
+            status, _, body = self.http('/api/invoice-list-status', 'POST', json.dumps({
+                'path': self.path, 'id': record['id'], 'revision': record['revision'], 'value': value}))
+            self.assertEqual(status, 200, body)
+            record = json.loads(body)
+            self.assertEqual(record['list_status'], value)
+            self.assertEqual(record['revision'], previous['revision'] + 1)
+            self.assertEqual(record['data'], {**initial['data'], '_list_status': value})
+            self.assertEqual(self.store().pdf(self.path, record['id'])[0], self.pdf)
+            self.assertEqual((record['filename'], record['exported'], record['sync_pending']),
+                             (initial['filename'], initial['exported'], initial['sync_pending']))
+            with self.store().connect() as db:
+                history = db.execute('SELECT data FROM invoice_history WHERE id=? AND revision=?', (record['id'], previous['revision'])).fetchone()
+            self.assertEqual(json.loads(history[0]), previous['data'])
+        self.assertEqual(self.store().save_list_status({**record, 'value': 'none'}), record)
+        for revision in (initial['revision'], None, True):
+            status, _, _ = self.http('/api/invoice-list-status', 'POST', json.dumps({**record, 'revision': revision, 'value': 'active'}))
+            self.assertEqual(status, 409)
+        commented = self.store().save_comment({**record, 'comment': 'Новая заметка'})
+        self.assertEqual(commented['list_status'], 'none')
+        self.assertEqual(manager.order_store().get(self.path), order)
+        self.assertEqual(self.store().get(self.path, record['id'])['data']['comment'], 'Новая заметка')
+
+    def test_list_status_rejects_unknown_data_wrong_paths_and_trashed_invoices(self):
+        record = self.store().upload(self.payload())
+        for value in ('invalid', None, True, {}):
+            with self.assertRaises(ValueError):
+                self.store().save_list_status({**record, 'value': value})
+        with self.assertRaises(ValueError):
+            self.store().save_list_status({**record, 'path': 'Клиент/2026-00-00 - Другой', 'value': 'sent'})
+        future = {**record['data'], '_list_status': {'version': 99, 'value': 'future'}, 'unknown': 'сохранить'}
+        with self.store().connect() as db:
+            db.execute('UPDATE invoices SET data=? WHERE id=?', (json.dumps(future), record['id']))
+        self.assertIsNone(self.store().get(self.path, record['id'])['list_status'])
+        with self.assertRaisesRegex(ValueError, 'неизвестная отметка'):
+            self.store().save_list_status({**record, 'value': 'active'})
+        self.assertEqual(self.store().get(self.path, record['id'])['data'], future)
+        with self.store().connect() as db:
+            data = {**record['data'], '_trash': {'token': str(uuid.uuid4()), 'state': 'pending', 'error': ''}}
+            db.execute('UPDATE invoices SET data=? WHERE id=?', (json.dumps(data), record['id']))
+        with self.assertRaises(invoices.InvoiceConflict):
+            self.store().save_list_status({**record, 'value': 'sent'})
+
     def test_viewer_renders_database_pdf_before_export_without_document_access(self):
         original = sample_pdf()
         record = self.store().upload(self.payload(pdf=base64.b64encode(original).decode()))
@@ -141,6 +190,7 @@ class ExternalInvoiceTests(unittest.TestCase):
 
     def test_rename_undo_and_old_tab_preserve_attachment_and_outbox(self):
         record = self.store().upload(self.payload())
+        record = self.store().save_list_status({**record, 'value': 'sent'})
         view = manager.folder_rename.preview(manager.order_store(), self.path)
         moved = manager.folder_rename.rename(manager.order_store(), {**view, 'name': '2026-00-00 - Другое имя'})
         with self.assertRaises(invoices.InvoiceConflict):

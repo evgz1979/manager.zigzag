@@ -29,6 +29,7 @@ BUILD_LOCK = threading.Lock()
 SYNC_LOCK = threading.Lock()
 MAX_EXTERNAL_BYTES = 20 * 1024 * 1024
 INVOICE_TRASH_VERSION = 1
+LIST_STATUSES = {"none": "Без отметки", "active": "Актуально", "inactive": "Неактуально", "later": "Позже", "sent": "Отправлен"}
 EXTERNAL_REQUEST_LIMIT = ((MAX_EXTERNAL_BYTES + 2) // 3) * 4 + 64 * 1024
 DEFAULT_SELLER = {
     "name": "ИП ЗАЙЦЕВ ЕВГЕНИЙ КОНСТАНТИНОВИЧ", "inn": "280404583555", "kpp": "",
@@ -207,6 +208,8 @@ class InvoiceStore:
         result = {key: row[key] for key in row.keys() if key != "pdf"}
         result["data"] = json.loads(result["data"])
         result['trash'] = result['data'].get('_trash')
+        value = result['data'].get('_list_status', 'none')
+        result['list_status'] = value if isinstance(value, str) and value in LIST_STATUSES else None
         result["sync_pending"] = not result['trash'] and result["state"] in {"issued", "external"} and not result["exported"]
         result["pdf_path"] = str(Path(result["path"]) / "# bills" / result["filename"]) if result["filename"] else None
         return result
@@ -296,6 +299,28 @@ class InvoiceStore:
                 return self.record(row)
             db.execute('INSERT INTO invoice_history VALUES (?,?,?,?)', (row['id'], row['revision'], row['data'], time.time()))
             data['comment'] = comment
+            db.execute('UPDATE invoices SET data=?,revision=revision+1,updated=? WHERE id=?',
+                       (json.dumps(data, ensure_ascii=False), time.time(), row['id']))
+            return self.record(self.current(db, row['path'], row['id']))
+
+    def save_list_status(self, payload):
+        value = payload.get('value')
+        if not isinstance(value, str) or value not in LIST_STATUSES:
+            raise ValueError('Выбери отметку счёта: Актуально, Неактуально, Позже или Отправлен')
+        with self.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            row = self.current(db, payload.get('path'), payload.get('id'))
+            self.owner(db, row['path'], active=True)
+            if type(payload.get('revision')) is not int or row['revision'] != payload['revision']:
+                raise InvoiceConflict('Счёт изменился в другом окне. Обнови список и повтори выбор отметки')
+            data = json.loads(row['data'])
+            current = self.record(row)['list_status']
+            if current is None:
+                raise ValueError('У счёта неизвестная отметка. Она сохранена без замены')
+            if current == value:
+                return self.record(row)
+            db.execute('INSERT INTO invoice_history VALUES (?,?,?,?)', (row['id'], row['revision'], row['data'], time.time()))
+            data['_list_status'] = value
             db.execute('UPDATE invoices SET data=?,revision=revision+1,updated=? WHERE id=?',
                        (json.dumps(data, ensure_ascii=False), time.time(), row['id']))
             return self.record(self.current(db, row['path'], row['id']))
@@ -460,6 +485,9 @@ class InvoiceStore:
             self.owner(db, row["path"], active=True)
             if row["state"] != "draft" or type(payload.get("revision")) is not int or row["revision"] != payload["revision"]:
                 raise InvoiceConflict("Счёт уже изменён или выпущен. Твой ввод сохранён в форме; открой актуальную версию отдельно")
+            previous = json.loads(row['data'])
+            if '_list_status' in previous:
+                data['_list_status'] = previous['_list_status']
             year = int(data["date"][:4])
             if db.execute("SELECT 1 FROM invoices WHERE year=? AND number=? AND id<>?", (year, data["number"], row["id"])).fetchone():
                 raise InvoiceConflict("Такой номер уже занят в этом году. Укажи другой номер")

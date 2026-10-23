@@ -1483,6 +1483,9 @@ class ManagerHandler(BaseHTTPRequestHandler):
             elif route == '/api/invoice-comment':
                 self.send_json(invoice_store().save_comment(payload))
                 return
+            elif route == '/api/invoice-list-status':
+                self.send_json(invoice_store().save_list_status(payload))
+                return
             elif route == '/api/invoice-remove':
                 self.send_json(invoice_store().remove(payload))
                 schedule_order_sync()
