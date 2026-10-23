@@ -1150,6 +1150,27 @@ def pdf_error(stderr, fallback):
     return fallback
 
 
+def invoice_pdf_target(path, identity):
+    # Always authorize through SQLite, even if these immutable bytes are cached.
+    body, _ = invoice_store().pdf(path, identity)
+    digest = hashlib.sha256(body).hexdigest()
+    cache = DATA_DIR / "invoice-previews"
+    target = cache / f"{digest}.pdf"
+    with PREVIEW_LOCKS[int(digest[:8], 16) % len(PREVIEW_LOCKS)]:
+        if not target.exists():
+            cache.mkdir(parents=True, exist_ok=True)
+            temporary = None
+            try:
+                with tempfile.NamedTemporaryFile(dir=cache, suffix=".pdf", delete=False) as stream:
+                    temporary = Path(stream.name)
+                    stream.write(body)
+                temporary.replace(target)
+            finally:
+                if temporary:
+                    temporary.unlink(missing_ok=True)
+    return target
+
+
 def pdf_info(target):
     if target.suffix.lower() != ".pdf":
         raise ValueError("Выберите PDF")
@@ -1201,12 +1222,13 @@ class ManagerHandler(BaseHTTPRequestHandler):
         if not head:
             self.wfile.write(body)
 
-    def send_invoice_pdf(self, body, name, head=False):
+    def send_invoice_pdf(self, body, name, head=False, download=False):
         self.send_response(200)
         self.send_header("Content-Type", "application/pdf")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
-        self.send_header("Content-Disposition", "inline; filename*=UTF-8''" + urllib.parse.quote(name))
+        disposition = "attachment" if download else "inline"
+        self.send_header("Content-Disposition", disposition + "; filename*=UTF-8''" + urllib.parse.quote(name))
         self.end_headers()
         if not head:
             self.wfile.write(body)
@@ -1281,13 +1303,21 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(metadata_store().status() if DATABASE_ONLY else {"database_only":False},head=head)
             elif parsed.path == "/api/invoices":
                 self.send_json({"items": invoice_store().list(relative), "trash": invoice_store().list(relative, trashed=True)}, head=head)
+            elif parsed.path == "/api/invoice":
+                self.send_json(invoice_store().get(relative, query.get("id", [""])[0]), head=head)
+            elif parsed.path in {"/api/invoice-pdf-info", "/api/invoice-pdf-page"}:
+                target = invoice_pdf_target(relative, query.get("id", [""])[0])
+                if parsed.path == "/api/invoice-pdf-info":
+                    self.send_json(pdf_info(target), head=head)
+                else:
+                    self.send_file(pdf_page(target, int(query.get("page", ["0"])[0])), head=head, private=True)
             elif parsed.path in {"/api/invoice-pdf", "/api/invoice-preview"}:
                 identity = query.get("id", [""])[0]
                 if parsed.path == "/api/invoice-preview":
                     body, name = invoice_store().preview(relative, identity), "Предпросмотр счёта.pdf"
                 else:
                     body, name = invoice_store().pdf(relative, identity)
-                self.send_invoice_pdf(body, name, head=head)
+                self.send_invoice_pdf(body, name, head=head, download=query.get("download", [""])[0] == "1")
             elif parsed.path in {"/api/client-activity", "/api/object-activity"}:
                 activity = object_activity_store() if parsed.path == "/api/object-activity" else client_activity_store()
                 record = activity.get(relative)

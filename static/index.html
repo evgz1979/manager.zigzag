@@ -154,12 +154,12 @@
       <form id="externalInvoiceForm">
         <header class="invoice-dialog-heading"><div><h2 id="externalInvoiceTitle">Внешний счёт</h2><p id="externalInvoicePath"></p></div><button id="closeExternalInvoice" class="icon-button" type="button" aria-label="Закрыть внешний счёт">✕</button></header>
         <div class="invoice-editor-body">
-          <label id="externalInvoiceFileLabel">PDF счёта<input id="externalInvoiceFile" type="file" accept="application/pdf,.pdf" required><small>До 20 МБ</small></label>
+          <label id="externalInvoiceFileLabel" class="external-invoice-drop">Перетащи PDF сюда или выбери файл<input id="externalInvoiceFile" type="file" accept="application/pdf,.pdf"><small id="externalInvoiceFileHint">Один PDF до 20 МБ</small></label>
           <p id="externalInvoiceName" class="external-invoice-name" hidden></p>
           <label class="external-invoice-comment">Комментарий<textarea id="externalInvoiceComment" rows="4" maxlength="5000" placeholder="Необязательно"></textarea></label>
           <p id="externalInvoiceState" class="invoice-state" role="status"></p>
         </div>
-        <footer class="invoice-dialog-actions"><span>PDF в # bills заказа</span><a id="externalInvoicePdf" class="secondary-button" target="_blank" rel="noopener" hidden>Открыть PDF ↗</a><button id="saveExternalInvoice" class="primary-button" type="submit">Прикрепить</button></footer>
+        <footer class="invoice-dialog-actions"><span>PDF в # bills заказа</span><button id="externalInvoicePdf" class="secondary-button" type="button" hidden>Открыть PDF</button><button id="saveExternalInvoice" class="primary-button" type="submit">Прикрепить</button></footer>
       </form>
     </dialog>
     <dialog id="invoiceDialog" class="invoice-dialog" aria-labelledby="invoiceTitle">
@@ -243,7 +243,7 @@
       <div class="preview-content">
         <aside class="preview-folder-note" aria-labelledby="previewFolderNoteLabel"><label id="previewFolderNoteLabel" for="previewFolderNote">Комментарий к папке</label><p id="previewFolderNotePath" class="preview-folder-note-path"></p><textarea id="previewFolderNote" readonly spellcheck="false" placeholder="Комментария к папке пока нет"></textarea></aside>
         <div id="previewBody" class="preview-body"></div>
-        <form id="fileCommentForm" class="file-comment-form"><label for="fileCommentText">Комментарий к файлу</label><textarea id="fileCommentText" maxlength="100000" placeholder="Замечания, согласование, что нужно поправить…" disabled></textarea><p id="fileCommentState" class="file-comment-state" role="status"></p><div class="file-comment-actions"><button id="saveFileComment" class="primary-button" type="submit" disabled>Сохранить</button><button id="cancelFileComment" class="secondary-button" type="button" hidden>Отменить</button><button id="reloadFileComment" class="secondary-button" type="button" hidden>Повторить</button></div></form>
+        <form id="fileCommentForm" class="file-comment-form"><label id="fileCommentLabel" for="fileCommentText">Комментарий к файлу</label><textarea id="fileCommentText" maxlength="100000" placeholder="Замечания, согласование, что нужно поправить…" disabled></textarea><p id="fileCommentState" class="file-comment-state" role="status"></p><div class="file-comment-actions"><button id="saveFileComment" class="primary-button" type="submit" disabled>Сохранить</button><button id="cancelFileComment" class="secondary-button" type="button" hidden>Отменить</button><button id="reloadFileComment" class="secondary-button" type="button" hidden>Повторить</button></div></form>
       </div><footer id="previewMeta" class="preview-meta"></footer>
     </dialog>
     <dialog id="createEventFolderDialog" class="confirm-dialog create-order-dialog create-event-dialog" aria-labelledby="createEventFolderTitle">

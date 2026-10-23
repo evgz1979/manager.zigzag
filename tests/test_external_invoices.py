@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 import file_uploads
 import invoices
+from test_pdf_preview import sample_pdf
 import test_server as fixtures
 
 manager = fixtures.manager
@@ -69,6 +70,55 @@ class ExternalInvoiceTests(unittest.TestCase):
         with self.store().connect() as db:
             old = db.execute('SELECT data FROM invoice_history WHERE id=? AND revision=?', (record['id'], record['revision'])).fetchone()
         self.assertEqual(json.loads(old[0])['comment'], payload['comment'])
+
+    def test_viewer_renders_database_pdf_before_export_without_document_access(self):
+        original = sample_pdf()
+        record = self.store().upload(self.payload(pdf=base64.b64encode(original).decode()))
+        self.assertFalse((self.root / record['pdf_path']).exists())
+        before = self.store().get(self.path, record['id'])
+        stat = Path.stat
+
+        def local_stat(path, *args, **kwargs):
+            if path == self.root or self.root in path.parents:
+                raise AssertionError('Invoice viewer must not access document folders')
+            return stat(path, *args, **kwargs)
+
+        with patch.object(Path, 'stat', local_stat):
+            status, _, body = self.http(self.url('/api/invoice', self.path, id=record['id']))
+            self.assertEqual((status, json.loads(body)['revision']), (200, record['revision']))
+            status, _, body = self.http(self.url('/api/invoice-pdf-info', self.path, id=record['id']))
+            self.assertEqual((status, json.loads(body)['pages']), (200, 2))
+            for page in (0, 1):
+                status, headers, body = self.http(self.url('/api/invoice-pdf-page', self.path, id=record['id'], page=page))
+                self.assertEqual((status, headers['Content-Type']), (200, 'image/jpeg'))
+                self.assertTrue(body.startswith(b'\xff\xd8'))
+                self.assertGreater(len(body), 1000)
+            self.assertEqual(self.http(self.url('/api/invoice-pdf-page', self.path, id=record['id'], page=2))[0], 400)
+        self.assertEqual(self.store().get(self.path, record['id']), before)
+        self.assertEqual(self.store().pdf(self.path, record['id'])[0], original)
+        status, headers, body = self.http(self.url('/api/invoice-pdf', self.path, id=record['id'], download=1))
+        self.assertEqual((status, body), (200, original))
+        self.assertTrue(headers['Content-Disposition'].startswith('attachment;'))
+
+    def test_cached_viewer_still_checks_invoice_path_and_trash(self):
+        record = self.store().upload(self.payload())
+        cached = manager.invoice_pdf_target(self.path, record['id'])
+        self.assertEqual(cached.read_bytes(), self.pdf)
+        stamp = cached.stat().st_mtime_ns
+        self.assertEqual(manager.invoice_pdf_target(self.path, record['id']).stat().st_mtime_ns, stamp)
+        other = 'Клиент/2026-00-00 - Другой'
+        self.folder(other)
+        manager.order_store().add(other, {'title': 'Другой заказ'})
+        routes = ('/api/invoice', '/api/invoice-pdf-info', '/api/invoice-pdf-page')
+        for route in routes:
+            self.assertEqual(self.http(self.url(route, other, id=record['id']))[0], 400)
+        with self.store().connect() as db:
+            data = json.loads(db.execute('SELECT data FROM invoices WHERE id=?', (record['id'],)).fetchone()[0])
+            data['_trash'] = {'token': str(uuid.uuid4()), 'state': 'pending', 'error': ''}
+            db.execute('UPDATE invoices SET data=? WHERE id=?', (json.dumps(data), record['id']))
+        for route in routes:
+            self.assertEqual(self.http(self.url(route, self.path, id=record['id']))[0], 400)
+        self.assertEqual(cached.read_bytes(), self.pdf)
 
     def test_outbox_retry_same_named_uploads_and_reserved_names(self):
         first, second = self.store().upload(self.payload()), self.store().upload(self.payload())

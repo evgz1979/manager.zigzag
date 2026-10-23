@@ -41,8 +41,8 @@
         const details = (external ? 'Внешний · ' : '') + date;
         const comment = external && record.data.comment ? ' · ' + record.data.comment : '';
         const sync = record.state === "draft" ? "Черновик" : record.sync_error ? "PDF в базе · " + record.sync_error + " · автоповтор" : record.sync_pending ? "PDF в базе · копия в # bills ожидает выгрузки" : "PDF в # bills";
-        return '<div class="invoice-row"><button type="button" class="invoice-row-name" data-invoice-edit="' + record.id + '"><span class="invoice-row-label" title="' + escapeHtml(label) + '">' + escapeHtml(label) + '</span><small class="invoice-row-meta" title="' + escapeHtml(details + comment + ' · ' + sync) + '">' + escapeHtml(details) + '<span class="invoice-row-comment">' + escapeHtml(comment) + '</span><span class="invoice-row-state' + (record.sync_error ? ' error' : '') + '"> · ' + escapeHtml(sync) + '</span></small></button>' + (external ? '' : '<strong>' + cash(record.data.total) + '</strong>') +
-          (record.state !== "draft" ? '<a class="secondary-button" href="' + escapeHtml(pdfUrl(record)) + '" target="_blank" rel="noopener">PDF ↗</a>' : '') + (external ? '' : '<button class="secondary-button" type="button" data-invoice-copy="' + record.id + '">На основе</button>') + '<button class="secondary-button invoice-remove" type="button" data-invoice-remove="' + record.id + '" title="В корзину" aria-label="' + escapeHtml('В корзину · ' + label) + '">×</button></div>';
+        return '<div class="invoice-row"><button type="button" class="invoice-row-name" data-invoice-' + (external ? 'view' : 'edit') + '="' + record.id + '"><span class="invoice-row-label" title="' + escapeHtml(label) + '">' + escapeHtml(label) + '</span><small class="invoice-row-meta" title="' + escapeHtml(details + comment + ' · ' + sync) + '">' + escapeHtml(details) + '<span class="invoice-row-comment">' + escapeHtml(comment) + '</span><span class="invoice-row-state' + (record.sync_error ? ' error' : '') + '"> · ' + escapeHtml(sync) + '</span></small></button>' + (external ? '' : '<strong>' + cash(record.data.total) + '</strong>') +
+          (external ? '<button class="secondary-button" type="button" data-invoice-view="' + record.id + '">PDF</button>' : record.state !== "draft" ? '<a class="secondary-button" href="' + escapeHtml(pdfUrl(record)) + '" target="_blank" rel="noopener">PDF ↗</a>' : '') + (external ? '' : '<button class="secondary-button" type="button" data-invoice-copy="' + record.id + '">На основе</button>') + '<button class="secondary-button invoice-remove" type="button" data-invoice-remove="' + record.id + '" title="В корзину" aria-label="' + escapeHtml('В корзину · ' + label) + '">×</button></div>';
       }).join("");
       if (markup !== listMarkup) {
         $("invoiceList").innerHTML = markup;
@@ -76,11 +76,12 @@
   function showExternal(record = null) {
     const path = record?.path || state.folder?.path;
     if (!path || !state.folder?.order) return;
-    attachment = { path, record, id: record?.id || newIdentity(), busy: false, saved: record?.data.comment || "" };
+    attachment = { path, record, file: null, id: record?.id || newIdentity(), busy: false, saved: record?.data.comment || "" };
     $("externalInvoiceTitle").textContent = record ? "Внешний счёт" : "Прикрепить внешний счёт";
     $("externalInvoicePath").textContent = path;
     $("externalInvoiceFile").value = "";
-    $("externalInvoiceFile").required = !record;
+    $("externalInvoiceFileHint").textContent = "Один PDF до 20 МБ";
+    $("externalInvoiceDialog").classList.remove("invoice-dragging");
     $("externalInvoiceFileLabel").hidden = Boolean(record);
     $("externalInvoiceName").hidden = !record;
     $("externalInvoiceName").textContent = record?.data.original_name || "";
@@ -88,7 +89,6 @@
     $("externalInvoiceState").textContent = "";
     $("externalInvoiceState").classList.remove("error");
     $("externalInvoicePdf").hidden = !record;
-    if (record) $("externalInvoicePdf").href = pdfUrl(record);
     $("saveExternalInvoice").textContent = record ? "Сохранить комментарий" : "Прикрепить";
     $("externalInvoiceDialog").showModal();
     (record ? $("externalInvoiceComment") : $("externalInvoiceFile")).focus();
@@ -100,10 +100,22 @@
     $("externalInvoiceDialog").close();
   }
 
+  function selectExternalFile(file) {
+    if (!attachment || attachment.busy || attachment.record) return;
+    const status = $("externalInvoiceState");
+    if (!file || !/\.pdf$/i.test(file.name) || !file.size || file.size > 20 * 1024 * 1024) {
+      status.textContent = "Выбери один PDF до 20 МБ."; status.classList.add("error"); return;
+    }
+    attachment.file = file;
+    attachment.id = newIdentity();
+    $("externalInvoiceFileHint").textContent = file.name + " · " + formatSize(file.size);
+    status.textContent = ""; status.classList.remove("error");
+  }
+
   async function saveExternal() {
     const current = attachment;
     if (!current || current.busy) return;
-    const file = $("externalInvoiceFile").files[0], comment = $("externalInvoiceComment").value;
+    const file = current.file, comment = $("externalInvoiceComment").value;
     const status = $("externalInvoiceState");
     if (!current.record && (!file || !/\.pdf$/i.test(file.name) || file.size > 20 * 1024 * 1024)) {
       status.textContent = "Выбери PDF до 20 МБ."; status.classList.add("error"); return;
@@ -262,7 +274,32 @@
   $("closeExternalInvoice").addEventListener("click", closeExternal);
   $("externalInvoiceDialog").addEventListener("cancel", (event) => { event.preventDefault(); closeExternal(); });
   $("externalInvoiceForm").addEventListener("submit", (event) => { event.preventDefault(); saveExternal(); });
-  $("externalInvoiceFile").addEventListener("change", () => { if (attachment && !attachment.busy) attachment.id = newIdentity(); });
+  $("externalInvoiceFile").addEventListener("change", (event) => selectExternalFile(event.target.files[0]));
+  $("externalInvoicePdf").addEventListener("click", () => { if (attachment?.record) action(() => showInvoicePreview(attachment.record)); });
+  $("externalInvoiceDialog").addEventListener("dragover", (event) => {
+    if (!Array.from(event.dataTransfer?.types || []).includes("Files")) return;
+    event.preventDefault(); event.stopPropagation();
+    const allowed = attachment && !attachment.busy && !attachment.record;
+    event.dataTransfer.dropEffect = allowed ? "copy" : "none";
+    $("externalInvoiceDialog").classList.toggle("invoice-dragging", Boolean(allowed));
+  });
+  $("externalInvoiceDialog").addEventListener("dragleave", (event) => {
+    if (!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.classList.remove("invoice-dragging");
+  });
+  $("externalInvoiceDialog").addEventListener("dragend", () => $("externalInvoiceDialog").classList.remove("invoice-dragging"));
+  $("externalInvoiceDialog").addEventListener("drop", (event) => {
+    if (!Array.from(event.dataTransfer?.types || []).includes("Files")) return;
+    event.preventDefault(); event.stopPropagation();
+    $("externalInvoiceDialog").classList.remove("invoice-dragging");
+    if (!attachment || attachment.busy || attachment.record) return;
+    const files = Array.from(event.dataTransfer.files || []);
+    const directory = Array.from(event.dataTransfer.items || []).some((item) => item.webkitGetAsEntry?.()?.isDirectory);
+    if (directory || files.length !== 1) {
+      $("externalInvoiceState").textContent = "Перетащи один PDF до 20 МБ, без папок.";
+      $("externalInvoiceState").classList.add("error"); return;
+    }
+    selectExternalFile(files[0]);
+  });
   $("addInvoiceItem").addEventListener("click", () => {
     if (!editor || editor.record.state !== "draft") return;
     if ($("invoiceItems").rows.length >= 40) { message("До 40 позиций; PDF должен поместиться на одну страницу.", true); return; }
@@ -290,6 +327,12 @@
     }
     const copy = event.target.closest("[data-invoice-copy]");
     const edit = event.target.closest("[data-invoice-edit]");
+    const view = event.target.closest("[data-invoice-view]");
+    if (view) {
+      const record = $("invoiceList").invoiceRecords?.find((item) => item.id === view.dataset.invoiceView && item.path === state.folder?.path);
+      if (record) action(() => showInvoicePreview(record));
+      return;
+    }
     if (copy) action(() => create(copy.dataset.invoiceCopy));
     else if (edit) {
       const record = $("invoiceList").invoiceRecords?.find((item) => item.id === edit.dataset.invoiceEdit && item.path === state.folder?.path);
@@ -347,6 +390,7 @@
     } finally { current.issuing = false; controls(); }
   }));
   document.addEventListener("manager-folder-rendered", () => refreshList());
+  document.addEventListener("manager-invoice-updated", () => refreshList(true));
   window.addEventListener("beforeunload", (event) => {
     if (removing || editor?.dirty || editor?.saving || editor?.issuing || attachment?.busy || (attachment && $("externalInvoiceComment").value !== attachment.saved)) { event.preventDefault(); event.returnValue = ""; }
   });

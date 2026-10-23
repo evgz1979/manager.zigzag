@@ -555,6 +555,9 @@ h2 { font-size: 13px; font-weight: 600; }
 .external-invoice-dialog { width: min(560px, calc(100vw - 24px)); }
 .external-invoice-name { margin: 0 0 15px; overflow-wrap: anywhere; font-size: 14px; font-weight: 600; }
 .external-invoice-comment { margin-top: 15px; }
+.invoice-dialog .external-invoice-drop { padding: 18px; border: 1px dashed var(--line); border-radius: 8px; gap: 10px; }
+.external-invoice-dialog.invoice-dragging .external-invoice-drop { border-color: var(--accent); background: var(--accent-soft); }
+.external-invoice-drop small { overflow-wrap: anywhere; }
 .invoice-row-comment { color: #596b63; }
 .invoice-list { margin-top: 7px; }
 .invoice-row { display: flex; flex-wrap: nowrap; gap: 10px; align-items: center; padding: 4px 0; border-top: 1px solid #eef0f3; font-size: 12px; }

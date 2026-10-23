@@ -1885,6 +1885,9 @@ async function showPreview(path) {
   SpreadsheetPreview.close();
   const version = ++previewVersion;
   state.preview = file;
+  $("previewNative").hidden = false;
+  $("fileCommentLabel").textContent = "Комментарий к файлу";
+  $("fileCommentText").maxLength = 100000;
   $("previewTitle").textContent = file.name;
   $("previewPath").textContent = file.folder || state.folder.name;
   $("previewMeta").textContent = file.extension + " · " + formatSize(file.size) + " · " + formatDate(file.modified);
@@ -1950,6 +1953,35 @@ async function showPreview(path) {
   if (version === previewVersion) $("previewBody").appendChild(media);
 }
 
+async function showInvoicePreview(record) {
+  await saveFileComment();
+  SpreadsheetPreview.close();
+  const version = ++previewVersion;
+  const file = { path: record.path, invoice: record.id, name: record.data.original_name, extension: ".pdf" };
+  state.preview = file;
+  $("previewTitle").textContent = file.name;
+  $("previewPath").textContent = record.path;
+  $("previewMeta").textContent = "Внешний счёт · " + record.data.date.split("-").reverse().join(".");
+  $("previewDownload").href = apiUrl("/api/invoice-pdf", record.path, { id: record.id, download: "1" });
+  $("previewFolderNotePath").textContent = state.folder?.path || record.path;
+  $("previewFolderNote").value = $("orderNote").value;
+  $("previewPrevious").disabled = $("previewNext").disabled = true;
+  $("previewNative").hidden = true;
+  $("fileCommentLabel").textContent = "Комментарий к счёту";
+  $("fileCommentText").maxLength = 5000;
+  $("previewBody").textContent = "Загрузка PDF…";
+  if (!$("previewDialog").open) $("previewDialog").showModal();
+  run(() => loadFileComment(record.path, version));
+  try {
+    const info = await request(apiUrl("/api/invoice-pdf-info", record.path, { id: record.id }));
+    if (version !== previewVersion) return;
+    if (!info.pages) throw new Error("В PDF нет страниц");
+    showPdfPages(file, info.pages, version);
+  } catch (error) {
+    if (version === previewVersion) previewUnavailable(error.message);
+  }
+}
+
 function renderFileComment() {
   const comment = state.fileComment;
   const saving = Boolean(state.fileCommentSaving);
@@ -1964,19 +1996,21 @@ function renderFileComment() {
 }
 
 async function loadFileComment(path, version) {
+  const invoice = state.preview?.invoice;
   const file = state.folder?.files.find((item) => item.path === path);
-  const comment = state.fileComment = { path, comment_key: file?.comment_key, comment: "", draft: "", loaded: false, loading: true, dirty: false, error: "" };
+  const comment = state.fileComment = { path, invoice, comment_key: file?.comment_key, comment: "", draft: "", loaded: false, loading: true, dirty: false, error: "" };
   $("fileCommentText").value = "";
   renderFileComment();
   try {
-    const result = await request(apiUrl("/api/file-comment", path));
+    const result = await request(apiUrl(invoice ? "/api/invoice" : "/api/file-comment", path, invoice ? { id: invoice } : {}));
     if (version !== previewVersion || state.fileComment !== comment) return;
-    if (state.preview?.path !== path || result.path !== path || !comment.comment_key || result.comment_key !== comment.comment_key) {
+    if (state.preview?.path !== path || result.path !== path || (invoice ? result.id !== invoice || result.state !== "external" : !comment.comment_key || result.comment_key !== comment.comment_key)) {
       throw new Error("Комментарий не соответствует файлу и папке. Обновите список файлов");
     }
-    Object.assign(comment, { comment: result.comment, revision: result.revision, loaded: true, loading: false, draft: result.comment });
-    updateFileCommentCaption(path, result.comment, comment.comment_key);
-    $("fileCommentText").value = result.comment;
+    const text = invoice ? result.data.comment : result.comment;
+    Object.assign(comment, { comment: text, revision: result.revision, loaded: true, loading: false, draft: text });
+    if (!invoice) updateFileCommentCaption(path, text, comment.comment_key);
+    $("fileCommentText").value = text;
   } catch (error) {
     if (version !== previewVersion || state.fileComment !== comment) return;
     comment.loading = false;
@@ -1994,15 +2028,19 @@ async function saveFileComment() {
   const comment = state.fileComment;
   if (!comment?.loaded || !comment.dirty) return;
   const draft = comment.draft;
-  if (!comment.comment_key || state.preview?.path !== comment.path) throw new Error("Откройте нужный файл перед сохранением комментария");
-  state.fileCommentSaving = request("/api/file-comment", { path: comment.path, comment_key: comment.comment_key, comment: draft, revision: comment.revision });
+  if (state.preview?.path !== comment.path || (comment.invoice ? state.preview.invoice !== comment.invoice : !comment.comment_key)) throw new Error("Откройте нужный файл перед сохранением комментария");
+  state.fileCommentSaving = comment.invoice
+    ? request("/api/invoice-comment", { path: comment.path, id: comment.invoice, comment: draft, revision: comment.revision })
+    : request("/api/file-comment", { path: comment.path, comment_key: comment.comment_key, comment: draft, revision: comment.revision });
   comment.error = "";
   renderFileComment();
   try {
     const saved = await state.fileCommentSaving;
-    if (saved.path !== comment.path || saved.comment_key !== comment.comment_key) throw new Error("Ответ сохранения относится к другому файлу; ваш текст остался в поле");
-    Object.assign(comment, { comment: saved.comment, revision: saved.revision, dirty: comment.draft !== saved.comment });
-    updateFileCommentCaption(comment.path, saved.comment, comment.comment_key);
+    if (saved.path !== comment.path || (comment.invoice ? saved.id !== comment.invoice : saved.comment_key !== comment.comment_key)) throw new Error("Ответ сохранения относится к другому файлу; ваш текст остался в поле");
+    const text = comment.invoice ? saved.data.comment : saved.comment;
+    Object.assign(comment, { comment: text, revision: saved.revision, dirty: comment.draft !== text });
+    if (comment.invoice) document.dispatchEvent(new Event("manager-invoice-updated"));
+    else updateFileCommentCaption(comment.path, text, comment.comment_key);
   } catch (error) {
     comment.error = error.message;
     throw error;
@@ -2049,11 +2087,11 @@ function showPdfPages(file, pages, version) {
     previous.disabled = current === 0;
     next.disabled = current === pages - 1;
     image.alt = "Страница " + (current + 1) + " · " + file.name;
-    image.src = apiUrl("/api/pdf-page", file.path, { page: current });
+    image.src = apiUrl(file.invoice ? "/api/invoice-pdf-page" : "/api/pdf-page", file.path, { page: current, ...(file.invoice ? { id: file.invoice } : {}) });
     canvas.scrollTop = 0;
   }
   image.addEventListener("error", () => {
-    if (version === previewVersion) previewUnavailable("Не удалось показать страницу PDF. Откройте оригинал на Mac.");
+    if (version === previewVersion) previewUnavailable(file.invoice ? "Не удалось показать страницу PDF. Повтори открытие или скачай оригинал." : "Не удалось показать страницу PDF. Откройте оригинал на Mac.");
   });
   previous.addEventListener("click", () => changePage(current - 1));
   next.addEventListener("click", () => changePage(current + 1));
@@ -2069,10 +2107,12 @@ function previewUnavailable(message) {
   label.textContent = state.preview.extension;
   const text = document.createElement("p");
   text.textContent = message;
-  const button = document.createElement("button");
+  const invoice = state.preview.invoice;
+  const button = document.createElement(invoice ? "a" : "button");
   button.className = "primary-button";
-  button.textContent = "Открыть на Mac";
-  button.addEventListener("click", () => run(() => openNative(state.preview.path)));
+  button.textContent = invoice ? "Скачать PDF" : "Открыть на Mac";
+  if (invoice) button.href = $("previewDownload").href;
+  else button.addEventListener("click", () => run(() => openNative(state.preview.path)));
   wrapper.append(label, text, button);
   $("previewBody").replaceChildren(wrapper);
 }
@@ -2085,7 +2125,7 @@ function setPreviewExpanded(expanded) {
 }
 
 function stepPreview(direction) {
-  if (!state.preview) return;
+  if (!state.preview || state.preview.invoice) return;
   const files = filteredFiles();
   const index = files.findIndex((item) => item.path === state.preview.path);
   if (files[index + direction]) run(() => showPreview(files[index + direction].path));
