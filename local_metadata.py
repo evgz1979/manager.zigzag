@@ -199,9 +199,11 @@ class MetadataStore:
         return document.load(folder,self.store.labels)
 
     def status(self):
+        import recovery_backup
         with self.connect() as db:
             errors = [{"kind":r[0],"path":r[1],"error":r[2]} for r in db.execute("SELECT kind,path,error FROM metadata_imports WHERE error!='' ORDER BY path")]
             return {"database_only":True,"running":MIGRATION_LOCK.locked(),"imported":db.execute("SELECT count(*) FROM metadata_imports WHERE error='' ").fetchone()[0],
+                    "recovery_backup":recovery_backup.status(self.store.database),
                     "errors":errors,"pending_documents":db.execute("SELECT count(*) FROM metadata_publications WHERE published=0").fetchone()[0],
                     "document_errors":[dict(r) for r in db.execute("SELECT path,error FROM metadata_publications WHERE error!=''")]}
 

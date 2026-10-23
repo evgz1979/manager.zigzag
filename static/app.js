@@ -1671,6 +1671,9 @@ function renderOrders() {
       (storage.errors.length ? " · перенос ожидает повтора: " + storage.errors.length + " · " + storage.errors.slice(0, 2).map(item => item.path + ": " + item.error).join(" · ") : "") +
       (storage.pending_documents ? " · документов в очереди: " + storage.pending_documents : "") +
       (storage.document_errors.length ? " · " + storage.document_errors[0].error : "");
+    const backup = storage.recovery_backup;
+    if (backup?.error) $("ordersSyncState").textContent += " · Резервная копия ожидает повтора: " + backup.error;
+    else if (backup?.created_at) $("ordersSyncState").textContent += " · Копия в папке iCloud: " + formatDate(Date.parse(backup.created_at) / 1000);
   }
   if (scan?.errors.length) $("ordersSyncState").textContent += " · " + scan.errors.slice(0, 3).join(" · ");
   if (state.unregistrations.length) $("ordersSyncState").textContent += " · Сохранение снятой регистрации: " + state.unregistrations.length + (state.unregistrations.some((item) => item.sync_error) ? " · есть ошибки, повторим выгрузку" : "");

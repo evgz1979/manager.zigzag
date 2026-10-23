@@ -27,6 +27,7 @@ import invoices
 import native_renderers
 import icloud_access
 import spreadsheet_preview
+import recovery_backup
 from local_metadata import MetadataStore
 import order_folders
 import order_creation
@@ -1759,6 +1760,9 @@ def main():
     threading.Thread(target=order_todo_worker, daemon=True).start()
     threading.Thread(target=client_activity_worker, daemon=True).start()
     threading.Thread(target=metadata_worker, daemon=True).start()
+    if DATABASE_ONLY:
+        threading.Thread(target=recovery_backup.worker,
+                         args=(order_store().database, DATA_ROOT, APP_DIR), daemon=True).start()
     server = ThreadingHTTPServer((SERVER_HOST, port), ManagerHandler)
     print(f"Менеджер заказов: http://127.0.0.1:{port}", flush=True)
     print(f"Адрес сервера: {SERVER_HOST}:{port}", flush=True)
