@@ -12,7 +12,7 @@ from pathlib import Path
 import event_folder_undo as restore
 import folder_layout as layout
 import folder_notes
-from folder_structure import folder_role, dated, is_service_folder
+from folder_structure import folder_role, dated, is_service_folder, is_freza_task
 from order_folders import LOCK, layout_scope
 
 NUMBER = re.compile(r"^([0-9]+)(?=$|[\s\-–—])")
@@ -28,6 +28,8 @@ def event_number(name):
 
 
 def parent(root, relative):
+    if isinstance(relative, str) and is_freza_task(relative):
+        raise ValueError("В задании на фрезеровку события не нужны. Добавляй файлы прямо в задание")
     if not isinstance(relative, str) or not Path(relative).parts or any(part.startswith(".") for part in Path(relative).parts) or is_service_folder(relative):
         raise ValueError("Выберите папку заказа")
     target = layout.safe_path(root, relative, [Path(relative).parts[0]], **layout_scope(relative))

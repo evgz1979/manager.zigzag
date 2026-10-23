@@ -45,7 +45,7 @@ import file_uploads
 import work_orders
 from file_comments import FileCommentConflict
 from folder_structure import folder_role, is_catalog_group, client_name, is_print_section
-from folder_structure import client_path
+from folder_structure import client_path, in_freza, is_freza_task
 from client_activity import ClientActivity, ClientActivityConflict
 from client_activity import is_inactive
 from object_activity import ObjectActivity
@@ -933,6 +933,29 @@ def folder_status(path, directories):
             "statusSource": "manual" if record.get("status") else "auto"}
 
 
+def freza_preview_target(relative):
+    """Select a cover lazily; listing tasks never reads attachment contents."""
+    parts = Path(relative).parts
+    if not in_freza(relative) or len(parts) < 3 or not is_freza_task(Path(*parts[:3]).as_posix()):
+        raise ValueError("Выбери задание на фрезеровку")
+    target = safe_path(relative)
+    if len(parts) > 3:
+        target = comment_file(relative)
+        if not sketches.sketch_name(target.name):
+            raise ValueError("Выбери файл CDR задания")
+        return target
+    target = editable_status_folder(relative)
+    for current, dirs, names in os.walk(target, followlinks=False):
+        current = Path(current)
+        dirs[:] = sorted(name for name in dirs if visible(current / name))
+        candidates = [current / name for name in sorted(names) if visible(current / name) and (current / name).is_file()]
+        image = next((item for item in candidates if preview_kind(item) == "image"), None)
+        cdr = next((item for item in candidates if sketches.sketch_name(item.name)), None)
+        if image or cdr:
+            return comment_file(relative_path(image or cdr))
+    raise FileNotFoundError("В задании пока нет изображения или CDR для превью")
+
+
 def read_folder(relative="", show_inactive=False):
     target = safe_path(relative)
     if not target.is_dir():
@@ -951,7 +974,9 @@ def read_folder(relative="", show_inactive=False):
         directories = [item for item in directories if not is_inactive(relative_path(item), hidden_children)]
     files, warnings = [], []
     print_view = is_print_section(relative)
-    files_scope = "events" if status["folderKind"] == "order" or status.get("order") else (
+    freza_section = in_freza(relative) and len(Path(relative).parts) == 2
+    freza_task = is_freza_task(relative)
+    files_scope = "folder" if freza_task else "events" if status["folderKind"] == "order" or status.get("order") else (
         "subfolders" if not print_view and status["folderKind"] in {"client", "object", "catalog_group", "supplier_root", "work_root", "moneys_root", "work_section", "moneys_section"} else "folder")
     hide_files = files_scope != "folder"
     folder_count = len(directories) if hide_files or print_view else 0
@@ -988,7 +1013,7 @@ def read_folder(relative="", show_inactive=False):
             files.append({"name": name, "path": relative_path(file),
                           "folder": current_path.relative_to(target).as_posix() if current_path != target else "",
                           "size": stat.st_size, "modified": stat.st_mtime,
-                          "type": file_group(file), "preview": preview_kind(file),
+                          "type": file_group(file), "preview": "cdr" if in_freza(relative) and sketches.sketch_name(file.name) else preview_kind(file),
                           "extension": file.suffix.lstrip(".").upper() or "ФАЙЛ", "comment": comment,
                           "comment_key": file_comments.binding(file)})
     if print_view and DATABASE_ONLY:
@@ -1012,7 +1037,7 @@ def read_folder(relative="", show_inactive=False):
     event_notes = FolderNotes(order_store())  # Список событий не переносит и не переписывает их прежние файлы.
     for item in directories:
         node = {**folder_node(item), "inactive": is_inactive(relative_path(item), inactive)}
-        if status["folderKind"] == "order" and not item.name.startswith("#") and not item.is_symlink():
+        if status["folderKind"] == "order" and not freza_task and not item.name.startswith("#") and not item.is_symlink():
             record = None
             try:
                 registered = order_store().get(node["path"])
@@ -1029,7 +1054,7 @@ def read_folder(relative="", show_inactive=False):
         nodes.append(node)
     breadcrumbs = [{"name": DATA_ROOT.name, "path": ""}]
     breadcrumbs.extend({"name": part, "path": Path(*parts[:index + 1]).as_posix()} for index, part in enumerate(parts))
-    sketch_files = read_sketches(directories, warnings) if status["folderKind"] == "order" else []
+    sketch_files = read_sketches(directories, warnings) if status["folderKind"] == "order" and not freza_task else []
     supplier_color = None
     if work_orders.in_work(relative):
         with order_store().connect() as db:
@@ -1049,16 +1074,17 @@ def read_folder(relative="", show_inactive=False):
             "fileCount": len(files), "folderCount": folder_count,
             "totalSize": sum(file["size"] for file in files), "counts": counts,
             "warnings": warnings, "storage":"database" if DATABASE_ONLY else "legacy", "view": "print" if print_view else "files",
+            "frezaSection": freza_section, "frezaTask": freza_task,
             "filesScope": files_scope,
             "upload": file_uploads.options(DATA_ROOT,relative) if files_scope=="folder" and file_uploads.available(DATA_ROOT,relative) else None,
             "newFileName": next_print_name(target) if print_view else "",
             "canCreateObjectFolder": status["folderKind"]=="client",
             "canGroupOrdersByYear": status["folderKind"]=="object",
             "canCreateOrderFolder": not print_view and (status["folderKind"] in {"object", "supplier_root", "work_root", "work_section", "moneys_section"} or (status["folderKind"]=="year" and order_folders.year_container(DATA_ROOT,relative))),
-            "canCreateEventFolder": status["folderKind"] == "order",
+            "canCreateEventFolder": status["folderKind"] == "order" and not freza_task,
             "canRenameFolder": folder_rename.available(relative_path(target)),
             "canDeleteEvent": event_trash.available(relative_path(target)),
-            "hasEventTrash": work_orders.supplier_order(relative_path(target)) or event_trash.available(relative_path(target)),
+            "hasEventTrash": not freza_task and (work_orders.supplier_order(relative_path(target)) or event_trash.available(relative_path(target))),
             **status}
 
 
@@ -1339,6 +1365,10 @@ class ManagerHandler(BaseHTTPRequestHandler):
             elif parsed.path == "/api/sketch-preview":
                 target = sketch_target(relative)
                 preview = sketches.preview(target, DATA_DIR)
+                self.send_file(preview, head=head, private=True)
+            elif parsed.path == "/api/freza-preview":
+                target = freza_preview_target(relative)
+                preview = sketches.preview(target, DATA_DIR, read_bytes=icloud_access.read_bytes, allow_bmp=True) if target.suffix.lower() == '.cdr' else image_preview(target)
                 self.send_file(preview, head=head, private=True)
             elif parsed.path == "/api/event-folders":
                 self.send_json(event_folders.preview(DATA_ROOT, relative, folder_note_store()), head=head)

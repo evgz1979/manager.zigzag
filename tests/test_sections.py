@@ -30,7 +30,7 @@ class SectionTests(unittest.TestCase):
         return json.loads(body)
 
     def test_work_and_financial_sections_support_records_events_todos_and_exports(self):
-        sections = ("# work/# laser", "# work/# freza", "# work/# cutter", "# work/# razbor",
+        sections = ("# work/# laser", "# work/# cutter", "# work/# razbor",
                     "# moneys/# сверки", "# moneys/# Зп", "# moneys/# biils", "# moneys/Документы", "#work/Без решётки")
         paths = []
         for section in sections:

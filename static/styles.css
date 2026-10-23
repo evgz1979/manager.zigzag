@@ -187,6 +187,12 @@ h2 { font-size: 13px; font-weight: 600; }
 .subfolder > svg:first-child { width: 21px; height: 21px; color: #93a586; fill: #e3ebd8; }
 .subfolder > svg:last-child { width: 12px; height: 12px; color: #a9b3a9; margin-left: auto; }
 .subfolder span { flex: 1; overflow-wrap: anywhere; }
+.freza-task-search { max-width: 420px; margin-bottom: 12px; }
+.subfolder.freza-task { padding: 8px; gap: 14px; }
+.subfolder > .freza-task-picture { flex: 0 0 112px; height: 80px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #f5f6f2; border-radius: 4px; }
+.freza-task-picture img { width: 100%; height: 100%; object-fit: contain; }
+#frezaLegacyFolders summary { cursor: pointer; font-size: 12px; color: #839788; margin-bottom: 10px; }
+.freza-task-grid .todo-empty { padding: 12px 0; }
 .work-supplier-button { background: hsl(var(--supplier-hue) 75% 95%); color: hsl(var(--supplier-hue) 70% 33%); border-color: hsl(var(--supplier-hue) 50% 82%); font-weight: 600; }
 .work-supplier-button:hover { background: hsl(var(--supplier-hue) 75% 91%); border-color: hsl(var(--supplier-hue) 50% 65%); }
 .work-supplier-button > svg:first-child { color: inherit; fill: hsl(var(--supplier-hue) 50% 85%); }
@@ -632,3 +638,5 @@ h2 { font-size: 13px; font-weight: 600; }
   .invoice-buyer > label:first-child { grid-column: 1 / -1; }
   .invoice-row { gap: 8px; }
 }
+
+.file-thumbnail img.cdr-preview { object-fit: contain; }

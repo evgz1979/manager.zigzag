@@ -48,7 +48,7 @@ function renderUpload() {
   const job = state.upload;
   $("uploadPanel").hidden = !job;
   $("chooseUploadFiles").disabled = Boolean(job?.busy);
-  $("uploadDropHint").textContent = state.folder?.upload ? "Или перетащи файлы в открытое событие · до " + state.folder.upload.maxFiles + " файлов, каждый до " + formatSize(state.folder.upload.maxBytes) : "";
+  $("uploadDropHint").textContent = state.folder?.upload ? "Или перетащи файлы в " + (state.folder.frezaTask ? "задание" : "открытое событие") + " · до " + state.folder.upload.maxFiles + " файлов, каждый до " + formatSize(state.folder.upload.maxBytes) : "";
   if (!job) return;
   $("uploadTitle").textContent = job.busy ? "Загрузка · " + job.index + " из " + job.total : "Загрузка завершена";
   $("uploadDestination").textContent = "В папку: " + job.path;
@@ -446,6 +446,29 @@ function renderSubfolders() {
   const focusedSupplier = document.activeElement?.closest("[data-supplier-favorite]")?.dataset.supplierFavorite;
   const scroll = document.querySelector(".content-pane").scrollTop;
   const visibleDirectories = folder.directories.filter((item) => ["work_root", "moneys_root"].includes(folder.folderKind) || !item.name.startsWith("#"));
+  $("frezaTaskSearchLabel").hidden = !folder.frezaSection;
+  $("subfolders").classList.toggle("freza-task-grid", Boolean(folder.frezaSection));
+  $("frezaLegacyFolders").hidden = !folder.frezaTask || !folder.directories.length;
+  if (folder.frezaTask) {
+    $("folderSection").hidden = true;
+    $("workOrdersSection").hidden = true;
+    $("printLegacyFolders").hidden = true;
+    $("frezaLegacyCount").textContent = folder.directories.length;
+    $("frezaLegacyList").innerHTML = folder.directories.map(subfolderButton).join("");
+    return;
+  }
+  if (folder.frezaSection) {
+    const query = normalize($("frezaTaskSearch").value.trim());
+    const tasks = visibleDirectories.filter((item) => !query || normalize(item.name).includes(query)).sort((a, b) => b.name.localeCompare(a.name, "ru", { numeric: true }));
+    $("folderSection").hidden = false;
+    $("workOrdersSection").hidden = true;
+    $("printLegacyFolders").hidden = true;
+    $("subfolders").classList.remove("with-event-relevance");
+    $("foldersTitle").textContent = "Задания на фрезеровку";
+    $("directoryCount").textContent = tasks.length;
+    $("subfolders").innerHTML = tasks.map((item) => '<button type="button" class="subfolder freza-task" data-path="' + escapeHtml(item.path) + '"><span class="freza-task-picture"><img src="' + escapeHtml(apiUrl("/api/freza-preview", item.path)) + '" alt="" loading="lazy" decoding="async"><span class="thumbnail-fallback">' + icon("file") + '</span></span><span>' + escapeHtml(item.name) + '</span>' + icon("chevron") + '</button>').join("") || '<p class="todo-empty">' + (query ? 'Задания не найдены' : 'Создай первое задание и добавь файлы') + '</p>';
+    return;
+  }
   const workRoot = folder.folderKind === "work_root";
   let directories = workRoot ? visibleDirectories.filter((item) => item.name.startsWith("#")) : visibleDirectories;
   let supplierDividerAfter = 0;
@@ -591,28 +614,29 @@ function renderFolder(preserveForm = false) {
     '<button data-path="' + escapeHtml(part.path) + '"' + (index === folder.breadcrumbs.length - 1 ? ' aria-current="page"' : "") + ">" +
     escapeHtml(part.name) + "</button>").join("");
   renderOrderHeading();
-  $("clientLabel").textContent = printView ? "ШИРОКОФОРМАТНАЯ ПРОДУКЦИЯ" : service ? "СЛУЖЕБНАЯ ПАПКА" : folder.folderKindLabel && folder.folderKind !== "order" ? folder.folderKindLabel : folder.client || folder.name;
-  $("folderSummary").textContent = printView ? printCountLabel(folder.fileCount) + " · название, ссылка и описание" : folder.filesLoading ? "Карточка из локальной базы · подпапки загружаются…" : folder.filesUnavailable ? "Карточка из локальной базы · папка сейчас недоступна" : folder.filesScope === "events" ? folder.folderCount + " папок · файлы доступны в событиях" : folder.filesScope === "subfolders" ? folder.folderCount + " папок" : folder.path
+  $("clientLabel").textContent = folder.frezaSection || folder.frezaTask ? "ФРЕЗЕРОВКА" : printView ? "ШИРОКОФОРМАТНАЯ ПРОДУКЦИЯ" : service ? "СЛУЖЕБНАЯ ПАПКА" : folder.folderKindLabel && folder.folderKind !== "order" ? folder.folderKindLabel : folder.client || folder.name;
+  $("folderSummary").textContent = folder.frezaSection ? printCountLabel(folder.directories.filter((item) => !item.name.startsWith("#")).length) + " · превью и файлы" : printView ? printCountLabel(folder.fileCount) + " · название, ссылка и описание" : folder.filesLoading ? "Карточка из локальной базы · подпапки загружаются…" : folder.filesUnavailable ? "Карточка из локальной базы · папка сейчас недоступна" : folder.frezaTask ? "Файлов: " + folder.fileCount + " · " + formatSize(folder.totalSize) + " · добавляй файлы прямо в задание" : folder.filesScope === "events" ? folder.folderCount + " папок · файлы доступны в событиях" : folder.filesScope === "subfolders" ? folder.folderCount + " папок" : folder.path
     ? folder.fileCount + " файлов · " + folder.folderCount + " папок · " + formatSize(folder.totalSize)
     : "Выберите клиента или заказ в дереве слева";
   renderSubfolders();
   renderSketches();
   renderDescendantTodos();
   $("orderDetails").hidden = !folder.path;
-  $("folderDetailsTitle").textContent = noteOnly ? "Заметка" : "Карточка заказа";
+  $("folderDetailsTitle").textContent = folder.frezaTask ? "Задание на фрезеровку" : noteOnly ? "Заметка" : "Карточка заказа";
   $("statusLabel").hidden = noteOnly || workCard;
   $("orderStatusFields").hidden = noteOnly || workCard;
   $("orderTitleLabel").hidden = noteOnly || !folder.order;
+  $("orderTitleLabel").firstChild.textContent = folder.frezaTask ? "Название задания" : "Название заказа";
   $("financialFields").hidden = noteOnly || workCard || !folder.order;
   $("statusForm").classList.toggle("note-only", noteOnly);
-  $("orderNote").placeholder = noteOnly ? "Заметка к этой папке" : "Что важно по этому заказу";
+  $("orderNote").placeholder = folder.frezaTask ? "Материал, толщина, размеры, количество и другие детали задания…" : noteOnly ? "Заметка к этой папке" : "Что важно по этому заказу";
   $("removeOrderButton").hidden = !folder.order;
   $("addOrderButton").textContent = isWorkOrderPath(folder.path) ? "+ Добавить в производство" : "+ Добавить в список заказов";
   $("removeOrderButton").textContent = isWorkOrderPath(folder.path) ? "Убрать из производства" : "Убрать из списка заказов";
   $("createObjectFolderButton").hidden = folder.canCreateObjectFolder !== true;
   $("groupObjectYearsButton").hidden = folder.canGroupOrdersByYear !== true;
   $("createOrderFolderButton").hidden = folder.canCreateOrderFolder !== true;
-  $("createOrderFolderButton").textContent = folder.folderKind === "moneys_section" ? "+ Создать запись" : ["supplier_root", "work_section"].includes(folder.folderKind) ? "+ Создать заказ поставщику" : "+ Создать заказ";
+  $("createOrderFolderButton").textContent = folder.frezaSection ? "+ Новое задание" : folder.folderKind === "moneys_section" ? "+ Создать запись" : ["supplier_root", "work_section"].includes(folder.folderKind) ? "+ Создать заказ поставщику" : "+ Создать заказ";
   $("createEventFolderButton").hidden = folder.canCreateEventFolder !== true;
   $("renameFolderButton").hidden = folder.canRenameFolder !== true;
   $("deleteEventButton").hidden = folder.canDeleteEvent !== true;
@@ -680,7 +704,7 @@ function renderOrderHeading() {
   const color = folder?.workSupplierColor ?? order?.work_supplier_color;
   supplierLabel.style.setProperty("--supplier-hue", String(color?.hue ?? 0));
   supplierLabel.classList.toggle("supplier-neutral", Boolean(color?.neutral));
-  $("folderTitleText").textContent = folder?.view === "print" ? "Задания на печать" : folder?.path ? order?.title || folder.draftCard?.title || folder.name : "Клиенты и заказы";
+  $("folderTitleText").textContent = folder?.frezaSection ? "Задания на фрезеровку" : folder?.view === "print" ? "Задания на печать" : folder?.path ? order?.title || folder.draftCard?.title || folder.name : "Клиенты и заказы";
   const showFolderName = Boolean(order || folder?.folderKind === "order");
   $("orderFolderName").hidden = !showFolderName;
   $("orderFolderName").textContent = showFolderName ? "Папка: " + folder.name : "";
@@ -808,9 +832,9 @@ function filteredFiles() {
 }
 
 function fileCard(file) {
-  const url = apiUrl("/api/preview", file.path);
-  const media = file.preview === "image"
-    ? '<img src="' + escapeHtml(url) + '" alt="" loading="lazy" decoding="async"><span class="thumbnail-fallback">' + icon("file") + '<small>' + escapeHtml(file.extension) + "</small></span>"
+  const url = apiUrl(file.preview === "cdr" ? "/api/freza-preview" : "/api/preview", file.path);
+  const media = ["image", "cdr"].includes(file.preview)
+    ? '<img class="' + (file.preview === "cdr" ? "cdr-preview" : "") + '" src="' + escapeHtml(url) + '" alt="" loading="lazy" decoding="async"><span class="thumbnail-fallback">' + icon("file") + '<small>' + escapeHtml(file.extension) + "</small></span>"
     : '<span class="file-symbol">' + icon("file") + '<span>' + escapeHtml(file.extension) + "</span></span>";
   return '<article class="file-card type-' + file.type + (state.selectedFiles.has(file.path) ? ' selected' : '') + '"><label class="file-select-label"><input type="checkbox" class="file-select" data-select-file="' + escapeHtml(file.path) + '" aria-label="Выбрать файл: ' + escapeHtml(file.name) + '"' + (state.selectedFiles.has(file.path) ? ' checked' : '') + '></label><button class="file-main" data-file="' + escapeHtml(file.path) + '" data-comment-key="' + escapeHtml(file.comment_key || "") + '" title="' +
     escapeHtml(file.name + (file.folder ? "\n" + file.folder : "")) + '" aria-label="' + escapeHtml(file.name) + '"><div class="file-thumbnail">' + media +
@@ -1108,7 +1132,7 @@ function showPrintTask(task) {
 
 function renderNewOrderName() {
   const date = $("newOrderDate").value || "ГГГГ-ММ-ДД";
-  const title = $("newOrderTitle").value.trim() || (state.folder?.folderKind === "moneys_section" ? "Название записи" : "Название заказа");
+  const title = $("newOrderTitle").value.trim() || (state.folder?.frezaSection ? "Название задания" : state.folder?.folderKind === "moneys_section" ? "Название записи" : "Название заказа");
   $("newOrderFolderName").textContent = date + " - " + title;
 }
 
@@ -1201,6 +1225,14 @@ function openCreateOrderFolder() {
   $("submitCreateOrderFolder").textContent = finance ? "Создать запись" : "Создать заказ";
   $("newOrderParentLabel").textContent = finance ? "Новая папка в финансовом разделе:" : supplier ? "Новая папка в производственном разделе:" : state.folder.folderKind === "work_root" ? "Новый заказ в корне производства:" : "Новая папка в объекте:";
   $("newOrderTitle").placeholder = finance ? "Например, сверка с поставщиком" : supplier ? "Например, заказ поставщику" : "Например, замена вывески";
+  if (state.folder.frezaSection) {
+    $("newOrderDateLabel").textContent = "Дата задания";
+    $("newOrderTitleLabel").textContent = "Название задания";
+    $("createOrderFolderTitle").textContent = "Новое задание на фрезеровку";
+    $("submitCreateOrderFolder").textContent = "Создать задание";
+    $("newOrderParentLabel").textContent = "Новое задание в разделе:";
+    $("newOrderTitle").placeholder = "Например, Лавфиш — шаблоны";
+  }
   const parts = Object.fromEntries(new Intl.DateTimeFormat("ru-RU", { timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()).map((part) => [part.type, part.value]));
   const year = state.folder.folderKind === "year" ? state.folder.name : parts.year;
   $("newOrderDate").value = year + "-" + parts.month + "-" + parts.day;
@@ -1216,6 +1248,7 @@ function openCreateOrderFolder() {
 async function createOrderFolder() {
   if (state.creatingOrderFolder || !$("createOrderFolderForm").reportValidity()) return;
   const finance = state.folder?.folderKind === "moneys_section";
+  const freza = Boolean(state.folder?.frezaSection);
   state.creatingOrderFolder = true;
   const controls = ["submitCreateOrderFolder", "cancelCreateOrderFolder", "newOrderDate", "newOrderTitle"];
   controls.forEach((id) => { $(id).disabled = true; });
@@ -1232,13 +1265,13 @@ async function createOrderFolder() {
   } finally {
     state.creatingOrderFolder = false;
     controls.forEach((id) => { $(id).disabled = false; });
-    $("submitCreateOrderFolder").textContent = finance ? "Создать запись" : "Создать заказ";
+    $("submitCreateOrderFolder").textContent = freza ? "Создать задание" : finance ? "Создать запись" : "Создать заказ";
   }
   $("createOrderFolderDialog").close();
   await loadTree();
   await navigate(created.path);
   await loadOrders();
-  notify(finance ? "Финансовая запись создана" : isWorkOrderPath(created.path) ? "Заказ создан в производстве" : "Заказ создан и добавлен в список");
+  notify(freza ? "Задание на фрезеровку создано" : finance ? "Финансовая запись создана" : isWorkOrderPath(created.path) ? "Заказ создан в производстве" : "Заказ создан и добавлен в список");
 }
 
 function renderNewEventName() {
@@ -1780,6 +1813,8 @@ async function navigate(path, { history = true } = {}) {
     state.selectedFiles.clear();
     state.imageReport = null;
     state.printTask = null;
+    $("frezaTaskSearch").value = "";
+    $("frezaLegacyFolders").open = false;
     state.selected = data.path;
     state.fileType = "all";
     state.fileQuery = "";
@@ -1906,9 +1941,9 @@ async function showPreview(path) {
   run(() => loadFileComment(path, version));
   const source = apiUrl("/api/file", path);
   let media;
-  if (file.preview === "image") {
+  if (["image", "cdr"].includes(file.preview)) {
     media = document.createElement("img");
-    media.src = apiUrl("/api/preview", path);
+    media.src = apiUrl(file.preview === "cdr" ? "/api/freza-preview" : "/api/preview", path);
     media.alt = file.name;
     media.addEventListener("error", () => {
       if (version === previewVersion) previewUnavailable("Не удалось показать изображение. Откройте оригинал на Mac.");
@@ -2172,7 +2207,7 @@ $("folderTree").addEventListener("keydown", (event) => {
     else focusTree(folderParent(path));
   }
 });
-for (const id of ["auxiliaryButtons", "favoriteOrders", "breadcrumbs", "subfolders", "workOrderFolders", "printLegacyFolderList"]) {
+for (const id of ["auxiliaryButtons", "favoriteOrders", "breadcrumbs", "subfolders", "workOrderFolders", "printLegacyFolderList", "frezaLegacyList"]) {
   $(id).addEventListener("click", (event) => {
     const button = event.target.closest("[data-path]");
     if (button) run(() => navigate(button.dataset.path));
@@ -2184,6 +2219,13 @@ $("subfolders").addEventListener("click", (event) => {
   const button = event.target.closest("[data-relevance]");
   if (button) run(() => saveEventRelevance(button.dataset.eventPath, button.dataset.relevance));
 });
+$("frezaTaskSearch").addEventListener("input", renderSubfolders);
+$("subfolders").addEventListener("error", (event) => {
+  if (event.target instanceof HTMLImageElement) {
+    event.target.hidden = true;
+    event.target.closest(".freza-task-picture")?.classList.add("preview-unavailable");
+  }
+}, true);
 $("sketchTiles").addEventListener("click", (event) => {
   const status = event.target.closest("[data-sketch-status]");
   const file = event.target.closest("[data-sketch-open]");

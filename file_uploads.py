@@ -11,7 +11,7 @@ import uuid
 import file_trash
 import folder_layout
 from folder_notes import parent_order
-from folder_structure import folder_role, is_work_root
+from folder_structure import folder_role, is_work_root, is_freza_task
 from event_folder_undo import guard_database
 from order_folders import LOCK
 
@@ -38,6 +38,8 @@ def available(root, relative):
         file_trash.checked(Path(root).resolve(), relative)
     except ValueError:
         return False
+    if is_freza_task(relative):
+        return True
     if not relative or folder_role(root, relative)['folderKind'] not in {'event', 'service'}:
         return False
     parts = Path(relative).parts
@@ -112,7 +114,7 @@ def receive(store, relative, expected, name, source, size):
         with LOCK:
             folder = target(store.root, relative)
             guard_database(store.database, relative)
-            if store.get(relative):
+            if store.get(relative) and not is_freza_task(relative):
                 raise ValueError('Открой событие внутри заказа')
             if not isinstance(expected, str) or token(store.root, relative, folder) != expected:
                 raise UploadConflict('Папка изменилась. Открой её заново перед загрузкой')

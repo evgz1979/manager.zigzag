@@ -1,5 +1,6 @@
 """Direct CDR sketches, embedded thumbnails and readable per-file relevance."""
 import hashlib
+import io
 import json
 from pathlib import Path
 import plistlib
@@ -84,8 +85,8 @@ def group_info(record):
     return result
 
 
-def embedded_preview(target):
-    """Read just Corel's saved PNG; never extract archive paths to disk."""
+def embedded_preview(target, *, allow_bmp=False):
+    """Read saved Corel thumbnails; never extract archive paths to disk."""
     try:
         with zipfile.ZipFile(target) as archive:
             entries = {entry.filename.casefold(): entry for entry in archive.infolist()}
@@ -100,9 +101,29 @@ def embedded_preview(target):
                 width, height = struct.unpack(">II", raw[16:24])
                 if width and height and width <= 16384 and height <= 16384 and width * height <= 40_000_000:
                     return raw
+            if allow_bmp:
+                for name in ("metadata/thumbnails/thumbnail.bmp", "metadata/thumbnails/page1.bmp"):
+                    entry = entries.get(name)
+                    if not entry or not 24 <= entry.file_size <= MAX_PREVIEW or entry.flag_bits & 1:
+                        continue
+                    with archive.open(entry) as stream:
+                        raw = stream.read(MAX_PREVIEW + 1)
+                    if not 24 <= len(raw) <= MAX_PREVIEW:
+                        continue
+                    # Recent Corel files also put PNG bytes under .bmp names.
+                    if raw[:8] == PNG and raw[12:16] == b'IHDR':
+                        width, height = struct.unpack('>II', raw[16:24])
+                        if 0 < width <= 16384 and 0 < height <= 16384 and width * height <= 40_000_000:
+                            return raw
+                    if len(raw) < 54 or raw[:2] != b'BM':
+                        continue
+                    header = struct.unpack_from('<I', raw, 14)[0]
+                    width, height = struct.unpack_from('<ii', raw, 18)
+                    if header >= 40 and 0 < width <= 16384 and 0 < abs(height) <= 16384 and width * abs(height) <= 40_000_000:
+                        return raw
     except (zipfile.BadZipFile, KeyError, RuntimeError, EOFError, NotImplementedError, zlib.error) as error:
         raise ValueError("Встроенное превью CDR недоступно") from error
-    raise ValueError("В CDR нет доступного встроенного PNG-превью")
+    raise ValueError("В CDR нет доступного встроенного превью" if allow_bmp else "В CDR нет доступного встроенного PNG-превью")
 
 
 def fingerprint(target):
@@ -110,16 +131,27 @@ def fingerprint(target):
     return hashlib.sha256(f"{target}:{stat.st_dev}:{stat.st_ino}:{stat.st_size}:{stat.st_mtime_ns}:{stat.st_ctime_ns}".encode()).hexdigest()
 
 
-def preview(target, data_dir):
+def preview(target, data_dir, *, read_bytes=None, allow_bmp=False):
     digest = fingerprint(target)
     cache = Path(data_dir) / "sketch-previews"
     cached = cache / (digest + ".png")
     if cached.is_file():
         return cached
-    raw = embedded_preview(target)
+    source = io.BytesIO(read_bytes(target, max_bytes=20 * 1024 * 1024)) if read_bytes else target
+    raw = embedded_preview(source, allow_bmp=allow_bmp)
     if fingerprint(target) != digest:
         raise ValueError("Эскиз изменился во время чтения. Обнови страницу")
     cache.mkdir(parents=True, exist_ok=True)
+    if raw[:2] == b'BM':
+        with tempfile.TemporaryDirectory(prefix='.sketch-bmp-', dir=cache) as staging:
+            source, converted = Path(staging) / 'preview.bmp', Path(staging) / 'preview.png'
+            source.write_bytes(raw)
+            try:
+                subprocess.run(['/usr/bin/sips', '-s', 'format', 'png', str(source), '--out', str(converted)],
+                               check=True, timeout=15, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                raw = converted.read_bytes()
+            except (OSError, subprocess.SubprocessError) as error:
+                raise ValueError('Не удалось показать встроенное превью CDR. Открой оригинал на Mac') from error
     with tempfile.NamedTemporaryFile(prefix=".sketch-", suffix=".png", dir=cache, delete=False) as stream:
         temporary = Path(stream.name)
         stream.write(raw)

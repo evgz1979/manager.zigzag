@@ -36,6 +36,16 @@ def is_print_section(relative):
     return len(parts) == 2 and is_work_root(parts[0]) and parts[1].startswith('#') and parts[1][1:].strip().casefold() == 'print'
 
 
+def in_freza(relative):
+    parts = Path(relative).parts
+    return len(parts) >= 2 and is_work_root(parts[0]) and parts[1].startswith('#') and parts[1][1:].strip().casefold() == 'freza'
+
+
+def is_freza_task(relative):
+    parts = Path(relative).parts
+    return in_freza(relative) and len(parts) == 3 and not parts[2].startswith(('.', '#'))
+
+
 def supplier_prefix(relative):
     parts = Path(relative).parts
     if parts and is_supplier_root(parts[0]):

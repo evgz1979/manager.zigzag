@@ -7,7 +7,7 @@ from datetime import date
 from pathlib import Path
 
 import folder_layout as layout
-from folder_structure import folder_role, section_prefix, is_print_section, YEAR, DATE, DATE_LIKE, NUMBER
+from folder_structure import folder_role, section_prefix, is_print_section, in_freza, YEAR, DATE, DATE_LIKE, NUMBER
 
 LOCK = threading.RLock()
 
@@ -113,7 +113,7 @@ def create(root, relative, order_date, title, *, store=None):
         if not parent.exists():
             plan.mkdir(parent.relative_to(root).as_posix())
         plan.mkdir(path)
-        for service in ('# bills', '# cdr'):
+        for service in (() if in_freza(relative) else ('# bills', '# cdr')):
             plan.mkdir((Path(path) / service).as_posix())
         if not plan.operations:
             raise OrderFolderConflict("Папка или файл с таким именем уже существует. Измените дату или название")
