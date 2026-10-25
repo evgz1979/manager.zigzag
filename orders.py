@@ -248,6 +248,9 @@ class OrderStore:
     def save_calendar_event(self, payload):
         return self._save_extra_block(payload, lambda blocks: order_calendar.write(blocks, payload.get("date"), payload.get("text")), update_time=False)
 
+    def move_calendar_event(self, payload):
+        return self._save_extra_block(payload, lambda blocks: order_calendar.move(blocks, payload.get("date"), payload.get("days")), update_time=False)
+
     def _save_extra_block(self, payload, write, *, update_time=True):
         relative = self.path(payload.get("path"))
         revision = payload.get("revision")

@@ -1,7 +1,7 @@
 """Per-order calendar entries, independent of weekly deadline marks."""
 import json
 import re
-from datetime import date
+from datetime import date, timedelta
 
 BLOCK = "События календаря"
 MAX_EVENTS = 5200
@@ -57,3 +57,23 @@ def write(blocks, day, text):
     if len(events) > MAX_EVENTS:
         raise ValueError("Сохранено слишком много событий календаря")
     return {**blocks, BLOCK: json.dumps({"version": 1, "events": events}, ensure_ascii=False)}
+
+
+def move(blocks, day, days):
+    day = validate_date(day)
+    if type(days) is not int or days not in {-7, -1, 1, 7}:
+        raise ValueError("Событие можно сдвинуть на один день или неделю вперёд или назад")
+    events = read(blocks)
+    if events is None:
+        raise ValueError("События календаря имеют неизвестный формат и оставлены без изменений")
+    if day not in events:
+        raise ValueError("Событие на этой дате уже отсутствует. Обнови календарь")
+    try:
+        target = (date.fromisoformat(day) + timedelta(days=days)).isoformat()
+    except (ValueError, OverflowError):
+        raise ValueError("Дата переноса выходит за допустимый диапазон") from None
+    if target in events:
+        raise ValueError("На выбранную дату у этого заказа уже есть событие. Оба события оставлены на своих местах")
+    moved = {**events}
+    moved[target] = moved.pop(day)
+    return {**blocks, BLOCK: json.dumps({"version": 1, "events": moved}, ensure_ascii=False)}

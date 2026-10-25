@@ -33,6 +33,7 @@ const state = {
   trashEventsOnly: false,
   orderTodoPath: null, orderTodoMarkup: null, orderTodoKind: "todos",
   calendarEvent: null,
+  calendarMenu: null, calendarMoving: new Set(),
 };
 let searchTimer, toastTimer, todoSaveTimer, previewVersion = 0, treeSearchVersion = 0, printReadVersion = 0;
 const icon = (name) => '<svg aria-hidden="true"><use href="#icon-' + name + '"/></svg>';
@@ -1715,7 +1716,7 @@ function openOrderTodos(path, kind = "todos") {
 }
 
 function orderRowSaving(path) {
-  return state.flagSaving.has(path) || state.favoriteSaving.has(path) || state.orderStatusSaving.has(path) || state.deadlineSaving.has(path) || (state.calendarEvent?.path === path && state.calendarEvent.saving);
+  return state.flagSaving.has(path) || state.favoriteSaving.has(path) || state.orderStatusSaving.has(path) || state.deadlineSaving.has(path) || state.calendarMoving.has(path) || (state.calendarEvent?.path === path && state.calendarEvent.saving);
 }
 
 function orderDeadlineRange(weeks) {
@@ -2240,7 +2241,50 @@ function renderCalendarEventControls() {
   $("refreshCalendarEvent").disabled = Boolean(edit.saving);
 }
 
+function closeCalendarEventMenu(restoreFocus = true) {
+  const menu = state.calendarMenu;
+  state.calendarMenu = null;
+  $("calendarEventMenu").hidden = true;
+  if (restoreFocus && menu) (menu.slot.isConnected ? menu.slot : $("calendarViewport")).focus({ preventScroll: true });
+}
+
+function openCalendarEventMenu(slot, x, y) {
+  const order = findListOrder(slot.dataset.calendarEvent), date = slot.dataset.calendarDate;
+  if (!order?.calendar_events?.[date] || order.registered === false || orderRowSaving(order.path)) return;
+  closeCalendarEventMenu(false);
+  state.calendarMenu = { path: order.path, id: order.id, revision: order.revision, date, slot };
+  const menu = $("calendarEventMenu");
+  $("calendarEventMenuName").textContent = order.calendar_events[date];
+  menu.hidden = false;
+  const bounds = menu.getBoundingClientRect();
+  menu.style.left = Math.max(8, Math.min(x, window.innerWidth - bounds.width - 8)) + "px";
+  menu.style.top = Math.max(8, Math.min(y, window.innerHeight - bounds.height - 8)) + "px";
+  menu.querySelector("button").focus({ preventScroll: true });
+}
+
+async function moveCalendarEvent(days) {
+  const menu = state.calendarMenu;
+  if (!menu || orderRowSaving(menu.path)) return;
+  closeCalendarEventMenu();
+  state.calendarMoving.add(menu.path);
+  ++state.ordersRequest;
+  try {
+    const saved = await request("/api/order-calendar-move", { path: menu.path, id: menu.id, revision: menu.revision, date: menu.date, days });
+    applyOrderRecord(null, saved);
+    const target = new Date(menu.date + "T00:00:00Z");
+    target.setUTCDate(target.getUTCDate() + days);
+    notify("Событие перенесено на " + target.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }));
+  } catch (error) {
+    notify(error.message, true);
+    if (error.status === 409) { try { await loadOrders(); } catch (_) { /* Retain the last loaded calendar. */ } }
+  } finally {
+    state.calendarMoving.delete(menu.path);
+    renderOrders({ force: true });
+  }
+}
+
 function openCalendarEvent(slot) {
+  closeCalendarEventMenu(false);
   const order = findListOrder(slot.dataset.calendarEvent), date = slot.dataset.calendarDate;
   if (!order || order.registered === false || orderRowSaving(order.path)) return;
   if (order.calendar_events === null) { notify("События этого заказа имеют неизвестный формат и сохранены без изменений", true); return; }
@@ -2311,7 +2355,7 @@ async function refreshCalendarEvent() {
 
 function renderOrders({ force = false } = {}) {
   // Replacing a focused native select would close its menu during background polling.
-  if (!force && (state.orderStatusSaving.size || state.deadlineSaving.size || state.flagSaving.size || state.calendarEvent?.saving || document.activeElement?.dataset.orderStatus)) return;
+  if (!force && (state.orderStatusSaving.size || state.deadlineSaving.size || state.flagSaving.size || state.calendarMoving.size || state.calendarEvent?.saving || document.activeElement?.dataset.orderStatus)) return;
   const focusedFlag = document.activeElement?.dataset.orderFlag;
   const focusedGroup = document.activeElement?.dataset.orderGroupToggle;
   const focusedFavorite = document.activeElement?.dataset.orderFavorite;
@@ -3005,6 +3049,36 @@ $("calendarWeeks").addEventListener("click", (event) => {
   }
 });
 $("calendarEventForm").addEventListener("submit", (event) => { event.preventDefault(); run(() => saveCalendarEvent()); });
+$("calendarWeeks").addEventListener("contextmenu", (event) => {
+  const slot = event.target.closest(".calendar-event-slot.has-event");
+  if (!slot || slot.disabled) return;
+  event.preventDefault();
+  openCalendarEventMenu(slot, event.clientX, event.clientY);
+});
+$("calendarWeeks").addEventListener("keydown", (event) => {
+  const slot = event.target.closest(".calendar-event-slot.has-event");
+  if (!slot || slot.disabled || !(event.key === "ContextMenu" || (event.shiftKey && event.key === "F10"))) return;
+  event.preventDefault();
+  const bounds = slot.getBoundingClientRect();
+  openCalendarEventMenu(slot, bounds.left, bounds.bottom);
+});
+$("calendarEventMenu").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-calendar-move]");
+  if (button) run(() => moveCalendarEvent(Number(button.dataset.calendarMove)));
+});
+$("calendarEventMenu").addEventListener("keydown", (event) => {
+  if (event.key === "Escape") { event.preventDefault(); closeCalendarEventMenu(); return; }
+  if (event.key === "Tab") { closeCalendarEventMenu(); return; }
+  if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+  event.preventDefault();
+  const buttons = [...$("calendarEventMenu").querySelectorAll("button")], current = buttons.indexOf(document.activeElement);
+  const index = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (current + (event.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length;
+  buttons[index].focus({ preventScroll: true });
+});
+document.addEventListener("pointerdown", (event) => { if (state.calendarMenu && !$("calendarEventMenu").contains(event.target)) closeCalendarEventMenu(false); });
+window.addEventListener("resize", () => closeCalendarEventMenu(false));
+window.addEventListener("scroll", () => { if (state.calendarMenu) closeCalendarEventMenu(false); }, true);
+window.addEventListener("blur", () => closeCalendarEventMenu(false));
 $("deleteCalendarEvent").addEventListener("click", () => run(() => saveCalendarEvent(true)));
 $("refreshCalendarEvent").addEventListener("click", () => run(refreshCalendarEvent));
 $("cancelCalendarEvent").addEventListener("click", closeCalendarEvent);

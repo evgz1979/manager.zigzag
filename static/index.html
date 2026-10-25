@@ -170,6 +170,11 @@
         </div>
       </section>
     </main>
+    <div id="calendarEventMenu" class="calendar-event-menu" role="menu" aria-label="Сдвинуть событие" hidden>
+      <p id="calendarEventMenuName" class="calendar-event-menu-name"></p>
+      <button type="button" role="menuitem" data-calendar-move="1">На 1 день вперёд</button><button type="button" role="menuitem" data-calendar-move="-1">На 1 день назад</button><hr>
+      <button type="button" role="menuitem" data-calendar-move="7">На неделю вперёд</button><button type="button" role="menuitem" data-calendar-move="-7">На неделю назад</button>
+    </div>
     <dialog id="calendarEventDialog" class="confirm-dialog create-order-dialog calendar-event-dialog" aria-labelledby="calendarEventTitle">
       <form id="calendarEventForm"><h2 id="calendarEventTitle">Событие календаря</h2><p id="calendarEventOrder" class="calendar-event-order"></p><p id="calendarEventDate" class="calendar-event-date"></p><label>Событие<input id="calendarEventText" type="text" maxlength="1000" required autocomplete="off" placeholder="Например, замер или монтаж"></label><p id="calendarEventState" class="calendar-event-state" role="status"></p><button id="refreshCalendarEvent" class="secondary-button" type="button" hidden>Проверить изменения</button><div class="confirm-actions"><button id="deleteCalendarEvent" class="danger-button" type="button" hidden>Удалить событие</button><button id="cancelCalendarEvent" class="secondary-button" type="button">Отмена</button><button id="saveCalendarEvent" type="submit">Сохранить</button></div></form>
     </dialog>

@@ -1674,6 +1674,11 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(record)
                 schedule_order_sync()
                 return
+            elif route == "/api/order-calendar-move":
+                record = order_store().move_calendar_event(payload)
+                self.send_json(record)
+                schedule_order_sync()
+                return
             elif route == "/api/work-supplier-favorite":
                 self.send_json(work_orders.save_supplier_favorite(order_store(), payload))
                 return

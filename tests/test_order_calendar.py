@@ -11,6 +11,21 @@ manager = fixtures.manager
 
 
 class CalendarFormatTests(unittest.TestCase):
+    def test_moves_cross_year_and_leap_day_preserving_text_and_other_blocks(self):
+        blocks = order_calendar.write({"Особое": "Сохранить"}, "2026-12-31", '  Замер "окна"  ')
+        moved = order_calendar.move(blocks, "2026-12-31", 1)
+        self.assertEqual(order_calendar.read(moved), {"2027-01-01": '  Замер "окна"  '})
+        self.assertEqual(order_calendar.read(order_calendar.move(moved, "2027-01-01", -1)), order_calendar.read(blocks))
+        self.assertEqual(moved["Особое"], "Сохранить")
+        leap = order_calendar.write({}, "2028-02-28", "Монтаж")
+        self.assertEqual(order_calendar.read(order_calendar.move(leap, "2028-02-28", 1)), {"2028-02-29": "Монтаж"})
+        for days in (None, True, "1", 0, 2, 14):
+            with self.subTest(days=days), self.assertRaises(ValueError):
+                order_calendar.move(blocks, "2026-12-31", days)
+        for day, days in (("0001-01-01", -1), ("9999-12-31", 7)):
+            with self.subTest(day=day), self.assertRaises(ValueError):
+                order_calendar.move(order_calendar.write({}, day, "Замер"), day, days)
+
     def test_independent_dates_preserve_exact_text_and_other_blocks(self):
         blocks = {"Особое": "Сохранить"}
         first = order_calendar.write(blocks, "2026-10-26", '  Замер "двери" <эскиз>  ')
@@ -61,6 +76,53 @@ class CalendarApiTests(unittest.TestCase):
         record = record or self.order
         return {"path": self.path, "id": record["id"], "revision": record["revision"],
                 "date": "2026-10-27", "text": "Монтаж", **changes}
+
+    def test_atomic_moves_keep_other_dates_fields_history_and_registration(self):
+        saved = self.store.save_calendar_event(self.payload())
+        occupied = self.store.save_calendar_event(self.payload(saved, date="2026-10-28", text="Другое событие"))
+        with self.assertRaises(ValueError):
+            self.store.move_calendar_event(self.payload(occupied, days=1))
+        self.assertEqual(self.store.get(self.path), occupied)
+        moved = self.store.move_calendar_event(self.payload(occupied, days=7))
+        self.assertEqual(moved["calendar_events"], {"2026-10-28": "Другое событие", "2026-11-03": "Монтаж"})
+        self.assertEqual(moved["revision"], occupied["revision"] + 1)
+        for field in occupied.keys() - {"calendar_events", "extra_blocks", "revision"}:
+            self.assertEqual(moved[field], occupied[field], field)
+        self.assertEqual(order_deadlines.read(moved["extra_blocks"]), order_deadlines.read(occupied["extra_blocks"]))
+        with self.store.connect() as db:
+            history = [json.loads(row[0]) for row in db.execute("SELECT data FROM metadata_history WHERE entity='orders' AND identity=?", (self.order["id"],))]
+        self.assertTrue(any(order_calendar.read(json.loads(row["extra_blocks"])) == occupied["calendar_events"] for row in history))
+        with self.assertRaises(ValueError):
+            self.store.move_calendar_event(self.payload(moved, days=-7))
+        self.assertEqual(self.store.get(self.path), moved)
+        restored = self.store.move_calendar_event(self.payload(moved, date="2026-11-03", days=-7))
+        self.assertEqual(restored["calendar_events"], occupied["calendar_events"])
+
+    def test_http_move_rejects_stale_identity_and_unknown_data_without_cloud(self):
+        saved = self.store.save_calendar_event(self.payload())
+        self.root.rename(self.base / "offline")
+        with patch.object(OrderStore, "target", side_effect=AssertionError("No folder reads")), \
+                patch("icloud_access.read_bytes", side_effect=AssertionError("No originals")), \
+                patch.object(manager, "schedule_order_sync") as schedule:
+            status, _, body = self.http("/api/order-calendar-move", "POST", json.dumps(self.payload(saved, days=-1)))
+            self.assertEqual(status, 200)
+            moved = json.loads(body)
+            self.assertEqual(moved["calendar_events"], {"2026-10-26": "Монтаж"})
+            schedule.assert_called_once()
+            for changes in ({}, {"id": "Чужой UUID"}):
+                self.assertEqual(self.http("/api/order-calendar-move", "POST", json.dumps(self.payload(saved, days=1, **changes)))[0], 409)
+            for changes in ({"revision": True}, {"days": True}, {"days": 2}, {"date": "2026-02-30"}):
+                data = {**self.payload(moved, date="2026-10-26", days=1), **changes}
+                self.assertEqual(self.http("/api/order-calendar-move", "POST", json.dumps(data))[0], 400)
+        self.assertEqual(self.store.get(self.path), moved)
+        unknown = '{"version":2,"events":{}}'
+        with self.store.connect() as db:
+            db.execute("UPDATE orders SET extra_blocks=?,revision=revision+1 WHERE path=?", (
+                json.dumps({**moved["extra_blocks"], order_calendar.BLOCK: unknown}), self.path))
+        record = self.store.get(self.path)
+        with self.assertRaises(ValueError):
+            self.store.move_calendar_event(self.payload(record, date="2026-10-26", days=1))
+        self.assertEqual(self.store.get(self.path), record)
 
     def test_offline_partial_write_preserves_fields_sorting_history_and_restart(self):
         self.root.rename(self.base / "offline")

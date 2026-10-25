@@ -105,6 +105,8 @@ const HomeCalendar = (() => {
           slot.dataset.calendarDate = key;
           slot.textContent = text;
           slot.classList.toggle("has-event", Boolean(text));
+          if (text) slot.setAttribute("aria-haspopup", "menu");
+          else slot.removeAttribute("aria-haspopup");
           slot.disabled = order.calendar_events === null || date < range.from || date > range.through;
           slot.setAttribute("aria-label", (text ? "Изменить событие: " + text : "Добавить событие") + " · " + title + " · " + fullDate.format(date));
         }
