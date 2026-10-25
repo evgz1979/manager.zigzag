@@ -13,15 +13,27 @@ const HomeCalendar = (() => {
     const value = (name) => Number(parts.find((part) => part.type === name).value);
     return new Date(Date.UTC(value("year"), value("month") - 1, value("day")));
   };
-  const shiftMonths = (date, months) => {
-    const first = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1));
-    const lastDay = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0)).getUTCDate();
-    first.setUTCDate(Math.min(date.getUTCDate(), lastDay));
-    return first;
-  };
-  function calendarRange(now = new Date()) {
-    const today = moscowDate(now), from = shiftMonths(today, -1), through = shiftMonths(today, 2);
-    return { today, from, through, start: monday(from), end: shiftDays(monday(through), 6) };
+  function calendarRange(now = new Date(), calendarOrders = [], freeEvents = [], plans = []) {
+    const today = moscowDate(now);
+    let start = monday(today), end = shiftDays(start, 20);
+    const include = (key, period = "day") => {
+      if (typeof key !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(key)) return;
+      const date = new Date(key + "T00:00:00Z");
+      if (!Number.isFinite(date.getTime()) || dateKey(date) !== key || (period === "week" && date.getUTCDay() !== 1)) return;
+      const week = monday(date), last = shiftDays(week, 6);
+      if (week < start) start = week;
+      if (last > end) end = last;
+    };
+    for (const order of calendarOrders) {
+      if (!order.path || order.registered === false) continue;
+      for (const week of order.deadline_weeks || []) include(week, "week");
+      for (const date of Object.keys(order.calendar_events || {})) include(date);
+      for (const week of Object.keys(order.calendar_week_events || {})) include(week, "week");
+    }
+    for (const event of [...freeEvents, ...plans]) {
+      if (!event.deleted && ["day", "week"].includes(event.period || "day")) include(event.date, event.period);
+    }
+    return { today, from: start, through: end, start, end };
   }
 
   let range, builtFor = "", initialized = false, frame = 0, weekTops = [], weekHeights = [], orders = [], events = [], invoicePlans = [];
@@ -340,60 +352,76 @@ const HomeCalendar = (() => {
     if (Array.isArray(nextOrders)) orders = nextOrders;
     if (Array.isArray(nextEvents)) events = nextEvents;
     if (Array.isArray(nextInvoicePlans)) invoicePlans = nextInvoicePlans;
-    const nextRange = calendarRange();
-    if (builtFor !== dateKey(nextRange.today)) {
+    const nextRange = calendarRange(new Date(), orders, events, invoicePlans);
+    if (builtFor !== dateKey(nextRange.today) || !range || +range.start !== +nextRange.start || +range.end !== +nextRange.end) {
+      const viewport = get("calendarViewport"), index = weekIndex(viewport.scrollTop);
+      const visibleWeek = range ? shiftDays(range.start, index * 7) : nextRange.today;
+      const offset = range ? viewport.scrollTop - (weekTops[index] || 0) : 0;
       range = nextRange;
       builtFor = dateKey(range.today);
-      const weeks = document.createDocumentFragment();
+      const weeks = get("calendarWeeks"), existing = new Map([...weeks.children].map((row) => [row.dataset.week, row]));
+      const focused = weeks.contains(document.activeElement) ? document.activeElement : null;
+      for (const [key, row] of existing) if (key < dateKey(range.start) || key > dateKey(range.end)) row.remove();
+      let before = weeks.firstElementChild;
       for (let week = range.start; week <= range.end; week = shiftDays(week, 7)) {
-        const row = document.createElement("div");
-        row.className = "calendar-week";
-        row.dataset.week = dateKey(week);
-        const orderCell = document.createElement("div"), content = document.createElement("div"), list = document.createElement("ul");
-        orderCell.className = "calendar-day calendar-orders-cell";
-        content.className = "calendar-week-content";
-        list.className = "calendar-orders-list";
-        list.setAttribute("aria-label", "Заказы на неделю: " + fullDate.format(week) + " — " + fullDate.format(shiftDays(week, 6)));
-        const free = document.createElement("div"), spacer = document.createElement("span");
-        free.className = "calendar-free-events";
-        spacer.setAttribute("aria-hidden", "true");
-        free.append(spacer);
-        for (let column = 0; column < 8; column++) {
-          const cell = document.createElement("div"), add = document.createElement("button");
-          cell.className = "calendar-free-column";
-          add.type = "button";
-          add.className = "calendar-event-slot calendar-free-add";
-          add.dataset.calendarEvent = "";
-          add.dataset.calendarFree = "new";
-          add.textContent = "+";
-          cell.append(add);
-          free.append(cell);
+        let row = existing.get(dateKey(week));
+        if (!row) {
+          row = document.createElement("div");
+          row.className = "calendar-week";
+          row.dataset.week = dateKey(week);
+          const orderCell = document.createElement("div"), content = document.createElement("div"), list = document.createElement("ul");
+          orderCell.className = "calendar-day calendar-orders-cell";
+          content.className = "calendar-week-content";
+          list.className = "calendar-orders-list";
+          list.setAttribute("aria-label", "Заказы на неделю: " + fullDate.format(week) + " — " + fullDate.format(shiftDays(week, 6)));
+          const free = document.createElement("div"), spacer = document.createElement("span");
+          free.className = "calendar-free-events";
+          spacer.setAttribute("aria-hidden", "true");
+          free.append(spacer);
+          for (let column = 0; column < 8; column++) {
+            const cell = document.createElement("div"), add = document.createElement("button");
+            cell.className = "calendar-free-column";
+            add.type = "button";
+            add.className = "calendar-event-slot calendar-free-add";
+            add.dataset.calendarEvent = "";
+            add.dataset.calendarFree = "new";
+            add.textContent = "+";
+            cell.append(add);
+            free.append(cell);
+          }
+          content.append(list, free);
+          row.append(orderCell);
+          const weekCell = document.createElement("div"), weekLabel = document.createElement("span");
+          weekCell.className = "calendar-day calendar-week-events-cell";
+          weekLabel.className = "calendar-week-number";
+          weekLabel.textContent = weekNumber(week);
+          weekLabel.setAttribute("aria-label", "Неделя " + weekNumber(week) + ": " + fullDate.format(week) + " — " + fullDate.format(shiftDays(week, 6)));
+          weekCell.append(planHeader(week, weekLabel, 'week'));
+          row.append(weekCell);
+          for (let day = 0; day < 7; day++) {
+            const date = shiftDays(week, day), cell = document.createElement("div"), label = document.createElement("time");
+            cell.className = "calendar-day" + (day > 4 ? " weekend" : "") + (date < range.from || date > range.through ? " calendar-outside" : "");
+            label.dateTime = dateKey(date);
+            label.setAttribute("aria-label", fullDate.format(date));
+            label.textContent = String(date.getUTCDate());
+            cell.append(planHeader(date, label));
+            row.append(cell);
+          }
+          row.append(content);
         }
-        content.append(list, free);
-        row.append(orderCell);
-        const weekCell = document.createElement("div"), weekLabel = document.createElement("span");
-        weekCell.className = "calendar-day calendar-week-events-cell";
-        weekLabel.className = "calendar-week-number";
-        weekLabel.textContent = weekNumber(week);
-        weekLabel.setAttribute("aria-label", "Неделя " + weekNumber(week) + ": " + fullDate.format(week) + " — " + fullDate.format(shiftDays(week, 6)));
-        weekCell.append(planHeader(week, weekLabel, 'week'));
-        row.append(weekCell);
-        for (let day = 0; day < 7; day++) {
-          const date = shiftDays(week, day), cell = document.createElement("div"), label = document.createElement("time");
-          cell.className = "calendar-day" + (day > 4 ? " weekend" : "") + (date < range.from || date > range.through ? " calendar-outside" : "");
-          label.dateTime = dateKey(date);
-          label.setAttribute("aria-label", fullDate.format(date));
-          label.textContent = String(date.getUTCDate());
-          if (dateKey(date) === builtFor) { label.className = "calendar-today"; label.setAttribute("aria-current", "date"); }
-          cell.append(planHeader(date, label));
-          row.append(cell);
+        for (const label of row.querySelectorAll("time")) {
+          label.classList.toggle("calendar-today", label.dateTime === builtFor);
+          if (label.dateTime === builtFor) label.setAttribute("aria-current", "date");
+          else label.removeAttribute("aria-current");
         }
-        row.append(content);
-        weeks.append(row);
+        if (row !== before) weeks.insertBefore(row, before);
+        before = row.nextElementSibling;
       }
-      get("calendarWeeks").replaceChildren(weeks);
+      if (focused && !focused.isConnected) viewport.focus({ preventScroll: true });
       measureWeeks();
-      scrollToWeek(range.today);
+      scrollToWeek(visibleWeek);
+      viewport.scrollTop = Math.max(0, Math.min(maxScroll(), viewport.scrollTop + offset));
+      updateHeading();
     } else updateHeading();
     renderWeekOrders();
     renderFreeEvents();
