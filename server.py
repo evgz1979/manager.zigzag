@@ -18,6 +18,7 @@ from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from zoneinfo import ZoneInfo
+import calendar_events
 from orders import OrderStore, OrderConflict, CARD, SNAPSHOT, is_service_folder
 import order_document
 import order_deadlines
@@ -818,6 +819,7 @@ def listed_orders():
     visible = objects.visible_orders(activity.visible_orders(store.list()))
     return {"orders": OrderTodos(store).attach([order for order in visible if not work_orders.in_work(order["path"])]),
             "calendar_supplier_orders": [order for order in visible if order["work_supplier"]],
+            "calendar_events": calendar_events.CalendarEvents(store).list(),
             "favorites": [order for order in visible if order["is_favorite"] is True],
             "deadline_week_options": order_deadlines.week_options(),
             "unregistrations": objects.visible_orders(activity.visible_orders([
@@ -1377,6 +1379,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(record, head=head)
             elif parsed.path == "/api/mobile-status":
                 self.send_json(MobileBridge(order_store()).status(), head=head)
+            elif parsed.path == "/api/calendar-event":
+                self.send_json(calendar_events.CalendarEvents(order_store()).get(query.get("id", [""])[0]), head=head)
             elif parsed.path == "/api/folder-note":
                 record = folder_note_store().get(relative)
                 if not record:
@@ -1669,6 +1673,15 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 record = order_store().save_deadline_comment(payload)
                 self.send_json(record)
                 schedule_order_sync()
+                return
+            elif route == "/api/calendar-event":
+                self.send_json(calendar_events.CalendarEvents(order_store()).save(payload))
+                return
+            elif route == "/api/calendar-color":
+                self.send_json(calendar_events.CalendarEvents(order_store()).color(payload))
+                return
+            elif route == "/api/calendar-move":
+                self.send_json(calendar_events.CalendarEvents(order_store()).move(payload))
                 return
             elif route == "/api/order-calendar-event":
                 record = order_store().save_calendar_event(payload)

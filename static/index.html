@@ -42,7 +42,7 @@
         <div id="homeSyncSlot" class="home-sync-slot" hidden></div>
         <section id="ordersWorkspace" class="orders-workspace" aria-label="Все заказы" hidden>
           <section id="homeCalendar" class="home-calendar" aria-label="Календарь" hidden>
-            <header class="calendar-heading"><h2 id="calendarTitle"></h2><span class="calendar-draft">Нажми на день или неделю в строке заказа</span><div class="calendar-navigation"><button id="calendarEarlier" type="button" aria-label="На неделю назад">⌃</button><button id="calendarToday" type="button">Сегодня</button><button id="calendarLater" type="button" aria-label="На неделю вперёд">⌄</button></div></header>
+            <header class="calendar-heading"><h2 id="calendarTitle"></h2><span class="calendar-draft">Нажми на ячейку заказа или «+» под заказами</span><div class="calendar-navigation"><button id="calendarEarlier" type="button" aria-label="На неделю назад">⌃</button><button id="calendarToday" type="button">Сегодня</button><button id="calendarLater" type="button" aria-label="На неделю вперёд">⌄</button></div></header>
             <div class="calendar-weekdays" aria-hidden="true"><span class="calendar-orders-heading">Заказы</span><span>На неделю</span><span>пн</span><span>вт</span><span>ср</span><span>чт</span><span>пт</span><span class="weekend">сб</span><span class="weekend">вс</span></div>
             <div id="calendarViewport" class="calendar-viewport" tabindex="0" role="region" aria-label="Три недели календаря. Прокручивай вверх и вниз; Home — начало, End — конец."><div id="calendarWeeks" class="calendar-weeks"></div></div>
           </section>
@@ -170,7 +170,8 @@
         </div>
       </section>
     </main>
-    <div id="calendarEventMenu" class="calendar-event-menu" role="menu" aria-label="Сдвинуть событие" hidden>
+    <div id="calendarEventMenu" class="calendar-event-menu" role="menu" aria-label="Действия с событием" hidden>
+      <div id="calendarEventColors" class="calendar-event-colors" role="group" aria-label="Цвет события" hidden><button type="button" role="menuitemradio" aria-checked="false" data-calendar-color="red" aria-label="Красный"></button><button type="button" role="menuitemradio" aria-checked="false" data-calendar-color="orange" aria-label="Оранжевый"></button><button type="button" role="menuitemradio" aria-checked="false" data-calendar-color="yellow" aria-label="Жёлтый"></button><button type="button" role="menuitemradio" aria-checked="false" data-calendar-color="green" aria-label="Зелёный"></button><button type="button" role="menuitemradio" aria-checked="false" data-calendar-color="blue" aria-label="Синий"></button><button type="button" role="menuitemradio" aria-checked="false" data-calendar-color="purple" aria-label="Фиолетовый"></button><button type="button" role="menuitemradio" aria-checked="false" data-calendar-color="gray" aria-label="Серый"></button></div>
       <p id="calendarEventMenuName" class="calendar-event-menu-name"></p>
       <button type="button" role="menuitem" data-calendar-move="1">На 1 день вперёд</button><button type="button" role="menuitem" data-calendar-move="-1">На 1 день назад</button><hr>
       <button type="button" role="menuitem" data-calendar-move="7">На неделю вперёд</button><button type="button" role="menuitem" data-calendar-move="-7">На неделю назад</button>

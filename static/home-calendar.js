@@ -24,7 +24,7 @@ const HomeCalendar = (() => {
     return { today, from, through, start: monday(from), end: shiftDays(monday(through), 6) };
   }
 
-  let range, builtFor = "", initialized = false, frame = 0, rowPixels = 0, visibleWeek = 0, orders = [];
+  let range, builtFor = "", initialized = false, frame = 0, rowPixels = 0, visibleWeek = 0, orders = [], events = [];
   const get = (id) => document.getElementById(id);
   const monthName = new Intl.DateTimeFormat("ru-RU", { month: "long", timeZone: "UTC" });
   const shortDate = new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short", timeZone: "UTC" });
@@ -142,8 +142,57 @@ const HomeCalendar = (() => {
     }
   }
 
-  function show(nextOrders) {
+  function renderFreeEvents() {
+    for (const row of get("calendarWeeks").children) {
+      const area = row.querySelector(".calendar-free-events"), week = new Date(row.dataset.week + "T00:00:00Z");
+      const weekly = events.filter((event) => /^(day|week)$/.test(event.period) && /^\d{4}-\d{2}-\d{2}$/.test(event.date) && Number.isFinite(new Date(event.date + "T00:00:00Z").getTime()) && dateKey(monday(new Date(event.date + "T00:00:00Z"))) === row.dataset.week);
+      const signature = JSON.stringify(weekly);
+      if (area.dataset.signature === signature) continue;
+      area.dataset.signature = signature;
+      const top = area.parentElement.scrollTop;
+      const focused = area.contains(document.activeElement) ? document.activeElement : null;
+      const existing = new Map([...area.querySelectorAll(".has-event")].map((item) => [item.dataset.calendarFree, item]));
+      const retained = new Set();
+      for (let day = -1; day < 7; day++) {
+        const column = area.children[day + 2], isWeek = day === -1;
+        const date = shiftDays(week, isWeek ? 0 : day), key = dateKey(date), period = isWeek ? "week" : "day";
+        const label = isWeek ? "Неделя " + weekNumber(week) + ": " + fullDate.format(week) + " — " + fullDate.format(shiftDays(week, 6)) : fullDate.format(date);
+        const add = column.lastElementChild;
+        add.dataset.calendarDate = key;
+        add.dataset.calendarPeriod = period;
+        add.disabled = isWeek ? shiftDays(week, 6) < range.from || week > range.through : date < range.from || date > range.through;
+        add.setAttribute("aria-label", "Добавить событие без заказа · " + label);
+        for (const event of weekly.filter((event) => event.period === period && event.date === key)) {
+          let button = existing.get(event.id);
+          if (!button) {
+            button = document.createElement("button");
+            button.type = "button";
+            button.className = "calendar-event-slot calendar-free-event has-event";
+            button.dataset.calendarEvent = "";
+            button.dataset.calendarFree = event.id;
+            button.setAttribute("aria-haspopup", "menu");
+          }
+          button.textContent = event.text;
+          button.dataset.calendarColor = event.color || "gray";
+          button.dataset.calendarDate = key;
+          button.dataset.calendarPeriod = period;
+          button.disabled = event.version !== 1 || !["gray", "red", "orange", "yellow", "green", "blue", "purple"].includes(event.color) || add.disabled;
+          button.setAttribute("aria-label", "Изменить событие без заказа: " + event.text + " · " + label);
+          column.insertBefore(button, add);
+          retained.add(button);
+        }
+      }
+      for (const button of existing.values()) if (!retained.has(button)) button.remove();
+      area.parentElement.scrollTop = top;
+      if (focused && document.activeElement !== focused) {
+        (focused.isConnected ? focused : area.querySelector(".calendar-free-add:not(:disabled)") || get("calendarViewport")).focus({ preventScroll: true });
+      }
+    }
+  }
+
+  function show(nextOrders, nextEvents) {
     if (Array.isArray(nextOrders)) orders = nextOrders;
+    if (Array.isArray(nextEvents)) events = nextEvents;
     const nextRange = calendarRange();
     if (builtFor !== dateKey(nextRange.today)) {
       range = nextRange;
@@ -158,7 +207,23 @@ const HomeCalendar = (() => {
         content.className = "calendar-week-content";
         list.className = "calendar-orders-list";
         list.setAttribute("aria-label", "Заказы на неделю: " + fullDate.format(week) + " — " + fullDate.format(shiftDays(week, 6)));
-        content.append(list);
+        const free = document.createElement("div"), freeLabel = document.createElement("span");
+        free.className = "calendar-free-events";
+        freeLabel.className = "calendar-free-label";
+        freeLabel.textContent = "События";
+        free.append(freeLabel);
+        for (let column = 0; column < 8; column++) {
+          const cell = document.createElement("div"), add = document.createElement("button");
+          cell.className = "calendar-free-column";
+          add.type = "button";
+          add.className = "calendar-event-slot calendar-free-add";
+          add.dataset.calendarEvent = "";
+          add.dataset.calendarFree = "new";
+          add.textContent = "+";
+          cell.append(add);
+          free.append(cell);
+        }
+        content.append(list, free);
         row.append(orderCell);
         const weekCell = document.createElement("div"), weekLabel = document.createElement("span");
         weekCell.className = "calendar-day calendar-week-events-cell";
@@ -184,6 +249,7 @@ const HomeCalendar = (() => {
       scrollToWeek(range.today);
     } else updateHeading();
     renderWeekOrders();
+    renderFreeEvents();
     if (initialized) return;
     initialized = true;
     const viewport = get("calendarViewport");
