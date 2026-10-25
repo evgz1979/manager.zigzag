@@ -28,6 +28,7 @@ import file_comments
 from mobile_sync import MobileBridge, RUN_LOCK
 import image_reports
 import invoices
+import invoice_documents
 import native_renderers
 import icloud_access
 import spreadsheet_preview
@@ -1304,8 +1305,12 @@ class ManagerHandler(BaseHTTPRequestHandler):
             self.wfile.write(body)
 
     def send_invoice_pdf(self, body, name, head=False, download=False):
+        self.send_invoice_document(body, name, 'application/pdf', head=head, download=download)
+
+    def send_invoice_document(self, body, name, mime, head=False, download=False):
         self.send_response(200)
-        self.send_header("Content-Type", "application/pdf")
+        self.send_header("Content-Type", mime)
+        self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         disposition = "attachment" if download else "inline"
@@ -1406,6 +1411,9 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json({"items": invoice_store().list(relative), "trash": invoice_store().list(relative, trashed=True)}, head=head)
             elif parsed.path == "/api/invoice":
                 self.send_json(invoice_store().get(relative, query.get("id", [""])[0]), head=head)
+            elif parsed.path == '/api/invoice-document':
+                body, name, mime = invoice_documents.content(invoice_store(), relative, query.get('id', [''])[0], query.get('document_id', [''])[0])
+                self.send_invoice_document(body, name, mime, head=head, download=mime == 'application/octet-stream' or query.get('download', [''])[0] == '1')
             elif parsed.path == "/api/invoice-plan-source":
                 self.send_json(invoice_store().plan_source(relative, query.get("id", [""])[0]), head=head)
             elif parsed.path in {"/api/invoice-pdf-info", "/api/invoice-pdf-page"}:
@@ -1573,12 +1581,12 @@ class ManagerHandler(BaseHTTPRequestHandler):
             return
         try:
             route = urllib.parse.urlparse(self.path).path
-            if route == '/api/invoice-upload':
+            if route in {'/api/invoice-upload', '/api/invoice-document-upload'}:
                 origin = self.headers.get('Origin')
                 if self.headers.get_content_type() != 'application/json' or (origin and urllib.parse.urlsplit(origin).netloc != self.headers.get('Host')):
-                    raise ValueError('Прикрепляй PDF через кнопку «Прикрепить PDF» в заказе')
+                    raise ValueError('Прикрепляй документы через форму в строке счёта')
             length = int(self.headers.get("Content-Length", "0"))
-            limit = invoices.EXTERNAL_REQUEST_LIMIT if route == '/api/invoice-upload' else (1024 * 1024 if route in {"/api/file-comment", "/api/order-save", "/api/status"} else 256 * 1024)
+            limit = invoices.EXTERNAL_REQUEST_LIMIT if route in {'/api/invoice-upload', '/api/invoice-document-upload'} else (1024 * 1024 if route in {"/api/file-comment", "/api/order-save", "/api/status"} else 256 * 1024)
             if length < 0 or length > limit:
                 raise ValueError("Слишком большой запрос")
             payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
@@ -1605,6 +1613,14 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 return
             elif route == '/api/invoice-upload':
                 self.send_json(invoice_store().upload(payload), 201)
+                schedule_order_sync()
+                return
+            elif route == '/api/invoice-document-upload':
+                self.send_json(invoice_documents.upload(invoice_store(), payload), 201)
+                schedule_order_sync()
+                return
+            elif route in {'/api/invoice-document-remove', '/api/invoice-document-restore'}:
+                self.send_json(invoice_documents.set_deleted(invoice_store(), payload, route.endswith('-remove')))
                 schedule_order_sync()
                 return
             elif route == '/api/invoice-comment':

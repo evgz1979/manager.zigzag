@@ -210,6 +210,16 @@ def check_event_rename_compatibility(database, release_dir):
             if not source.is_file() or 'INVOICE_PAYMENT_SOURCE_VERSION = 1' not in source.read_text(encoding='utf-8'):
                 raise RuntimeError('В базе есть оплаты без заказа или по готовым счетам. Старый код не поддерживает их; откат заблокирован')
         if (db.execute("SELECT 1 FROM sqlite_master WHERE name='invoices'").fetchone()
+                and db.execute("SELECT 1 FROM invoices WHERE json_extract(data,'$._list_status')='paid' LIMIT 1").fetchone()):
+            source = release_dir / 'invoices.py'
+            if not source.is_file() or 'INVOICE_PAID_STATUS_VERSION = 1' not in source.read_text(encoding='utf-8'):
+                raise RuntimeError('В базе есть отметки счетов «Оплачен». Старый код не поддерживает их; откат заблокирован')
+        if (db.execute("SELECT 1 FROM sqlite_master WHERE name='invoices'").fetchone()
+                and db.execute("SELECT 1 FROM invoices WHERE json_type(data,'$._closing_documents') IS NOT NULL LIMIT 1").fetchone()):
+            source = release_dir / 'invoices.py'
+            if not source.is_file() or 'INVOICE_CLOSING_DOCUMENTS_VERSION = 1' not in source.read_text(encoding='utf-8') or not (release_dir / 'invoice_documents.py').is_file():
+                raise RuntimeError('К счетам прикреплены закрывающие документы. Старый код теряет их привязку; откат заблокирован')
+        if (db.execute("SELECT 1 FROM sqlite_master WHERE name='invoices'").fetchone()
                 and db.execute("SELECT 1 FROM invoices WHERE json_extract(data,'$.kind')='planned' AND json_extract(data,'$.period')='week' LIMIT 1").fetchone()):
             source = release_dir / 'invoices.py'
             if not source.is_file() or 'INVOICE_WEEK_PLAN_VERSION = 1' not in source.read_text(encoding='utf-8'):

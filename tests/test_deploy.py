@@ -19,6 +19,24 @@ PREVIOUS = "20261019T170000Z-abcdef12"
 
 
 class DeploymentTests(unittest.TestCase):
+    def test_old_code_cannot_lose_paid_marks_or_closing_document_links(self):
+        release = self.base / 'old-invoice-documents'
+        release.mkdir()
+        with sqlite3.connect(self.db) as db:
+            db.execute('CREATE TABLE invoices (data TEXT)')
+            db.execute('INSERT INTO invoices VALUES (?)', (json.dumps({'_list_status': 'paid'}),))
+        with self.assertRaisesRegex(RuntimeError, 'Оплачен'):
+            remote.check_event_rename_compatibility(self.db, release)
+        (release / 'invoices.py').write_text('INVOICE_PAID_STATUS_VERSION = 1')
+        remote.check_event_rename_compatibility(self.db, release)
+        with sqlite3.connect(self.db) as db:
+            db.execute('INSERT INTO invoices VALUES (?)', (json.dumps({'_closing_documents': {'version': 1, 'items': []}}),))
+        with self.assertRaisesRegex(RuntimeError, 'закрывающие документы'):
+            remote.check_event_rename_compatibility(self.db, release)
+        (release / 'invoices.py').write_text('INVOICE_PAID_STATUS_VERSION = 1\nINVOICE_CLOSING_DOCUMENTS_VERSION = 1')
+        (release / 'invoice_documents.py').touch()
+        remote.check_event_rename_compatibility(self.db, release)
+
     def test_old_code_cannot_show_weekly_financial_plans_as_daily(self):
         release = self.base / 'old-week-plans'
         release.mkdir()

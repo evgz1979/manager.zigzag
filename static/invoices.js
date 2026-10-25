@@ -3,7 +3,7 @@
   let editor = null, attachment = null, listedPath = null, listMarkup = null, trashMarkup = null, loading = 0, pendingCreate = null;
   let pendingRemoval = null, removing = false, planning = null;
   const statusSaving = new Set();
-  const listStatusLabels = { active: "Актуально", inactive: "Неактуально", later: "Позже", sent: "Отправлен" };
+  const listStatusLabels = { active: "Актуально", inactive: "Неактуально", later: "Позже", sent: "Отправлен", paid: "Оплачен" };
   const planLabels = { invoice: 'Запланирована выписка счёта', incoming: 'Запланировано получение оплаты', outgoing: 'Запланирован платёж' };
   const invoiceLabel = (record) => record.state === 'planned' ? planLabels[record.data.operation || 'invoice'] || 'Запланировано' : record.state === 'external' ? record.data.original_name : (record.data.kind === 'contract' ? 'Счёт-договор' : 'Счёт') + ' № ' + record.number;
   const displayDate = (value) => typeof value === 'string' ? value.split('-').reverse().join('.') : 'Дата не распознана';
@@ -27,6 +27,10 @@
   };
 
   function renderInvoiceList(records) {
+    // Keep the input alive while the native file picker is open or cancelled.
+    const picker = document.activeElement;
+    if (picker?.matches('input[type="file"][data-doc-action="files"]') && !picker.files.length) return;
+    const documentFocus = InvoiceDocuments.focusKey();
     const focusedPlan = document.activeElement?.dataset.invoicePlan;
     const focusedSchedule = document.activeElement?.dataset.invoiceSchedule;
     const focused = document.activeElement?.closest('[data-invoice-status]');
@@ -54,7 +58,7 @@
       const heading = comment || label;
       const secondary = (comment ? label + ' · ' : '') + details;
       const sync = record.state === "draft" ? "Черновик" : record.sync_error ? "PDF в базе · " + record.sync_error + " · автоповтор" : record.sync_pending ? "PDF в базе · копия в # bills ожидает выгрузки" : "PDF в # bills";
-      const busy = statusSaving.has(record.id);
+      const busy = statusSaving.has(record.id) || InvoiceDocuments.isBusy(record.id);
       const status = record.list_status === undefined ? 'none' : record.list_status;
       const buttons = '<div class="invoice-list-status" role="group" aria-label="Отметка счёта · ' + escapeHtml(label) + '" aria-busy="' + busy + '">' +
         Object.entries(listStatusLabels).map(([value, name]) => '<button type="button" class="secondary-button" data-invoice-status="' + record.id + '" data-value="' + value + '" aria-pressed="' + (status === value) + '" title="' + (status === null ? 'Неизвестная отметка сохранена без замены' : status === value ? 'Снять отметку «' + name + '»' : name) + '"' + (busy || status === null ? ' disabled' : '') + '>' + name + '</button>').join('') + '</div>';
@@ -64,7 +68,7 @@
         const description = [invoiceLabel(plan), label, displayPlanDate(plan), planAmount(plan), plan.data.text].filter(Boolean).join(' · ');
         return '<div class="invoice-linked-entry"><button type="button" class="invoice-linked-plan" data-invoice-plan="' + plan.id + '" data-operation="' + escapeHtml(plan.data.operation || 'invoice') + '" aria-label="' + escapeHtml(description) + '" title="' + escapeHtml(description) + '"' + (plan.plan_editable ? '' : ' disabled') + '>' + escapeHtml(summary) + (plan.plan_editable ? '' : ' · Неизвестный формат плана') + '</button><button class="secondary-button invoice-remove" type="button" data-invoice-remove="' + plan.id + '" aria-label="' + escapeHtml('В корзину · ' + description) + '">×</button></div>';
       }).join('');
-      return '<div class="invoice-row"><div class="invoice-row-content"><button type="button" class="invoice-row-name" data-invoice-' + (external ? 'view' : 'edit') + '="' + record.id + '"><span class="invoice-row-label' + (comment ? ' invoice-row-comment' : '') + '" title="' + escapeHtml(heading) + '">' + escapeHtml(heading) + '</span><small class="invoice-row-meta" title="' + escapeHtml(secondary + ' · ' + sync) + '">' + escapeHtml(secondary) + '<span class="invoice-row-state' + (record.sync_error ? ' error' : '') + '"> · ' + escapeHtml(sync) + '</span></small></button>' + (plans ? '<div class="invoice-linked-plans">' + plans + '</div>' : '') + '</div><div class="invoice-row-actions">' + (external ? '' : '<strong>' + cash(record.data.total) + '</strong>') + buttons + schedule +
+      return '<div class="invoice-row" data-invoice-row="' + record.id + '"><div class="invoice-row-content"><button type="button" class="invoice-row-name" data-invoice-' + (external ? 'view' : 'edit') + '="' + record.id + '"><span class="invoice-row-label' + (comment ? ' invoice-row-comment' : '') + '" title="' + escapeHtml(heading) + '">' + escapeHtml(heading) + '</span><small class="invoice-row-meta" title="' + escapeHtml(secondary + ' · ' + sync) + '">' + escapeHtml(secondary) + '<span class="invoice-row-state' + (record.sync_error ? ' error' : '') + '"> · ' + escapeHtml(sync) + '</span></small></button>' + (plans ? '<div class="invoice-linked-plans">' + plans + '</div>' : '') + InvoiceDocuments.markup(record) + '</div><div class="invoice-row-actions">' + (external ? '' : '<strong>' + cash(record.data.total) + '</strong>') + buttons + schedule + InvoiceDocuments.button(record) +
         (external ? '<button class="secondary-button" type="button" data-invoice-view="' + record.id + '">PDF</button>' : record.state !== "draft" ? '<a class="secondary-button" href="' + escapeHtml(pdfUrl(record)) + '" target="_blank" rel="noopener">PDF ↗</a>' : '') + (external ? '' : '<button class="secondary-button" type="button" data-invoice-copy="' + record.id + '">На основе</button>') + '<button class="secondary-button invoice-remove" type="button" data-invoice-remove="' + record.id + '" title="В корзину" aria-label="' + escapeHtml('В корзину · ' + label) + '">×</button></div></div>';
     }).join("");
     if (markup !== listMarkup) {
@@ -73,6 +77,7 @@
       if (focusKey && document.activeElement === document.body) focusStatusButton(focusKey);
       if (focusedPlan && document.activeElement === document.body) [...$("invoiceList").querySelectorAll('[data-invoice-plan]')].find((button) => button.dataset.invoicePlan === focusedPlan)?.focus({ preventScroll: true });
       if (focusedSchedule && document.activeElement === document.body) [...$("invoiceList").querySelectorAll('[data-invoice-schedule]')].find((button) => button.dataset.invoiceSchedule === focusedSchedule)?.focus({ preventScroll: true });
+      InvoiceDocuments.restoreFocus(documentFocus);
     }
     // Store records on this exact list, independent of grid positions.
     $("invoiceList").invoiceRecords = records;
@@ -501,6 +506,11 @@
     clearTimeout(editor.timer);
     if (editor.dirty) { message("Есть несохранённые изменения…"); editor.timer = setTimeout(() => action(save), 900); }
   }
+  InvoiceDocuments.init({ render: renderInvoiceList, refresh: () => refreshList(true), accept: (saved) => {
+    if (state.folder?.path !== saved.path) return;
+    ++loading;
+    renderInvoiceList(($("invoiceList").invoiceRecords || []).map((record) => record.id === saved.id && record.revision <= saved.revision ? saved : record));
+  } });
   $("invoiceForm").addEventListener("input", changed);
   $("invoiceForm").addEventListener("change", changed);
   $("invoiceForm").addEventListener("submit", (event) => { event.preventDefault(); action(save); });

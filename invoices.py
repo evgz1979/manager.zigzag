@@ -24,6 +24,7 @@ import orders
 import file_comments
 import file_trash
 import local_metadata
+import invoice_documents
 
 BUILD_LOCK = threading.Lock()
 SYNC_LOCK = threading.Lock()
@@ -32,7 +33,9 @@ INVOICE_TRASH_VERSION = 1
 INVOICE_PLAN_VERSION = 1
 INVOICE_PAYMENT_SOURCE_VERSION = 1
 INVOICE_WEEK_PLAN_VERSION = 1
-LIST_STATUSES = {"none": "Без отметки", "active": "Актуально", "inactive": "Неактуально", "later": "Позже", "sent": "Отправлен"}
+INVOICE_PAID_STATUS_VERSION = 1
+INVOICE_CLOSING_DOCUMENTS_VERSION = 1
+LIST_STATUSES = {"none": "Без отметки", "active": "Актуально", "inactive": "Неактуально", "later": "Позже", "sent": "Отправлен", "paid": "Оплачен"}
 EXTERNAL_REQUEST_LIMIT = ((MAX_EXTERNAL_BYTES + 2) // 3) * 4 + 64 * 1024
 DEFAULT_SELLER = {
     "name": "ИП ЗАЙЦЕВ ЕВГЕНИЙ КОНСТАНТИНОВИЧ", "inn": "280404583555", "kpp": "",
@@ -277,6 +280,7 @@ class InvoiceStore:
             db.execute("CREATE TABLE IF NOT EXISTS invoice_sequences (year INTEGER PRIMARY KEY, value INTEGER NOT NULL)")
             db.execute("CREATE TABLE IF NOT EXISTS invoice_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
             db.execute("CREATE TABLE IF NOT EXISTS invoice_history (id TEXT, revision INTEGER, data TEXT NOT NULL, saved REAL NOT NULL, PRIMARY KEY(id,revision))")
+            invoice_documents.schema(db)
             yield db
 
     def owner(self, db, path, *, active=False):
@@ -297,6 +301,11 @@ class InvoiceStore:
         result['plan_editable'] = result['state'] == 'planned' and known_plan(result['data'])
         result["sync_pending"] = not result['trash'] and result["state"] in {"issued", "external"} and not result["exported"]
         result["pdf_path"] = str(Path(result["path"]) / "# bills" / result["filename"]) if result["filename"] else None
+        documents = invoice_documents.read(result['data'])
+        result['closing_documents_editable'] = documents is not None and result['state'] != 'planned'
+        copies = [{**item, 'filename': invoice_documents.copy_name(item['name'], item['id']), 'exported': 0, 'sync_error': ''} for item in documents] if documents is not None else []
+        result['closing_documents'] = [item for item in copies if not item['deleted']]
+        result['closing_documents_trash'] = [item for item in copies if item['deleted']]
         return result
 
     def current(self, db, path, identity, *, trashed=False):
@@ -322,11 +331,11 @@ class InvoiceStore:
             # Do not load PDF blobs when listing invoices.
             condition = 'IS NOT NULL' if trashed else 'IS NULL'
             rows = db.execute("SELECT id,path,year,number,revision,state,data,filename,exported,sync_error,created,updated FROM invoices WHERE path=? AND json_extract(data,'$._trash') " + condition + ' ORDER BY created DESC,id', (path,))
-            return [self.record(row) for row in rows]
+            return [invoice_documents.with_copy_status(db, self.record(row)) for row in rows]
 
     def get(self, path, identity):
         with self.connect() as db:
-            return self.record(self.current(db, path, identity))
+            return invoice_documents.with_copy_status(db, self.record(self.current(db, path, identity)))
 
     @staticmethod
     def source_label(row):
@@ -540,7 +549,7 @@ class InvoiceStore:
     def save_list_status(self, payload):
         value = payload.get('value')
         if not isinstance(value, str) or value not in LIST_STATUSES:
-            raise ValueError('Выбери отметку счёта: Актуально, Неактуально, Позже или Отправлен')
+            raise ValueError('Выбери отметку счёта: Актуально, Неактуально, Позже, Отправлен или Оплачен')
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
             row = self.current(db, payload.get('path'), payload.get('id'))
@@ -736,6 +745,8 @@ class InvoiceStore:
             previous = json.loads(row['data'])
             if '_list_status' in previous:
                 data['_list_status'] = previous['_list_status']
+            if invoice_documents.BLOCK in previous:
+                data[invoice_documents.BLOCK] = previous[invoice_documents.BLOCK]
             year = int(data["date"][:4])
             if db.execute("SELECT 1 FROM invoices WHERE year=? AND number=? AND id<>?", (year, data["number"], row["id"])).fetchone():
                 raise InvoiceConflict("Такой номер уже занят в этом году. Укажи другой номер")
@@ -796,6 +807,7 @@ class InvoiceStore:
             return
         try:
             self.sync_trash()
+            invoice_documents.sync(self)
             with self.connect() as db:
                 pending = [row[0] for row in db.execute("SELECT id FROM invoices WHERE state IN ('issued','external') AND exported=0 AND json_extract(data,'$._trash') IS NULL")]
             for identity in pending:

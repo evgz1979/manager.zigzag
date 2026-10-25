@@ -764,12 +764,33 @@ h2 { font-size: 13px; font-weight: 600; }
 .invoice-row .invoice-linked-entry .invoice-remove { padding: 0 4px; border-color: transparent; background: transparent; }
 .invoice-row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; margin-left: auto; max-width: 100%; }
 .invoice-row-actions > strong { white-space: nowrap; }
-.invoice-list-status { display: grid; grid-template-columns: repeat(2, max-content); gap: 3px; }
+.invoice-list-status { display: grid; grid-template-columns: repeat(3, max-content); gap: 3px; }
 .invoice-row .invoice-list-status button { min-height: 22px; padding: 3px 6px; font-size: 10px; line-height: 14px; }
 .invoice-list-status [aria-pressed="true"][data-value="active"] { background: #e4efea; border-color: #a6cbb6; color: #28684e; }
 .invoice-list-status [aria-pressed="true"][data-value="inactive"] { background: #eef0f1; border-color: #cbd0d3; color: #687177; }
 .invoice-list-status [aria-pressed="true"][data-value="later"] { background: #fbf3d9; border-color: #e0cd88; color: #80641d; }
 .invoice-list-status [aria-pressed="true"][data-value="sent"] { background: #eaf1fb; border-color: #b2c9e6; color: #386490; }
+.invoice-list-status [aria-pressed="true"][data-value="paid"] { background: #d9f1df; border-color: #87bd94; color: #226b36; }
+.invoice-closing-documents { display: grid; gap: 3px; margin-top: 7px; }
+.invoice-closing-documents > small, .invoice-closing-file small { font-size: 10px; color: #77808d; }
+.invoice-closing-file { display: flex; align-items: center; gap: 5px; min-width: 0; font-size: 11px; }
+.invoice-closing-file > a, .invoice-closing-file > span, .invoice-closing-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.invoice-closing-file a { color: #386490; text-decoration: underline; text-underline-offset: 2px; }
+.invoice-closing-copy { display: block; font-size: 9px; color: #77808d; }
+.invoice-closing-copy.error { color: #b43b36; }
+.invoice-closing-file > small { flex-shrink: 0; }
+.invoice-row .invoice-closing-file .invoice-remove { min-height: 18px; height: 18px; line-height: 16px; padding: 0 4px; border-color: transparent; background: transparent; }
+.invoice-document-upload { display: grid; gap: 7px; margin-top: 8px; padding: 9px; border: 1px dashed #bbc9c0; border-radius: 7px; background: #f8faf9; }
+.invoice-document-upload label { display: grid; gap: 5px; font-size: 11px; }
+.invoice-document-upload input { max-width: 100%; min-width: 0; font-size: 11px; }
+.invoice-document-upload > small { color: #77808d; font-size: 10px; }
+.invoice-document-actions { display: flex; flex-wrap: wrap; gap: 5px; }
+.invoice-document-state { margin: 0; color: #697384; font-size: 11px; overflow-wrap: anywhere; }
+.invoice-document-state:empty { display: none; }
+.invoice-document-state.error { color: #b43b36; }
+.invoice-document-drag { outline: 2px dashed #78a58a; outline-offset: -2px; background: #f1f8f3; }
+.invoice-closing-trash { margin-top: 7px; font-size: 10px; color: #77808d; }
+.invoice-closing-trash summary { cursor: pointer; }
 .invoice-row-label, .invoice-row-meta { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .invoice-row-meta { font-size: 11px; font-weight: 400; line-height: 14px; color: #77808d; margin-top: 2px; }
 .invoice-row > strong { white-space: nowrap; }
