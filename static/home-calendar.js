@@ -225,14 +225,13 @@ const HomeCalendar = (() => {
       byDate.get(key).push(plan);
     }
     for (const area of get("calendarWeeks").querySelectorAll('.calendar-invoice-plans')) {
-      const order = { incoming: 0, outgoing: 1, invoice: 2 };
-      const plans = (byDate.get(area.dataset.period + ':' + area.dataset.date) || []).sort((a, b) => (order[a.operation || 'invoice'] ?? 3) - (order[b.operation || 'invoice'] ?? 3));
+      const plans = byDate.get(area.dataset.period + ':' + area.dataset.date) || [];
       const signature = JSON.stringify(plans);
       if (area.dataset.signature === signature) continue;
       area.dataset.signature = signature;
       const focused = area.contains(document.activeElement) ? document.activeElement : null;
       const existing = new Map([...area.querySelectorAll('.calendar-invoice-plan')].map((link) => [link.dataset.invoicePlan, link]));
-      const targets = { incoming: area.querySelector('[data-plan-column="incoming"]'), outgoing: area.querySelector('[data-plan-column="outgoing"]'), invoice: area.querySelector('.calendar-invoice-checks') };
+      const targets = { incoming: area.querySelector('[data-plan-column="incoming"]'), outgoing: area.querySelector('[data-plan-column="outgoing"]') };
       const before = new Map(Object.values(targets).map((target) => [target, target.firstElementChild]));
       const retained = new Set();
       for (const plan of plans) {
@@ -251,13 +250,11 @@ const HomeCalendar = (() => {
         link.classList.toggle("calendar-inactive", plan.is_inactive === true);
         link.setAttribute("aria-haspopup", "menu");
         const signedAmount = payment ? (operation === 'incoming' ? '+' : '−') + amount : '';
-        if (payment) {
-          const value = document.createElement('span'), caption = document.createElement('span');
-          value.className = 'calendar-plan-amount'; value.textContent = signedAmount;
-          caption.className = 'calendar-plan-caption';
-          caption.textContent = plan.text || plan.invoice_label || (plan.path ? plan.title : '') || (operation === 'incoming' ? 'поступление' : 'затрата');
-          link.replaceChildren(value, caption);
-        } else link.textContent = '✓';
+        const value = document.createElement('span'), caption = document.createElement('span');
+        value.className = 'calendar-plan-amount'; value.textContent = payment ? signedAmount : '+ ****';
+        caption.className = 'calendar-plan-caption';
+        caption.textContent = payment ? plan.text || plan.invoice_label || (plan.path ? plan.title : '') || (operation === 'incoming' ? 'поступление' : 'затрата') : plan.title;
+        link.replaceChildren(value, caption);
         if (plan.path) {
           link.href = '?path=' + encodeURIComponent(plan.path);
           link.dataset.calendarOrder = plan.path;
@@ -267,7 +264,7 @@ const HomeCalendar = (() => {
         const description = [plan.is_inactive === true ? 'Неактуально' : '', label, signedAmount ? signedAmount + ' ₽' : '', plan.text, plan.invoice_label, plan.title, plan.client, plan.object, periodLabel].filter(Boolean).join(' · ');
         link.setAttribute('aria-label', description);
         link.title = plan.path ? description : plan.text || '';
-        const target = targets[operation] || targets.invoice, next = before.get(target);
+        const target = operation === 'outgoing' ? targets.outgoing : targets.incoming, next = before.get(target);
         if (link !== next) target.insertBefore(link, next);
         before.set(target, link.nextElementSibling); retained.add(link);
       }
@@ -330,9 +327,9 @@ const HomeCalendar = (() => {
       const column = document.createElement('div'); column.className = 'calendar-plan-column';
       column.dataset.planColumn = operation; payments.append(column);
     }
-    const rail = document.createElement('div'), checks = document.createElement('div');
-    rail.className = 'calendar-date-rail'; checks.className = 'calendar-invoice-checks';
-    rail.append(controls, label); plans.append(checks, payments, rail);
+    const rail = document.createElement('div');
+    rail.className = 'calendar-date-rail';
+    rail.append(controls, label); plans.append(payments, rail);
     return plans;
   }
 
