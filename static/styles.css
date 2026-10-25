@@ -438,8 +438,8 @@ h2 { font-size: 13px; font-weight: 600; }
 .orders-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
 .orders-table tr:last-child td { border-bottom: 0; }
 .orders-table tbody tr:hover { background: #fafcf9; }
-.orders-table .order-group-divider th { padding: 10px; border-top: 2px solid #cad8ce; background: #edf3ed; color: var(--muted); font-size: 11px; font-weight: 550; white-space: normal; }
-.orders-table .order-group-divider:first-child th { border-top: 0; }
+.orders-table .order-group-divider > * { padding: 10px; border-top: 2px solid #cad8ce; background: #edf3ed; color: var(--muted); font-size: 11px; font-weight: 550; white-space: normal; }
+.orders-table .order-group-divider:first-child > * { border-top: 0; }
 .orders-table .order-todo-column { width: 68px; text-align: center; }
 .orders-table th.order-todo-column { padding: 8px 10px; color: var(--muted); font-size: 11px; font-weight: 400; }
 .orders-table .order-client-column { min-width: 110px; max-width: 160px; overflow-wrap: anywhere; }
@@ -447,11 +447,27 @@ h2 { font-size: 13px; font-weight: 600; }
 .orders-table th.order-money { text-align: right; }
 .orders-table th.order-comment-column { padding: 8px 10px; color: var(--muted); font-size: 11px; font-weight: 400; }
 .orders-table th.order-deadline-column { padding: 8px 10px; color: var(--muted); font-size: 11px; font-weight: 400; }
-.order-deadline-weeks { display: grid; grid-template-columns: repeat(10, 24px); gap: 3px; }
-.deadline-week { width: 24px; height: 22px; padding: 0; border-radius: 4px; font-size: 10px; background: transparent; border-color: #dce5df; color: #718078; }
-.deadline-week.current { border-color: #94ae9c; font-weight: 650; }
-.deadline-week[aria-pressed="true"] { background: #357d65; color: #fff; border-color: #357d65; }
-.deadline-week[aria-pressed="true"]:hover:not(:disabled) { background: #28664f; }
+.order-deadline-line { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.order-deadline-weeks { display: grid; grid-template-columns: repeat(10, 24px); gap: 3px; flex: none; }
+.order-deadline-range { color: var(--text); font-size: 11px; font-weight: 400; }
+.order-card-deadlines { border-top: 1px solid var(--line); padding: 13px; }
+.order-card-deadlines h3 { margin: 0 0 9px; font-size: 12px; font-weight: 550; }
+.order-card-deadline-list { overflow-x: auto; padding: 2px; }
+.order-card-deadline-line { align-items: start; }
+.order-card-deadline-line .order-deadline-range { padding-top: 4px; }
+.order-card-deadline-navigation { display: flex; gap: 6px; margin-top: 8px; }
+.order-card-deadline-navigation button { padding: 4px 7px; font-size: 10px; }
+.order-card-deadline-state { margin: 8px 0 0; color: var(--muted); font-size: 10px; }
+.deadline-week { width: 24px; height: 22px; padding: 0; border-radius: 4px; font-size: 10px; background: hsl(var(--deadline-month-hue) 45% 96%); border-color: hsl(var(--deadline-month-hue) 28% 82%); color: hsl(var(--deadline-month-hue) 32% 35%); }
+.deadline-week.current { outline: 1px solid hsl(var(--deadline-month-hue) 45% 56%); outline-offset: 1px; font-weight: 650; }
+.deadline-week:hover:not(:disabled) { background: hsl(var(--deadline-month-hue) 45% 90%); }
+.deadline-week[aria-pressed="true"] { background: hsl(var(--deadline-month-hue) 57% 32%); color: #fff; border-color: hsl(var(--deadline-month-hue) 57% 32%); }
+.deadline-week[aria-pressed="true"]:hover:not(:disabled) { background: hsl(var(--deadline-month-hue) 57% 27%); }
+.deadline-week-gap { width: 24px; height: 22px; display: grid; place-items: center; color: var(--muted); font-size: 10px; }
+.deadline-month-legend { display: flex; flex-wrap: wrap; gap: 3px 10px; font-size: 9px; line-height: 12px; font-weight: 400; }
+.deadline-month-legend span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; color: hsl(var(--deadline-month-hue) 32% 35%); }
+.deadline-month-legend span::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: hsl(var(--deadline-month-hue) 57% 32%); }
+.order-card-deadline-list > .deadline-month-legend { margin-bottom: 8px; }
 .order-deadline-outside { display: block; margin-top: 3px; color: var(--muted); font-size: 9px; }
 .order-row-comment { display: block; width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .order-row-comment.empty { color: var(--muted); }

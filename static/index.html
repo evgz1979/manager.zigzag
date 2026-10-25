@@ -47,7 +47,7 @@
           </div>
           <p id="ordersSyncState" class="orders-sync-state" role="status"></p>
           <div class="orders-table-scroll"><table class="orders-table"><caption class="visually-hidden">Заказы и финансовые показатели в рублях</caption><thead><tr>
-            <th scope="col" class="order-favorite-column"><span class="visually-hidden">Избранное</span><span aria-hidden="true">★</span></th><th scope="col" class="order-todo-column">To-do</th><th scope="col" class="order-todo-column">Закупки</th><th scope="col" class="order-client-column"><button data-sort="client">Клиент ↕</button></th><th scope="col" class="order-title-column"><button data-sort="title">Заказ ↕</button></th><th scope="col" class="order-deadline-column" title="Недели с понедельника по воскресенье, по Москве">Сроки</th><th scope="col" class="order-comment-column">1я строка комментария</th><th scope="col"><button data-sort="status">Производство ↕</button></th><th scope="col"><button data-sort="financial_status">Оплата ↕</button></th>
+            <th scope="col" class="order-favorite-column"><span class="visually-hidden">Избранное</span><span aria-hidden="true">★</span></th><th scope="col" class="order-todo-column">To-do</th><th scope="col" class="order-todo-column">Закупки</th><th scope="col" class="order-client-column"><button data-sort="client">Клиент ↕</button></th><th scope="col" class="order-title-column"><button data-sort="title">Заказ ↕</button></th><th scope="col" class="order-comment-column">1я строка комментария</th><th scope="col" class="order-deadline-column" title="Недели с понедельника по воскресенье, по Москве">Сроки</th><th scope="col"><button data-sort="status">Производство ↕</button></th><th scope="col"><button data-sort="financial_status">Оплата ↕</button></th>
             <th scope="col" class="order-money"><button data-sort="amount">Сумма ↕</button></th><th scope="col" class="order-money"><button data-sort="costs">Затраты ↕</button></th>
             <th scope="col" class="order-money"><button data-sort="profit">Прибыль ↕</button></th><th scope="col" class="order-money"><button data-sort="paid">Оплачено ↕</button></th>
             <th scope="col" class="order-money"><button data-sort="debt">Остаток ↕</button></th><th scope="col"><button data-sort="updated">Обновлён ↓</button></th>
@@ -63,7 +63,12 @@
           <label>Оплачено, ₽<input id="orderPaid" type="text" inputmode="decimal" placeholder="Не указано" autocomplete="off"></label>
           <div class="order-calculated"><span>Прибыль: <strong id="orderProfit">—</strong></span><span>Остаток оплаты: <strong id="orderDebt">—</strong></span></div>
           <p id="orderExportState" class="order-export-state" role="status"></p>
-        </div><button id="saveStatusButton" class="primary-button" type="submit">Сохранить</button></form></details>
+        </div><button id="saveStatusButton" class="primary-button" type="submit">Сохранить</button></form>
+        <section id="orderCardDeadlines" class="order-card-deadlines" aria-label="Все сроки заказа" hidden>
+          <h3>Сроки</h3><div id="orderCardDeadlineList" class="order-card-deadline-list"></div>
+          <div class="order-card-deadline-navigation"><button id="orderCardDeadlineEarlier" class="secondary-button" type="button">← Раньше</button><button id="orderCardDeadlineLater" class="secondary-button" type="button">Позже →</button></div>
+          <p id="orderCardDeadlineState" class="order-card-deadline-state" role="status"></p>
+        </section></details>
         <section id="todoPanel" class="todo-panel" aria-label="Список дел открытой папки" hidden>
           <header class="todo-heading"><h2>To-do</h2><span id="todoCount"></span></header>
           <div id="todoList" class="todo-list"></div>

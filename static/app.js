@@ -691,6 +691,7 @@ function renderFolder(preserveForm = false) {
     const first = printFiles().find((file) => file.path === requested) || printFiles()[0];
     if (first) run(() => openPrintTask(first.path));
   } else renderFiles();
+  renderCardDeadlines();
   mountOrderList();
   if (isObjectOrderList()) renderOrders();
 }
@@ -724,7 +725,7 @@ function renderOrderHeading() {
   button.setAttribute("aria-pressed", String(Boolean(order.is_favorite)));
   button.setAttribute("aria-label", label);
   button.title = order.is_favorite === null ? "Неизвестный раздел «Избранное» сохранён без изменений" : label;
-  button.disabled = order.is_favorite === null || state.favoriteSaving.has(order.path);
+  button.disabled = order.is_favorite === null || orderRowSaving(order.path);
   button.firstElementChild.textContent = order.is_favorite ? "★" : "☆";
 }
 
@@ -741,6 +742,7 @@ function renderStatus() {
   const folderNote = state.folder.folderNote;
   $("todoSaveState").textContent = state.saving ? "Сохраняю…" : state.dirty ? "Есть несохранённые изменения" : folderNote?.storage === "database" ? "Сохранено в базе" : folderNote?.sync_error ? "Сохранено в базе. Выгрузка: " + folderNote.sync_error : folderNote?.sync_pending ? "Сохранено в базе · ожидает выгрузки в папку" : folderNote ? folderNote.file_exists ? "Сохранено в базе и в !.txt этой папки" : "Автоматическое сохранение в эту папку" : "Сохранено";
   renderPurchaseSaveState();
+  renderCardDeadlines();
 }
 
 function renderPurchaseSaveState() {
@@ -1560,6 +1562,7 @@ async function loadOrders() {
   $("ordersNavCount").textContent = result.orders.length;
   renderFavoriteOrders();
   if (hasOrderList()) renderOrders();
+  else if (state.folder?.order) renderCardDeadlines();
 }
 
 function orderTodoText(order) {
@@ -1656,18 +1659,109 @@ function orderRowSaving(path) {
   return state.favoriteSaving.has(path) || state.orderStatusSaving.has(path) || state.deadlineSaving.has(path);
 }
 
-function renderOrderDeadlines(order) {
+function orderDeadlineRange(weeks) {
+  if (!weeks?.length) return "";
+  const sorted = [...weeks].sort();
+  const end = new Date(sorted.at(-1) + "T00:00:00Z");
+  end.setUTCDate(end.getUTCDate() + 6);
+  const startLabel = sorted[0].slice(8, 10) + "." + sorted[0].slice(5, 7);
+  const endLabel = String(end.getUTCDate()).padStart(2, "0") + "." + String(end.getUTCMonth() + 1).padStart(2, "0");
+  return startLabel + "-" + endLabel;
+}
+
+const deadlineMonthNames = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+const deadlineMonthHues = [335, 270, 15, 185, 135, 90, 55, 30, 10, 160, 280, 215];
+
+function shiftDeadlineWeek(start, offset) {
+  const date = new Date(start + "T00:00:00Z");
+  date.setUTCDate(date.getUTCDate() + offset * 7);
+  const value = date.toISOString().slice(0, 10);
+  const end = new Date(date);
+  end.setUTCDate(end.getUTCDate() + 6);
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && value >= "0001-01-01" && end.getUTCFullYear() <= 9999 ? value : null;
+}
+
+function deadlineWeekInfo(start) {
+  // Thursday identifies the month containing most days of this ISO week.
+  const thursday = new Date(start + "T00:00:00Z");
+  thursday.setUTCDate(thursday.getUTCDate() + 3);
+  const year = thursday.getUTCFullYear();
+  const first = new Date(thursday);
+  first.setUTCMonth(0, 1);
+  const month = thursday.getUTCMonth();
+  return { start, number: Math.ceil(((thursday - first) / 86400000 + 1) / 7), year, month,
+    monthYear: year + "-" + month, hue: deadlineMonthHues[month], label: deadlineWeekDates(start),
+    current: start === state.deadlineWeekOptions[0]?.start };
+}
+
+function renderDeadlineMonthLegend(options) {
+  const months = [...new Map(options.map((week) => { const info = deadlineWeekInfo(week.start); return [info.monthYear, info]; })).values()];
+  const years = new Set(months.map((month) => month.year));
+  return '<div class="deadline-month-legend" aria-label="Цвета месяцев">' + months.map((month) =>
+    '<span style="--deadline-month-hue:' + month.hue + '" title="' + deadlineMonthNames[month.month] + ' ' + month.year + '">' +
+    deadlineMonthNames[month.month] + (years.size > 1 ? ' ' + month.year : '') + '</span>').join("") + '</div>';
+}
+
+function renderOrderDeadlines(order, { options = state.deadlineWeekOptions, card = false, disabled = false } = {}) {
   const unknown = order.deadline_weeks === null;
   const selected = new Set(order.deadline_weeks || []);
-  const outside = [...selected].filter((week) => !state.deadlineWeekOptions.some((option) => option.start === week));
-  return '<div class="order-deadline-weeks" role="group" aria-label="Сроки · ' + escapeHtml(order.title) + '">' +
-    state.deadlineWeekOptions.map((week) => '<button type="button" class="deadline-week' + (week.current ? ' current' : '') +
+  const outside = [...selected].filter((week) => !options.some((option) => option.start === week));
+  const range = orderDeadlineRange(order.deadline_weeks);
+  let previous;
+  return '<div class="order-deadline-line' + (card ? ' order-card-deadline-line' : '') + '"><div class="order-deadline-weeks" role="group" aria-label="Сроки · ' + escapeHtml(order.title) + '">' +
+    options.map((option) => {
+      const week = deadlineWeekInfo(option.start);
+      const gap = card && previous && shiftDeadlineWeek(previous, 1) !== week.start ? '<span class="deadline-week-gap" title="Между этими неделями есть пропуск">…</span>' : '';
+      previous = week.start;
+      return gap + '<button type="button" class="deadline-week' + (week.current ? ' current' : '') +
+      '" style="--deadline-month-hue:' + week.hue +
       '" data-order-deadline="' + escapeHtml(order.path) + '" data-deadline-week="' + week.start +
       '" data-order-id="' + escapeHtml(order.id) + '" data-revision="' + order.revision + '" aria-pressed="' + selected.has(week.start) +
       '" aria-label="Неделя ' + week.number + ' · ' + week.label + '" title="' + week.label +
-      '"' + (unknown || order.registered === false || orderRowSaving(order.path) ? ' disabled' : '') + '>' + week.number + '</button>').join("") + '</div>' +
+      '"' + (disabled || unknown || order.registered === false || orderRowSaving(order.path) ? ' disabled' : '') + '>' + week.number + '</button>';
+    }).join("") + '</div>' +
+    (range ? '<span class="order-deadline-range">' + escapeHtml(range) + '</span>' : '') + '</div>' +
     (unknown ? '<small class="order-deadline-outside">Неизвестный формат сроков</small>' : outside.length ?
       '<small class="order-deadline-outside" title="Начало выбранных недель: ' + outside.join(', ') + '">Вне окна: ' + outside.length + '</small>' : '');
+}
+
+function deadlineWeekDates(week) {
+  const end = new Date(week + "T00:00:00Z");
+  end.setUTCDate(end.getUTCDate() + 6);
+  const dateLabel = (value) => value.slice(8, 10) + "." + value.slice(5, 7) + "." + value.slice(0, 4);
+  return dateLabel(week) + " — " + dateLabel(end.toISOString().slice(0, 10));
+}
+
+function renderCardDeadlines() {
+  const folder = state.folder, order = folder?.order, panel = $("orderCardDeadlines");
+  panel.hidden = !order || isWorkOrderPath(folder.path);
+  if (panel.hidden) return;
+  const unknown = order.deadline_weeks === null;
+  const disabled = unknown || Boolean(folder.deadlineConflict) || orderRowSaving(order.path) || Boolean(state.saving);
+  const visible = folder.deadlineVisibleWeeks ||= new Set();
+  for (const week of state.deadlineWeekOptions) visible.add(week.start);
+  for (const week of order.deadline_weeks || []) {
+    for (const offset of [-1, 0, 1]) { const start = shiftDeadlineWeek(week, offset); if (start) visible.add(start); }
+  }
+  const options = [...visible].sort().map((start) => ({ start }));
+  const markup = renderDeadlineMonthLegend(options) + renderOrderDeadlines(order, { options, card: true, disabled });
+  if ($("orderCardDeadlineList").innerHTML !== markup) $("orderCardDeadlineList").innerHTML = markup;
+  $("orderCardDeadlineEarlier").disabled = disabled || !options.length || !shiftDeadlineWeek(options[0].start, -1);
+  $("orderCardDeadlineLater").disabled = disabled || !options.length || !shiftDeadlineWeek(options.at(-1).start, 1);
+  $("orderCardDeadlineState").textContent = folder.deadlineError || (unknown ? "Неизвестный формат сроков сохранён без изменений" :
+    state.deadlineSaving.has(order.path) ? "Сохраняю сроки…" :
+    "Нажми на номер недели, чтобы отметить или снять её. Даты — при наведении.");
+}
+
+function expandCardDeadlineWeeks(direction) {
+  const folder = state.folder;
+  if (!folder?.deadlineVisibleWeeks?.size) return;
+  const weeks = [...folder.deadlineVisibleWeeks].sort(), edge = direction < 0 ? weeks[0] : weeks.at(-1);
+  for (let offset = 1; offset <= 10; offset++) {
+    const week = shiftDeadlineWeek(edge, offset * direction);
+    if (week) folder.deadlineVisibleWeeks.add(week);
+  }
+  renderCardDeadlines();
 }
 
 function focusOrderDeadline(path, week) {
@@ -1680,27 +1774,55 @@ function focusOrderDeadline(path, week) {
 
 async function toggleOrderDeadline(button) {
   const path = button.dataset.orderDeadline, week = button.dataset.deadlineWeek;
-  if (orderRowSaving(path) || findListOrder(path)?.registered === false) return;
   const selected = button.getAttribute("aria-pressed") !== "true";
-  const revision = Number(button.dataset.revision);
+  return changeOrderDeadline({ path, id: button.dataset.orderId, revision: Number(button.dataset.revision), week, selected }, button);
+}
+
+async function changeOrderDeadline({ path, id, revision, week, selected }, button) {
+  const folder = state.folder?.path === path ? state.folder : null;
+  if (orderRowSaving(path) || (folder?.order || findListOrder(path))?.registered === false || folder?.deadlineConflict) return;
   state.deadlineSaving.add(path);
   ++state.ordersRequest;
+  if (folder) { folder.deadlineError = ""; renderOrderHeading(); renderCardDeadlines(); }
   $("ordersTableBody").querySelectorAll("[data-order-deadline], [data-order-status], [data-order-favorite]").forEach((control) => {
     if ((control.dataset.orderDeadline || control.dataset.orderStatus || control.dataset.orderFavorite) === path) control.disabled = true;
   });
+  let saving;
   try {
-    const saved = await request("/api/order-deadline-week", { path, id: button.dataset.orderId, revision, week, selected });
-    ++state.ordersRequest;
-    for (const orders of [state.orders, state.favoriteOrders, state.objectOrders]) {
-      const current = orders.find((order) => order.path === path);
-      if (current && current.id === saved.id && current.revision <= saved.revision) Object.assign(current, saved);
+    if (folder) {
+      if (state.saving) await state.saving;
+      if (state.folder !== folder || folder.order?.id !== id) return;
+      revision = folder.order.revision;
     }
+    saving = request("/api/order-deadline-week", { path, id, revision, week, selected }).then((saved) => {
+      ++state.ordersRequest;
+      for (const orders of [state.orders, state.favoriteOrders, state.objectOrders]) {
+        const current = orders.find((order) => order.path === path);
+        if (current && current.id === saved.id && current.revision <= saved.revision) Object.assign(current, saved);
+      }
+      if (folder) folder.order = saved;
+    });
+    // Card edits wait for this partial write; editor fields and dirty state stay intact.
+    if (folder) state.saving = saving;
+    await saving;
     notify(selected ? "Неделя отмечена в сроках" : "Отметка недели снята");
   } catch (error) {
+    if (folder) {
+      folder.deadlineConflict = error.status === 409;
+      folder.deadlineError = error.message + (folder.deadlineConflict ? " Обнови карточку перед следующей правкой сроков. Введённые поля остались в редакторе." : "");
+    }
     try { await loadOrders(); } catch (_) { /* Keep the last loaded list while offline. */ }
     throw error;
   } finally {
+    if (saving && state.saving === saving) state.saving = null;
     state.deadlineSaving.delete(path);
+    if (folder && state.folder === folder) {
+      renderOrderHeading();
+      renderStatus();
+      renderCardDeadlines();
+      const focus = [...$("orderCardDeadlineList").querySelectorAll("[data-deadline-week]")].find((item) => item.dataset.deadlineWeek === week);
+      if (document.activeElement === button || document.activeElement === document.body) (focus || $("orderCardDeadlineEarlier")).focus({ preventScroll: true });
+    }
     if (hasOrderList()) {
       const restoreFocus = document.activeElement === button || document.activeElement === document.body;
       renderOrders({ force: true });
@@ -1730,6 +1852,7 @@ async function toggleOrderFavorite(path) {
   ++state.ordersRequest;
   if (hasOrderList()) renderOrders();
   else renderOrderHeading();
+  if (folder) renderCardDeadlines();
   let saving;
   try {
     if (folder) {
@@ -1888,8 +2011,8 @@ function renderOrders({ force = false } = {}) {
     group.orders.push(order);
   });
   $("ordersTableBody").innerHTML = groups.filter((group) => group.orders.length).map((group) =>
-    '<tr class="order-group-divider"><th colspan="15">' + escapeHtml(group.label) + '</th></tr>' +
-    group.orders.map((order) => '<tr><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td><td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + escapeHtml(order.client || "—") + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен</span>' : '') + '<span class="order-row-path">' + escapeHtml(order.path) + '</span></td><td class="order-deadline-column">' + renderOrderDeadlines(order) + '</td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td>' + renderOrderProductionStatus(order) + '</td><td><span class="status-badge" data-financial-status="' + escapeHtml(order.financial_status) + '">' + escapeHtml(financialStatusLabels[order.financial_status] || "Не указан") + '</span></td>' +
+    '<tr class="order-group-divider"><th colspan="6">' + escapeHtml(group.label) + '</th><td class="order-deadline-column">' + renderDeadlineMonthLegend(state.deadlineWeekOptions) + '</td><td colspan="8"></td></tr>' +
+    group.orders.map((order) => '<tr><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td><td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + escapeHtml(order.client || "—") + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен</span>' : '') + '<span class="order-row-path">' + escapeHtml(order.path) + '</span></td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td class="order-deadline-column">' + renderOrderDeadlines(order) + '</td><td>' + renderOrderProductionStatus(order) + '</td><td><span class="status-badge" data-financial-status="' + escapeHtml(order.financial_status) + '">' + escapeHtml(financialStatusLabels[order.financial_status] || "Не указан") + '</span></td>' +
     ["amount", "costs", "profit", "paid", "debt"].map((field) => '<td class="order-money' + (order[field] < 0 ? " negative" : "") + '">' + rubles(order[field]) + '</td>').join("") +
     '<td class="order-updated">' + (order.updated ? formatDate(order.updated) : '—') + (order.sync_pending ? '<span class="sync-pending" title="' + escapeHtml(order.sync_error || "Ожидает выгрузки в папку") + '">' + (order.sync_error ? "В очереди · автоповтор" : "Ожидает выгрузки") + '</span>' : '<span class="sync-complete">' + (order.storage === 'database' ? 'В базе' : 'Выгружено') + '</span>') + '</td></tr>').join("")).join("");
   $("ordersEmpty").hidden = Boolean(filtered.length);
@@ -2702,6 +2825,12 @@ $("homeButton").addEventListener("click", () => run(() => showOrders()));
 $("ordersButton").addEventListener("click", () => run(() => showOrders()));
 $("openFolderButton").addEventListener("click", () => run(() => openNative(state.selected)));
 $("orderPageFavorite").addEventListener("click", () => run(() => toggleOrderFavorite(state.folder?.path)));
+$("orderCardDeadlineList").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-order-deadline]");
+  if (button) run(() => toggleOrderDeadline(button));
+});
+$("orderCardDeadlineEarlier").addEventListener("click", () => expandCardDeadlineWeeks(-1));
+$("orderCardDeadlineLater").addEventListener("click", () => expandCardDeadlineWeeks(1));
 $("createOrderFolderButton").addEventListener("click", openCreateOrderFolder);
 $("createObjectFolderButton").addEventListener("click",openCreateObject);
 $("createObjectFolderForm").addEventListener("submit",event=>{event.preventDefault();run(createObject);});
