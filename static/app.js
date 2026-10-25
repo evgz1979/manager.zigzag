@@ -1522,7 +1522,6 @@ function mountOrderList() {
   } else if (workspace.parentElement !== $("folderView").parentElement) $("folderView").before(workspace);
   workspace.hidden = !hasOrderList();
   workspace.setAttribute("aria-label", object ? "Заказы объекта" : "Все заказы");
-  $("discoverOrdersButton").hidden = object;
   $("syncOrdersButton").hidden = object;
   const scope = object ? state.folder.path : "main";
   if (hasOrderList() && scope !== state.orderListScope) {
@@ -1895,10 +1894,9 @@ function renderOrders({ force = false } = {}) {
     '<td class="order-updated">' + (order.updated ? formatDate(order.updated) : '—') + (order.sync_pending ? '<span class="sync-pending" title="' + escapeHtml(order.sync_error || "Ожидает выгрузки в папку") + '">' + (order.sync_error ? "В очереди · автоповтор" : "Ожидает выгрузки") + '</span>' : '<span class="sync-complete">' + (order.storage === 'database' ? 'В базе' : 'Выгружено') + '</span>') + '</td></tr>').join("")).join("");
   $("ordersEmpty").hidden = Boolean(filtered.length);
   $("ordersEmptyTitle").textContent = orders.length ? "Нет заказов по этому фильтру" : "Заказов пока нет";
-  $("ordersEmptyHint").textContent = orders.length ? "Выберите другой статус или измените поисковый запрос." : object ? "Создай заказ в этом объекте или обнови его папки." : "Откройте папку в дереве слева и нажмите «Добавить в список заказов». Кнопка «Найти заказы в папках» восстановит карточки из !.txt и прежних файлов статуса.";
+  $("ordersEmptyHint").textContent = orders.length ? "Выберите другой статус или измените поисковый запрос." : object ? "Создай заказ в этом объекте или обнови его папки." : "Открой папку заказа в дереве слева и нажми «Добавить в список заказов».";
   const pending = orders.filter((order) => order.sync_pending), errors = pending.filter((order) => order.sync_error);
   const scan = state.scan;
-  $("discoverOrdersButton").disabled = Boolean(scan?.running);
   $("ordersSyncState").textContent = scan?.running ? "Поиск карточек в фоне · просмотрено папок: " + scan.folders + " · добавлено: " + scan.added :
     [scan?.folders ? "Поиск завершён: добавлено " + scan.added + (scan.errors.length ? ", ошибок: " + scan.errors.length : "") : "", errors.length ? "Сохранено в базе · в очереди выгрузки: " + pending.length + " · ошибок: " + errors.length + " · повторим автоматически" : pending.length ? "Ожидает выгрузки: " + pending.length : "Изменения выгружены в папки"].filter(Boolean).join(" · ");
   if (state.storage?.database_only) {
@@ -2584,10 +2582,6 @@ $("ordersWorkspace").querySelector("thead").addEventListener("click", (event) =>
   state.orderSort = button.dataset.sort;
   renderOrders();
 });
-$("discoverOrdersButton").addEventListener("click", () => run(async () => {
-  state.scan = await request("/api/orders-discover", {});
-  await loadOrders();
-}));
 $("syncOrdersButton").addEventListener("click", () => run(async () => {
   await request("/api/orders-sync", {});
   notify("Выгрузка в папки запущена");

@@ -43,7 +43,6 @@
           <div class="orders-toolbar">
             <label class="search-field orders-search"><svg><use href="#icon-search"/></svg><input id="orderSearch" type="search" placeholder="Найти заказ, задачу или закупку…" aria-label="Поиск заказов"></label>
             <label class="financial-filter">Оплата<select id="financialStatusFilter" aria-label="Фильтр по финансовому статусу"></select></label>
-            <button id="discoverOrdersButton" class="secondary-button">Найти заказы в папках</button>
             <button id="refreshTodosButton" class="secondary-button">Обновить To-do</button><button id="syncOrdersButton" class="secondary-button">Повторить перенос / выпуск</button>
           </div>
           <p id="ordersSyncState" class="orders-sync-state" role="status"></p>
@@ -53,7 +52,7 @@
             <th scope="col" class="order-money"><button data-sort="profit">Прибыль ↕</button></th><th scope="col" class="order-money"><button data-sort="paid">Оплачено ↕</button></th>
             <th scope="col" class="order-money"><button data-sort="debt">Остаток ↕</button></th><th scope="col"><button data-sort="updated">Обновлён ↓</button></th>
           </tr></thead><tbody id="ordersTableBody"></tbody></table></div>
-          <div id="ordersEmpty" class="empty-state" hidden><h3 id="ordersEmptyTitle">Заказов пока нет</h3><p id="ordersEmptyHint">Откройте папку в дереве слева и нажмите «Добавить в список заказов». Кнопка «Найти заказы в папках» восстановит карточки из !.txt и прежних файлов статуса.</p></div>
+          <div id="ordersEmpty" class="empty-state" hidden><h3 id="ordersEmptyTitle">Заказов пока нет</h3><p id="ordersEmptyHint">Открой папку заказа в дереве слева и нажми «Добавить в список заказов».</p></div>
           <p class="orders-hint">Итоги рассчитаны по текущему фильтру. Прибыль = сумма − затраты, остаток = сумма − оплачено. Прочерк означает, что сумма ещё не указана; отрицательный остаток — переплата.</p>
         </section>
         <div id="folderView">
