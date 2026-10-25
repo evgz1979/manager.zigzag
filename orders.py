@@ -107,6 +107,7 @@ class OrderStore:
         result["purchase_items"] = document.read_purchases(result["extra_blocks"])
         result["is_favorite"] = document.read_favorite(result["extra_blocks"])
         result["is_flagged"] = document.read_flag(result["extra_blocks"])
+        result["is_blue_plus"] = document.read_blue_plus(result["extra_blocks"])
         result["deadline_weeks"] = order_deadlines.read(result["extra_blocks"])
         result["calendar_events"] = order_calendar.read(result["extra_blocks"])
         result["calendar_inactive"] = order_calendar.read_inactive(result["extra_blocks"])
@@ -246,6 +247,9 @@ class OrderStore:
 
     def save_flag(self, payload):
         return self._save_extra_block(payload, lambda blocks: document.write_flag(blocks, payload.get("is_flagged")), update_time=False)
+
+    def save_blue_plus(self, payload):
+        return self._save_extra_block(payload, lambda blocks: document.write_blue_plus(blocks, payload.get("is_blue_plus")), update_time=False)
 
     def save_calendar_event(self, payload):
         return self._save_extra_block(payload, lambda blocks: order_calendar.write(blocks, payload.get("date"), payload.get("text"), payload.get("period", "day")), update_time=False)

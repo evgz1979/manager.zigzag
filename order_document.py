@@ -22,6 +22,7 @@ TODO_BLOCK = "Задачи"
 PURCHASE_BLOCK = "Закупки и затраты"
 FAVORITE_BLOCK = "Избранное"
 FLAG_BLOCK = "Флажок"
+BLUE_PLUS_BLOCK = "Синий плюс"
 PURCHASE_SUPPLIERS = ("newtek", "glass", "antares", "tbm", "remex")
 UNSET_TODOS = object()
 
@@ -53,6 +54,21 @@ def write_flag(blocks, value):
     if read_flag(blocks) is None:
         raise ValueError("Неизвестная отметка флажка сохранена без изменений")
     return {**blocks, FLAG_BLOCK: "Да" if value else "Нет"}
+
+
+def read_blue_plus(blocks):
+    if BLUE_PLUS_BLOCK not in blocks:
+        return False
+    value = blocks[BLUE_PLUS_BLOCK]
+    return {"да": True, "нет": False}.get(value.strip().casefold()) if isinstance(value, str) else None
+
+
+def write_blue_plus(blocks, value):
+    if type(value) is not bool:
+        raise ValueError("Укажи состояние синего плюса: вкл или выкл")
+    if read_blue_plus(blocks) is None:
+        raise ValueError("Неизвестная отметка синего плюса сохранена без изменений")
+    return {**blocks, BLUE_PLUS_BLOCK: "Да" if value else "Нет"}
 
 
 def validate_todos(items):
