@@ -377,11 +377,46 @@ class WorkOrderTests(unittest.TestCase):
         with patch.object(OrderStore, 'target', side_effect=AssertionError('List must not read iCloud')):
             result = json.loads(self.http('/api/orders')[2])
         self.assertEqual([item['id'] for item in result['orders']], [ordinary['id']])
+        self.assertEqual({item['id'] for item in result['calendar_supplier_orders']}, {production[1]['id'], production[3]['id']})
         self.assertEqual([item['id'] for item in result['favorites']], [starred['id']])
         for order in production:
             self.assertEqual(json.loads(self.http(self.url('/api/order', order['path']))[2])['id'], order['id'])
         self.assertEqual(len(store.list()), 5)
         self.assertEqual(work_orders.in_work('Клиент/2026-10-21 - #work'), False)
+
+    def test_supplier_deadlines_and_calendar_events_stay_outside_main_lists(self):
+        manager.DATABASE_ONLY = True
+        ordinary = self.add('Клиент/2026-10-21 - Обычный заказ')
+        supplier = self.add(self.supplier)
+        self.add(self.parent)
+        store = manager.order_store()
+        marked = store.save_deadline_week({'path': supplier['path'], 'id': supplier['id'], 'revision': supplier['revision'], 'week': '2026-10-26', 'selected': True})
+        commented = store.save_deadline_comment({'path': supplier['path'], 'id': supplier['id'], 'revision': marked['revision'], 'week': '2026-10-26', 'comment': 'Профиль на этой неделе'})
+        daily = store.save_calendar_event({'path': supplier['path'], 'id': supplier['id'], 'revision': commented['revision'], 'date': '2026-10-27', 'text': 'Забрать профиль'})
+        weekly = store.save_calendar_event({'path': supplier['path'], 'id': supplier['id'], 'revision': daily['revision'], 'date': '2026-10-26', 'period': 'week', 'text': 'Получить весь заказ'})
+        with patch.object(OrderStore, 'target', side_effect=AssertionError('No document reads')), \
+                patch('icloud_access.read_bytes', side_effect=AssertionError('No iCloud reads')):
+            result = json.loads(self.http('/api/orders')[2])
+        self.assertEqual([row['id'] for row in result['orders']], [ordinary['id']])
+        self.assertEqual(len(result['calendar_supplier_orders']), 1)
+        shown = result['calendar_supplier_orders'][0]
+        self.assertEqual(shown['id'], supplier['id'])
+        self.assertEqual(shown['deadline_weeks'], ['2026-10-26'])
+        self.assertEqual(shown['deadline_comments'], {'2026-10-26': 'Профиль на этой неделе'})
+        self.assertEqual(shown['calendar_events'], {'2026-10-27': 'Забрать профиль'})
+        self.assertEqual(shown['calendar_week_events'], {'2026-10-26': 'Получить весь заказ'})
+        for field in ('status', 'financial_status', 'amount', 'costs', 'paid', 'updated', 'note'):
+            self.assertEqual(weekly[field], supplier[field], field)
+        unmarked = store.save_deadline_week({'path': supplier['path'], 'id': supplier['id'], 'revision': weekly['revision'], 'week': '2026-10-26', 'selected': False})
+        self.assertEqual(unmarked['calendar_events'], weekly['calendar_events'])
+        self.assertEqual(unmarked['calendar_week_events'], weekly['calendar_week_events'])
+        store.remove({'path': supplier['path'], 'revision': unmarked['revision'], 'confirmed': True})
+        result = json.loads(self.http('/api/orders')[2])
+        self.assertEqual(result['calendar_supplier_orders'], [])
+        self.assertEqual([row['id'] for row in result['orders']], [ordinary['id']])
+        restored = store.import_folder(supplier['path'])
+        self.assertEqual(restored['calendar_events'], weekly['calendar_events'])
+        self.assertEqual(restored['calendar_week_events'], weekly['calendar_week_events'])
 
     def test_work_unregistration_does_not_leak_into_main_pending_list(self):
         order = self.add(self.parent)

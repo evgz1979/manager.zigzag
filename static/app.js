@@ -33,6 +33,7 @@ const state = {
   trashEventsOnly: false,
   orderTodoPath: null, orderTodoMarkup: null, orderTodoKind: "todos",
   calendarEvent: null,
+  calendarSupplierOrders: [],
   calendarMenu: null, calendarMoving: new Set(),
 };
 let searchTimer, toastTimer, todoSaveTimer, previewVersion = 0, treeSearchVersion = 0, printReadVersion = 0;
@@ -1518,7 +1519,7 @@ function orderListRows() {
 }
 
 function findListOrder(path) {
-  return orderListRows().find((order) => order.path === path) || state.orders.find((order) => order.path === path);
+  return orderListRows().find((order) => order.path === path) || state.orders.find((order) => order.path === path) || state.calendarSupplierOrders.find((order) => order.path === path);
 }
 
 let homeFiltersOpen = false;
@@ -1614,6 +1615,7 @@ async function loadOrders() {
     }
   }
   state.orders = result.orders;
+  state.calendarSupplierOrders = result.calendar_supplier_orders || [];
   state.deadlineWeekOptions = result.deadline_week_options || [];
   state.favoriteOrders = result.favorites || result.orders.filter((order) => order.is_favorite === true);
   state.unregistrations = result.unregistrations || [];
@@ -1810,7 +1812,7 @@ function deadlineWeekDates(week) {
 
 function renderCardDeadlines() {
   const folder = state.folder, order = folder?.order, panel = $("orderCardDeadlines");
-  panel.hidden = !order || isWorkOrderPath(folder.path);
+  panel.hidden = !order || (isWorkOrderPath(folder.path) && !order.work_supplier);
   if (panel.hidden) return;
   const unknown = order.deadline_weeks === null;
   const disabled = unknown || Boolean(folder.deadlineConflict) || orderRowSaving(order.path) || Boolean(state.saving);
@@ -1888,7 +1890,7 @@ function deadlineCommentInput(event) {
 
 function applyOrderRecord(folder, saved) {
   ++state.ordersRequest;
-  for (const orders of [state.orders, state.favoriteOrders, state.objectOrders]) {
+  for (const orders of [state.orders, state.favoriteOrders, state.objectOrders, state.calendarSupplierOrders]) {
     const current = orders.find((order) => order.path === saved.path);
     if (current && current.id === saved.id && current.revision <= saved.revision) Object.assign(current, saved);
   }
@@ -2233,7 +2235,8 @@ function compareOrders(a, b, key = state.orderSort, direction = state.orderDirec
 }
 
 function renderHomeCalendar() {
-  HomeCalendar.show([...state.orders].sort((a, b) => compareOrders(a, b, "title", 1)));
+  const orders = [...state.orders, ...state.calendarSupplierOrders].map((order) => order.work_supplier ? { ...order, client: order.work_supplier } : order);
+  HomeCalendar.show(orders.sort((a, b) => compareOrders(a, b, "title", 1)));
 }
 
 function renderCalendarEventControls() {
@@ -2306,7 +2309,7 @@ function openCalendarEvent(slot) {
   const previous = entries?.[date] || "";
   state.calendarEvent = { path: order.path, id: order.id, revision: order.revision, date, period, previous, saving: false, conflict: false };
   $("calendarEventTitle").textContent = period === "week" ? "Событие на неделю" : "Событие календаря";
-  $("calendarEventOrder").textContent = [order.title, order.client, order.object].filter(Boolean).join(" · ");
+  $("calendarEventOrder").textContent = (order.work_supplier ? [order.title, order.work_supplier] : [order.title, order.client, order.object]).filter(Boolean).join(" · ");
   const start = new Date(date + "T00:00:00Z");
   const format = new Intl.DateTimeFormat("ru-RU", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
   const end = new Date(start); end.setUTCDate(end.getUTCDate() + 6);

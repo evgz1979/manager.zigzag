@@ -67,7 +67,7 @@ const HomeCalendar = (() => {
     }
     for (const row of get("calendarWeeks").children) {
       const list = row.querySelector(".calendar-orders-list"), weekly = byWeek.get(row.dataset.week) || [];
-      const signature = JSON.stringify(weekly.map((order) => [order.id, order.path, order.title, order.client, order.object, order.calendar_events, order.calendar_week_events]));
+      const signature = JSON.stringify(weekly.map((order) => [order.id, order.path, order.title, order.client, order.object, order.work_supplier, order.work_supplier_color, order.calendar_events, order.calendar_week_events]));
       if (list.dataset.signature === signature) continue;
       list.dataset.signature = signature;
       const top = list.parentElement.scrollTop;
@@ -95,6 +95,11 @@ const HomeCalendar = (() => {
             item.append(slot);
           }
         }
+        const supplier = Boolean(order.work_supplier), color = order.work_supplier_color;
+        item.classList.toggle("calendar-supplier-order", supplier);
+        item.classList.toggle("supplier-neutral", supplier && Boolean(color?.neutral));
+        if (supplier) item.style.setProperty("--supplier-hue", String(color?.hue ?? 0));
+        else item.style.removeProperty("--supplier-hue");
         const link = item.firstElementChild, title = order.title || order.path;
         link.href = "?path=" + encodeURIComponent(order.path);
         link.dataset.calendarOrder = order.path;

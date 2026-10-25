@@ -817,6 +817,7 @@ def listed_orders():
     objects = object_activity_store()
     visible = objects.visible_orders(activity.visible_orders(store.list()))
     return {"orders": OrderTodos(store).attach([order for order in visible if not work_orders.in_work(order["path"])]),
+            "calendar_supplier_orders": [order for order in visible if order["work_supplier"]],
             "favorites": [order for order in visible if order["is_favorite"] is True],
             "deadline_week_options": order_deadlines.week_options(),
             "unregistrations": objects.visible_orders(activity.visible_orders([
