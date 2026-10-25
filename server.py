@@ -42,6 +42,7 @@ import event_relevance
 from order_todos import OrderTodos
 import file_trash
 import object_years
+import object_orders
 import file_uploads
 import work_orders
 from file_comments import FileCommentConflict
@@ -823,6 +824,10 @@ def listed_orders():
             "storage":metadata_store().status() if DATABASE_ONLY else {"database_only":False}}
 
 
+def listed_object_orders(relative, show_inactive=False):
+    return object_orders.ObjectOrders(order_store()).read(relative, inactive=inactive_paths(), show_inactive=show_inactive)
+
+
 METADATA_REFRESH = threading.Event()
 
 
@@ -1068,11 +1073,25 @@ def read_folder(relative="", show_inactive=False):
                     if node["name"].startswith("#"):
                         node["supplierColor"] = work_orders.supplier_color(db, node["path"])
                         node["supplierFavorite"] = favorites[unicodedata.normalize("NFC", node["path"])]
+    object_list = None
+    if status["folderKind"] == "object":
+        object_error = ""
+        try:
+            object_orders.ObjectOrders(order_store()).refresh(relative)
+        except (OSError, ValueError) as error:
+            object_error = str(error)
+        try:
+            object_list = listed_object_orders(relative, show_inactive)
+            if object_error:
+                object_list["error"] = object_error
+        except (OSError, ValueError) as error:
+            object_list = {"path": relative, "orders": [], "error": object_error or str(error)}
     return {"name": target.name, "path": relative_path(target), "client": client_name(relative),
             "workSupplier": work_orders.supplier_name(relative),
             "workSupplierColor": supplier_color,
             "root": str(DATA_ROOT), "breadcrumbs": breadcrumbs,
             "directories": nodes, "files": files, "sketches": sketch_files,
+            "objectOrders": object_list,
             "fileCount": len(files), "folderCount": folder_count,
             "totalSize": sum(file["size"] for file in files), "counts": counts,
             "warnings": warnings, "storage":"database" if DATABASE_ONLY else "legacy", "view": "print" if print_view else "files",
@@ -1326,6 +1345,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json({"status": "ok", "release": RELEASE_ID, "root": str(DATA_ROOT)}, head=head)
             elif parsed.path == "/api/orders":
                 self.send_json(listed_orders(), head=head)
+            elif parsed.path == "/api/object-orders":
+                self.send_json(listed_object_orders(relative, query.get("show_inactive", [""])[0] == "1"), head=head)
             elif parsed.path == "/api/work-supplier-favorites":
                 self.send_json(work_orders.read_supplier_favorites(order_store(), relative), head=head)
             elif parsed.path == "/api/storage":

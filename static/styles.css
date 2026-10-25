@@ -467,6 +467,8 @@ h2 { font-size: 13px; font-weight: 600; }
 .order-todo-button svg { width: 11px; height: 11px; }
 .order-row-link { display: block; padding: 0; border: 0; background: none; color: var(--accent); text-align: left; font-weight: 550; overflow-wrap: anywhere; }
 .order-row-path { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
+.order-unregistered-label { display: inline-block; margin-top: 3px; color: #986a31; font-size: 10px; }
+#objectOrdersSection .orders-workspace { padding-top: 0; }
 .order-todo-dialog { width: min(620px, calc(100vw - 32px)); max-width: none; max-height: min(560px, calc(100dvh - 80px)); padding: 0; border: 1px solid var(--line); border-radius: 12px; color: var(--text); box-shadow: 0 20px 70px #19312633; overflow: hidden; }
 .order-todo-dialog[open] { display: flex; flex-direction: column; }
 .order-todo-dialog::backdrop { background: #1d33365c; }
