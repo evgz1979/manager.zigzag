@@ -2,6 +2,7 @@ import json
 import unittest
 from unittest.mock import patch
 
+import order_calendar
 import order_deadlines
 import object_orders
 from orders import OrderConflict, OrderStore
@@ -69,7 +70,7 @@ class DeadlineCommentApiTests(unittest.TestCase):
         with patch.object(OrderStore, "target", side_effect=AssertionError("No folder reads")), \
                 patch("icloud_access.read_bytes", side_effect=AssertionError("No originals")):
             saved = self.store.save_deadline_comment(self.payload(note="Не заменять", amount="999"))
-            for field in self.order.keys() - {"deadline_comments", "extra_blocks", "revision"}:
+            for field in self.order.keys() - {"deadline_comments", "calendar_week_events", "extra_blocks", "revision"}:
                 self.assertEqual(saved[field], self.order[field], field)
             removed = self.store.save_deadline_week({**self.payload(saved), "selected": False})
             self.assertEqual(removed["deadline_weeks"], [])

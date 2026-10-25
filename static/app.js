@@ -1778,7 +1778,7 @@ function renderOrderDeadlines(order, { options = state.deadlineWeekOptions, card
     options = [...overdue.map((start) => ({ start })), ...options];
   }
   const outside = [...selected].filter((week) => !options.some((option) => option.start === week));
-  const comments = card ? [] : Object.entries(order.deadline_comments || {}).filter(([, comment]) => comment.trim()).sort(([first], [second]) => first.localeCompare(second));
+  const comments = card ? [] : Object.entries(order.calendar_week_events || {}).filter(([, comment]) => comment.trim()).sort(([first], [second]) => first.localeCompare(second));
   const preview = comments.map(([start, comment]) => deadlineWeekInfo(start).number + '-' + comment.trim()).join(', ');
   const outsideText = unknown ? 'Неизвестный формат сроков' : outside.length ? 'Вне окна: ' + outside.length : '';
   const footer = [outsideText, preview].filter(Boolean).join(' · ');
@@ -1792,7 +1792,7 @@ function renderOrderDeadlines(order, { options = state.deadlineWeekOptions, card
       const overdue = selected.has(week.start) && currentWeek && week.start < currentWeek;
       const travel = week.start >= deadlineTravelPeriod.start && week.start <= deadlineTravelPeriod.end;
       const travelContinues = travel && options[index + 1]?.start === shiftDeadlineWeek(week.start, 1) && options[index + 1].start <= deadlineTravelPeriod.end;
-      const comment = order.deadline_comments?.[week.start] || "";
+      const comment = order.calendar_week_events?.[week.start] || "";
       const help = (overdue ? "Просрочено · " : "") + week.label + (travel ? "\n" + deadlineTravelPeriod.label : "") + (comment ? "\n" + comment : "");
       const gap = card && previous && shiftDeadlineWeek(previous, 1) !== week.start ? '<span class="deadline-week-gap" title="Между этими неделями есть пропуск">…</span>' : '';
       previous = week.start;
@@ -1824,7 +1824,7 @@ function renderCardDeadlines() {
   const disabled = unknown || Boolean(folder.deadlineConflict) || orderRowSaving(order.path) || Boolean(state.saving);
   const visible = folder.deadlineVisibleWeeks ||= new Set();
   for (const week of state.deadlineWeekOptions) visible.add(week.start);
-  for (const week of new Set([...(order.deadline_weeks || []), ...Object.keys(order.deadline_comments || {})])) {
+  for (const week of new Set([...(order.deadline_weeks || []), ...Object.keys(order.calendar_week_events || {})])) {
     for (const offset of [-1, 0, 1]) { const start = shiftDeadlineWeek(week, offset); if (start) visible.add(start); }
   }
   const options = [...visible].sort().map((start) => ({ start }));
@@ -1839,7 +1839,7 @@ function renderCardDeadlines() {
 }
 
 function renderDeadlineComments(folder) {
-  const order = folder.order, comments = order.deadline_comments || {}, unknown = order.deadline_comments === null;
+  const order = folder.order, comments = order.calendar_week_events || {}, unknown = order.calendar_week_events === null;
   const drafts = folder.deadlineCommentDrafts ||= new Map();
   const container = $("orderDeadlineComments"), scope = order.id + "|" + folder.path;
   if (container.dataset.scope !== scope) { container.replaceChildren(); container.dataset.scope = scope; }
@@ -1858,7 +1858,7 @@ function renderDeadlineComments(folder) {
       row.dataset.weekCommentRow = week;
       row.innerHTML = '<span class="deadline-week deadline-comment-week" role="img" aria-label="Неделя ' + info.number +
         '" style="--deadline-month-hue:' + info.hue + '">' + info.number + '</span><input type="text" maxlength="1000" autocomplete="off" data-deadline-comment="' +
-        week + '" placeholder="Комментарий к неделе" aria-label="Комментарий к неделе ' + info.number + ' · ' + info.label + '">';
+        week + '" placeholder="Событие на неделю" aria-label="Событие на неделю ' + info.number + ' · ' + info.label + '">';
     }
     row.title = info.label + (order.deadline_weeks?.includes(week) ? "" : " · Отметка недели снята");
     const input = row.querySelector("input");
@@ -1871,9 +1871,9 @@ function renderDeadlineComments(folder) {
     before = row.nextElementSibling;
   }
   const values = [...drafts.values()], error = values.find((draft) => draft.error)?.error;
-  $("orderDeadlineCommentsState").textContent = unknown ? "Неизвестный формат комментариев сохранён без изменений" : error ||
-    (values.some((draft) => draft.saving) ? "Сохраняю комментарии…" : values.some((draft) => draft.dirty) ? "Есть несохранённые комментарии" :
-      weeks.size ? "Комментарии сохранены" : "Отметь неделю, чтобы добавить комментарий");
+  $("orderDeadlineCommentsState").textContent = unknown ? "Неизвестный формат недельных событий сохранён без изменений" : error ||
+    (values.some((draft) => draft.saving) ? "Сохраняю события…" : values.some((draft) => draft.dirty) ? "Есть несохранённые события" :
+      weeks.size ? "Недельные события сохранены" : "Отметь неделю, чтобы добавить событие");
   $("retryDeadlineComments").hidden = !error || unknown || Boolean(folder.deadlineConflict);
   $("retryDeadlineComments").disabled = Boolean(folder.deadlineCommentFlush);
 }
@@ -1911,16 +1911,16 @@ function flushDeadlineComments(folder = state.folder) {
   const pending = (async () => {
     while (true) {
       while (state.saving) await state.saving;
-      if (state.folder !== folder) throw new Error("Комментарий остался в открытой карточке. Вернись к ней для сохранения.");
+      if (state.folder !== folder) throw new Error("Событие осталось в открытой карточке. Вернись к ней для сохранения.");
       const entry = [...folder.deadlineCommentDrafts].find(([, draft]) => draft.dirty);
       if (!entry) return;
       const [week, draft] = entry, value = draft.value, order = folder.order;
-      if (folder.deadlineConflict) throw new Error(folder.deadlineError || "Обнови карточку перед сохранением комментария. Ввод остался в поле.");
+      if (folder.deadlineConflict) throw new Error(folder.deadlineError || "Обнови карточку перед сохранением события. Ввод остался в поле.");
       draft.saving = true;
       draft.error = "";
       state.deadlineSaving.add(order.path);
       ++state.ordersRequest;
-      const saving = request("/api/order-deadline-comment", { path: order.path, id: order.id, revision: order.revision, week, comment: value }).then((saved) => {
+      const saving = request("/api/order-calendar-event", { path: order.path, id: order.id, revision: order.revision, date: week, period: "week", text: value }).then((saved) => {
         applyOrderRecord(folder, saved);
         draft.saved = value;
         draft.dirty = draft.value !== value;

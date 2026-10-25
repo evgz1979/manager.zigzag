@@ -55,7 +55,7 @@ def write(blocks, week, selected):
     return {**blocks, BLOCK: json.dumps({"version": 1, "weeks": sorted(weeks)}, ensure_ascii=False)}
 
 
-def read_comments(blocks):
+def read_legacy_comments(blocks):
     if COMMENTS_BLOCK not in blocks:
         return {}
     try:
@@ -79,20 +79,15 @@ def validate_comment(comment):
     return comment
 
 
+def read_comments(blocks):
+    """Compatibility alias; weekly calendar events are the only live field."""
+    import order_calendar
+    return order_calendar.read(blocks, "week")
+
+
 def write_comment(blocks, week, comment):
-    week = validate_week(week)
-    comment = validate_comment(comment)
-    comments = read_comments(blocks)
-    if comments is None:
-        raise ValueError("Комментарии к срокам имеют неизвестный формат и сохранены без изменений")
-    comments = {**comments}
-    if comment:
-        comments[week] = comment
-    else:
-        comments.pop(week, None)
-    if len(comments) > 5200:
-        raise ValueError("Сохранено слишком много комментариев к неделям")
-    return {**blocks, COMMENTS_BLOCK: json.dumps({"version": 1, "comments": comments}, ensure_ascii=False)}
+    import order_calendar
+    return order_calendar.write(blocks, validate_week(week), comment, "week")
 
 
 def week_options(now=None):

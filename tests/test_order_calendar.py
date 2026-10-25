@@ -112,7 +112,7 @@ class CalendarApiTests(unittest.TestCase):
         self.assertEqual(status, 200)
         weekly = json.loads(body)
         self.assertEqual(weekly["calendar_week_events"], {"2026-10-26": "Закончить за неделю"})
-        for field in daily.keys() - {"calendar_week_events", "extra_blocks", "revision"}:
+        for field in daily.keys() - {"calendar_week_events", "deadline_comments", "extra_blocks", "revision"}:
             self.assertEqual(weekly[field], daily[field], field)
         self.assertEqual(weekly["extra_blocks"][order_calendar.BLOCK], daily["extra_blocks"][order_calendar.BLOCK])
         self.assertEqual(self.http("/api/order-calendar-event", "POST", json.dumps(data))[0], 409)

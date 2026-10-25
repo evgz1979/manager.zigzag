@@ -19,6 +19,18 @@ PREVIOUS = "20261019T170000Z-abcdef12"
 
 
 class DeploymentTests(unittest.TestCase):
+    def test_old_code_cannot_recreate_separate_week_comment_storage(self):
+        release = self.base / 'old-week-comments'
+        release.mkdir()
+        (release / 'local_metadata.py').touch()
+        with sqlite3.connect(self.db) as db:
+            db.execute('CREATE TABLE metadata_settings (key TEXT PRIMARY KEY,value TEXT)')
+            db.execute("INSERT INTO metadata_settings VALUES ('weekly_events_unified','1')")
+        with self.assertRaisesRegex(RuntimeError, 'объединены'):
+            remote.check_event_rename_compatibility(self.db, release)
+        (release / 'order_calendar.py').write_text('WEEKLY_EVENTS_UNIFIED_VERSION = 1')
+        remote.check_event_rename_compatibility(self.db, release)
+
     def test_old_code_cannot_expose_trashed_supplier_events(self):
         release = self.base / 'old-events'
         release.mkdir()

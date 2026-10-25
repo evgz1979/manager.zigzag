@@ -402,7 +402,7 @@ class WorkOrderTests(unittest.TestCase):
         shown = result['calendar_supplier_orders'][0]
         self.assertEqual(shown['id'], supplier['id'])
         self.assertEqual(shown['deadline_weeks'], ['2026-10-26'])
-        self.assertEqual(shown['deadline_comments'], {'2026-10-26': 'Профиль на этой неделе'})
+        self.assertEqual(shown['deadline_comments'], {'2026-10-26': 'Получить весь заказ'})
         self.assertEqual(shown['calendar_events'], {'2026-10-27': 'Забрать профиль'})
         self.assertEqual(shown['calendar_week_events'], {'2026-10-26': 'Получить весь заказ'})
         for field in ('status', 'financial_status', 'amount', 'costs', 'paid', 'updated', 'note'):

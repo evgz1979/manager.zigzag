@@ -6,6 +6,7 @@ from datetime import date, timedelta
 BLOCK = "События календаря"
 WEEK_BLOCK = "События календаря на неделю"
 MAX_EVENTS = 5200
+WEEKLY_EVENTS_UNIFIED_VERSION = 1
 
 
 def block_name(period):
@@ -39,7 +40,7 @@ def validate_text(value):
     return value
 
 
-def read(blocks, period="day"):
+def _read(blocks, period="day"):
     block = block_name(period)
     if block not in blocks:
         return {}
@@ -59,8 +60,50 @@ def read(blocks, period="day"):
         return None
 
 
+def unify_weekly_blocks(blocks):
+    """Convert known legacy comments without overwriting different texts."""
+    import order_deadlines
+    if order_deadlines.COMMENTS_BLOCK not in blocks:
+        return blocks
+    old = order_deadlines.read_legacy_comments(blocks)
+    events = _read(blocks, "week")
+    if old is None or events is None:
+        raise ValueError("Недельные события или прежние комментарии имеют неизвестный формат. Данные оставлены без изменений")
+    merged = dict(events)
+    for week, text in old.items():
+        if not text.strip():
+            continue
+        if week in merged and merged[week] != text:
+            raise ValueError("На неделю " + week + " сохранены разные тексты комментария и события. Оба оставлены без изменений")
+        merged[week] = text
+    if len(merged) > MAX_EVENTS:
+        raise ValueError("Сохранено слишком много недельных событий")
+    result = {**blocks, WEEK_BLOCK: json.dumps({"version": 1, "events": merged}, ensure_ascii=False)}
+    result.pop(order_deadlines.COMMENTS_BLOCK)
+    return result
+
+
+def normalize_weekly_blocks(blocks):
+    """New imports convert known data; unknown legacy blocks remain intact."""
+    try:
+        return unify_weekly_blocks(blocks)
+    except ValueError:
+        return blocks
+
+
+def read(blocks, period="day"):
+    if period == "week":
+        try:
+            blocks = unify_weekly_blocks(blocks)
+        except ValueError:
+            return None
+    return _read(blocks, period)
+
+
 def write(blocks, day, text, period="day"):
     block = block_name(period)
+    if period == "week":
+        blocks = unify_weekly_blocks(blocks)
     day, text = validate_key(day, period), validate_text(text)
     events = read(blocks, period)
     if events is None:
@@ -77,6 +120,8 @@ def write(blocks, day, text, period="day"):
 
 def move(blocks, day, days, period="day"):
     block = block_name(period)
+    if period == "week":
+        blocks = unify_weekly_blocks(blocks)
     day = validate_key(day, period)
     if type(days) is not int or days not in ({-7, 7} if period == "week" else {-7, -1, 1, 7}):
         if period == "week":

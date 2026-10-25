@@ -108,9 +108,9 @@ class OrderStore:
         result["is_favorite"] = document.read_favorite(result["extra_blocks"])
         result["is_flagged"] = document.read_flag(result["extra_blocks"])
         result["deadline_weeks"] = order_deadlines.read(result["extra_blocks"])
-        result["deadline_comments"] = order_deadlines.read_comments(result["extra_blocks"])
         result["calendar_events"] = order_calendar.read(result["extra_blocks"])
         result["calendar_week_events"] = order_calendar.read(result["extra_blocks"], "week")
+        result["deadline_comments"] = result["calendar_week_events"]  # Old browser/API compatibility, never stored separately.
         result["can_group_supplier_orders"] = work_orders.direct_order(result["path"])
         exported_revision, export_format = result.pop("exported_revision"), result.pop("export_format")
         result["sync_pending"] = result["revision"] != exported_revision or (result["registered"] and export_format < document.FORMAT)
@@ -167,7 +167,7 @@ class OrderStore:
                 revision=orders.revision+1,updated=excluded.updated,extra_blocks=excluded.extra_blocks,sync_error=''
                 WHERE orders.registered=0""", (relative, str(uuid.uuid4()), initial.get("title", Path(relative).name),
                 status, financial_status, note, initial.get("amount"), initial.get("costs"), initial.get("paid"), time.time(),
-                json.dumps(initial.get("extra_blocks", {}), ensure_ascii=False)))
+                json.dumps(order_calendar.normalize_weekly_blocks(initial.get("extra_blocks", {})), ensure_ascii=False)))
         return self.get(relative)
 
     def require_order_folder(self, relative):
@@ -268,6 +268,8 @@ class OrderStore:
             if row is None:
                 raise OrderConflict("Заказ изменён в другой вкладке. Проверь актуальные данные и повтори изменение.")
             blocks = write(json.loads(row["extra_blocks"]))
+            if self.database_only and order_calendar.WEEK_BLOCK in blocks:
+                db.execute("INSERT INTO metadata_settings VALUES ('weekly_events_unified','1') ON CONFLICT(key) DO UPDATE SET value=excluded.value")
             db.execute("""UPDATE orders SET extra_blocks=?,revision=revision+1,updated=CASE WHEN ? THEN ? ELSE updated END,sync_error=''
                 WHERE path=? AND id=? AND revision=? AND registered=1""",
                 (json.dumps(blocks, ensure_ascii=False), update_time, time.time(), relative, identity, revision))
@@ -355,6 +357,7 @@ class OrderStore:
                 import folder_notes
                 folder_notes.schema(db)
                 body = self.record(db.execute("SELECT * FROM orders WHERE path=?",(relative,)).fetchone(), db)
+                body.pop("deadline_comments", None)
                 db.execute("""INSERT INTO folder_notes VALUES (?,?,?,?,1,1,'database',?,'')
                     ON CONFLICT(path) DO UPDATE SET document=excluded.document,revision=folder_notes.revision+1,updated=excluded.updated""",
                     (relative,str(uuid.uuid4()),"",json.dumps(body,ensure_ascii=False),time.time()))
@@ -381,7 +384,7 @@ class OrderStore:
                     phase = "Чтение карточки"
                     existing = document.load(folder, self.labels)
                     record["extra_blocks"].update({key: value for key, value in existing.get("extra_blocks", {}).items()
-                        if key not in {document.TODO_BLOCK, document.PURCHASE_BLOCK, document.FAVORITE_BLOCK, order_deadlines.BLOCK} or key not in record["extra_blocks"]})
+                        if key != order_deadlines.COMMENTS_BLOCK and (key not in {document.TODO_BLOCK, document.PURCHASE_BLOCK, document.FAVORITE_BLOCK, order_deadlines.BLOCK, order_deadlines.COMMENTS_BLOCK, order_calendar.WEEK_BLOCK} or key not in record["extra_blocks"])})
                     if existing.get("schema", 0) < document.FORMAT:
                         phase = "Сохранение прежней карточки в историю"
                         document.archive_current(folder)
@@ -420,7 +423,7 @@ class OrderStore:
                     draft = db.execute("SELECT document FROM folder_notes WHERE path=?",(relative,)).fetchone()
                     body = json.loads(draft[0]) if draft else previous
                     db.execute("UPDATE orders SET registered=1,note=?,extra_blocks=?,revision=revision+1,updated=? WHERE path=?",
-                        (body.get("note",previous["note"]),json.dumps(body.get("extra_blocks",previous["extra_blocks"]),ensure_ascii=False),time.time(),relative))
+                        (body.get("note",previous["note"]),json.dumps(order_calendar.normalize_weekly_blocks(body.get("extra_blocks",previous["extra_blocks"])),ensure_ascii=False),time.time(),relative))
             return self.get(relative)
         if previous and not previous["registered"] and previous["sync_pending"]:
             with self.connect() as db:
@@ -491,7 +494,7 @@ class OrderStore:
                 amount=excluded.amount,costs=excluded.costs,paid=excluded.paid,registered=1,
                 revision=MAX(orders.revision+1,excluded.revision),updated=excluded.updated,
                 extra_blocks=excluded.extra_blocks,sync_error='' WHERE orders.registered=0""", (relative, identity, title, status, snapshot.get("financial_status", "unspecified"), note,
-                *values, revision, time.time(), json.dumps(snapshot.get("extra_blocks", {}), ensure_ascii=False)))
+                *values, revision, time.time(), json.dumps(order_calendar.normalize_weekly_blocks(snapshot.get("extra_blocks", {})), ensure_ascii=False)))
 
     def discover(self, read_status, progress):
         """Explicit background scan: directory names and metadata, never attachments."""
