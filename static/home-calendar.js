@@ -4,6 +4,10 @@ const HomeCalendar = (() => {
   const dateKey = (date) => date.toISOString().slice(0, 10);
   const shiftDays = (date, days) => new Date(date.getTime() + days * DAY);
   const monday = (date) => shiftDays(date, -((date.getUTCDay() + 6) % 7));
+  const weekNumber = (date) => {
+    const thursday = shiftDays(monday(date), 3);
+    return Math.ceil(((thursday - new Date(Date.UTC(thursday.getUTCFullYear(), 0, 1))) / DAY + 1) / 7);
+  };
   const moscowDate = (now) => {
     const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now);
     const value = (name) => Number(parts.find((part) => part.type === name).value);
@@ -56,14 +60,14 @@ const HomeCalendar = (() => {
     for (const order of orders) {
       if (!order.path || order.registered === false) continue;
       const eventWeeks = Object.keys(order.calendar_events || {}).map((day) => dateKey(monday(new Date(day + "T00:00:00Z"))));
-      for (const week of new Set([...(order.deadline_weeks || []), ...eventWeeks])) {
+      for (const week of new Set([...(order.deadline_weeks || []), ...eventWeeks, ...Object.keys(order.calendar_week_events || {})])) {
         if (!byWeek.has(week)) byWeek.set(week, []);
         byWeek.get(week).push(order);
       }
     }
     for (const row of get("calendarWeeks").children) {
       const list = row.querySelector(".calendar-orders-list"), weekly = byWeek.get(row.dataset.week) || [];
-      const signature = JSON.stringify(weekly.map((order) => [order.id, order.path, order.title, order.client, order.object, order.calendar_events]));
+      const signature = JSON.stringify(weekly.map((order) => [order.id, order.path, order.title, order.client, order.object, order.calendar_events, order.calendar_week_events]));
       if (list.dataset.signature === signature) continue;
       list.dataset.signature = signature;
       const top = list.parentElement.scrollTop;
@@ -84,7 +88,7 @@ const HomeCalendar = (() => {
           client.className = "calendar-order-client";
           link.append(title, client);
           item.append(link);
-          for (let day = 0; day < 7; day++) {
+          for (let day = -1; day < 7; day++) {
             const slot = document.createElement("button");
             slot.type = "button";
             slot.className = "calendar-event-slot";
@@ -98,17 +102,22 @@ const HomeCalendar = (() => {
         link.firstElementChild.textContent = title;
         link.lastElementChild.textContent = order.client || "";
         link.lastElementChild.hidden = !order.client;
-        for (let day = 0; day < 7; day++) {
-          const date = shiftDays(new Date(row.dataset.week + "T00:00:00Z"), day), key = dateKey(date);
-          const slot = item.children[day + 1], text = order.calendar_events?.[key] || "";
+        for (let day = -1; day < 7; day++) {
+          const week = new Date(row.dataset.week + "T00:00:00Z"), isWeek = day === -1;
+          const date = shiftDays(week, isWeek ? 0 : day), key = dateKey(date);
+          const entries = isWeek ? order.calendar_week_events : order.calendar_events;
+          const slot = item.children[day + 2], text = entries?.[key] || "";
           slot.dataset.calendarEvent = order.path;
           slot.dataset.calendarDate = key;
+          slot.dataset.calendarPeriod = isWeek ? "week" : "day";
+          slot.classList.toggle("calendar-week-event-slot", isWeek);
           slot.textContent = text;
           slot.classList.toggle("has-event", Boolean(text));
           if (text) slot.setAttribute("aria-haspopup", "menu");
           else slot.removeAttribute("aria-haspopup");
-          slot.disabled = order.calendar_events === null || date < range.from || date > range.through;
-          slot.setAttribute("aria-label", (text ? "Изменить событие: " + text : "Добавить событие") + " · " + title + " · " + fullDate.format(date));
+          slot.disabled = entries === null || (isWeek ? shiftDays(week, 6) < range.from || week > range.through : date < range.from || date > range.through);
+          const periodLabel = isWeek ? "Неделя " + weekNumber(week) + ": " + fullDate.format(week) + " — " + fullDate.format(shiftDays(week, 6)) : fullDate.format(date);
+          slot.setAttribute("aria-label", (text ? "Изменить событие: " + text : "Добавить событие") + " · " + title + " · " + periodLabel);
         }
         if (item !== before) list.insertBefore(item, before);
         before = item.nextElementSibling;
@@ -146,6 +155,13 @@ const HomeCalendar = (() => {
         list.setAttribute("aria-label", "Заказы на неделю: " + fullDate.format(week) + " — " + fullDate.format(shiftDays(week, 6)));
         content.append(list);
         row.append(orderCell);
+        const weekCell = document.createElement("div"), weekLabel = document.createElement("span");
+        weekCell.className = "calendar-day calendar-week-events-cell";
+        weekLabel.className = "calendar-week-number";
+        weekLabel.textContent = weekNumber(week);
+        weekLabel.setAttribute("aria-label", "Неделя " + weekNumber(week) + ": " + fullDate.format(week) + " — " + fullDate.format(shiftDays(week, 6)));
+        weekCell.append(weekLabel);
+        row.append(weekCell);
         for (let day = 0; day < 7; day++) {
           const date = shiftDays(week, day), cell = document.createElement("div"), label = document.createElement("time");
           cell.className = "calendar-day" + (day > 4 ? " weekend" : "") + (date < range.from || date > range.through ? " calendar-outside" : "");

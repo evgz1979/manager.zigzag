@@ -1772,9 +1772,15 @@ function renderOrderDeadlines(order, { options = state.deadlineWeekOptions, card
     options = [...overdue.map((start) => ({ start })), ...options];
   }
   const outside = [...selected].filter((week) => !options.some((option) => option.start === week));
+  const comments = card ? [] : Object.entries(order.deadline_comments || {}).filter(([, comment]) => comment.trim()).sort(([first], [second]) => first.localeCompare(second));
+  const preview = comments.map(([start, comment]) => deadlineWeekInfo(start).number + '-' + comment.trim()).join(', ');
+  const outsideText = unknown ? 'Неизвестный формат сроков' : outside.length ? 'Вне окна: ' + outside.length : '';
+  const footer = [outsideText, preview].filter(Boolean).join(' · ');
+  const footerHelp = [unknown ? outsideText : outside.length ? 'Начало выбранных недель: ' + outside.join(', ') : '',
+    ...comments.map(([start, comment]) => 'Неделя ' + deadlineWeekInfo(start).number + ' · ' + deadlineWeekDates(start) + ': ' + comment)].filter(Boolean).join('\n');
   const range = orderDeadlineRange(order.deadline_weeks);
   let previous;
-  return '<div class="order-deadline-line' + (card ? ' order-card-deadline-line' : '') + '"><div class="order-deadline-weeks" role="group" aria-label="Сроки · ' + escapeHtml(order.title) + '">' +
+  return '<div class="order-deadline-line' + (card ? ' order-card-deadline-line' : '') + '"><div class="order-deadline-buttons"><div class="order-deadline-weeks" role="group" aria-label="Сроки · ' + escapeHtml(order.title) + '">' +
     options.map((option) => {
       const week = deadlineWeekInfo(option.start);
       const overdue = selected.has(week.start) && currentWeek && week.start < currentWeek;
@@ -1789,8 +1795,9 @@ function renderOrderDeadlines(order, { options = state.deadlineWeekOptions, card
       '" aria-label="' + escapeHtml("Неделя " + week.number + " · " + help) + '" title="' + escapeHtml(help) +
       '"' + (disabled || unknown || order.registered === false || orderRowSaving(order.path) ? ' disabled' : '') + '>' + week.number + '</button>';
     }).join("") + '</div>' +
+    (!card && footer ? '<small class="order-deadline-summary" title="' + escapeHtml(footerHelp) + '">' + escapeHtml(footer) + '</small>' : '') + '</div>' +
     (range ? '<span class="order-deadline-range">' + escapeHtml(range) + '</span>' : '') + '</div>' +
-    (unknown ? '<small class="order-deadline-outside">Неизвестный формат сроков</small>' : outside.length ?
+    (card && unknown ? '<small class="order-deadline-outside">Неизвестный формат сроков</small>' : card && outside.length ?
       '<small class="order-deadline-outside" title="Начало выбранных недель: ' + outside.join(', ') + '">Вне окна: ' + outside.length + '</small>' : '');
 }
 
@@ -2248,18 +2255,25 @@ function closeCalendarEventMenu(restoreFocus = true) {
   if (restoreFocus && menu) (menu.slot.isConnected ? menu.slot : $("calendarViewport")).focus({ preventScroll: true });
 }
 
+function calendarEventEntries(order, period) {
+  return period === "week" ? order.calendar_week_events : order.calendar_events;
+}
+
 function openCalendarEventMenu(slot, x, y) {
   const order = findListOrder(slot.dataset.calendarEvent), date = slot.dataset.calendarDate;
-  if (!order?.calendar_events?.[date] || order.registered === false || orderRowSaving(order.path)) return;
+  const period = slot.dataset.calendarPeriod || "day";
+  const entries = order && calendarEventEntries(order, period);
+  if (!entries?.[date] || order.registered === false || orderRowSaving(order.path)) return;
   closeCalendarEventMenu(false);
-  state.calendarMenu = { path: order.path, id: order.id, revision: order.revision, date, slot };
+  state.calendarMenu = { path: order.path, id: order.id, revision: order.revision, date, period, slot };
   const menu = $("calendarEventMenu");
-  $("calendarEventMenuName").textContent = order.calendar_events[date];
+  $("calendarEventMenuName").textContent = entries[date];
+  menu.querySelectorAll('[data-calendar-move="1"], [data-calendar-move="-1"], hr').forEach((item) => { item.hidden = period === "week"; });
   menu.hidden = false;
   const bounds = menu.getBoundingClientRect();
   menu.style.left = Math.max(8, Math.min(x, window.innerWidth - bounds.width - 8)) + "px";
   menu.style.top = Math.max(8, Math.min(y, window.innerHeight - bounds.height - 8)) + "px";
-  menu.querySelector("button").focus({ preventScroll: true });
+  menu.querySelector("button:not([hidden])").focus({ preventScroll: true });
 }
 
 async function moveCalendarEvent(days) {
@@ -2269,11 +2283,11 @@ async function moveCalendarEvent(days) {
   state.calendarMoving.add(menu.path);
   ++state.ordersRequest;
   try {
-    const saved = await request("/api/order-calendar-move", { path: menu.path, id: menu.id, revision: menu.revision, date: menu.date, days });
+    const saved = await request("/api/order-calendar-move", { path: menu.path, id: menu.id, revision: menu.revision, date: menu.date, days, period: menu.period });
     applyOrderRecord(null, saved);
     const target = new Date(menu.date + "T00:00:00Z");
     target.setUTCDate(target.getUTCDate() + days);
-    notify("Событие перенесено на " + target.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }));
+    notify((menu.period === "week" ? "Событие перенесено на неделю с " : "Событие перенесено на ") + target.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }));
   } catch (error) {
     notify(error.message, true);
     if (error.status === 409) { try { await loadOrders(); } catch (_) { /* Retain the last loaded calendar. */ } }
@@ -2287,11 +2301,16 @@ function openCalendarEvent(slot) {
   closeCalendarEventMenu(false);
   const order = findListOrder(slot.dataset.calendarEvent), date = slot.dataset.calendarDate;
   if (!order || order.registered === false || orderRowSaving(order.path)) return;
-  if (order.calendar_events === null) { notify("События этого заказа имеют неизвестный формат и сохранены без изменений", true); return; }
-  const previous = order.calendar_events?.[date] || "";
-  state.calendarEvent = { path: order.path, id: order.id, revision: order.revision, date, previous, saving: false, conflict: false };
+  const period = slot.dataset.calendarPeriod || "day", entries = calendarEventEntries(order, period);
+  if (entries === null) { notify("События этого заказа имеют неизвестный формат и сохранены без изменений", true); return; }
+  const previous = entries?.[date] || "";
+  state.calendarEvent = { path: order.path, id: order.id, revision: order.revision, date, period, previous, saving: false, conflict: false };
+  $("calendarEventTitle").textContent = period === "week" ? "Событие на неделю" : "Событие календаря";
   $("calendarEventOrder").textContent = [order.title, order.client, order.object].filter(Boolean).join(" · ");
-  $("calendarEventDate").textContent = new Intl.DateTimeFormat("ru-RU", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(date + "T00:00:00Z"));
+  const start = new Date(date + "T00:00:00Z");
+  const format = new Intl.DateTimeFormat("ru-RU", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+  const end = new Date(start); end.setUTCDate(end.getUTCDate() + 6);
+  $("calendarEventDate").textContent = period === "week" ? "На неделю: " + format.format(start) + " — " + format.format(end) : format.format(start);
   $("calendarEventText").value = previous;
   $("calendarEventState").textContent = "";
   renderCalendarEventControls();
@@ -2315,7 +2334,7 @@ async function saveCalendarEvent(remove = false) {
   $("calendarEventState").textContent = "Сохраняю…";
   renderCalendarEventControls();
   try {
-    const saved = await request("/api/order-calendar-event", { path: edit.path, id: edit.id, revision: edit.revision, date: edit.date, text });
+    const saved = await request("/api/order-calendar-event", { path: edit.path, id: edit.id, revision: edit.revision, date: edit.date, text, period: edit.period });
     applyOrderRecord(null, saved);
     edit.saving = false;
     closeCalendarEvent();
@@ -2337,9 +2356,9 @@ async function refreshCalendarEvent() {
   renderCalendarEventControls();
   try {
     const order = await request(apiUrl("/api/order", edit.path));
-    if (order.id !== edit.id || order.calendar_events === null) throw new Error("Заказ или формат событий изменён. Ввод сохранён; открой заказ заново.");
+    if (order.id !== edit.id || calendarEventEntries(order, edit.period) === null) throw new Error("Заказ или формат событий изменён. Ввод сохранён; открой заказ заново.");
     edit.revision = order.revision;
-    edit.previous = order.calendar_events?.[edit.date] || "";
+    edit.previous = calendarEventEntries(order, edit.period)?.[edit.date] || "";
     edit.conflict = false;
     applyOrderRecord(null, order);
     $("calendarEventState").textContent = "В базе сейчас: " + (edit.previous || "события нет") + ". Твой текст оставлен в поле; проверь его перед сохранением.";
@@ -3071,7 +3090,7 @@ $("calendarEventMenu").addEventListener("keydown", (event) => {
   if (event.key === "Tab") { closeCalendarEventMenu(); return; }
   if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
   event.preventDefault();
-  const buttons = [...$("calendarEventMenu").querySelectorAll("button")], current = buttons.indexOf(document.activeElement);
+  const buttons = [...$("calendarEventMenu").querySelectorAll("button")].filter((item) => !item.hidden), current = buttons.indexOf(document.activeElement);
   const index = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (current + (event.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length;
   buttons[index].focus({ preventScroll: true });
 });
