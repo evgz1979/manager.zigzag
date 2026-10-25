@@ -541,7 +541,7 @@ h2 { font-size: 13px; font-weight: 600; }
 .order-deadline-line { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
 .order-deadline-buttons { position: relative; flex: none; }
 .order-deadline-weeks { display: grid; grid-auto-flow: column; grid-auto-columns: 24px; gap: 3px; flex: none; }
-.order-deadline-summary { position: absolute; top: 100%; left: 0; width: 100%; height: 8px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 8px; line-height: 8px; font-weight: 400; color: var(--muted); }
+.order-deadline-summary { position: absolute; top: calc(100% + 4px); left: 0; width: 100%; height: 12px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 10px; line-height: 12px; font-weight: 400; color: var(--muted); }
 .order-deadline-range { color: var(--text); font-size: 11px; font-weight: 400; }
 .order-card-deadlines { border: 1px solid var(--line); border-radius: 8px; background: #fafbf9; padding: 13px; min-width: 0; }
 .order-card-deadline-layout { display: flex; flex-wrap: wrap; gap: 18px; }
