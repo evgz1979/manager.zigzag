@@ -67,6 +67,7 @@
         </section>
         <div id="folderView">
         <div id="orderOverview" class="order-overview">
+        <div id="orderMainColumn" class="order-overview-column">
         <details id="orderDetails" class="order-details" hidden><summary><span id="statusBadge" class="status-badge">Новый</span><span id="financialStatusBadge" class="status-badge" hidden></span><span id="folderDetailsTitle">Карточка заказа</span><span class="details-chevron">⌄</span></summary><form id="statusForm" class="status-form"><label id="orderTitleLabel" class="order-title-label" hidden>Название заказа<input id="orderTitleInput" type="text" maxlength="500" autocomplete="off"></label><div id="orderStatusFields" class="order-status-fields"><label id="statusLabel">Производственный статус<select id="statusSelect" name="status"><optgroup label="— 1-я группа —"><option value="new">Новый</option><option value="measure">Замеры</option><option value="process">Расчеты</option></optgroup><optgroup label="— 2-я группа —"><option value="workshop">В цех</option><option value="install">Монтаж</option><option value="rework">Переделка/доделка</option><option value="finishing">Завершение/добивка</option></optgroup><optgroup label="— 3-я группа —"><option value="waiting">Жду</option><option value="offer_later">Предложить позже</option><option value="deferred">Отложен/возможно</option><option value="done">Готово</option><option value="done_but">Готово, но…</option><option value="cancelled">Отменён</option><option value="unspecified">Не указан</option></optgroup></select></label><label id="financialStatusLabel">Финансовый статус<select id="financialStatusSelect" name="financial_status"><option value="unspecified">Не указан</option><option value="payment">На оплате</option><option value="partial">Частично оплачен</option><option value="paid">Оплачен</option></select></label></div><label class="note-label">Заметка<textarea id="orderNote" name="note" rows="2" placeholder="Что важно по этому заказу"></textarea></label><div id="financialFields" class="financial-fields" hidden>
           <label>Сумма заказа, ₽<input id="orderAmount" type="text" inputmode="decimal" placeholder="Не указано" autocomplete="off"></label>
           <label>Затраты, ₽<input id="orderCosts" type="text" inputmode="decimal" placeholder="Не указано" autocomplete="off"></label>
@@ -75,6 +76,22 @@
           <p id="orderExportState" class="order-export-state" role="status"></p>
         </div><button id="saveStatusButton" class="primary-button" type="submit">Сохранить</button></form>
         </details>
+        <section id="orderCardDeadlines" class="order-card-deadlines" aria-label="Все сроки заказа" hidden>
+          <h3>Сроки</h3><div class="order-card-deadline-layout"><div>
+            <div id="orderCardDeadlineList" class="order-card-deadline-list"></div>
+            <div class="order-card-deadline-navigation"><button id="orderCardDeadlineEarlier" class="secondary-button" type="button">← Раньше</button><button id="orderCardDeadlineLater" class="secondary-button" type="button">Позже →</button></div>
+            <p id="orderCardDeadlineState" class="order-card-deadline-state" role="status"></p>
+          </div><div><div id="orderDeadlineComments" class="deadline-comments" aria-label="Комментарии к неделям"></div><p id="orderDeadlineCommentsState" class="order-card-deadline-state" role="status"></p><button id="retryDeadlineComments" class="secondary-button" type="button" hidden>Повторить сохранение</button></div></div>
+        </section>
+        <div id="orderFinanceOverview" class="order-finance-overview" hidden>
+        <section id="invoiceSection" class="invoice-section" aria-label="Счета заказа" hidden>
+          <header class="invoice-section-heading"><h2>Счета <span id="invoiceCount" class="count-badge"></span></h2><div class="invoice-section-actions"><button id="attachInvoice" class="secondary-button" type="button">+ Прикрепить PDF</button><button id="newInvoice" class="secondary-button" type="button">+ Выписать счёт</button></div></header>
+          <div id="invoiceList" class="invoice-list"></div><p id="invoiceListState" class="invoice-state" role="status"></p>
+          <details id="invoiceTrash" class="invoice-trash" hidden><summary>Корзина <span id="invoiceTrashCount" class="count-badge"></span></summary><div id="invoiceTrashList" class="invoice-list"></div></details>
+        </section>
+        </div>
+        </div>
+        <div id="orderTasksColumn" class="order-overview-column" hidden>
         <section id="todoPanel" class="todo-panel" aria-label="Список дел открытой папки" hidden>
           <header class="todo-heading"><h2>To-do</h2><span id="todoCount"></span></header>
           <div id="todoList" class="todo-list"></div>
@@ -89,20 +106,6 @@
             <p id="descendantTodoState" class="todo-save-state" role="status"></p>
           </section>
         </section>
-        <section id="orderCardDeadlines" class="order-card-deadlines" aria-label="Все сроки заказа" hidden>
-          <h3>Сроки</h3><div class="order-card-deadline-layout"><div>
-            <div id="orderCardDeadlineList" class="order-card-deadline-list"></div>
-            <div class="order-card-deadline-navigation"><button id="orderCardDeadlineEarlier" class="secondary-button" type="button">← Раньше</button><button id="orderCardDeadlineLater" class="secondary-button" type="button">Позже →</button></div>
-            <p id="orderCardDeadlineState" class="order-card-deadline-state" role="status"></p>
-          </div><div><div id="orderDeadlineComments" class="deadline-comments" aria-label="Комментарии к неделям"></div><p id="orderDeadlineCommentsState" class="order-card-deadline-state" role="status"></p><button id="retryDeadlineComments" class="secondary-button" type="button" hidden>Повторить сохранение</button></div></div>
-        </section>
-        </div>
-        <div id="orderFinanceOverview" class="order-finance-overview" hidden>
-        <section id="invoiceSection" class="invoice-section" aria-label="Счета заказа" hidden>
-          <header class="invoice-section-heading"><h2>Счета <span id="invoiceCount" class="count-badge"></span></h2><div class="invoice-section-actions"><button id="attachInvoice" class="secondary-button" type="button">+ Прикрепить PDF</button><button id="newInvoice" class="secondary-button" type="button">+ Выписать счёт</button></div></header>
-          <div id="invoiceList" class="invoice-list"></div><p id="invoiceListState" class="invoice-state" role="status"></p>
-          <details id="invoiceTrash" class="invoice-trash" hidden><summary>Корзина <span id="invoiceTrashCount" class="count-badge"></span></summary><div id="invoiceTrashList" class="invoice-list"></div></details>
-        </section>
         <section id="purchasePanel" class="todo-panel purchase-panel" aria-label="Формирование закупок/затрат">
           <header class="todo-heading"><h2>Формирование закупок/затрат</h2><span id="purchaseCount"></span></header>
           <div id="purchaseList" class="todo-list"></div>
@@ -111,6 +114,7 @@
           <form id="purchaseAddForm" class="todo-add-form"><input id="purchaseNewText" type="text" maxlength="1000" placeholder="Новая закупка или затрата…" aria-label="Новая закупка или затрата" autocomplete="off" required><button class="primary-button" type="submit">Добавить</button></form>
           <p id="purchaseSaveState" class="todo-save-state" role="status"></p>
         </section>
+        </div>
         </div>
         <section id="workLinksSection" class="work-links-section" aria-label="Связанные заказы поставщиков" hidden>
           <header class="todo-heading"><h2>Связанные заказы поставщиков <span id="workLinksCount" class="count-badge"></span></h2><button id="editWorkLinks" class="secondary-button" type="button" disabled>Выбрать заказы</button></header>

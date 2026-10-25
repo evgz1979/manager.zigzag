@@ -611,11 +611,12 @@ function renderFolder(preserveForm = false) {
   const workCard = isWorkOrderPath(folder.path);
   const hasTodo = Boolean(folder.path) && (!noteOnly || Boolean(folder.eventFolder));
   const showFinance = hasDescendantTodos(folder) && !workCard;
-  $("orderFinanceOverview").hidden = !showFinance;
+  $("orderFinanceOverview").hidden = !showFinance || !folder.order;
   $("purchasePanel").hidden = !showFinance;
   $("orderOverview").hidden = !folder.path || (printView && !folder.eventFolder);
   $("orderOverview").classList.toggle("with-todos", hasTodo);
   $("todoPanel").hidden = !hasTodo;
+  $("orderTasksColumn").hidden = !hasTodo && !showFinance;
   $("breadcrumbs").innerHTML = folder.breadcrumbs.map((part, index) =>
     (index ? '<span class="breadcrumb-divider">/</span>' : "") +
     '<button data-path="' + escapeHtml(part.path) + '"' + (index === folder.breadcrumbs.length - 1 ? ' aria-current="page"' : "") + ">" +

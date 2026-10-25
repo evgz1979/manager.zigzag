@@ -122,7 +122,8 @@ h1 { font-size: clamp(22px, 2.5vw, 32px); line-height: 1.23; letter-spacing: -.8
 .order-details summary { display: flex; align-items: center; gap: 10px; padding: 11px 13px; font-size: 11px; color: #839088; cursor: pointer; list-style: none; }
 .order-details summary::-webkit-details-marker { display: none; }
 .order-overview { margin-bottom: 23px; }
-.order-overview > .order-details { margin-bottom: 0; min-width: 0; }
+.order-overview-column { display: grid; gap: 18px; align-content: start; min-width: 0; }
+.order-overview-column > .order-details { margin-bottom: 0; min-width: 0; }
 .order-overview.with-todos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; }
 .with-todos .status-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .with-todos .order-status-fields { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -515,9 +516,11 @@ h2 { font-size: 13px; font-weight: 600; }
 .order-deadline-line { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
 .order-deadline-weeks { display: grid; grid-template-columns: repeat(10, 24px); gap: 3px; flex: none; }
 .order-deadline-range { color: var(--text); font-size: 11px; font-weight: 400; }
-.order-card-deadlines { grid-column: 1 / -1; border: 1px solid var(--line); border-radius: 8px; background: #fafbf9; padding: 13px; }
-.order-card-deadline-layout { display: grid; grid-template-columns: minmax(355px, 1fr) minmax(240px, 1fr); gap: 18px; }
+.order-card-deadlines { border: 1px solid var(--line); border-radius: 8px; background: #fafbf9; padding: 13px; min-width: 0; }
+.order-card-deadline-layout { display: flex; flex-wrap: wrap; gap: 18px; }
 .order-card-deadline-layout > * { min-width: 0; }
+.order-card-deadline-layout > :first-child { flex: 1 1 355px; }
+.order-card-deadline-layout > :last-child { flex: 1 1 240px; }
 .deadline-comments { display: grid; gap: 6px; }
 .deadline-comment-row { display: flex; align-items: center; gap: 7px; }
 .deadline-comment-row .deadline-week { display: inline-grid; place-items: center; flex: none; cursor: default; box-sizing: border-box; border-style: solid; border-width: 1px; }
@@ -526,7 +529,6 @@ h2 { font-size: 13px; font-weight: 600; }
 .deadline-comment-row input[aria-invalid="true"] { border-color: #b4604a; }
 .order-location-link { color: var(--accent); text-decoration: none; }
 .order-location-link:hover { text-decoration: underline; }
-@media (max-width: 1000px) { .order-card-deadline-layout { grid-template-columns: minmax(0, 1fr); } }
 .order-card-deadlines h3 { margin: 0 0 9px; font-size: 12px; font-weight: 550; }
 .order-card-deadline-list { overflow-x: auto; padding: 2px; }
 .order-card-deadline-line { align-items: start; }
@@ -655,7 +657,7 @@ h2 { font-size: 13px; font-weight: 600; }
 @media (max-width: 1050px) { .print-layout { grid-template-columns: 150px minmax(0, 1fr); gap: 12px; } .print-editor { padding: 15px; } .print-editor-heading { flex-wrap: wrap; } .print-link-row { flex-wrap: wrap; } .print-link-row label { flex-basis: 100%; } }
 @media (max-width: 760px) { .print-layout { grid-template-columns: 1fr; } .print-task-list { max-height: 190px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } .print-toolbar { flex-wrap: wrap; } }
 /* Compact invoice register and editor. */
-.order-finance-overview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 18px; margin: 18px 0; }
+.order-finance-overview { min-width: 0; }
 .order-finance-overview > .invoice-section { min-width: 0; margin: 0; }
 .purchase-panel { border-radius: 12px; padding: 13px 15px; }
 .purchase-panel .todo-heading { align-items: flex-start; }
@@ -669,7 +671,6 @@ h2 { font-size: 13px; font-weight: 600; }
 .purchase-suppliers button { border-color: var(--line); background: transparent; color: var(--accent); font-size: 10px; padding: 3px 7px; }
 .purchase-suppliers button:hover { background: var(--accent-soft); }
 .purchase-suppliers button[aria-pressed="true"] { color: #fff; background: var(--accent); border-color: var(--accent); }
-@media (max-width: 1050px) { .order-finance-overview { grid-template-columns: minmax(0, 1fr); } }
 .invoice-section { margin: 18px 0; border: 1px solid var(--border, #e1e4e9); border-radius: 12px; padding: 12px 15px; }
 .invoice-section-heading, .invoice-total-row, .invoice-dialog-heading, .invoice-dialog-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .invoice-section-heading h2 { margin: 0; font-size: 15px; }
