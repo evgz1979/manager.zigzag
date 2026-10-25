@@ -253,7 +253,7 @@ const HomeCalendar = (() => {
         const value = document.createElement('span'), caption = document.createElement('span');
         value.className = 'calendar-plan-amount'; value.textContent = payment ? signedAmount : '+ ****';
         caption.className = 'calendar-plan-caption';
-        caption.textContent = payment ? plan.text || plan.invoice_label || (plan.path ? plan.title : '') || (operation === 'incoming' ? 'поступление' : 'затрата') : plan.title;
+        caption.textContent = plan.path ? plan.title : plan.text || (operation === 'incoming' ? 'поступление' : 'затрата');
         link.replaceChildren(value, caption);
         if (plan.path) {
           link.href = '?path=' + encodeURIComponent(plan.path);
