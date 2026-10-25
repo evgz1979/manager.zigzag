@@ -1772,9 +1772,15 @@ function renderOrderDeadlines(order, { options = state.deadlineWeekOptions, card
     options = [...overdue.map((start) => ({ start })), ...options];
   }
   const outside = [...selected].filter((week) => !options.some((option) => option.start === week));
+  const comments = card ? [] : Object.entries(order.deadline_comments || {}).filter(([, comment]) => comment.trim()).sort(([first], [second]) => first.localeCompare(second));
+  const preview = comments.map(([start, comment]) => deadlineWeekInfo(start).number + '-' + comment.trim()).join(', ');
+  const outsideText = unknown ? 'Неизвестный формат сроков' : outside.length ? 'Вне окна: ' + outside.length : '';
+  const footer = [outsideText, preview].filter(Boolean).join(' · ');
+  const footerHelp = [unknown ? outsideText : outside.length ? 'Начало выбранных недель: ' + outside.join(', ') : '',
+    ...comments.map(([start, comment]) => 'Неделя ' + deadlineWeekInfo(start).number + ' · ' + deadlineWeekDates(start) + ': ' + comment)].filter(Boolean).join('\n');
   const range = orderDeadlineRange(order.deadline_weeks);
   let previous;
-  return '<div class="order-deadline-line' + (card ? ' order-card-deadline-line' : '') + '"><div class="order-deadline-weeks" role="group" aria-label="Сроки · ' + escapeHtml(order.title) + '">' +
+  return '<div class="order-deadline-line' + (card ? ' order-card-deadline-line' : '') + '"><div class="order-deadline-buttons"><div class="order-deadline-weeks" role="group" aria-label="Сроки · ' + escapeHtml(order.title) + '">' +
     options.map((option) => {
       const week = deadlineWeekInfo(option.start);
       const overdue = selected.has(week.start) && currentWeek && week.start < currentWeek;
@@ -1789,8 +1795,9 @@ function renderOrderDeadlines(order, { options = state.deadlineWeekOptions, card
       '" aria-label="' + escapeHtml("Неделя " + week.number + " · " + help) + '" title="' + escapeHtml(help) +
       '"' + (disabled || unknown || order.registered === false || orderRowSaving(order.path) ? ' disabled' : '') + '>' + week.number + '</button>';
     }).join("") + '</div>' +
+    (!card && footer ? '<small class="order-deadline-summary" title="' + escapeHtml(footerHelp) + '">' + escapeHtml(footer) + '</small>' : '') + '</div>' +
     (range ? '<span class="order-deadline-range">' + escapeHtml(range) + '</span>' : '') + '</div>' +
-    (unknown ? '<small class="order-deadline-outside">Неизвестный формат сроков</small>' : outside.length ?
+    (card && unknown ? '<small class="order-deadline-outside">Неизвестный формат сроков</small>' : card && outside.length ?
       '<small class="order-deadline-outside" title="Начало выбранных недель: ' + outside.join(', ') + '">Вне окна: ' + outside.length + '</small>' : '');
 }
 
