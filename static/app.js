@@ -1713,7 +1713,7 @@ async function toggleOrderFavorite(path) {
 }
 
 function orderMatchesProduction(order, filter) {
-  return filter === "all" ? !["cancelled", "deferred", "done"].includes(order.status) : order.status === filter;
+  return filter === "all" ? !["cancelled", "done"].includes(order.status) : order.status === filter;
 }
 
 function renderProductionStatusOptions(selected) {
