@@ -37,15 +37,24 @@
         <header class="order-heading"><div><p id="clientLabel" class="eyebrow">КЛИЕНТЫ И ЗАКАЗЫ</p><div class="order-title-row"><h1 id="folderTitle"><span id="workSupplierName" class="work-supplier-name" hidden></span> <span id="folderTitleText">Зигзаг</span></h1><button id="orderPageFavorite" type="button" class="order-favorite-button" aria-label="Добавить в избранное" aria-pressed="false" hidden><span aria-hidden="true">☆</span></button></div><p id="orderFolderName" class="order-folder-name" hidden></p><p id="folderSummary" class="folder-summary">Загрузка папок…</p></div><div class="folder-heading-actions"><button id="createObjectFolderButton" class="primary-button" type="button" hidden>+ Создать объект</button><button id="groupObjectYearsButton" class="secondary-button" type="button" hidden>По годам</button><button id="createOrderFolderButton" class="primary-button" type="button" hidden>+ Создать заказ</button><button id="createEventFolderButton" class="primary-button" type="button" hidden>+ Создать событие</button><button id="deleteEventButton" class="danger-button" type="button" hidden>Удалить событие</button><button id="openEventTrash" class="secondary-button" type="button" hidden>Корзина событий</button><button id="renameFolderButton" class="secondary-button" type="button" hidden>Переименовать папку</button><button id="openFolderButton" class="secondary-button"><svg><use href="#icon-folder"/></svg>Открыть в Finder</button><button id="addOrderButton" class="primary-button" hidden>+ Добавить в список заказов</button><button id="removeOrderButton" class="secondary-button" hidden>Убрать из списка заказов</button></div></header>
         <div id="notice" class="notice" role="status" hidden></div>
         <button id="loadOrderFilesButton" class="secondary-button" hidden>Повторить загрузку файлов</button>
+        <div id="homeToolbarSlot" class="home-toolbar-slot" hidden></div>
+        <div id="homeSyncSlot" class="home-sync-slot" hidden></div>
         <section id="ordersWorkspace" class="orders-workspace" aria-label="Все заказы" hidden>
-          <div id="orderStatusFilters" class="order-status-filters" aria-label="Фильтр по производственному статусу"></div>
-          <div id="orderTotals" class="order-totals" aria-label="Финансовые итоги"></div>
-          <div class="orders-toolbar">
-            <label class="search-field orders-search"><svg><use href="#icon-search"/></svg><input id="orderSearch" type="search" placeholder="Найти заказ, задачу или закупку…" aria-label="Поиск заказов"></label>
+          <section id="homeCalendar" class="home-calendar" aria-label="Календарь" hidden>
+            <header class="calendar-heading"><h2 id="calendarTitle"></h2><span class="calendar-draft">Календарь · заготовка</span><div class="calendar-navigation"><button id="calendarEarlier" type="button" aria-label="На неделю назад" title="На неделю назад">⌃</button><button id="calendarToday" type="button">Сегодня</button><button id="calendarLater" type="button" aria-label="На неделю вперёд" title="На неделю вперёд">⌄</button></div></header>
+            <div class="calendar-weekdays" aria-hidden="true"><span>пн</span><span>вт</span><span>ср</span><span>чт</span><span>пт</span><span class="weekend">сб</span><span class="weekend">вс</span></div>
+            <div id="calendarViewport" class="calendar-viewport" tabindex="0" role="region" aria-label="Две недели календаря. Прокручивай вверх и вниз; Home — начало, End — конец."><div id="calendarWeeks" class="calendar-weeks"></div></div>
+          </section>
+          <details id="orderListControls" class="order-list-controls"><summary><span id="orderListControlsLabel">Фильтры и итоги</span></summary>
+            <div id="orderStatusFilters" class="order-status-filters" aria-label="Фильтр по производственному статусу"></div>
             <label class="financial-filter">Оплата<select id="financialStatusFilter" aria-label="Фильтр по финансовому статусу"></select></label>
+            <div id="orderTotals" class="order-totals" aria-label="Финансовые итоги"></div>
+          </details>
+          <div id="listToolbarSlot"><div id="ordersToolbar" class="orders-toolbar">
+            <label class="search-field orders-search"><svg><use href="#icon-search"/></svg><input id="orderSearch" type="search" placeholder="Найти заказ, задачу или закупку…" aria-label="Поиск заказов"></label>
             <button id="refreshTodosButton" class="secondary-button">Обновить To-do</button><button id="syncOrdersButton" class="secondary-button">Повторить перенос / выпуск</button>
-          </div>
-          <p id="ordersSyncState" class="orders-sync-state" role="status"></p>
+          </div></div>
+          <div id="listSyncSlot"><p id="ordersSyncState" class="orders-sync-state" role="status"></p></div>
           <div class="orders-table-scroll"><table class="orders-table"><caption class="visually-hidden">Заказы и финансовые показатели в рублях</caption><thead><tr>
             <th scope="col" class="order-favorite-column"><span class="visually-hidden">Избранное</span><span aria-hidden="true">★</span></th><th scope="col" class="order-todo-column">To-do</th><th scope="col" class="order-todo-column">Закупки</th><th scope="col" class="order-client-column"><button data-sort="client">Клиент ↕</button></th><th scope="col" class="order-object-column"><button data-sort="object">Объект ↕</button></th><th scope="col" class="order-title-column"><button data-sort="title">Заказ ↕</button></th><th scope="col" class="order-comment-column">1я строка комментария</th><th scope="col" class="order-deadline-column" title="Недели с понедельника по воскресенье, по Москве">Сроки</th><th scope="col"><button data-sort="status">Производство ↕</button></th><th scope="col"><button data-sort="financial_status">Оплата ↕</button></th>
             <th scope="col" class="order-money"><button data-sort="amount">Сумма ↕</button></th><th scope="col" class="order-money"><button data-sort="costs">Затраты ↕</button></th>
@@ -289,6 +298,7 @@
     <dialog id="fileTrashDialog" class="confirm-dialog file-trash-dialog" aria-labelledby="fileTrashTitle"><h2 id="fileTrashTitle">Корзина менеджера</h2><div id="fileTrashList"></div><p id="fileTrashWarning" class="file-report-state error" role="status" hidden></p><p id="fileTrashDialogState" class="file-report-state" role="status"></p><div class="confirm-actions"><button id="closeFileTrash" class="secondary-button" type="button">Закрыть</button></div></dialog>
     <div id="toast" class="toast" role="status" hidden></div>
     <script src="/spreadsheet-preview.js"></script>
+    <script src="/home-calendar.js"></script>
     <script src="/app.js"></script>
     <script src="/invoices.js"></script>
     <script src="/work-orders.js"></script>

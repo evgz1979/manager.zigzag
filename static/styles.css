@@ -430,6 +430,60 @@ h2 { font-size: 13px; font-weight: 600; }
 .financial-filter { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; }
 .financial-filter select { padding: 8px; font-size: 11px; max-width: 190px; }
 .orders-sync-state { margin: 12px 0 18px; font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
+.order-list-controls { margin-bottom: 12px; font-size: 12px; }
+.order-list-controls > summary { width: fit-content; cursor: pointer; color: var(--muted); padding: 7px 0; }
+.order-list-controls[open] > summary { margin-bottom: 8px; }
+.order-list-controls .order-status-filters { padding-bottom: 12px; }
+.order-list-controls .financial-filter { margin-bottom: 12px; }
+.order-list-controls .order-totals { margin-bottom: 12px; }
+.home-view > .content-topbar { display: none; }
+.home-view > .order-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 24px; align-items: start; padding: 12px 0 0; margin-bottom: 12px; }
+.home-view > .order-heading > div:first-child { display: flex; flex-wrap: wrap; gap: 5px 20px; align-items: baseline; }
+.home-view .eyebrow, .home-view .folder-summary, .home-view .orders-sync-state { margin: 0; }
+.home-view .eyebrow { flex-shrink: 0; }
+.home-view .folder-summary { font-size: 12px; }
+.home-view .order-title-row { order: 1; flex-basis: 100%; }
+.home-view .folder-heading-actions { display: none; }
+.home-sync-slot { flex: 1 1 230px; min-width: 0; }
+.home-sync-slot .orders-sync-state { font-size: 11px; line-height: 1.4; }
+.home-toolbar-slot { width: clamp(430px, 35vw, 750px); }
+.home-toolbar-slot .orders-toolbar { flex-wrap: nowrap; gap: 8px; }
+.home-toolbar-slot .orders-search { min-width: 130px; }
+.home-toolbar-slot .secondary-button { min-height: 34px; padding: 7px 10px; font-size: 11px; }
+.home-calendar { --calendar-week-height: clamp(140px, 24dvh, 285px); margin-bottom: 8px; color: #303030; }
+.calendar-heading { display: flex; align-items: center; gap: 12px; min-height: 34px; margin-bottom: 4px; }
+.calendar-heading h2 { font-size: 19px; font-weight: 500; text-transform: capitalize; letter-spacing: -.4px; }
+.calendar-draft { font-size: 11px; color: #a1a1a1; }
+.calendar-navigation { display: flex; gap: 5px; margin-left: auto; }
+.calendar-navigation button { min-width: 30px; height: 26px; border-color: #dedede; padding: 2px 9px; border-radius: 5px; color: #6b6b6b; font-size: 12px; }
+.calendar-weekdays, .calendar-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.calendar-weekdays { padding-right: var(--calendar-scrollbar, 0px); border-bottom: 1px solid #dedede; }
+.calendar-weekdays > span { padding: 2px 10px 4px; text-align: right; font-size: 11px; color: #777; }
+.calendar-weekdays > .weekend { color: #aaa; }
+.calendar-viewport { height: calc(2 * var(--calendar-week-height)); overflow-y: auto; overscroll-behavior-y: contain; scroll-snap-type: y mandatory; scrollbar-width: thin; border-bottom: 1px solid #dedede; }
+.calendar-week { height: var(--calendar-week-height); scroll-snap-align: start; }
+.calendar-day { min-width: 0; padding: 4px 7px; border-right: 1px solid #e2e2e2; border-bottom: 1px solid #e2e2e2; background: #fff; text-align: right; }
+.calendar-day:first-child { border-left: 1px solid #e2e2e2; }
+.calendar-day.weekend { background: #f8f8f8; }
+.calendar-day time { display: inline-flex; justify-content: center; align-items: center; min-width: 26px; height: 26px; font-size: 16px; font-weight: 400; color: #b4b4b4; white-space: nowrap; }
+.calendar-day .calendar-today { color: #fff; background: #ff3b42; border-radius: 50%; }
+.calendar-outside time { opacity: .35; }
+@media (max-width: 1600px) {
+  .home-view > .order-heading { grid-template-columns: minmax(0, 1fr); }
+  .home-toolbar-slot { width: 100%; }
+}
+@media (max-width: 700px) {
+  .home-view > .order-heading > div:first-child { gap: 5px 12px; }
+  .home-sync-slot { flex-basis: 100%; }
+  .home-toolbar-slot .orders-toolbar { flex-wrap: wrap; }
+  .home-toolbar-slot .orders-search { flex-basis: 100%; }
+  .calendar-heading { flex-wrap: wrap; gap: 4px 8px; }
+  .calendar-heading h2 { font-size: 16px; }
+  .calendar-draft { display: none; }
+  .calendar-day { padding: 4px 2px; }
+  .calendar-day time { min-width: 23px; height: 23px; font-size: 12px; }
+  .calendar-weekdays > span { padding-right: 4px; }
+}
 .orders-table-scroll { overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
 .orders-table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; }
 .orders-table th { background: #f7f9f6; border-bottom: 1px solid var(--line); white-space: nowrap; }

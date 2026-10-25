@@ -1516,13 +1516,29 @@ function findListOrder(path) {
   return orderListRows().find((order) => order.path === path) || state.orders.find((order) => order.path === path);
 }
 
+let homeFiltersOpen = false;
+
 function mountOrderList() {
   const object = isObjectOrderList(), workspace = $("ordersWorkspace");
+  const home = state.view === "orders", pane = document.querySelector(".content-pane");
+  pane.classList.toggle("home-view", home);
+  const heading = pane.querySelector(".order-heading");
+  heading.append($("homeToolbarSlot"));
+  heading.firstElementChild.append($("homeSyncSlot"));
+  $("homeToolbarSlot").hidden = !home;
+  $("homeSyncSlot").hidden = !home;
+  const toolbarSlot = $(home ? "homeToolbarSlot" : "listToolbarSlot");
+  if ($("ordersToolbar").parentElement !== toolbarSlot) toolbarSlot.append($("ordersToolbar"));
+  const syncSlot = $(home ? "homeSyncSlot" : "listSyncSlot");
+  if ($("ordersSyncState").parentElement !== syncSlot) syncSlot.append($("ordersSyncState"));
+  $("orderListControls").open = object || homeFiltersOpen;
+  $("homeCalendar").hidden = !home;
   $("objectOrdersSection").hidden = !object;
   if (object) {
     if (workspace.parentElement !== $("objectOrdersSlot")) $("objectOrdersSlot").append(workspace);
   } else if (workspace.parentElement !== $("folderView").parentElement) $("folderView").before(workspace);
   workspace.hidden = !hasOrderList();
+  if (home) HomeCalendar.show();
   workspace.setAttribute("aria-label", object ? "Заказы объекта" : "Все заказы");
   $("syncOrdersButton").hidden = object;
   const scope = object ? state.folder.path : "main";
@@ -2010,6 +2026,7 @@ function renderOrders({ force = false } = {}) {
   const focusedFavorite = document.activeElement?.dataset.orderFavorite;
   const focusedDeadline = document.activeElement?.dataset.orderDeadline, focusedWeek = document.activeElement?.dataset.deadlineWeek;
   const orders = orderListRows(), object = isObjectOrderList();
+  if (!object) HomeCalendar.show();
   const needle = normalize(state.orderQuery.trim());
   const matching = orders.filter((order) => !needle || normalize([order.client, order.object, order.title, order.path, order.note, orderTodoText(order), orderPurchaseText(order)].join(" ")).includes(needle));
   const productionMatching = matching.filter((order) => state.financialFilter === "all" || order.financial_status === state.financialFilter);
@@ -2023,6 +2040,9 @@ function renderOrders({ force = false } = {}) {
   $("financialStatusFilter").innerHTML = Object.entries({ all: "Все", ...financialStatusLabels }).map(([status, label]) =>
     '<option value="' + status + '">' + label + ' · ' + financeMatching.filter((order) => status === "all" || order.financial_status === status).length + '</option>').join("");
   $("financialStatusFilter").value = state.financialFilter;
+  $("orderListControlsLabel").textContent = "Фильтры и итоги" +
+    (state.orderFilter !== "all" ? " · " + (statusLabels[state.orderFilter] || "Не добавлены") : "") +
+    (state.financialFilter !== "all" ? " · " + financialStatusLabels[state.financialFilter] : "");
   $("orderTotals").innerHTML = [["amount", "Сумма заказов"], ["costs", "Затраты"], ["profit", "Расчётная прибыль"], ["paid", "Оплачено"], ["debt", "Остаток оплаты"]].map(([field, label]) => {
     const known = filtered.filter((order) => order[field] != null);
     const total = known.reduce((sum, order) => sum + order[field], 0);
@@ -2677,6 +2697,7 @@ $("orderStatusFilters").addEventListener("click", (event) => {
   if (button) { state.orderFilter = button.dataset.status; renderOrders(); }
 });
 $("orderSearch").addEventListener("input", (event) => { state.orderQuery = event.target.value; renderOrders(); });
+$("orderListControls").addEventListener("toggle", () => { if (state.view === "orders") homeFiltersOpen = $("orderListControls").open; });
 $("financialStatusFilter").addEventListener("change", (event) => { state.financialFilter = event.target.value; renderOrders(); });
 $("ordersTableBody").addEventListener("change", (event) => {
   const select = event.target.closest("[data-order-status]");
