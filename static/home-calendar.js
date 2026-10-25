@@ -1,4 +1,4 @@
-/* A bounded, empty calendar scaffold. Civil dates are calculated in Moscow. */
+/* A bounded calendar with weekly order deadlines. Civil dates use Moscow. */
 const HomeCalendar = (() => {
   const DAY = 86400000;
   const dateKey = (date) => date.toISOString().slice(0, 10);
@@ -20,7 +20,7 @@ const HomeCalendar = (() => {
     return { today, from, through, start: monday(from), end: shiftDays(monday(through), 6) };
   }
 
-  let range, builtFor = "", initialized = false, frame = 0, rowPixels = 0, visibleWeek = 0;
+  let range, builtFor = "", initialized = false, frame = 0, rowPixels = 0, visibleWeek = 0, orders = [];
   const get = (id) => document.getElementById(id);
   const monthName = new Intl.DateTimeFormat("ru-RU", { month: "long", timeZone: "UTC" });
   const shortDate = new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short", timeZone: "UTC" });
@@ -51,7 +51,65 @@ const HomeCalendar = (() => {
     updateHeading();
   }
 
-  function show() {
+  function renderWeekOrders() {
+    const byWeek = new Map();
+    for (const order of orders) {
+      if (!order.path || order.registered === false || !Array.isArray(order.deadline_weeks)) continue;
+      for (const week of new Set(order.deadline_weeks)) {
+        if (!byWeek.has(week)) byWeek.set(week, []);
+        byWeek.get(week).push(order);
+      }
+    }
+    for (const row of get("calendarWeeks").children) {
+      const list = row.querySelector(".calendar-orders-list"), weekly = byWeek.get(row.dataset.week) || [];
+      const signature = JSON.stringify(weekly.map((order) => [order.id, order.path, order.title, order.client, order.object]));
+      if (list.dataset.signature === signature) continue;
+      list.dataset.signature = signature;
+      const top = list.scrollTop;
+      const focused = list.contains(document.activeElement) ? document.activeElement : null;
+      const existing = new Map([...list.children].map((item) => [item.dataset.orderKey, item]));
+      const retained = new Set();
+      let before = list.firstElementChild;
+      for (const order of weekly) {
+        const key = JSON.stringify([order.id, order.path]);
+        let item = existing.get(key);
+        if (!item) {
+          item = document.createElement("li");
+          item.dataset.orderKey = key;
+          const link = document.createElement("a"), title = document.createElement("span"), client = document.createElement("small");
+          link.className = "calendar-order-link";
+          title.className = "calendar-order-title";
+          client.className = "calendar-order-client";
+          link.append(title, client);
+          item.append(link);
+        }
+        const link = item.firstElementChild, title = order.title || order.path;
+        link.href = "?path=" + encodeURIComponent(order.path);
+        link.dataset.calendarOrder = order.path;
+        link.title = [title, order.client, order.object].filter(Boolean).join(" · ");
+        link.firstElementChild.textContent = title;
+        link.lastElementChild.textContent = order.client || "";
+        link.lastElementChild.hidden = !order.client;
+        if (item !== before) list.insertBefore(item, before);
+        before = item.nextElementSibling;
+        retained.add(item);
+      }
+      for (const item of [...list.children]) if (!retained.has(item)) item.remove();
+      if (!weekly.length) {
+        const empty = document.createElement("li");
+        empty.className = "calendar-orders-empty";
+        empty.textContent = "Нет заказов";
+        list.append(empty);
+      }
+      list.scrollTop = top;
+      if (focused && document.activeElement !== focused) {
+        (focused.isConnected ? focused : list.querySelector("a") || get("calendarViewport")).focus({ preventScroll: true });
+      }
+    }
+  }
+
+  function show(nextOrders) {
+    if (Array.isArray(nextOrders)) orders = nextOrders;
     const nextRange = calendarRange();
     if (builtFor !== dateKey(nextRange.today)) {
       range = nextRange;
@@ -60,6 +118,13 @@ const HomeCalendar = (() => {
       for (let week = range.start; week <= range.end; week = shiftDays(week, 7)) {
         const row = document.createElement("div");
         row.className = "calendar-week";
+        row.dataset.week = dateKey(week);
+        const orderCell = document.createElement("div"), list = document.createElement("ul");
+        orderCell.className = "calendar-day calendar-orders-cell";
+        list.className = "calendar-orders-list";
+        list.setAttribute("aria-label", "Заказы на неделю: " + fullDate.format(week) + " — " + fullDate.format(shiftDays(week, 6)));
+        orderCell.append(list);
+        row.append(orderCell);
         for (let day = 0; day < 7; day++) {
           const date = shiftDays(week, day), cell = document.createElement("div"), label = document.createElement("time");
           cell.className = "calendar-day" + (day > 4 ? " weekend" : "") + (date < range.from || date > range.through ? " calendar-outside" : "");
@@ -77,6 +142,7 @@ const HomeCalendar = (() => {
       get("calendarViewport").title = "Доступно: " + fullDate.format(range.from) + " — " + fullDate.format(range.through);
       scrollToWeek(range.today);
     } else updateHeading();
+    renderWeekOrders();
     if (initialized) return;
     initialized = true;
     const viewport = get("calendarViewport");

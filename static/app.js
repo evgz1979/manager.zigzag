@@ -1539,7 +1539,7 @@ function mountOrderList() {
     if (workspace.parentElement !== $("objectOrdersSlot")) $("objectOrdersSlot").append(workspace);
   } else if (workspace.parentElement !== $("folderView").parentElement) $("folderView").before(workspace);
   workspace.hidden = !hasOrderList();
-  if (home) HomeCalendar.show();
+  if (home) renderHomeCalendar();
   workspace.setAttribute("aria-label", object ? "Заказы объекта" : "Все заказы");
   $("syncOrdersButton").hidden = object;
   const scope = object ? state.folder.path : "main";
@@ -2175,6 +2175,10 @@ function compareOrders(a, b, key = state.orderSort, direction = state.orderDirec
   return compareOrderText(a.title, b.title) || compareOrderText(a.path, b.path) || compareOrderText(a.id, b.id);
 }
 
+function renderHomeCalendar() {
+  HomeCalendar.show([...state.orders].sort((a, b) => compareOrders(a, b, "title", 1)));
+}
+
 function renderOrders({ force = false } = {}) {
   // Replacing a focused native select would close its menu during background polling.
   if (!force && (state.orderStatusSaving.size || state.deadlineSaving.size || state.flagSaving.size || document.activeElement?.dataset.orderStatus)) return;
@@ -2182,7 +2186,7 @@ function renderOrders({ force = false } = {}) {
   const focusedFavorite = document.activeElement?.dataset.orderFavorite;
   const focusedDeadline = document.activeElement?.dataset.orderDeadline, focusedWeek = document.activeElement?.dataset.deadlineWeek;
   const orders = orderListRows(), object = isObjectOrderList();
-  if (!object) HomeCalendar.show();
+  if (!object) renderHomeCalendar();
   const needle = normalize(state.orderQuery.trim());
   const matching = orders.filter((order) => !needle || normalize([order.client, order.object, order.title, order.path, order.note, orderTodoText(order), orderPurchaseText(order)].join(" ")).includes(needle));
   const productionMatching = matching.filter((order) => state.financialFilter === "all" || order.financial_status === state.financialFilter);
@@ -2855,6 +2859,13 @@ $("orderStatusFilters").addEventListener("click", (event) => {
 });
 $("orderSearch").addEventListener("input", (event) => { state.orderQuery = event.target.value; renderOrders(); });
 $("orderListControls").addEventListener("toggle", () => { if (state.view === "orders") homeFiltersOpen = $("orderListControls").open; });
+$("calendarWeeks").addEventListener("click", (event) => {
+  const link = event.target.closest("[data-calendar-order]");
+  if (link && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0) {
+    event.preventDefault();
+    run(() => navigate(link.dataset.calendarOrder));
+  }
+});
 $("financialStatusFilter").addEventListener("change", (event) => { state.financialFilter = event.target.value; renderOrders(); });
 $("ordersTableBody").addEventListener("change", (event) => {
   const select = event.target.closest("[data-order-status]");

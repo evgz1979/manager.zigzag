@@ -456,7 +456,7 @@ h2 { font-size: 13px; font-weight: 600; }
 .calendar-draft { font-size: 11px; color: #a1a1a1; }
 .calendar-navigation { display: flex; gap: 5px; margin-left: auto; }
 .calendar-navigation button { min-width: 30px; height: 26px; border-color: #dedede; padding: 2px 9px; border-radius: 5px; color: #6b6b6b; font-size: 12px; }
-.calendar-weekdays, .calendar-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.calendar-weekdays, .calendar-week { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); }
 .calendar-weekdays { padding-right: var(--calendar-scrollbar, 0px); border-bottom: 1px solid #dedede; }
 .calendar-weekdays > span { padding: 2px 10px 4px; text-align: right; font-size: 11px; color: #777; }
 .calendar-weekdays > .weekend { color: #aaa; }
@@ -468,6 +468,16 @@ h2 { font-size: 13px; font-weight: 600; }
 .calendar-day time { display: inline-flex; justify-content: center; align-items: center; min-width: 26px; height: 26px; font-size: 16px; font-weight: 400; color: #b4b4b4; white-space: nowrap; }
 .calendar-day .calendar-today { color: #fff; background: #ff3b42; border-radius: 50%; }
 .calendar-outside time { opacity: .35; }
+.calendar-weekdays > .calendar-orders-heading { text-align: left; }
+.calendar-orders-cell { min-height: 0; text-align: left; padding: 4px 7px; }
+.calendar-orders-list { height: 100%; overflow-y: auto; scrollbar-width: thin; list-style: none; padding: 0; margin: 0; }
+.calendar-orders-list > li + li { margin-top: 4px; }
+.calendar-order-link { display: block; color: var(--accent); text-decoration: none; font-size: 11px; line-height: 1.25; padding: 2px 1px; overflow-wrap: anywhere; }
+.calendar-order-link:hover { text-decoration: underline; }
+.calendar-order-link:focus-visible { outline-offset: -1px; }
+.calendar-order-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.calendar-order-client { display: block; font-size: 9px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.calendar-orders-empty { font-size: 11px; color: #b4b4b4; padding-top: 3px; }
 @media (max-width: 1600px) {
   .home-view > .order-heading { grid-template-columns: minmax(0, 1fr); }
   .home-toolbar-slot { width: 100%; }
