@@ -1,7 +1,7 @@
 const $ = (id) => document.getElementById(id);
-const statusLabels = { new: "Новый", measure: "Замеры", process: "Расчеты", waiting: "Жду", workshop: "В цех", install: "Монтаж", rework: "Переделка/доделка", finishing: "Завершение/добивка", deferred: "Отложен/возможно", done: "Готово", done_but: "Готово, но…", cancelled: "Отменён", unspecified: "Не указан" };
+const statusLabels = { new: "Новый", measure: "Замеры", process: "Расчеты", waiting: "Жду", offer_later: "Предложить позже", workshop: "В цех", install: "Монтаж", rework: "Переделка/доделка", finishing: "Завершение/добивка", deferred: "Отложен/возможно", done: "Готово", done_but: "Готово, но…", cancelled: "Отменён", unspecified: "Не указан" };
 const orderStatusGroups = [
-  ["new", "measure", "process", "waiting"],
+  ["new", "measure", "process"],
   ["workshop", "install", "rework", "finishing"],
   [],
 ];
@@ -18,7 +18,7 @@ const state = {
   printTask: null, printSaving: null, printQuery: "",
   view: "orders", orders: [], orderFilter: "all", financialFilter: "all", orderQuery: "", orderSort: "updated", orderDirection: -1, scan: null, ordersRequest: 0,
   unregistrations: [], removeOrder: null, removingOrder: false,
-  favoriteSaving: new Set(), favoriteOrders: [], supplierFavoriteSaving: new Set(), supplierFavoriteFocus: null,
+  favoriteSaving: new Set(), orderStatusSaving: new Set(), favoriteOrders: [], supplierFavoriteSaving: new Set(), supplierFavoriteFocus: null,
   fileComment: null, fileCommentSaving: null,
   selectedFiles: new Set(), imageReport: null,
   fileRemoval: null, fileRemoving: false, trashRestoring: false,
@@ -1601,7 +1601,7 @@ function openOrderTodos(path, kind = "todos") {
 function renderOrderFavoriteButton(order) {
   const unknown = order.is_favorite === null;
   const label = (order.is_favorite ? "Убрать из избранного" : "Добавить в избранное") + " · " + order.title;
-  return '<button type="button" class="order-favorite-button" data-order-favorite="' + escapeHtml(order.path) + '" aria-pressed="' + Boolean(order.is_favorite) + '" aria-label="' + escapeHtml(label) + '" title="' + escapeHtml(unknown ? "Неизвестный раздел «Избранное» в !.txt сохранён без изменений" : label) + '"' + (unknown || state.favoriteSaving.has(order.path) ? ' disabled' : '') + '><span aria-hidden="true">' + (order.is_favorite ? '★' : '☆') + '</span></button>';
+  return '<button type="button" class="order-favorite-button" data-order-favorite="' + escapeHtml(order.path) + '" aria-pressed="' + Boolean(order.is_favorite) + '" aria-label="' + escapeHtml(label) + '" title="' + escapeHtml(unknown ? "Неизвестный раздел «Избранное» в !.txt сохранён без изменений" : label) + '"' + (unknown || state.favoriteSaving.has(order.path) || state.orderStatusSaving.has(order.path) ? ' disabled' : '') + '><span aria-hidden="true">' + (order.is_favorite ? '★' : '☆') + '</span></button>';
 }
 
 function focusOrderFavorite(path) {
@@ -1614,7 +1614,7 @@ function focusOrderFavorite(path) {
 async function toggleOrderFavorite(path) {
   const folder = state.folder?.path === path ? state.folder : null;
   let order = folder?.order || state.orders.find((item) => item.path === path);
-  if (!order || order.is_favorite === null || state.favoriteSaving.has(path)) return;
+  if (!order || order.is_favorite === null || state.favoriteSaving.has(path) || state.orderStatusSaving.has(path)) return;
   state.favoriteSaving.add(path);
   ++state.ordersRequest;
   if (state.view === "orders") renderOrders();
@@ -1658,12 +1658,69 @@ function orderMatchesProduction(order, filter) {
   return filter === "all" ? !["cancelled", "deferred", "done"].includes(order.status) : order.status === filter;
 }
 
+function renderProductionStatusOptions(selected) {
+  return orderStatusGroups.map((group, index) => {
+    const statuses = group.length ? group : Object.keys(statusLabels).filter((status) =>
+      !orderStatusGroups.some((group) => group.includes(status)));
+    return '<optgroup label="— ' + (index + 1) + '-я группа —">' + statuses.map((status) =>
+      '<option value="' + status + '"' + (selected === status ? ' selected' : '') + '>' +
+      statusLabels[status] + '</option>').join("") + '</optgroup>';
+  }).join("");
+}
+
+function renderOrderProductionStatus(order) {
+  const known = Object.hasOwn(statusLabels, order.status);
+  return '<select class="status-badge order-status-select" data-status="' + escapeHtml(order.status) +
+    '" data-order-status="' + escapeHtml(order.path) + '" data-revision="' + order.revision +
+    '" aria-label="Производственный статус · ' + escapeHtml(order.title) + '"' +
+    (state.orderStatusSaving.has(order.path) || state.favoriteSaving.has(order.path) || !known ? ' disabled' : '') + '>' +
+    (!known ? '<option selected>' + escapeHtml(order.status) + '</option>' : '') +
+    renderProductionStatusOptions(order.status) + '</select>';
+}
+
+async function changeOrderProductionStatus(select) {
+  const path = select.dataset.orderStatus, status = select.value, revision = Number(select.dataset.revision);
+  if (state.orderStatusSaving.has(path) || state.favoriteSaving.has(path)) return;
+  state.orderStatusSaving.add(path);
+  ++state.ordersRequest;
+  select.disabled = true;
+  select.setAttribute("aria-busy", "true");
+  $("ordersTableBody").querySelectorAll("[data-order-favorite]").forEach((button) => {
+    if (button.dataset.orderFavorite === path) button.disabled = true;
+  });
+  try {
+    const saved = await request("/api/order-status", { path, revision, status });
+    ++state.ordersRequest;
+    for (const orders of [state.orders, state.favoriteOrders]) {
+      const current = orders.find((order) => order.path === path);
+      if (current && current.revision <= saved.revision) Object.assign(current, saved);
+    }
+    renderFavoriteOrders();
+    notify("Статус: " + statusLabels[saved.status]);
+  } catch (error) {
+    try { await loadOrders(); } catch (_) { /* Keep the last loaded list if the server is unavailable. */ }
+    throw error;
+  } finally {
+    state.orderStatusSaving.delete(path);
+    if (state.view === "orders") {
+      const restoreFocus = document.activeElement === select || document.activeElement === document.body;
+      renderOrders({ force: true });
+      if (restoreFocus) {
+        const next = [...$("ordersTableBody").querySelectorAll("[data-order-status]")].find((item) => item.dataset.orderStatus === path);
+        (next || $("orderSearch")).focus({ preventScroll: true });
+      }
+    }
+  }
+}
+
 function renderOrderComment(order) {
   const firstLine = String(order.note || "").split(/\r\n?|\n/, 1)[0].trim();
   return '<span class="order-row-comment' + (!firstLine ? ' empty' : '') + '" title="' + escapeHtml(firstLine) + '">' + escapeHtml(firstLine || "—") + '</span>';
 }
 
-function renderOrders() {
+function renderOrders({ force = false } = {}) {
+  // Replacing a focused native select would close its menu during background polling.
+  if (!force && (state.orderStatusSaving.size || document.activeElement?.dataset.orderStatus)) return;
   const focusedFavorite = document.activeElement?.dataset.orderFavorite;
   const needle = normalize(state.orderQuery.trim());
   const matching = state.orders.filter((order) => !needle || normalize([order.title, order.path, order.note, orderTodoText(order), orderPurchaseText(order)].join(" ")).includes(needle));
@@ -1699,7 +1756,7 @@ function renderOrders() {
   });
   $("ordersTableBody").innerHTML = groups.filter((group) => group.orders.length).map((group) =>
     '<tr class="order-group-divider"><th colspan="14">' + (group.statuses.length ? group.statuses.map((status) => statusLabels[status]).join(" · ") : "Остальные") + '</th></tr>' +
-    group.orders.map((order) => '<tr><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td><td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + escapeHtml(order.client || "—") + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button><span class="order-row-path">' + escapeHtml(order.path) + '</span></td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td><span class="status-badge" data-status="' + escapeHtml(order.status) + '">' + escapeHtml(statusLabels[order.status] || order.status) + '</span></td><td><span class="status-badge" data-financial-status="' + escapeHtml(order.financial_status) + '">' + escapeHtml(financialStatusLabels[order.financial_status] || "Не указан") + '</span></td>' +
+    group.orders.map((order) => '<tr><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td><td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + escapeHtml(order.client || "—") + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button><span class="order-row-path">' + escapeHtml(order.path) + '</span></td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td>' + renderOrderProductionStatus(order) + '</td><td><span class="status-badge" data-financial-status="' + escapeHtml(order.financial_status) + '">' + escapeHtml(financialStatusLabels[order.financial_status] || "Не указан") + '</span></td>' +
     ["amount", "costs", "profit", "paid", "debt"].map((field) => '<td class="order-money' + (order[field] < 0 ? " negative" : "") + '">' + rubles(order[field]) + '</td>').join("") +
     '<td class="order-updated">' + formatDate(order.updated) + (order.sync_pending ? '<span class="sync-pending" title="' + escapeHtml(order.sync_error || "Ожидает выгрузки в папку") + '">' + (order.sync_error ? "В очереди · автоповтор" : "Ожидает выгрузки") + '</span>' : '<span class="sync-complete">' + (order.storage === 'database' ? 'В базе' : 'Выгружено') + '</span>') + '</td></tr>').join("")).join("");
   $("ordersEmpty").hidden = Boolean(filtered.length);
@@ -2335,6 +2392,10 @@ $("orderStatusFilters").addEventListener("click", (event) => {
 });
 $("orderSearch").addEventListener("input", (event) => { state.orderQuery = event.target.value; renderOrders(); });
 $("financialStatusFilter").addEventListener("change", (event) => { state.financialFilter = event.target.value; renderOrders(); });
+$("ordersTableBody").addEventListener("change", (event) => {
+  const select = event.target.closest("[data-order-status]");
+  if (select) run(() => changeOrderProductionStatus(select));
+});
 $("ordersTableBody").addEventListener("click", (event) => {
   const favoriteButton = event.target.closest("[data-order-favorite]");
   if (favoriteButton) { run(() => toggleOrderFavorite(favoriteButton.dataset.orderFavorite)); return; }

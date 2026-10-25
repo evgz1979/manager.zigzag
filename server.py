@@ -90,7 +90,7 @@ def read_config(path=CONFIG_FILE):
 DATA_ROOT, SERVER_HOST, SERVER_PORT = read_config()
 STATUS_LABELS = {
     "unspecified": "Не указан",
-    "new": "Новый", "measure": "Замеры", "process": "Расчеты", "waiting": "Жду",
+    "new": "Новый", "measure": "Замеры", "process": "Расчеты", "waiting": "Жду", "offer_later": "Предложить позже",
     "workshop": "В цех", "install": "Монтаж", "rework": "Переделка/доделка",
     "finishing": "Завершение/добивка", "deferred": "Отложен/возможно",
     "done": "Готово", "done_but": "Готово, но…", "cancelled": "Отменён",
@@ -1623,6 +1623,11 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 return
             elif route == "/api/order-favorite":
                 record = order_store().save_favorite(payload)
+                self.send_json(record)
+                schedule_order_sync()
+                return
+            elif route == "/api/order-status":
+                record = order_store().save_status(payload)
                 self.send_json(record)
                 schedule_order_sync()
                 return

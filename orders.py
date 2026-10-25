@@ -211,6 +211,23 @@ class OrderStore:
                 raise OrderConflict("Заказ изменён в другой вкладке. Откройте его заново перед сохранением.")
         return self.get(relative)
 
+    def save_status(self, payload):
+        """Change only production status using the version shown in the list."""
+        relative = self.path(payload.get("path"))
+        status, revision = payload.get("status"), payload.get("revision")
+        if not isinstance(status, str) or status not in self.labels:
+            raise ValueError("Некорректный производственный статус")
+        if type(revision) is not int:
+            raise ValueError("Не указана версия заказа. Обнови список заказов.")
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            assert_unlocked(db, relative)
+            result = db.execute("""UPDATE orders SET status=?,revision=revision+1,updated=?,sync_error=''
+                WHERE path=? AND revision=? AND registered=1""", (status, time.time(), relative, revision))
+            if not result.rowcount:
+                raise OrderConflict("Заказ изменён в другой вкладке. Проверь актуальный статус и выбери его заново.")
+        return self.get(relative)
+
     def save_favorite(self, payload):
         """Change just the star, without reading documents or replacing card fields."""
         relative = self.path(payload.get("path"))
