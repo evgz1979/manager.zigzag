@@ -36,7 +36,7 @@ const HomeCalendar = (() => {
     if (rowPixels && Math.abs(height - rowPixels) > .1) return;
     rowPixels = height;
     const index = visibleWeek = Math.round(viewport.scrollTop / height);
-    const first = shiftDays(range.start, index * 7), last = shiftDays(first, 13);
+    const first = shiftDays(range.start, index * 7), last = shiftDays(first, 20);
     const sameMonth = first.getUTCMonth() === last.getUTCMonth() && first.getUTCFullYear() === last.getUTCFullYear();
     get("calendarTitle").textContent = sameMonth ? monthName.format(first) + " " + first.getUTCFullYear() :
       monthName.format(first) + (first.getUTCFullYear() !== last.getUTCFullYear() ? " " + first.getUTCFullYear() : "") + " — " + monthName.format(last) + " " + last.getUTCFullYear();
