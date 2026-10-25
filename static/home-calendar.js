@@ -230,7 +230,7 @@ const HomeCalendar = (() => {
         } else link.dataset.calendarPlanEdit = plan.id;
         const description = [plan.is_inactive === true ? 'Неактуально' : '', label, amount ? link.textContent + ' ₽' : '', plan.text, plan.invoice_label, plan.title, plan.client, plan.object, fullDate.format(new Date(plan.date + 'T00:00:00Z'))].filter(Boolean).join(' · ');
         link.setAttribute('aria-label', description);
-        link.title = description;
+        link.title = plan.path ? description : plan.text || '';
         if (link !== before) area.insertBefore(link, before);
         before = link.nextElementSibling; retained.add(link);
       }
