@@ -465,7 +465,13 @@ h2 { font-size: 13px; font-weight: 600; }
 .calendar-viewport { height: calc(3 * var(--calendar-week-height)); overflow-y: auto; overscroll-behavior-y: contain; scroll-snap-type: y mandatory; scrollbar-width: thin; }
 .calendar-viewport:focus, .calendar-week-content:focus { outline: none; }
 .calendar-week { position: relative; height: var(--calendar-week-height); scroll-snap-align: start; }
-.calendar-day { min-width: 0; padding: 4px 7px; border-right: 1px solid #e2e2e2; border-bottom: 1px solid #e2e2e2; background: #fff; text-align: right; }
+.calendar-day { position: relative; min-width: 0; padding: 4px 7px; border-right: 1px solid #e2e2e2; border-bottom: 1px solid #e2e2e2; background: #fff; text-align: right; }
+.calendar-invoice-plans { position: absolute; top: 4px; left: 4px; right: 30px; max-height: 52px; padding-bottom: 2px; display: flex; flex-wrap: wrap; justify-content: space-around; align-items: center; align-content: flex-start; gap: 0 2px; overflow-y: auto; scrollbar-width: thin; }
+.calendar-invoice-plan { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; min-width: 14px; height: 12px; color: #4868ef; font-size: 14px; font-weight: 700; line-height: 12px; text-decoration: none; border-radius: 3px; white-space: nowrap; }
+.calendar-invoice-plan[data-operation="incoming"] { color: #1caa39; font-size: 11px; }
+.calendar-invoice-plan[data-operation="outgoing"] { color: #f04e35; font-size: 11px; }
+.calendar-invoice-plan:hover, .calendar-invoice-plan:focus-visible { background: #eaf0fb; }
+.calendar-invoice-plan:focus-visible { outline: 1px solid currentColor; outline-offset: -1px; }
 .calendar-day.weekend { background: #f8f8f8; }
 .calendar-day time, .calendar-week-number { display: inline-flex; justify-content: center; align-items: center; min-width: 26px; height: 26px; font-size: 16px; font-weight: 400; color: #b4b4b4; white-space: nowrap; }
 .calendar-week-events-cell { background: #fafbf9; }
@@ -473,7 +479,7 @@ h2 { font-size: 13px; font-weight: 600; }
 .calendar-outside time { opacity: .35; }
 .calendar-weekdays > .calendar-orders-heading { text-align: left; }
 .calendar-orders-cell { min-height: 0; text-align: left; padding: 1px 4px; border: 0; border-right: 1px solid #e2e2e2; }
-.calendar-week-content { position: absolute; inset: 32px 0 1px; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; }
+.calendar-week-content { position: absolute; inset: var(--calendar-header-height, 32px) 0 1px; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; }
 .calendar-orders-list { flex: 0 0 auto; list-style: none; padding: 0; margin: 0; }
 .calendar-orders-list > li { margin: 0; padding: 0; }
 .calendar-order-row { --calendar-text: var(--accent); --calendar-row-hover: #4b8c7921; --calendar-event-bg: #4b8c791c; --calendar-slot-hover: #4b8c7940; display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); height: 12px; box-shadow: inset 0 -1px #00000008; }
@@ -649,6 +655,7 @@ h2 { font-size: 13px; font-weight: 600; }
 .create-order-dialog form { display: grid; gap: 16px; }
 .create-order-dialog label { display: grid; gap: 7px; font-size: 12px; color: var(--muted); }
 .create-order-dialog input { width: 100%; min-width: 0; padding: 10px; color: var(--text); }
+#planInvoiceDialog select { width: 100%; min-width: 0; padding: 10px; color: var(--text); }
 .create-order-dialog .confirm-actions { margin-top: 5px; }
 .new-order-preview { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
 .new-order-preview strong { color: var(--text); font-weight: 500; }

@@ -29,6 +29,7 @@ BUILD_LOCK = threading.Lock()
 SYNC_LOCK = threading.Lock()
 MAX_EXTERNAL_BYTES = 20 * 1024 * 1024
 INVOICE_TRASH_VERSION = 1
+INVOICE_PLAN_VERSION = 1
 LIST_STATUSES = {"none": "Без отметки", "active": "Актуально", "inactive": "Неактуально", "later": "Позже", "sent": "Отправлен"}
 EXTERNAL_REQUEST_LIMIT = ((MAX_EXTERNAL_BYTES + 2) // 3) * 4 + 64 * 1024
 DEFAULT_SELLER = {
@@ -61,6 +62,27 @@ def external_comment(value):
 
 def today():
     return datetime.now(ZoneInfo("Europe/Moscow")).date()
+
+
+def plan_date(value):
+    try:
+        if not isinstance(value, str) or date.fromisoformat(value).isoformat() != value:
+            raise ValueError()
+    except ValueError:
+        raise ValueError('Выбери день выписки счёта') from None
+    return value
+
+
+def known_plan(data):
+    if type(data.get('version')) is not int or data['version'] != 1 or data.get('kind') != 'planned':
+        return False
+    try:
+        plan_date(data.get('date'))
+        operation = data.get('operation', 'invoice')
+        return isinstance(operation, str) and (operation == 'invoice' or (operation in {'incoming', 'outgoing'} and
+            type(data.get('amount')) is int and 0 < data['amount'] <= 99999999999))
+    except ValueError:
+        return False
 
 
 def decimal(value, label, places, maximum):
@@ -210,6 +232,7 @@ class InvoiceStore:
         result['trash'] = result['data'].get('_trash')
         value = result['data'].get('_list_status', 'none')
         result['list_status'] = value if isinstance(value, str) and value in LIST_STATUSES else None
+        result['plan_editable'] = result['state'] == 'planned' and known_plan(result['data'])
         result["sync_pending"] = not result['trash'] and result["state"] in {"issued", "external"} and not result["exported"]
         result["pdf_path"] = str(Path(result["path"]) / "# bills" / result["filename"]) if result["filename"] else None
         return result
@@ -237,6 +260,73 @@ class InvoiceStore:
 
     def get(self, path, identity):
         with self.connect() as db:
+            return self.record(self.current(db, path, identity))
+
+    def calendar_plans(self, visible_orders):
+        owners = {order['path']: order for order in visible_orders if order.get('registered') is not False}
+        with self.connect() as db:
+            rows = db.execute("SELECT id,path,data FROM invoices WHERE state='planned' AND json_extract(data,'$._trash') IS NULL ORDER BY created,id")
+            result = []
+            for row in rows:
+                owner, data = owners.get(row['path']), json.loads(row['data'])
+                if owner is not None and known_plan(data):
+                    result.append({'id': row['id'], 'path': row['path'], 'date': data['date'],
+                                   'operation': data.get('operation', 'invoice'), 'amount': data.get('amount'),
+                                   'title': owner['title'], 'client': owner['client'], 'object': owner['object']})
+            return result
+
+    def plan(self, payload):
+        path, identity = self.store.path(payload.get('path')), payload.get('id')
+        scheduled = plan_date(payload.get('date'))
+        operation = payload.get('operation', 'invoice')
+        if not isinstance(operation, str) or operation not in {'invoice', 'incoming', 'outgoing'}:
+            raise ValueError('Выбери выписку счёта, получение оплаты или платёж')
+        amount = None
+        if operation != 'invoice':
+            amount = int(decimal(payload.get('amount'), 'Сумма', 2, Decimal('999999999.99')) * 100)
+            if amount <= 0:
+                raise ValueError('Сумма запланированной оплаты должна быть больше нуля')
+        try:
+            if str(uuid.UUID(identity)) != identity:
+                raise ValueError()
+        except (ValueError, TypeError, AttributeError):
+            raise ValueError('Не указан идентификатор плана выписки счёта') from None
+        with self.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            self.owner(db, path, active=True)
+            row = db.execute('SELECT * FROM invoices WHERE id=?', (identity,)).fetchone()
+            if row:
+                data = json.loads(row['data'])
+                if row['path'] != path or row['state'] != 'planned' or data.get('_trash'):
+                    raise InvoiceConflict('План больше недоступен по этому пути. Обнови список счетов')
+                if not known_plan(data):
+                    raise InvoiceConflict('Неизвестный формат плана сохранён без изменений')
+                if 'revision' not in payload:
+                    # Lost create responses never overwrite a later date edit.
+                    return self.record(row)
+                if type(payload['revision']) is not int or row['revision'] != payload['revision']:
+                    raise InvoiceConflict('План изменился в другом окне. Проверь изменения перед повтором')
+                if data['date'] == scheduled and data.get('operation', 'invoice') == operation and data.get('amount') == amount:
+                    return self.record(row)
+                db.execute('INSERT INTO invoice_history VALUES (?,?,?,?)', (identity, row['revision'], row['data'], time.time()))
+                data['date'] = scheduled
+                data['operation'] = operation
+                if amount is None:
+                    data.pop('amount', None)
+                else:
+                    data['amount'] = amount
+                db.execute('UPDATE invoices SET data=?,revision=revision+1,updated=? WHERE id=?',
+                           (json.dumps(data, ensure_ascii=False), time.time(), identity))
+            else:
+                if 'revision' in payload:
+                    raise InvoiceConflict('План не найден. Обнови список счетов')
+                data = {'version': 1, 'kind': 'planned', 'date': scheduled, 'operation': operation}
+                if amount is not None:
+                    data['amount'] = amount
+                stamp = time.time()
+                # Plans reserve no annual number and never enter the PDF outbox.
+                db.execute("INSERT INTO invoices(id,path,year,number,revision,state,data,created,updated) VALUES (?,?,0,?,1,'planned',?,?,?)",
+                           (identity, path, identity, json.dumps(data, ensure_ascii=False), stamp, stamp))
             return self.record(self.current(db, path, identity))
 
     def upload(self, payload):
@@ -448,6 +538,8 @@ class InvoiceStore:
             if existing:
                 if existing["path"] != path:
                     raise InvoiceConflict("Этот идентификатор относится к другому заказу")
+                if existing['state'] == 'planned':
+                    raise InvoiceConflict('Этот идентификатор относится к плану выписки счёта')
                 if json.loads(existing['data']).get('_trash'):
                     raise InvoiceConflict('Этот счёт уже в корзине. Восстанови его из списка удалённых')
                 return self.record(existing)
@@ -467,8 +559,8 @@ class InvoiceStore:
                         terms=DEFAULT_TERMS, items=[{"name": owner["title"], "unit": "шт", "quantity": "1", "price": "0"}])
             if payload.get("source"):
                 source = self.current(db, path, payload["source"])
-                if source['state'] == 'external':
-                    raise ValueError("Внешний PDF нельзя использовать как черновик редактора")
+                if source['state'] not in {'draft', 'issued'}:
+                    raise ValueError("Этот документ нельзя использовать как черновик редактора")
                 data.update(json.loads(source["data"]))
                 data.update(number=number, date=today().isoformat(), due_date=(today() + timedelta(days=7)).isoformat(), work_start="", work_end="")
             data = validate(data)
@@ -536,6 +628,8 @@ class InvoiceStore:
 
     def preview(self, path, identity):
         record = self.get(path, identity)
+        if record['state'] == 'planned':
+            raise ValueError('Запланирована только выписка счёта; PDF ещё нет')
         if record['state'] == 'external':
             return self.pdf(path, identity)[0]
         data = validate(record["data"], issuing=True)

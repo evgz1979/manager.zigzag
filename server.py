@@ -820,6 +820,7 @@ def listed_orders():
     return {"orders": OrderTodos(store).attach([order for order in visible if not work_orders.in_work(order["path"])]),
             "calendar_supplier_orders": [order for order in visible if order["work_supplier"]],
             "calendar_events": calendar_events.CalendarEvents(store).list(),
+            "calendar_invoice_plans": invoice_store().calendar_plans([order for order in visible if not work_orders.in_work(order['path'])]),
             "favorites": [order for order in visible if order["is_favorite"] is True],
             "deadline_week_options": order_deadlines.week_options(),
             "unregistrations": objects.visible_orders(activity.visible_orders([
@@ -1534,6 +1535,9 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 raise ValueError("Некорректный запрос")
             if route == "/api/invoice-create":
                 self.send_json(invoice_store().create(payload), 201)
+                return
+            elif route == '/api/invoice-plan':
+                self.send_json(invoice_store().plan(payload), 200 if 'revision' in payload else 201)
                 return
             elif route == '/api/invoice-upload':
                 self.send_json(invoice_store().upload(payload), 201)

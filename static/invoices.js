@@ -1,10 +1,13 @@
 /* Invoice fields live in SQLite; a browser draft is never the saved copy. */
 (() => {
   let editor = null, attachment = null, listedPath = null, listMarkup = null, trashMarkup = null, loading = 0, pendingCreate = null;
-  let pendingRemoval = null, removing = false;
+  let pendingRemoval = null, removing = false, planning = null;
   const statusSaving = new Set();
   const listStatusLabels = { active: "Актуально", inactive: "Неактуально", later: "Позже", sent: "Отправлен" };
-  const invoiceLabel = (record) => record.state === 'external' ? record.data.original_name : (record.data.kind === 'contract' ? 'Счёт-договор' : 'Счёт') + ' № ' + record.number;
+  const planLabels = { invoice: 'Запланирована выписка счёта', incoming: 'Запланировано получение оплаты', outgoing: 'Запланирован платёж' };
+  const invoiceLabel = (record) => record.state === 'planned' ? planLabels[record.data.operation || 'invoice'] || 'Запланировано' : record.state === 'external' ? record.data.original_name : (record.data.kind === 'contract' ? 'Счёт-договор' : 'Счёт') + ' № ' + record.number;
+  const displayDate = (value) => typeof value === 'string' ? value.split('-').reverse().join('.') : 'Дата не распознана';
+  const planAmount = (record) => ['incoming', 'outgoing'].includes(record.data.operation) && Number.isSafeInteger(record.data.amount) ? (record.data.operation === 'incoming' ? '+' : '−') + cash(record.data.amount) : '';
   const fields = { kind: "invoiceKind", number: "invoiceNumber", date: "invoiceDate", due_date: "invoiceDue",
     buyer_name: "invoiceBuyer", buyer_inn: "invoiceBuyerInn", buyer_kpp: "invoiceBuyerKpp", buyer_address: "invoiceBuyerAddress",
     note: "invoiceNote", work_start: "invoiceWorkStart", work_end: "invoiceWorkEnd", terms: "invoiceTerms" };
@@ -18,12 +21,16 @@
   };
 
   function renderInvoiceList(records) {
+    const focusedPlan = document.activeElement?.dataset.invoicePlan;
     const focused = document.activeElement?.closest('[data-invoice-status]');
     const focusKey = focused ? { id: focused.dataset.invoiceStatus, value: focused.dataset.value } : null;
     const markup = records.map((record) => {
       const external = record.state === "external";
       const label = invoiceLabel(record);
-      const date = record.data.date.split("-").reverse().join(".");
+      const date = displayDate(record.data.date);
+      if (record.state === 'planned') {
+        return '<div class="invoice-row"><button type="button" class="invoice-row-name" data-invoice-plan="' + record.id + '"' + (record.plan_editable ? '' : ' disabled') + '><span class="invoice-row-label">' + escapeHtml(label) + '</span><small class="invoice-row-meta">' + escapeHtml(date + (planAmount(record) ? ' · ' + planAmount(record) : '')) + (record.plan_editable ? '' : ' · Неизвестный формат плана') + '</small></button><div class="invoice-row-actions"><button class="secondary-button invoice-remove" type="button" data-invoice-remove="' + record.id + '" aria-label="В корзину · ' + escapeHtml(label + ' · ' + date) + '">×</button></div></div>';
+      }
       const details = (external ? 'Внешний · ' : '') + date;
       const comment = external ? record.data.comment?.trim() : '';
       const heading = comment || label;
@@ -40,6 +47,7 @@
       $("invoiceList").innerHTML = markup;
       listMarkup = markup;
       if (focusKey && document.activeElement === document.body) focusStatusButton(focusKey);
+      if (focusedPlan && document.activeElement === document.body) [...$("invoiceList").querySelectorAll('[data-invoice-plan]')].find((button) => button.dataset.invoicePlan === focusedPlan)?.focus({ preventScroll: true });
     }
     // Store records on this exact list, independent of grid positions.
     $("invoiceList").invoiceRecords = records;
@@ -92,14 +100,14 @@
       const result = await request(apiUrl("/api/invoices", folder.path));
       if (version !== loading || state.folder?.path !== folder.path) return;
       $("invoiceCount").textContent = result.items.length || "";
-      $("invoiceListState").textContent = result.items.length ? "" : "Прикрепи PDF или выпиши счёт по этому заказу.";
+      $("invoiceListState").textContent = result.items.length ? "" : "Запланируй выписку, прикрепи PDF или выпиши счёт по этому заказу.";
       renderInvoiceList(result.items);
       const trashed = result.trash || [];
       $("invoiceTrash").hidden = !trashed.length;
       $("invoiceTrashCount").textContent = trashed.length;
       const removedMarkup = trashed.map((record) => {
         const label = invoiceLabel(record), marker = record.trash;
-        const sync = marker.error ? marker.error + ' · автоповтор' : marker.state === 'pending' ? 'Перенос PDF в .trash…' : record.filename ? 'В корзине · # bills/.trash' : 'Черновик в корзине';
+        const sync = marker.error ? marker.error + ' · автоповтор' : marker.state === 'pending' ? 'Перенос PDF в .trash…' : record.filename ? 'В корзине · # bills/.trash' : record.state === 'planned' ? 'План в корзине · ' + displayDate(record.data.date) + ' ' + planAmount(record) : 'Черновик в корзине';
         const comment = record.state === 'external' && record.data.comment ? record.data.comment + ' · ' : '';
         return '<div class="invoice-row"><div class="invoice-row-name"><span class="invoice-row-label" title="' + escapeHtml(label) + '">' + escapeHtml(label) + '</span><small class="invoice-row-meta' + (marker.error ? ' error' : '') + '" title="' + escapeHtml(comment + sync) + '">' + escapeHtml(comment + sync) + '</small></div><button class="secondary-button" type="button" data-invoice-restore="' + record.id + '">Восстановить</button></div>';
       }).join('');
@@ -115,6 +123,79 @@
     const bytes = crypto.getRandomValues(new Uint8Array(16)); bytes[6] = (bytes[6] & 15) | 64; bytes[8] = (bytes[8] & 63) | 128;
     const hex = [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
     return hex.slice(0, 8) + "-" + hex.slice(8, 12) + "-" + hex.slice(12, 16) + "-" + hex.slice(16, 20) + "-" + hex.slice(20);
+  }
+
+  function showPlan(record = null) {
+    if (!state.folder?.order || (record && !record.plan_editable)) return;
+    const date = record?.data.date || new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Moscow', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    planning = { path: record?.path || state.folder.path, id: record?.id || newIdentity(), record, saved: date, busy: false, conflict: false };
+    $("planInvoiceOrder").textContent = state.folder.order.title || planning.path;
+    $("planInvoiceDate").value = date;
+    $("planInvoiceOperation").value = record?.data.operation || 'invoice';
+    $("planInvoiceAmount").value = record?.data.amount ? (record.data.amount / 100).toFixed(2).replace('.', ',') : '';
+    updatePlanFields();
+    planning.savedForm = JSON.stringify(planValues());
+    $("planInvoiceState").textContent = '';
+    $("planInvoiceState").classList.remove('error');
+    $("refreshInvoicePlan").hidden = true;
+    $("saveInvoicePlan").disabled = false;
+    $("saveInvoicePlan").textContent = record ? 'Сохранить' : 'Запланировать';
+    $("planInvoiceDialog").showModal(); $("planInvoiceDate").focus();
+  }
+
+  function closePlan() {
+    if (planning?.busy) return;
+    planning = null; $("planInvoiceDialog").close();
+  }
+
+  function planValues() {
+    return { date: $("planInvoiceDate").value, operation: $("planInvoiceOperation").value, amount: $("planInvoiceAmount").value };
+  }
+
+  function updatePlanFields() {
+    const payment = $("planInvoiceOperation").value !== 'invoice';
+    $("planInvoiceAmountLabel").hidden = !payment;
+    $("planInvoiceAmount").required = payment;
+  }
+
+  async function savePlan() {
+    const current = planning;
+    if (!current || current.busy || current.conflict) return;
+    current.busy = true;
+    for (const id of ['planInvoiceDate', 'planInvoiceOperation', 'planInvoiceAmount', 'saveInvoicePlan', 'cancelInvoicePlan']) $(id).disabled = true;
+    const status = $("planInvoiceState");
+    status.textContent = 'Сохраняю…'; status.classList.remove('error');
+    try {
+      const record = await request('/api/invoice-plan', { path: current.path, id: current.id, ...planValues(),
+        ...(current.record ? { revision: current.record.revision } : {}) });
+      current.busy = false; closePlan();
+      await refreshList(true);
+      notify(invoiceLabel(record) + ' · ' + displayDate(record.data.date));
+    } catch (error) {
+      status.textContent = error.message + ' Ввод остался в форме.'; status.classList.add('error');
+      current.conflict = error.status === 409;
+      $("refreshInvoicePlan").hidden = !current.conflict;
+    } finally {
+      current.busy = false;
+      for (const id of ['planInvoiceDate', 'planInvoiceOperation', 'planInvoiceAmount', 'cancelInvoicePlan']) $(id).disabled = false;
+      $("saveInvoicePlan").disabled = current.conflict;
+    }
+  }
+
+  async function checkPlan() {
+    const current = planning;
+    if (!current || current.busy) return;
+    const button = $("refreshInvoicePlan"); button.disabled = true;
+    try {
+      const record = await request(apiUrl('/api/invoice', current.path, { id: current.id }));
+      if (planning !== current) return;
+      if (!record.plan_editable) throw new Error('План недоступен для правки');
+      current.record = record; current.conflict = false;
+      $("planInvoiceState").textContent = 'Сохранено: ' + invoiceLabel(record) + ' · ' + displayDate(record.data.date) + ' ' + planAmount(record) + '. Проверь изменения перед сохранением своего ввода.';
+      $("planInvoiceState").classList.remove('error');
+      button.hidden = true; $("saveInvoicePlan").disabled = false;
+    } catch (error) { $("planInvoiceState").textContent = error.message + ' Выбранная дата осталась в форме.'; }
+    finally { button.disabled = false; }
   }
 
   function showExternal(record = null) {
@@ -315,6 +396,12 @@
   $("invoiceDialog").addEventListener("cancel", (event) => { event.preventDefault(); action(close); });
   $("newInvoice").addEventListener("click", () => action(() => create()));
   $("attachInvoice").addEventListener("click", () => showExternal());
+  $("planInvoice").addEventListener('click', () => showPlan());
+  $("planInvoiceOperation").addEventListener('change', updatePlanFields);
+  $("planInvoiceForm").addEventListener('submit', (event) => { event.preventDefault(); savePlan(); });
+  $("cancelInvoicePlan").addEventListener('click', closePlan);
+  $("planInvoiceDialog").addEventListener('cancel', (event) => { event.preventDefault(); closePlan(); });
+  $("refreshInvoicePlan").addEventListener('click', checkPlan);
   $("closeExternalInvoice").addEventListener("click", closeExternal);
   $("externalInvoiceDialog").addEventListener("cancel", (event) => { event.preventDefault(); closeExternal(); });
   $("externalInvoiceForm").addEventListener("submit", (event) => { event.preventDefault(); saveExternal(); });
@@ -356,6 +443,12 @@
     event.target.closest("tr").remove(); changed();
   });
   $("invoiceList").addEventListener("click", (event) => {
+    const plan = event.target.closest('[data-invoice-plan]');
+    if (plan) {
+      const record = $("invoiceList").invoiceRecords?.find((item) => item.id === plan.dataset.invoicePlan && item.path === state.folder?.path);
+      if (record) showPlan(record);
+      return;
+    }
     const status = event.target.closest('[data-invoice-status]');
     if (status) {
       const record = $("invoiceList").invoiceRecords?.find((item) => item.id === status.dataset.invoiceStatus && item.path === state.folder?.path);
@@ -368,7 +461,7 @@
       if (record) {
         pendingRemoval = record;
         $("removeInvoiceName").textContent = invoiceLabel(record);
-        $("removeInvoicePath").textContent = record.filename ? record.pdf_path + ' → # bills/.trash' : 'Черновик без PDF';
+        $("removeInvoicePath").textContent = record.filename ? record.pdf_path + ' → # bills/.trash' : record.state === 'planned' ? 'План на ' + displayDate(record.data.date) + ' ' + planAmount(record) : 'Черновик без PDF';
         $("removeInvoiceState").textContent = '';
         $("removeInvoiceState").classList.remove('error');
         $("removeInvoiceDialog").showModal(); $("cancelRemoveInvoice").focus();
@@ -442,7 +535,7 @@
   document.addEventListener("manager-folder-rendered", () => refreshList());
   document.addEventListener("manager-invoice-updated", () => refreshList(true));
   window.addEventListener("beforeunload", (event) => {
-    if (removing || editor?.dirty || editor?.saving || editor?.issuing || attachment?.busy || (attachment && $("externalInvoiceComment").value !== attachment.saved)) { event.preventDefault(); event.returnValue = ""; }
+    if (removing || planning?.busy || (planning && JSON.stringify(planValues()) !== planning.savedForm) || editor?.dirty || editor?.saving || editor?.issuing || attachment?.busy || (attachment && $("externalInvoiceComment").value !== attachment.saved)) { event.preventDefault(); event.returnValue = ""; }
   });
   setInterval(() => { if (!document.hidden && state.view !== "orders" && !$("invoiceSection").hidden) refreshList(true); }, 5000);
   refreshList();

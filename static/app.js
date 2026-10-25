@@ -35,6 +35,7 @@ const state = {
   calendarEvent: null,
   calendarSupplierOrders: [],
   calendarEvents: [],
+  calendarInvoicePlans: [],
   calendarMenu: null, calendarMoving: new Set(),
 };
 let searchTimer, toastTimer, todoSaveTimer, previewVersion = 0, treeSearchVersion = 0, printReadVersion = 0;
@@ -1618,6 +1619,7 @@ async function loadOrders() {
   state.orders = result.orders;
   state.calendarSupplierOrders = result.calendar_supplier_orders || [];
   state.calendarEvents = result.calendar_events || [];
+  state.calendarInvoicePlans = result.calendar_invoice_plans || [];
   state.deadlineWeekOptions = result.deadline_week_options || [];
   state.favoriteOrders = result.favorites || result.orders.filter((order) => order.is_favorite === true);
   state.unregistrations = result.unregistrations || [];
@@ -2242,7 +2244,7 @@ function compareOrders(a, b, key = state.orderSort, direction = state.orderDirec
 
 function renderHomeCalendar() {
   const orders = [...state.orders, ...state.calendarSupplierOrders].map((order) => order.work_supplier ? { ...order, client: order.work_supplier } : order);
-  HomeCalendar.show(orders.sort((a, b) => compareOrders(a, b, "title", 1)), state.calendarEvents);
+  HomeCalendar.show(orders.sort((a, b) => compareOrders(a, b, "title", 1)), state.calendarEvents, state.calendarInvoicePlans);
 }
 
 function renderCalendarEventControls() {

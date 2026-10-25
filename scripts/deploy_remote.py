@@ -204,6 +204,11 @@ def check_event_rename_compatibility(database, release_dir):
             source = release_dir / 'invoices.py'
             if not source.is_file() or 'INVOICE_TRASH_VERSION = 1' not in source.read_text(encoding='utf-8'):
                 raise RuntimeError('В базе есть счета в корзине. Старый код может вернуть их в список и повторно выгрузить PDF; откат заблокирован')
+        if (db.execute("SELECT 1 FROM sqlite_master WHERE name='invoices'").fetchone()
+                and db.execute("SELECT 1 FROM invoices WHERE json_extract(data,'$.kind')='planned' LIMIT 1").fetchone()):
+            source = release_dir / 'invoices.py'
+            if not source.is_file() or 'INVOICE_PLAN_VERSION = 1' not in source.read_text(encoding='utf-8'):
+                raise RuntimeError('В базе есть планы счетов или оплат. Старый код не поддерживает их формат; откат заблокирован')
         if (not (release_dir / "event_folder_undo.py").is_file()
                 and db.execute("SELECT 1 FROM sqlite_master WHERE name='event_renames'").fetchone()
                 and db.execute("SELECT 1 FROM event_renames WHERE state='pending' LIMIT 1").fetchone()):

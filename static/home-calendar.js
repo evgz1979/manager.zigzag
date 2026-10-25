@@ -24,7 +24,7 @@ const HomeCalendar = (() => {
     return { today, from, through, start: monday(from), end: shiftDays(monday(through), 6) };
   }
 
-  let range, builtFor = "", initialized = false, frame = 0, rowPixels = 0, visibleWeek = 0, orders = [], events = [];
+  let range, builtFor = "", initialized = false, frame = 0, rowPixels = 0, visibleWeek = 0, orders = [], events = [], invoicePlans = [];
   const get = (id) => document.getElementById(id);
   const monthName = new Intl.DateTimeFormat("ru-RU", { month: "long", timeZone: "UTC" });
   const shortDate = new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short", timeZone: "UTC" });
@@ -190,9 +190,63 @@ const HomeCalendar = (() => {
     }
   }
 
-  function show(nextOrders, nextEvents) {
+  function renderInvoicePlans() {
+    const byDate = new Map();
+    for (const plan of invoicePlans) {
+      if (!byDate.has(plan.date)) byDate.set(plan.date, []);
+      byDate.get(plan.date).push(plan);
+    }
+    for (const area of get("calendarWeeks").querySelectorAll('.calendar-invoice-plans')) {
+      const order = { incoming: 0, outgoing: 1, invoice: 2 };
+      const plans = (byDate.get(area.dataset.date) || []).sort((a, b) => (order[a.operation || 'invoice'] ?? 3) - (order[b.operation || 'invoice'] ?? 3));
+      const signature = JSON.stringify(plans);
+      if (area.dataset.signature === signature) continue;
+      area.dataset.signature = signature;
+      const top = area.scrollTop, focused = area.contains(document.activeElement) ? document.activeElement : null;
+      const existing = new Map([...area.children].map((link) => [link.dataset.invoicePlan, link]));
+      let before = area.firstElementChild;
+      const retained = new Set();
+      for (const plan of plans) {
+        let link = existing.get(plan.id);
+        if (!link) {
+          link = document.createElement('a'); link.className = 'calendar-invoice-plan';
+          link.dataset.invoicePlan = plan.id;
+        }
+        const operation = plan.operation || 'invoice', payment = operation !== 'invoice';
+        const amount = payment ? new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(plan.amount / 100) : '';
+        const label = operation === 'incoming' ? 'Запланировано получение оплаты' : operation === 'outgoing' ? 'Запланирован платёж' : 'Запланирована выписка счёта';
+        link.dataset.operation = operation;
+        link.textContent = payment ? (operation === 'incoming' ? '+' : '−') + amount : '✓';
+        link.href = '?path=' + encodeURIComponent(plan.path);
+        link.dataset.calendarOrder = plan.path;
+        const description = [label, amount ? link.textContent + ' ₽' : '', plan.title, plan.client, plan.object, fullDate.format(new Date(plan.date + 'T00:00:00Z'))].filter(Boolean).join(' · ');
+        link.setAttribute('aria-label', description);
+        link.title = description;
+        if (link !== before) area.insertBefore(link, before);
+        before = link.nextElementSibling; retained.add(link);
+      }
+      for (const link of existing.values()) if (!retained.has(link)) link.remove();
+      area.scrollTop = top;
+      if (focused && document.activeElement !== focused) (focused.isConnected ? focused : get('calendarViewport')).focus({ preventScroll: true });
+    }
+    sizeInvoicePlanHeaders();
+  }
+
+  function sizeInvoicePlanHeaders() {
+    for (const row of get('calendarWeeks').children) {
+      const height = Math.max(32, ...[...row.querySelectorAll('.calendar-invoice-plans')].map((area) => Math.ceil(area.getBoundingClientRect().height) + 8));
+      const value = height + 'px';
+      if (row.style.getPropertyValue('--calendar-header-height') === value) continue;
+      const content = row.querySelector('.calendar-week-content'), top = content.scrollTop;
+      row.style.setProperty('--calendar-header-height', value);
+      content.scrollTop = top;
+    }
+  }
+
+  function show(nextOrders, nextEvents, nextInvoicePlans) {
     if (Array.isArray(nextOrders)) orders = nextOrders;
     if (Array.isArray(nextEvents)) events = nextEvents;
+    if (Array.isArray(nextInvoicePlans)) invoicePlans = nextInvoicePlans;
     const nextRange = calendarRange();
     if (builtFor !== dateKey(nextRange.today)) {
       range = nextRange;
@@ -240,6 +294,9 @@ const HomeCalendar = (() => {
           label.textContent = date.getUTCDate() === 1 ? shortDate.format(date) : String(date.getUTCDate());
           if (dateKey(date) === builtFor) { label.className = "calendar-today"; label.setAttribute("aria-current", "date"); }
           cell.append(label);
+          const plans = document.createElement('div');
+          plans.className = 'calendar-invoice-plans'; plans.dataset.date = dateKey(date);
+          cell.append(plans);
           row.append(cell);
         }
         row.append(content);
@@ -250,6 +307,7 @@ const HomeCalendar = (() => {
     } else updateHeading();
     renderWeekOrders();
     renderFreeEvents();
+    renderInvoicePlans();
     if (initialized) return;
     initialized = true;
     const viewport = get("calendarViewport");
@@ -265,6 +323,7 @@ const HomeCalendar = (() => {
     });
     // Keep the same week visible when the window changes height.
     new ResizeObserver(() => {
+      sizeInvoicePlanHeaders();
       const height = weekHeight();
       if (viewport.clientHeight && Math.abs(height - rowPixels) > .1) {
         rowPixels = height;
