@@ -42,7 +42,7 @@
         <div id="homeSyncSlot" class="home-sync-slot" hidden></div>
         <section id="ordersWorkspace" class="orders-workspace" aria-label="Все заказы" hidden>
           <section id="homeCalendar" class="home-calendar" aria-label="Календарь" hidden>
-            <header class="calendar-heading"><h2 id="calendarTitle"></h2><span class="calendar-draft">Календарь · заготовка</span><div class="calendar-navigation"><button id="calendarEarlier" type="button" aria-label="На неделю назад">⌃</button><button id="calendarToday" type="button">Сегодня</button><button id="calendarLater" type="button" aria-label="На неделю вперёд">⌄</button></div></header>
+            <header class="calendar-heading"><h2 id="calendarTitle"></h2><span class="calendar-draft">Нажми на день в строке заказа</span><div class="calendar-navigation"><button id="calendarEarlier" type="button" aria-label="На неделю назад">⌃</button><button id="calendarToday" type="button">Сегодня</button><button id="calendarLater" type="button" aria-label="На неделю вперёд">⌄</button></div></header>
             <div class="calendar-weekdays" aria-hidden="true"><span class="calendar-orders-heading">Заказы</span><span>пн</span><span>вт</span><span>ср</span><span>чт</span><span>пт</span><span class="weekend">сб</span><span class="weekend">вс</span></div>
             <div id="calendarViewport" class="calendar-viewport" tabindex="0" role="region" aria-label="Три недели календаря. Прокручивай вверх и вниз; Home — начало, End — конец."><div id="calendarWeeks" class="calendar-weeks"></div></div>
           </section>
@@ -170,6 +170,9 @@
         </div>
       </section>
     </main>
+    <dialog id="calendarEventDialog" class="confirm-dialog create-order-dialog calendar-event-dialog" aria-labelledby="calendarEventTitle">
+      <form id="calendarEventForm"><h2 id="calendarEventTitle">Событие календаря</h2><p id="calendarEventOrder" class="calendar-event-order"></p><p id="calendarEventDate" class="calendar-event-date"></p><label>Событие<input id="calendarEventText" type="text" maxlength="1000" required autocomplete="off" placeholder="Например, замер или монтаж"></label><p id="calendarEventState" class="calendar-event-state" role="status"></p><button id="refreshCalendarEvent" class="secondary-button" type="button" hidden>Проверить изменения</button><div class="confirm-actions"><button id="deleteCalendarEvent" class="danger-button" type="button" hidden>Удалить событие</button><button id="cancelCalendarEvent" class="secondary-button" type="button">Отмена</button><button id="saveCalendarEvent" type="submit">Сохранить</button></div></form>
+    </dialog>
     <dialog id="removeInvoiceDialog" class="confirm-dialog" aria-labelledby="removeInvoiceTitle">
       <form id="removeInvoiceForm"><h2 id="removeInvoiceTitle">Переместить счёт в корзину?</h2><p id="removeInvoiceName" class="invoice-delete-name"></p><p id="removeInvoicePath" class="invoice-delete-path"></p><p>Счёт можно будет вернуть из блока «Корзина». PDF, комментарий и история сохранятся.</p><p id="removeInvoiceState" class="invoice-state" role="status"></p><div class="confirm-actions"><button id="cancelRemoveInvoice" class="secondary-button" type="button">Отмена</button><button id="confirmRemoveInvoice" class="danger-button" type="submit">В корзину</button></div></form>
     </dialog>

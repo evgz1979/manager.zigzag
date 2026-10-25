@@ -54,18 +54,19 @@ const HomeCalendar = (() => {
   function renderWeekOrders() {
     const byWeek = new Map();
     for (const order of orders) {
-      if (!order.path || order.registered === false || !Array.isArray(order.deadline_weeks)) continue;
-      for (const week of new Set(order.deadline_weeks)) {
+      if (!order.path || order.registered === false) continue;
+      const eventWeeks = Object.keys(order.calendar_events || {}).map((day) => dateKey(monday(new Date(day + "T00:00:00Z"))));
+      for (const week of new Set([...(order.deadline_weeks || []), ...eventWeeks])) {
         if (!byWeek.has(week)) byWeek.set(week, []);
         byWeek.get(week).push(order);
       }
     }
     for (const row of get("calendarWeeks").children) {
       const list = row.querySelector(".calendar-orders-list"), weekly = byWeek.get(row.dataset.week) || [];
-      const signature = JSON.stringify(weekly.map((order) => [order.id, order.path, order.title, order.client, order.object]));
+      const signature = JSON.stringify(weekly.map((order) => [order.id, order.path, order.title, order.client, order.object, order.calendar_events]));
       if (list.dataset.signature === signature) continue;
       list.dataset.signature = signature;
-      const top = list.scrollTop;
+      const top = list.parentElement.scrollTop;
       const focused = list.contains(document.activeElement) ? document.activeElement : null;
       const existing = new Map([...list.children].map((item) => [item.dataset.orderKey, item]));
       const retained = new Set();
@@ -76,12 +77,19 @@ const HomeCalendar = (() => {
         if (!item) {
           item = document.createElement("li");
           item.dataset.orderKey = key;
+          item.className = "calendar-order-row";
           const link = document.createElement("a"), title = document.createElement("span"), client = document.createElement("small");
           link.className = "calendar-order-link";
           title.className = "calendar-order-title";
           client.className = "calendar-order-client";
           link.append(title, client);
           item.append(link);
+          for (let day = 0; day < 7; day++) {
+            const slot = document.createElement("button");
+            slot.type = "button";
+            slot.className = "calendar-event-slot";
+            item.append(slot);
+          }
         }
         const link = item.firstElementChild, title = order.title || order.path;
         link.href = "?path=" + encodeURIComponent(order.path);
@@ -90,6 +98,16 @@ const HomeCalendar = (() => {
         link.firstElementChild.textContent = title;
         link.lastElementChild.textContent = order.client || "";
         link.lastElementChild.hidden = !order.client;
+        for (let day = 0; day < 7; day++) {
+          const date = shiftDays(new Date(row.dataset.week + "T00:00:00Z"), day), key = dateKey(date);
+          const slot = item.children[day + 1], text = order.calendar_events?.[key] || "";
+          slot.dataset.calendarEvent = order.path;
+          slot.dataset.calendarDate = key;
+          slot.textContent = text;
+          slot.classList.toggle("has-event", Boolean(text));
+          slot.disabled = order.calendar_events === null || date < range.from || date > range.through;
+          slot.setAttribute("aria-label", (text ? "Изменить событие: " + text : "Добавить событие") + " · " + title + " · " + fullDate.format(date));
+        }
         if (item !== before) list.insertBefore(item, before);
         before = item.nextElementSibling;
         retained.add(item);
@@ -101,7 +119,7 @@ const HomeCalendar = (() => {
         empty.textContent = "Нет заказов";
         list.append(empty);
       }
-      list.scrollTop = top;
+      list.parentElement.scrollTop = top;
       if (focused && document.activeElement !== focused) {
         (focused.isConnected ? focused : list.querySelector("a") || get("calendarViewport")).focus({ preventScroll: true });
       }
@@ -119,11 +137,12 @@ const HomeCalendar = (() => {
         const row = document.createElement("div");
         row.className = "calendar-week";
         row.dataset.week = dateKey(week);
-        const orderCell = document.createElement("div"), list = document.createElement("ul");
+        const orderCell = document.createElement("div"), content = document.createElement("div"), list = document.createElement("ul");
         orderCell.className = "calendar-day calendar-orders-cell";
+        content.className = "calendar-week-content";
         list.className = "calendar-orders-list";
         list.setAttribute("aria-label", "Заказы на неделю: " + fullDate.format(week) + " — " + fullDate.format(shiftDays(week, 6)));
-        orderCell.append(list);
+        content.append(list);
         row.append(orderCell);
         for (let day = 0; day < 7; day++) {
           const date = shiftDays(week, day), cell = document.createElement("div"), label = document.createElement("time");
@@ -135,6 +154,7 @@ const HomeCalendar = (() => {
           cell.append(label);
           row.append(cell);
         }
+        row.append(content);
         weeks.append(row);
       }
       get("calendarWeeks").replaceChildren(weeks);

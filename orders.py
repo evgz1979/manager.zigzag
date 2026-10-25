@@ -10,6 +10,7 @@ from contextlib import contextmanager
 from pathlib import Path
 import order_document as document
 import order_deadlines
+import order_calendar
 import work_orders
 from order_document import money, MAX_MONEY
 from folder_structure import folder_role, is_service_folder, client_name, order_location
@@ -108,6 +109,7 @@ class OrderStore:
         result["is_flagged"] = document.read_flag(result["extra_blocks"])
         result["deadline_weeks"] = order_deadlines.read(result["extra_blocks"])
         result["deadline_comments"] = order_deadlines.read_comments(result["extra_blocks"])
+        result["calendar_events"] = order_calendar.read(result["extra_blocks"])
         result["can_group_supplier_orders"] = work_orders.direct_order(result["path"])
         exported_revision, export_format = result.pop("exported_revision"), result.pop("export_format")
         result["sync_pending"] = result["revision"] != exported_revision or (result["registered"] and export_format < document.FORMAT)
@@ -242,6 +244,9 @@ class OrderStore:
 
     def save_flag(self, payload):
         return self._save_extra_block(payload, lambda blocks: document.write_flag(blocks, payload.get("is_flagged")), update_time=False)
+
+    def save_calendar_event(self, payload):
+        return self._save_extra_block(payload, lambda blocks: order_calendar.write(blocks, payload.get("date"), payload.get("text")), update_time=False)
 
     def _save_extra_block(self, payload, write, *, update_time=True):
         relative = self.path(payload.get("path"))

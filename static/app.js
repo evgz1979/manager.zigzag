@@ -32,6 +32,7 @@ const state = {
   eventRemoval: null, eventRemoving: false,
   trashEventsOnly: false,
   orderTodoPath: null, orderTodoMarkup: null, orderTodoKind: "todos",
+  calendarEvent: null,
 };
 let searchTimer, toastTimer, todoSaveTimer, previewVersion = 0, treeSearchVersion = 0, printReadVersion = 0;
 const icon = (name) => '<svg aria-hidden="true"><use href="#icon-' + name + '"/></svg>';
@@ -1714,7 +1715,7 @@ function openOrderTodos(path, kind = "todos") {
 }
 
 function orderRowSaving(path) {
-  return state.flagSaving.has(path) || state.favoriteSaving.has(path) || state.orderStatusSaving.has(path) || state.deadlineSaving.has(path);
+  return state.flagSaving.has(path) || state.favoriteSaving.has(path) || state.orderStatusSaving.has(path) || state.deadlineSaving.has(path) || (state.calendarEvent?.path === path && state.calendarEvent.saving);
 }
 
 function orderDeadlineRange(weeks) {
@@ -2227,9 +2228,90 @@ function renderHomeCalendar() {
   HomeCalendar.show([...state.orders].sort((a, b) => compareOrders(a, b, "title", 1)));
 }
 
+function renderCalendarEventControls() {
+  const edit = state.calendarEvent;
+  if (!edit) return;
+  $("calendarEventText").disabled = Boolean(edit.saving);
+  $("saveCalendarEvent").disabled = Boolean(edit.saving || edit.conflict);
+  $("deleteCalendarEvent").hidden = !edit.previous;
+  $("deleteCalendarEvent").disabled = Boolean(edit.saving || edit.conflict);
+  $("cancelCalendarEvent").disabled = Boolean(edit.saving);
+  $("refreshCalendarEvent").hidden = !edit.conflict;
+  $("refreshCalendarEvent").disabled = Boolean(edit.saving);
+}
+
+function openCalendarEvent(slot) {
+  const order = findListOrder(slot.dataset.calendarEvent), date = slot.dataset.calendarDate;
+  if (!order || order.registered === false || orderRowSaving(order.path)) return;
+  if (order.calendar_events === null) { notify("События этого заказа имеют неизвестный формат и сохранены без изменений", true); return; }
+  const previous = order.calendar_events?.[date] || "";
+  state.calendarEvent = { path: order.path, id: order.id, revision: order.revision, date, previous, saving: false, conflict: false };
+  $("calendarEventOrder").textContent = [order.title, order.client, order.object].filter(Boolean).join(" · ");
+  $("calendarEventDate").textContent = new Intl.DateTimeFormat("ru-RU", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(date + "T00:00:00Z"));
+  $("calendarEventText").value = previous;
+  $("calendarEventState").textContent = "";
+  renderCalendarEventControls();
+  $("calendarEventDialog").showModal();
+  $("calendarEventText").focus();
+}
+
+function closeCalendarEvent() {
+  if (state.calendarEvent?.saving) return;
+  state.calendarEvent = null;
+  $("calendarEventDialog").close();
+}
+
+async function saveCalendarEvent(remove = false) {
+  const edit = state.calendarEvent;
+  if (!edit || edit.saving || edit.conflict) return;
+  const text = remove ? "" : $("calendarEventText").value;
+  if (!remove && !text.trim()) { $("calendarEventState").textContent = "Введи название события"; return; }
+  edit.saving = true;
+  ++state.ordersRequest;
+  $("calendarEventState").textContent = "Сохраняю…";
+  renderCalendarEventControls();
+  try {
+    const saved = await request("/api/order-calendar-event", { path: edit.path, id: edit.id, revision: edit.revision, date: edit.date, text });
+    applyOrderRecord(null, saved);
+    edit.saving = false;
+    closeCalendarEvent();
+    renderOrders({ force: true });
+    notify(remove ? "Событие удалено" : "Событие сохранено");
+  } catch (error) {
+    edit.conflict = error.status === 409;
+    $("calendarEventState").textContent = error.message + (edit.conflict ? " Нажми «Проверить изменения» перед повторным сохранением. Твой текст оставлен в поле." : " Твой текст оставлен в поле.");
+  } finally {
+    edit.saving = false;
+    renderCalendarEventControls();
+  }
+}
+
+async function refreshCalendarEvent() {
+  const edit = state.calendarEvent;
+  if (!edit || edit.saving) return;
+  edit.saving = true;
+  renderCalendarEventControls();
+  try {
+    const order = await request(apiUrl("/api/order", edit.path));
+    if (order.id !== edit.id || order.calendar_events === null) throw new Error("Заказ или формат событий изменён. Ввод сохранён; открой заказ заново.");
+    edit.revision = order.revision;
+    edit.previous = order.calendar_events?.[edit.date] || "";
+    edit.conflict = false;
+    applyOrderRecord(null, order);
+    $("calendarEventState").textContent = "В базе сейчас: " + (edit.previous || "события нет") + ". Твой текст оставлен в поле; проверь его перед сохранением.";
+    renderOrders({ force: true });
+  } catch (error) {
+    $("calendarEventState").textContent = error.message;
+  } finally {
+    edit.saving = false;
+    renderCalendarEventControls();
+    renderOrders({ force: true });
+  }
+}
+
 function renderOrders({ force = false } = {}) {
   // Replacing a focused native select would close its menu during background polling.
-  if (!force && (state.orderStatusSaving.size || state.deadlineSaving.size || state.flagSaving.size || document.activeElement?.dataset.orderStatus)) return;
+  if (!force && (state.orderStatusSaving.size || state.deadlineSaving.size || state.flagSaving.size || state.calendarEvent?.saving || document.activeElement?.dataset.orderStatus)) return;
   const focusedFlag = document.activeElement?.dataset.orderFlag;
   const focusedGroup = document.activeElement?.dataset.orderGroupToggle;
   const focusedFavorite = document.activeElement?.dataset.orderFavorite;
@@ -2914,12 +2996,19 @@ $("orderStatusFilters").addEventListener("click", (event) => {
 $("orderSearch").addEventListener("input", (event) => { state.orderQuery = event.target.value; renderOrders(); });
 $("orderListControls").addEventListener("toggle", () => { if (state.view === "orders") homeFiltersOpen = $("orderListControls").open; });
 $("calendarWeeks").addEventListener("click", (event) => {
+  const slot = event.target.closest("[data-calendar-event]");
+  if (slot && !slot.disabled) { openCalendarEvent(slot); return; }
   const link = event.target.closest("[data-calendar-order]");
   if (link && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0) {
     event.preventDefault();
     run(() => navigate(link.dataset.calendarOrder));
   }
 });
+$("calendarEventForm").addEventListener("submit", (event) => { event.preventDefault(); run(() => saveCalendarEvent()); });
+$("deleteCalendarEvent").addEventListener("click", () => run(() => saveCalendarEvent(true)));
+$("refreshCalendarEvent").addEventListener("click", () => run(refreshCalendarEvent));
+$("cancelCalendarEvent").addEventListener("click", closeCalendarEvent);
+$("calendarEventDialog").addEventListener("cancel", (event) => { event.preventDefault(); closeCalendarEvent(); });
 $("financialStatusFilter").addEventListener("change", (event) => { state.financialFilter = event.target.value; renderOrders(); });
 $("ordersTableBody").addEventListener("change", (event) => {
   const select = event.target.closest("[data-order-status]");
@@ -3319,7 +3408,7 @@ $("previewDialog").addEventListener("keydown", (event) => {
   if (event.key === "ArrowRight") { event.preventDefault(); stepPreview(1); }
 });
 window.addEventListener("popstate", () => run(() => openLocation()));
-window.addEventListener("beforeunload", (event) => { if (hasPendingDeadlineComments() || state.dirty || state.printTask?.dirty || state.printSaving || state.fileComment?.dirty || state.fileCommentSaving || state.upload?.busy) { event.preventDefault(); event.returnValue = ""; } });
+window.addEventListener("beforeunload", (event) => { if (hasPendingDeadlineComments() || state.dirty || state.printTask?.dirty || state.printSaving || state.fileComment?.dirty || state.fileCommentSaving || state.upload?.busy || (state.calendarEvent && (state.calendarEvent.saving || $("calendarEventText").value !== state.calendarEvent.previous))) { event.preventDefault(); event.returnValue = ""; } });
 
 $("chooseUploadFiles").addEventListener("click", () => $("uploadFileInput").click());
 $("uploadFileInput").addEventListener("change", (event) => {
