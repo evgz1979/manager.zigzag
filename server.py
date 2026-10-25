@@ -20,6 +20,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 from orders import OrderStore, OrderConflict, CARD, SNAPSHOT, is_service_folder
 import order_document
+import order_deadlines
 import file_comments
 from mobile_sync import MobileBridge, RUN_LOCK
 import image_reports
@@ -816,6 +817,7 @@ def listed_orders():
     visible = objects.visible_orders(activity.visible_orders(store.list()))
     return {"orders": OrderTodos(store).attach([order for order in visible if not work_orders.in_work(order["path"])]),
             "favorites": [order for order in visible if order["is_favorite"] is True],
+            "deadline_week_options": order_deadlines.week_options(),
             "unregistrations": objects.visible_orders(activity.visible_orders([
                 order for order in store.pending_unregistrations() if not work_orders.in_work(order["path"])])), "scan": dict(SCAN_STATE),
             "storage":metadata_store().status() if DATABASE_ONLY else {"database_only":False}}
@@ -1628,6 +1630,11 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 return
             elif route == "/api/order-status":
                 record = order_store().save_status(payload)
+                self.send_json(record)
+                schedule_order_sync()
+                return
+            elif route == "/api/order-deadline-week":
+                record = order_store().save_deadline_week(payload)
                 self.send_json(record)
                 schedule_order_sync()
                 return

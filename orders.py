@@ -9,6 +9,7 @@ import uuid
 from contextlib import contextmanager
 from pathlib import Path
 import order_document as document
+import order_deadlines
 import work_orders
 from order_document import money, MAX_MONEY
 from folder_structure import folder_role, is_service_folder, client_name
@@ -103,6 +104,7 @@ class OrderStore:
         result["todo_items"] = document.read_todos(result["extra_blocks"])
         result["purchase_items"] = document.read_purchases(result["extra_blocks"])
         result["is_favorite"] = document.read_favorite(result["extra_blocks"])
+        result["deadline_weeks"] = order_deadlines.read(result["extra_blocks"])
         result["can_group_supplier_orders"] = work_orders.direct_order(result["path"])
         exported_revision, export_format = result.pop("exported_revision"), result.pop("export_format")
         result["sync_pending"] = result["revision"] != exported_revision or (result["registered"] and export_format < document.FORMAT)
@@ -228,6 +230,28 @@ class OrderStore:
                 raise OrderConflict("Заказ изменён в другой вкладке. Проверь актуальный статус и выбери его заново.")
         return self.get(relative)
 
+    def save_deadline_week(self, payload):
+        """Change one week's mark without replacing any other order data."""
+        relative = self.path(payload.get("path"))
+        revision = payload.get("revision")
+        identity = payload.get("id")
+        if not isinstance(identity, str) or not identity:
+            raise ValueError("Не указан идентификатор заказа. Обнови список заказов.")
+        if type(revision) is not int:
+            raise ValueError("Не указана версия заказа. Обнови список заказов.")
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            assert_unlocked(db, relative)
+            row = db.execute("SELECT extra_blocks FROM orders WHERE path=? AND id=? AND revision=? AND registered=1",
+                             (relative, identity, revision)).fetchone()
+            if row is None:
+                raise OrderConflict("Заказ изменён в другой вкладке. Проверь актуальные сроки и повтори выбор недели.")
+            blocks = order_deadlines.write(json.loads(row["extra_blocks"]), payload.get("week"), payload.get("selected"))
+            db.execute("""UPDATE orders SET extra_blocks=?,revision=revision+1,updated=?,sync_error=''
+                WHERE path=? AND id=? AND revision=? AND registered=1""",
+                (json.dumps(blocks, ensure_ascii=False), time.time(), relative, identity, revision))
+        return self.get(relative)
+
     def save_favorite(self, payload):
         """Change just the star, without reading documents or replacing card fields."""
         relative = self.path(payload.get("path"))
@@ -336,7 +360,7 @@ class OrderStore:
                     phase = "Чтение карточки"
                     existing = document.load(folder, self.labels)
                     record["extra_blocks"].update({key: value for key, value in existing.get("extra_blocks", {}).items()
-                        if key not in {document.TODO_BLOCK, document.PURCHASE_BLOCK, document.FAVORITE_BLOCK} or key not in record["extra_blocks"]})
+                        if key not in {document.TODO_BLOCK, document.PURCHASE_BLOCK, document.FAVORITE_BLOCK, order_deadlines.BLOCK} or key not in record["extra_blocks"]})
                     if existing.get("schema", 0) < document.FORMAT:
                         phase = "Сохранение прежней карточки в историю"
                         document.archive_current(folder)

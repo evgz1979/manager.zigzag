@@ -446,6 +446,13 @@ h2 { font-size: 13px; font-weight: 600; }
 .orders-table th.order-title-column { min-width: 220px; }
 .orders-table th.order-money { text-align: right; }
 .orders-table th.order-comment-column { padding: 8px 10px; color: var(--muted); font-size: 11px; font-weight: 400; }
+.orders-table th.order-deadline-column { padding: 8px 10px; color: var(--muted); font-size: 11px; font-weight: 400; }
+.order-deadline-weeks { display: grid; grid-template-columns: repeat(10, 24px); gap: 3px; }
+.deadline-week { width: 24px; height: 22px; padding: 0; border-radius: 4px; font-size: 10px; background: transparent; border-color: #dce5df; color: #718078; }
+.deadline-week.current { border-color: #94ae9c; font-weight: 650; }
+.deadline-week[aria-pressed="true"] { background: #357d65; color: #fff; border-color: #357d65; }
+.deadline-week[aria-pressed="true"]:hover:not(:disabled) { background: #28664f; }
+.order-deadline-outside { display: block; margin-top: 3px; color: var(--muted); font-size: 9px; }
 .order-row-comment { display: block; width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .order-row-comment.empty { color: var(--muted); }
 .orders-table .order-favorite-column { width: 38px; padding: 6px 3px; text-align: center; }
