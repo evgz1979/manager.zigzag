@@ -90,7 +90,7 @@ def read_config(path=CONFIG_FILE):
 DATA_ROOT, SERVER_HOST, SERVER_PORT = read_config()
 STATUS_LABELS = {
     "unspecified": "Не указан",
-    "new": "Новый", "measure": "Замеры", "process": "Расчеты",
+    "new": "Новый", "measure": "Замеры", "process": "Расчеты", "waiting": "Жду",
     "workshop": "В цех", "install": "Монтаж", "rework": "Переделка/доделка",
     "finishing": "Завершение/добивка", "deferred": "Отложен/возможно",
     "done": "Готово", "done_but": "Готово, но…", "cancelled": "Отменён",

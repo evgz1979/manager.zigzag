@@ -41,6 +41,29 @@ class DatabaseStorageTests(unittest.TestCase):
         self.store.import_folder(self.order)
         return self.store.get(self.order)
 
+    def test_waiting_status_is_saved_offline_with_history_and_keeps_order_data(self):
+        order = self.store.save({**self.register(), "financial_status": "paid", "note": "Жду ответа",
+            "amount": "1200", "costs": "200", "paid": "1200",
+            "todo_items": [{"text": "Напомнить клиенту", "done": False}]})
+        with patch.object(self.store, "target", side_effect=AssertionError("No iCloud access")):
+            with patch.object(manager, "order_store", return_value=self.store):
+                status, _, body = self.http("/api/order-save", "POST", json.dumps({
+                    **order, "status": "waiting", "amount": "1200", "costs": "200", "paid": "1200"}))
+                self.assertEqual(status, 200)
+                saved = json.loads(body)
+                listed = json.loads(self.http("/api/orders")[2])["orders"]
+        self.assertEqual(saved["status"], "waiting")
+        self.assertEqual(saved["revision"], order["revision"] + 1)
+        for field in ("financial_status", "note", "amount", "costs", "paid", "todo_items"):
+            self.assertEqual(saved[field], order[field])
+        self.assertEqual(listed[0]["status"], "waiting")
+        self.assertEqual(self.store.get(self.order)["status"], "waiting")
+        with self.meta.connect() as db:
+            history = [json.loads(row[0]) for row in db.execute(
+                "SELECT data FROM metadata_history WHERE entity='orders' AND identity=? ORDER BY seq", (order["id"],))]
+        self.assertTrue(any((item["status"], item["revision"]) == (order["status"], order["revision"]) for item in history))
+        self.assertFalse((self.root / self.order / "!.txt").exists())
+
     def test_comments_import_once_preserve_bytes_and_work_without_cloud(self):
         path = self.root/self.event/'IMG.MOV'; path.write_bytes(b'movie')
         old = file_comments.save(path,'Прежний текст','missing')
