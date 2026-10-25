@@ -199,6 +199,11 @@ def check_event_rename_compatibility(database, release_dir):
             source = release_dir / 'order_calendar.py'
             if not source.is_file() or 'WEEKLY_EVENTS_UNIFIED_VERSION = 1' not in source.read_text(encoding='utf-8'):
                 raise RuntimeError('Комментарии недель объединены с событиями календаря. Старый код создаёт отдельное хранение; откат заблокирован')
+        if (db.execute("SELECT 1 FROM sqlite_master WHERE name='metadata_settings'").fetchone()
+                and db.execute("SELECT 1 FROM metadata_settings WHERE key='calendar_event_relevance' AND value='1'").fetchone()):
+            source = release_dir / 'order_calendar.py'
+            if not source.is_file() or 'CALENDAR_RELEVANCE_VERSION = 1' not in source.read_text(encoding='utf-8'):
+                raise RuntimeError('В календаре есть отметки актуальности. Старый код не сохраняет их; откат заблокирован')
         if (db.execute("SELECT 1 FROM sqlite_master WHERE name='invoices'").fetchone()
                 and db.execute("SELECT 1 FROM invoices WHERE json_extract(data,'$._trash') IS NOT NULL LIMIT 1").fetchone()):
             source = release_dir / 'invoices.py'

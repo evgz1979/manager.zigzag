@@ -60,11 +60,12 @@ class FreeCalendarTests(unittest.TestCase):
                 operation(payload)
         self.assertEqual(self.events.get(first['id']), colored)
         deleted = self.events.save(self.payload(colored, text=''))
-        self.assertTrue(deleted['deleted'])
-        self.assertEqual(self.events.list(), [])
+        self.assertFalse(deleted['deleted'])
+        self.assertEqual(deleted['is_inactive'], 1)
+        self.assertEqual(self.events.list(), [deleted])
         self.assertEqual(deleted['text'], colored['text'])
-        with self.assertRaises(OrderConflict):
-            self.events.save(self.payload(deleted, text='Не воскрешать'))
+        edited = self.events.save(self.payload(deleted, text='Правка неактуального'))
+        self.assertEqual(edited['is_inactive'], 1)
         with self.assertRaises(OrderConflict):
             self.events.save(data)
 
@@ -125,4 +126,7 @@ class FreeCalendarTests(unittest.TestCase):
             self.assertEqual(self.http('/api/calendar-event', 'POST', json.dumps(self.payload(saved)))[0], 409)
             self.assertEqual(self.http('/api/calendar-color', 'POST', json.dumps({**self.payload(moved), 'color': False}))[0], 400)
             self.assertEqual(self.http('/api/calendar-event', 'POST', json.dumps(self.payload(moved, text='')))[0], 200)
-            self.assertEqual(json.loads(self.http('/api/orders')[2])['calendar_events'], [])
+            listed = json.loads(self.http('/api/orders')[2])['calendar_events']
+            self.assertEqual(len(listed), 1)
+            self.assertEqual(listed[0]['is_inactive'], 1)
+            self.assertEqual(listed[0]['text'], moved['text'])

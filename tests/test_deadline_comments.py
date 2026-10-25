@@ -24,7 +24,8 @@ class DeadlineCommentFormatTests(unittest.TestCase):
         edited = order_deadlines.write_comment(removed, "2026-10-19", "Комментарий снятой недели")
         self.assertEqual(order_deadlines.read(edited), [])
         self.assertEqual(order_deadlines.read_comments(edited)["2026-10-19"], "Комментарий снятой недели")
-        self.assertEqual(order_deadlines.read_comments(order_deadlines.write_comment(edited, "2026-10-19", "")), {})
+        self.assertEqual(order_deadlines.read_comments(order_deadlines.write_comment(edited, "2026-10-19", "")), order_deadlines.read_comments(edited))
+        self.assertEqual(order_calendar.read_inactive(order_deadlines.write_comment(edited, "2026-10-19", ""))["week"], ["2026-10-19"])
 
     def test_unknown_and_invalid_comments_are_preserved_without_replacement(self):
         for value in ('[]', '{"version":2,"comments":{}}', '{"version":true,"comments":{}}',

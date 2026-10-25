@@ -17,9 +17,13 @@ def schema(db):
         id TEXT PRIMARY KEY, version INTEGER NOT NULL, period TEXT NOT NULL,
         date TEXT NOT NULL, text TEXT NOT NULL, revision INTEGER NOT NULL,
         created REAL NOT NULL, updated REAL NOT NULL, deleted INTEGER NOT NULL DEFAULT 0,
-        color TEXT NOT NULL DEFAULT 'gray')""")
+        color TEXT NOT NULL DEFAULT 'gray', is_inactive INTEGER NOT NULL DEFAULT 0)""")
     if "color" not in {row[1] for row in db.execute("PRAGMA table_info(calendar_events)")}:
         db.execute("ALTER TABLE calendar_events ADD COLUMN color TEXT NOT NULL DEFAULT 'gray'")
+    if "is_inactive" not in {row[1] for row in db.execute("PRAGMA table_info(calendar_events)")}:
+        db.execute("ALTER TABLE calendar_events ADD COLUMN is_inactive INTEGER NOT NULL DEFAULT 0")
+        for event in ("UPDATE", "DELETE"):
+            db.execute("DROP TRIGGER IF EXISTS metadata_audit_calendar_events_" + event)
     local_metadata.audit(db, "calendar_events")
 
 
@@ -51,7 +55,7 @@ class CalendarEvents:
 
     @staticmethod
     def validate(row):
-        if row["version"] != 1 or row["color"] not in COLORS:
+        if row["version"] != 1 or row["color"] not in COLORS or row["is_inactive"] not in (0, 1):
             raise ValueError("Событие имеет неизвестный формат и сохранено без изменений")
         order_calendar.block_name(row["period"])
         order_calendar.validate_key(row["date"], row["period"])
@@ -96,8 +100,10 @@ class CalendarEvents:
                     return self.record(row)
                 if revision != row["revision"] or row["deleted"] or (row["period"], row["date"]) != (period, day):
                     raise OrderConflict("Событие изменилось в другом окне. Проверь изменения перед сохранением")
-                db.execute("UPDATE calendar_events SET text=?,deleted=?,revision=revision+1,updated=? WHERE id=?",
-                           (text if text else row["text"], int(not text), time.time(), identity))
+                db.execute("UPDATE calendar_events SET text=?,is_inactive=?,revision=revision+1,updated=? WHERE id=?",
+                           (text if text else row["text"], row["is_inactive"] if text else 1, time.time(), identity))
+                if not text:
+                    order_calendar.mark_relevance_contract(db)
             return self.record(db.execute("SELECT * FROM calendar_events WHERE id=?", (identity,)).fetchone())
 
     def move(self, payload):
@@ -133,4 +139,20 @@ class CalendarEvents:
             self.validate(row)
             db.execute("UPDATE calendar_events SET color=?,revision=revision+1,updated=? WHERE id=?",
                        (color, time.time(), identity))
+            return self.record(db.execute("SELECT * FROM calendar_events WHERE id=?", (identity,)).fetchone())
+
+    def set_inactive(self, payload):
+        identity, revision = self.identity(payload)
+        inactive = payload.get("is_inactive")
+        if type(inactive) is not bool:
+            raise ValueError("Укажи состояние актуальности события")
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT * FROM calendar_events WHERE id=?", (identity,)).fetchone()
+            if row is None or row["deleted"] or revision != row["revision"]:
+                raise OrderConflict("Событие изменилось в другом окне. Обнови календарь и повтори отметку")
+            self.validate(row)
+            db.execute("UPDATE calendar_events SET is_inactive=?,revision=revision+1,updated=? WHERE id=?",
+                       (int(inactive), time.time(), identity))
+            order_calendar.mark_relevance_contract(db)
             return self.record(db.execute("SELECT * FROM calendar_events WHERE id=?", (identity,)).fetchone())

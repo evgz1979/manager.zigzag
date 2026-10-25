@@ -64,7 +64,8 @@ class UnifiedWeeklyTests(unittest.TestCase):
         self.assertEqual(moved['calendar_events'], daily['calendar_events'])
         self.assertEqual(moved['updated'], self.order['updated'])
         cleared = self.store.save_deadline_comment({**self.payload(moved), 'week': '2026-11-02', 'comment': ''})
-        self.assertEqual(cleared['calendar_week_events'], {})
+        self.assertEqual(cleared['calendar_week_events'], moved['calendar_week_events'])
+        self.assertEqual(cleared['calendar_inactive']['week'], ['2026-11-02'])
         self.assertNotIn(order_deadlines.COMMENTS_BLOCK, cleared['extra_blocks'])
         with self.assertRaises(OrderConflict):
             self.store.save_calendar_event(self.payload(edited))

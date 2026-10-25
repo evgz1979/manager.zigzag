@@ -109,6 +109,7 @@ class OrderStore:
         result["is_flagged"] = document.read_flag(result["extra_blocks"])
         result["deadline_weeks"] = order_deadlines.read(result["extra_blocks"])
         result["calendar_events"] = order_calendar.read(result["extra_blocks"])
+        result["calendar_inactive"] = order_calendar.read_inactive(result["extra_blocks"])
         result["calendar_week_events"] = order_calendar.read(result["extra_blocks"], "week")
         result["deadline_comments"] = result["calendar_week_events"]  # Old browser/API compatibility, never stored separately.
         result["can_group_supplier_orders"] = work_orders.direct_order(result["path"])
@@ -249,6 +250,9 @@ class OrderStore:
     def save_calendar_event(self, payload):
         return self._save_extra_block(payload, lambda blocks: order_calendar.write(blocks, payload.get("date"), payload.get("text"), payload.get("period", "day")), update_time=False)
 
+    def save_calendar_inactive(self, payload):
+        return self._save_extra_block(payload, lambda blocks: order_calendar.set_inactive(blocks, payload.get("date"), payload.get("is_inactive"), payload.get("period", "day")), update_time=False)
+
     def move_calendar_event(self, payload):
         return self._save_extra_block(payload, lambda blocks: order_calendar.move(blocks, payload.get("date"), payload.get("days"), payload.get("period", "day")), update_time=False)
 
@@ -268,6 +272,8 @@ class OrderStore:
             if row is None:
                 raise OrderConflict("Заказ изменён в другой вкладке. Проверь актуальные данные и повтори изменение.")
             blocks = write(json.loads(row["extra_blocks"]))
+            if self.database_only and order_calendar.INACTIVE_BLOCK in blocks:
+                order_calendar.mark_relevance_contract(db)
             if self.database_only and order_calendar.WEEK_BLOCK in blocks:
                 db.execute("INSERT INTO metadata_settings VALUES ('weekly_events_unified','1') ON CONFLICT(key) DO UPDATE SET value=excluded.value")
             db.execute("""UPDATE orders SET extra_blocks=?,revision=revision+1,updated=CASE WHEN ? THEN ? ELSE updated END,sync_error=''

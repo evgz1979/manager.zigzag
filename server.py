@@ -1610,13 +1610,13 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 return
             elif route == "/api/event-relevance":
                 record = folder_note_store().save_relevance(payload)
-                self.send_json(event_relevance.info(record))
                 schedule_order_sync()
+                self.send_json(event_relevance.info(record))
                 return
             elif route == "/api/sketch-relevance":
                 record = folder_note_store().save_sketch_relevance(payload)
-                self.send_json({"path": payload["path"], "key": payload["key"], "folder": record["path"], "status": sketches.group_info(record)})
                 schedule_order_sync()
+                self.send_json({"path": payload["path"], "key": payload["key"], "folder": record["path"], "status": sketches.group_info(record)})
                 return
             elif route == "/api/sketch-open":
                 if not isinstance(payload.get("key"), str):
@@ -1686,6 +1686,15 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 return
             elif route == "/api/calendar-move":
                 self.send_json(calendar_events.CalendarEvents(order_store()).move(payload))
+                return
+            elif route == "/api/order-calendar-inactive":
+                self.send_json(order_store().save_calendar_inactive(payload))
+                return
+            elif route == "/api/calendar-inactive":
+                self.send_json(calendar_events.CalendarEvents(order_store()).set_inactive(payload))
+                return
+            elif route == "/api/invoice-plan-calendar-inactive":
+                self.send_json(invoice_store().save_plan_calendar_inactive(payload))
                 return
             elif route == "/api/order-calendar-event":
                 record = order_store().save_calendar_event(payload)

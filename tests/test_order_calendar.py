@@ -21,7 +21,8 @@ class CalendarFormatTests(unittest.TestCase):
         self.assertEqual(order_calendar.read(moved, "week"), {"2026-11-02": '  На всю неделю "окна"  '})
         restored = order_calendar.move(moved, "2026-11-02", -7, "week")
         self.assertEqual(order_calendar.read(restored, "week"), order_calendar.read(weekly, "week"))
-        self.assertEqual(order_calendar.read(order_calendar.write(restored, "2026-10-26", "", "week"), "week"), {})
+        self.assertEqual(order_calendar.read(order_calendar.write(restored, "2026-10-26", "", "week"), "week"), order_calendar.read(restored, "week"))
+        self.assertEqual(order_calendar.read_inactive(order_calendar.write(restored, "2026-10-26", "", "week"))["week"], ["2026-10-26"])
         for day, days in (("2026-10-26", 1), ("2026-10-26", -1), ("2026-10-27", 7)):
             with self.subTest(day=day, days=days), self.assertRaises(ValueError):
                 order_calendar.move(weekly, day, days, "week")
@@ -60,9 +61,10 @@ class CalendarFormatTests(unittest.TestCase):
         both = order_calendar.write(first, "2026-10-27", "Монтаж")
         final = order_calendar.write(both, "2026-10-26", "")
         self.assertEqual(order_calendar.read(both), {"2026-10-26": '  Замер "двери" <эскиз>  ', "2026-10-27": "Монтаж"})
-        self.assertEqual(order_calendar.read(final), {"2026-10-27": "Монтаж"})
+        self.assertEqual(order_calendar.read(final), order_calendar.read(both))
+        self.assertEqual(order_calendar.read_inactive(final)["day"], ["2026-10-26"])
         self.assertEqual(final["Особое"], blocks["Особое"])
-        self.assertEqual(order_calendar.read(order_calendar.write(final, "2026-10-27", "")), {})
+        self.assertEqual(order_calendar.read_inactive(order_calendar.write(final, "2026-10-27", ""))["day"], ["2026-10-26", "2026-10-27"])
 
     def test_invalid_dates_text_and_unknown_formats_are_preserved(self):
         for day in (None, True, "26-10-26", "2026-02-30", "2026-10-26T10:00", "2026-2-03"):
@@ -129,7 +131,8 @@ class CalendarApiTests(unittest.TestCase):
         restarted = OrderStore(self.root, manager.DATA_DIR, manager.STATUS_LABELS)
         self.assertEqual(restarted.get(self.path)["calendar_week_events"], moved["calendar_week_events"])
         removed = self.store.save_calendar_event(self.payload(moved, period="week", date="2026-11-02", text=""))
-        self.assertEqual(removed["calendar_week_events"], {})
+        self.assertEqual(removed["calendar_week_events"], moved["calendar_week_events"])
+        self.assertEqual(removed["calendar_inactive"]["week"], ["2026-11-02"])
         self.assertEqual(removed["calendar_events"], daily["calendar_events"])
 
     def test_atomic_moves_keep_other_dates_fields_history_and_registration(self):
@@ -188,7 +191,8 @@ class CalendarApiTests(unittest.TestCase):
                 self.assertEqual(saved[field], self.order[field], field)
             both = self.store.save_calendar_event(self.payload(saved, date="2026-10-28", text="Проверка"))
             removed = self.store.save_calendar_event(self.payload(both, text=""))
-        self.assertEqual(removed["calendar_events"], {"2026-10-28": "Проверка"})
+        self.assertEqual(removed["calendar_events"], both["calendar_events"])
+        self.assertEqual(removed["calendar_inactive"]["day"], ["2026-10-27"])
         for name, value in self.order["extra_blocks"].items():
             self.assertEqual(removed["extra_blocks"][name], value)
         restarted = OrderStore(self.root, manager.DATA_DIR, manager.STATUS_LABELS)

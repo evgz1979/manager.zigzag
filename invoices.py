@@ -265,15 +265,37 @@ class InvoiceStore:
     def calendar_plans(self, visible_orders):
         owners = {order['path']: order for order in visible_orders if order.get('registered') is not False}
         with self.connect() as db:
-            rows = db.execute("SELECT id,path,data FROM invoices WHERE state='planned' AND json_extract(data,'$._trash') IS NULL ORDER BY created,id")
+            rows = db.execute("SELECT id,path,data,revision FROM invoices WHERE state='planned' AND json_extract(data,'$._trash') IS NULL ORDER BY created,id")
             result = []
             for row in rows:
                 owner, data = owners.get(row['path']), json.loads(row['data'])
                 if owner is not None and known_plan(data):
                     result.append({'id': row['id'], 'path': row['path'], 'date': data['date'],
+                                   'revision': row['revision'], 'is_inactive': data.get('_calendar_inactive', False),
                                    'operation': data.get('operation', 'invoice'), 'amount': data.get('amount'),
                                    'title': owner['title'], 'client': owner['client'], 'object': owner['object']})
             return result
+
+    def save_plan_calendar_inactive(self, payload):
+        import order_calendar
+        inactive = payload.get('is_inactive')
+        if type(inactive) is not bool:
+            raise ValueError('Укажи состояние актуальности события')
+        with self.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            row = self.current(db, payload.get('path'), payload.get('id'))
+            self.owner(db, row['path'], active=True)
+            if row['state'] != 'planned' or type(payload.get('revision')) is not int or row['revision'] != payload['revision']:
+                raise InvoiceConflict('План изменился в другом окне. Обнови календарь и повтори отметку')
+            data = json.loads(row['data'])
+            if not known_plan(data) or type(data.get('_calendar_inactive', False)) is not bool:
+                raise ValueError('Неизвестный формат актуальности плана сохранён без изменений')
+            db.execute('INSERT INTO invoice_history VALUES (?,?,?,?)', (row['id'], row['revision'], row['data'], time.time()))
+            data['_calendar_inactive'] = inactive
+            db.execute('UPDATE invoices SET data=?,revision=revision+1,updated=? WHERE id=?',
+                       (json.dumps(data, ensure_ascii=False), time.time(), row['id']))
+            order_calendar.mark_relevance_contract(db)
+            return self.record(self.current(db, row['path'], row['id']))
 
     def plan(self, payload):
         path, identity = self.store.path(payload.get('path')), payload.get('id')

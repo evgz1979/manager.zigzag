@@ -19,6 +19,18 @@ PREVIOUS = "20261019T170000Z-abcdef12"
 
 
 class DeploymentTests(unittest.TestCase):
+    def test_old_code_cannot_ignore_calendar_event_relevance(self):
+        release = self.base / 'old-event-relevance'
+        release.mkdir()
+        (release / 'local_metadata.py').touch()
+        with sqlite3.connect(self.db) as db:
+            db.execute('CREATE TABLE metadata_settings (key TEXT PRIMARY KEY,value TEXT)')
+            db.execute("INSERT INTO metadata_settings VALUES ('calendar_event_relevance','1')")
+        with self.assertRaisesRegex(RuntimeError, 'актуальности'):
+            remote.check_event_rename_compatibility(self.db, release)
+        (release / 'order_calendar.py').write_text('CALENDAR_RELEVANCE_VERSION = 1')
+        remote.check_event_rename_compatibility(self.db, release)
+
     def test_old_code_cannot_recreate_separate_week_comment_storage(self):
         release = self.base / 'old-week-comments'
         release.mkdir()

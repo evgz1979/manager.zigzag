@@ -7,6 +7,8 @@ BLOCK = "События календаря"
 WEEK_BLOCK = "События календаря на неделю"
 MAX_EVENTS = 5200
 WEEKLY_EVENTS_UNIFIED_VERSION = 1
+CALENDAR_RELEVANCE_VERSION = 1
+INACTIVE_BLOCK = "Неактуальные события календаря"
 
 
 def block_name(period):
@@ -100,6 +102,51 @@ def read(blocks, period="day"):
     return _read(blocks, period)
 
 
+def read_inactive(blocks):
+    if INACTIVE_BLOCK not in blocks:
+        return {"day": [], "week": []}
+    try:
+        value = json.loads(blocks[INACTIVE_BLOCK])
+        if not isinstance(value, dict) or set(value) != {"version", "day", "week"} or type(value["version"]) is not int or value["version"] != 1:
+            return None
+        for period in ("day", "week"):
+            days = value[period]
+            if not isinstance(days, list) or len(days) > MAX_EVENTS or [validate_key(day, period) for day in days] != sorted(set(days)):
+                return None
+        return {period: value[period] for period in ("day", "week")}
+    except (ValueError, TypeError):
+        return None
+
+
+def mark_relevance_contract(db):
+    import local_metadata
+    local_metadata.schema(db)
+    db.execute("INSERT INTO metadata_settings VALUES ('calendar_event_relevance','1') ON CONFLICT(key) DO UPDATE SET value=excluded.value")
+
+
+def set_inactive(blocks, day, inactive, period="day"):
+    block_name(period)
+    if period == "week":
+        blocks = unify_weekly_blocks(blocks)
+    day = validate_key(day, period)
+    if type(inactive) is not bool:
+        raise ValueError("Укажи состояние актуальности события")
+    flags, events = read_inactive(blocks), read(blocks, period)
+    if flags is None or events is None:
+        raise ValueError("Формат события или актуальности неизвестен. Данные сохранены без изменений")
+    if day not in events:
+        raise ValueError("Событие на этой дате отсутствует. Обнови календарь")
+    selected = set(flags[period])
+    if inactive:
+        selected.add(day)
+    else:
+        selected.discard(day)
+    if len(selected) > MAX_EVENTS:
+        raise ValueError("Сохранено слишком много отметок актуальности")
+    flags = {**flags, period: sorted(selected)}
+    return {**blocks, INACTIVE_BLOCK: json.dumps({"version": 1, **flags}, ensure_ascii=False)}
+
+
 def write(blocks, day, text, period="day"):
     block = block_name(period)
     if period == "week":
@@ -111,8 +158,8 @@ def write(blocks, day, text, period="day"):
     events = {**events}
     if text:
         events[day] = text
-    else:
-        events.pop(day, None)
+    elif day in events:
+        return set_inactive(blocks, day, True, period)
     if len(events) > MAX_EVENTS:
         raise ValueError("Сохранено слишком много событий календаря")
     return {**blocks, block: json.dumps({"version": 1, "events": events}, ensure_ascii=False)}
@@ -138,6 +185,13 @@ def move(blocks, day, days, period="day"):
         raise ValueError("Дата переноса выходит за допустимый диапазон") from None
     if target in events:
         raise ValueError("На выбранную дату у этого заказа уже есть событие. Оба события оставлены на своих местах")
+    flags = read_inactive(blocks)
+    if flags is None:
+        raise ValueError("Формат актуальности неизвестен. Событие сохранено на прежней дате")
     moved = {**events}
     moved[target] = moved.pop(day)
-    return {**blocks, block: json.dumps({"version": 1, "events": moved}, ensure_ascii=False)}
+    result = {**blocks, block: json.dumps({"version": 1, "events": moved}, ensure_ascii=False)}
+    if day in flags[period]:
+        selected = set(flags[period]); selected.remove(day); selected.add(target)
+        result[INACTIVE_BLOCK] = json.dumps({"version": 1, **flags, period: sorted(selected)}, ensure_ascii=False)
+    return result
