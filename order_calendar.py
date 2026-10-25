@@ -4,7 +4,21 @@ import re
 from datetime import date, timedelta
 
 BLOCK = "События календаря"
+WEEK_BLOCK = "События календаря на неделю"
 MAX_EVENTS = 5200
+
+
+def block_name(period):
+    if period not in ("day", "week"):
+        raise ValueError("Некорректный период события")
+    return WEEK_BLOCK if period == "week" else BLOCK
+
+
+def validate_key(value, period):
+    value = validate_date(value)
+    if period == "week" and date.fromisoformat(value).weekday() != 0:
+        raise ValueError("Событие на неделю должно быть привязано к дате понедельника")
+    return value
 
 
 def validate_date(value):
@@ -25,18 +39,19 @@ def validate_text(value):
     return value
 
 
-def read(blocks):
-    if BLOCK not in blocks:
+def read(blocks, period="day"):
+    block = block_name(period)
+    if block not in blocks:
         return {}
     try:
-        value = json.loads(blocks[BLOCK])
+        value = json.loads(blocks[block])
         if not isinstance(value, dict) or set(value) != {"version", "events"} or type(value["version"]) is not int or value["version"] != 1:
             return None
         events = value["events"]
         if not isinstance(events, dict) or len(events) > MAX_EVENTS:
             return None
         for day, text in events.items():
-            validate_date(day)
+            validate_key(day, period)
             if not validate_text(text):
                 return None
         return events
@@ -44,9 +59,10 @@ def read(blocks):
         return None
 
 
-def write(blocks, day, text):
-    day, text = validate_date(day), validate_text(text)
-    events = read(blocks)
+def write(blocks, day, text, period="day"):
+    block = block_name(period)
+    day, text = validate_key(day, period), validate_text(text)
+    events = read(blocks, period)
     if events is None:
         raise ValueError("События календаря имеют неизвестный формат и оставлены без изменений")
     events = {**events}
@@ -56,14 +72,17 @@ def write(blocks, day, text):
         events.pop(day, None)
     if len(events) > MAX_EVENTS:
         raise ValueError("Сохранено слишком много событий календаря")
-    return {**blocks, BLOCK: json.dumps({"version": 1, "events": events}, ensure_ascii=False)}
+    return {**blocks, block: json.dumps({"version": 1, "events": events}, ensure_ascii=False)}
 
 
-def move(blocks, day, days):
-    day = validate_date(day)
-    if type(days) is not int or days not in {-7, -1, 1, 7}:
+def move(blocks, day, days, period="day"):
+    block = block_name(period)
+    day = validate_key(day, period)
+    if type(days) is not int or days not in ({-7, 7} if period == "week" else {-7, -1, 1, 7}):
+        if period == "week":
+            raise ValueError("Недельное событие можно сдвинуть на неделю вперёд или назад")
         raise ValueError("Событие можно сдвинуть на один день или неделю вперёд или назад")
-    events = read(blocks)
+    events = read(blocks, period)
     if events is None:
         raise ValueError("События календаря имеют неизвестный формат и оставлены без изменений")
     if day not in events:
@@ -76,4 +95,4 @@ def move(blocks, day, days):
         raise ValueError("На выбранную дату у этого заказа уже есть событие. Оба события оставлены на своих местах")
     moved = {**events}
     moved[target] = moved.pop(day)
-    return {**blocks, BLOCK: json.dumps({"version": 1, "events": moved}, ensure_ascii=False)}
+    return {**blocks, block: json.dumps({"version": 1, "events": moved}, ensure_ascii=False)}

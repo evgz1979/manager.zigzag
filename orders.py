@@ -110,6 +110,7 @@ class OrderStore:
         result["deadline_weeks"] = order_deadlines.read(result["extra_blocks"])
         result["deadline_comments"] = order_deadlines.read_comments(result["extra_blocks"])
         result["calendar_events"] = order_calendar.read(result["extra_blocks"])
+        result["calendar_week_events"] = order_calendar.read(result["extra_blocks"], "week")
         result["can_group_supplier_orders"] = work_orders.direct_order(result["path"])
         exported_revision, export_format = result.pop("exported_revision"), result.pop("export_format")
         result["sync_pending"] = result["revision"] != exported_revision or (result["registered"] and export_format < document.FORMAT)
@@ -246,10 +247,10 @@ class OrderStore:
         return self._save_extra_block(payload, lambda blocks: document.write_flag(blocks, payload.get("is_flagged")), update_time=False)
 
     def save_calendar_event(self, payload):
-        return self._save_extra_block(payload, lambda blocks: order_calendar.write(blocks, payload.get("date"), payload.get("text")), update_time=False)
+        return self._save_extra_block(payload, lambda blocks: order_calendar.write(blocks, payload.get("date"), payload.get("text"), payload.get("period", "day")), update_time=False)
 
     def move_calendar_event(self, payload):
-        return self._save_extra_block(payload, lambda blocks: order_calendar.move(blocks, payload.get("date"), payload.get("days")), update_time=False)
+        return self._save_extra_block(payload, lambda blocks: order_calendar.move(blocks, payload.get("date"), payload.get("days"), payload.get("period", "day")), update_time=False)
 
     def _save_extra_block(self, payload, write, *, update_time=True):
         relative = self.path(payload.get("path"))

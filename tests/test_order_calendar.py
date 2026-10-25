@@ -11,6 +11,34 @@ manager = fixtures.manager
 
 
 class CalendarFormatTests(unittest.TestCase):
+    def test_week_events_are_independent_and_only_move_by_full_weeks(self):
+        daily = order_calendar.write({}, "2026-10-26", "Событие понедельника")
+        weekly = order_calendar.write(daily, "2026-10-26", '  На всю неделю "окна"  ', "week")
+        self.assertEqual(order_calendar.read(weekly), {"2026-10-26": "Событие понедельника"})
+        self.assertEqual(order_calendar.read(weekly, "week"), {"2026-10-26": '  На всю неделю "окна"  '})
+        moved = order_calendar.move(weekly, "2026-10-26", 7, "week")
+        self.assertEqual(moved[order_calendar.BLOCK], daily[order_calendar.BLOCK])
+        self.assertEqual(order_calendar.read(moved, "week"), {"2026-11-02": '  На всю неделю "окна"  '})
+        restored = order_calendar.move(moved, "2026-11-02", -7, "week")
+        self.assertEqual(order_calendar.read(restored, "week"), order_calendar.read(weekly, "week"))
+        self.assertEqual(order_calendar.read(order_calendar.write(restored, "2026-10-26", "", "week"), "week"), {})
+        for day, days in (("2026-10-26", 1), ("2026-10-26", -1), ("2026-10-27", 7)):
+            with self.subTest(day=day, days=days), self.assertRaises(ValueError):
+                order_calendar.move(weekly, day, days, "week")
+        with self.assertRaises(ValueError):
+            order_calendar.write({}, "2026-10-27", "Не понедельник", "week")
+        for period in (None, True, "month", ""):
+            with self.subTest(period=period), self.assertRaises(ValueError):
+                order_calendar.write({}, "2026-10-26", "Неизвестный период", period)
+        unknown = {**daily, order_calendar.WEEK_BLOCK: '{"version":2,"events":{}}'}
+        self.assertIsNone(order_calendar.read(unknown, "week"))
+        with self.assertRaises(ValueError):
+            order_calendar.write(unknown, "2026-10-26", "Не заменять", "week")
+        edited = order_calendar.write(unknown, "2026-10-26", "Новый текст дня")
+        self.assertEqual(edited[order_calendar.WEEK_BLOCK], unknown[order_calendar.WEEK_BLOCK])
+        invalid = {order_calendar.WEEK_BLOCK: '{"version":1,"events":{"2026-10-27":"Не понедельник"}}'}
+        self.assertIsNone(order_calendar.read(invalid, "week"))
+
     def test_moves_cross_year_and_leap_day_preserving_text_and_other_blocks(self):
         blocks = order_calendar.write({"Особое": "Сохранить"}, "2026-12-31", '  Замер "окна"  ')
         moved = order_calendar.move(blocks, "2026-12-31", 1)
@@ -76,6 +104,33 @@ class CalendarApiTests(unittest.TestCase):
         record = record or self.order
         return {"path": self.path, "id": record["id"], "revision": record["revision"],
                 "date": "2026-10-27", "text": "Монтаж", **changes}
+
+    def test_weekly_http_save_move_conflict_and_delete_keep_daily_data_and_sorting(self):
+        daily = self.store.save_calendar_event(self.payload())
+        data = self.payload(daily, period="week", date="2026-10-26", text="Закончить за неделю")
+        status, _, body = self.http("/api/order-calendar-event", "POST", json.dumps(data))
+        self.assertEqual(status, 200)
+        weekly = json.loads(body)
+        self.assertEqual(weekly["calendar_week_events"], {"2026-10-26": "Закончить за неделю"})
+        for field in daily.keys() - {"calendar_week_events", "extra_blocks", "revision"}:
+            self.assertEqual(weekly[field], daily[field], field)
+        self.assertEqual(weekly["extra_blocks"][order_calendar.BLOCK], daily["extra_blocks"][order_calendar.BLOCK])
+        self.assertEqual(self.http("/api/order-calendar-event", "POST", json.dumps(data))[0], 409)
+        for changes in ({"date": "2026-10-27"}, {"period": "month"}, {"period": None}):
+            invalid = {**self.payload(weekly, period="week", date="2026-10-26"), **changes}
+            self.assertEqual(self.http("/api/order-calendar-event", "POST", json.dumps(invalid))[0], 400)
+        status, _, body = self.http("/api/order-calendar-move", "POST", json.dumps(self.payload(weekly, period="week", date="2026-10-26", days=7)))
+        self.assertEqual(status, 200)
+        moved = json.loads(body)
+        self.assertEqual(moved["calendar_week_events"], {"2026-11-02": "Закончить за неделю"})
+        self.assertEqual(moved["calendar_events"], daily["calendar_events"])
+        self.assertEqual(moved["updated"], daily["updated"])
+        self.assertEqual(json.loads(self.http("/api/orders")[2])["orders"][0]["calendar_week_events"], moved["calendar_week_events"])
+        restarted = OrderStore(self.root, manager.DATA_DIR, manager.STATUS_LABELS)
+        self.assertEqual(restarted.get(self.path)["calendar_week_events"], moved["calendar_week_events"])
+        removed = self.store.save_calendar_event(self.payload(moved, period="week", date="2026-11-02", text=""))
+        self.assertEqual(removed["calendar_week_events"], {})
+        self.assertEqual(removed["calendar_events"], daily["calendar_events"])
 
     def test_atomic_moves_keep_other_dates_fields_history_and_registration(self):
         saved = self.store.save_calendar_event(self.payload())
