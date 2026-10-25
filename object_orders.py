@@ -141,6 +141,7 @@ class ObjectOrders:
                     "note": body.get("note", ""), "extra_blocks": blocks, "updated": note["updated"] if note else None,
                     "todo_items": document.read_todos(blocks), "purchase_items": document.read_purchases(blocks),
                     "is_favorite": document.read_favorite(blocks), "deadline_weeks": order_deadlines.read(blocks),
+                    "deadline_comments": order_deadlines.read_comments(blocks),
                     "sync_pending": False, "sync_error": "", "storage": "database", **values}
                 row["profit"] = values["amount"] - values["costs"] if values["amount"] is not None and values["costs"] is not None else None
                 row["debt"] = values["amount"] - values["paid"] if values["amount"] is not None and values["paid"] is not None else None

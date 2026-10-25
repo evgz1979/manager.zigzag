@@ -1,10 +1,11 @@
-"""Versioned deadline week marks and the rolling Moscow calendar shown on orders."""
+"""Versioned deadline marks, weekly comments and the rolling Moscow calendar."""
 import json
 import re
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 BLOCK = "Сроки"
+COMMENTS_BLOCK = "Комментарии к срокам"
 MOSCOW = ZoneInfo("Europe/Moscow")
 
 
@@ -52,6 +53,46 @@ def write(blocks, week, selected):
     if len(weeks) > 5200:
         raise ValueError("Сохранено слишком много недель сроков")
     return {**blocks, BLOCK: json.dumps({"version": 1, "weeks": sorted(weeks)}, ensure_ascii=False)}
+
+
+def read_comments(blocks):
+    if COMMENTS_BLOCK not in blocks:
+        return {}
+    try:
+        value = json.loads(blocks[COMMENTS_BLOCK])
+        if not isinstance(value, dict) or set(value) != {"version", "comments"} or type(value["version"]) is not int or value["version"] != 1:
+            return None
+        comments = value["comments"]
+        if not isinstance(comments, dict) or len(comments) > 5200:
+            return None
+        for week, comment in comments.items():
+            validate_week(week)
+            validate_comment(comment)
+        return comments
+    except (ValueError, TypeError):
+        return None
+
+
+def validate_comment(comment):
+    if not isinstance(comment, str) or len(comment) > 1000 or any(char in comment for char in "\r\n\0"):
+        raise ValueError("Комментарий к неделе — одна строка до 1000 символов")
+    return comment
+
+
+def write_comment(blocks, week, comment):
+    week = validate_week(week)
+    comment = validate_comment(comment)
+    comments = read_comments(blocks)
+    if comments is None:
+        raise ValueError("Комментарии к срокам имеют неизвестный формат и сохранены без изменений")
+    comments = {**comments}
+    if comment:
+        comments[week] = comment
+    else:
+        comments.pop(week, None)
+    if len(comments) > 5200:
+        raise ValueError("Сохранено слишком много комментариев к неделям")
+    return {**blocks, COMMENTS_BLOCK: json.dumps({"version": 1, "comments": comments}, ensure_ascii=False)}
 
 
 def week_options(now=None):

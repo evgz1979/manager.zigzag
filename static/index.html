@@ -73,11 +73,7 @@
           <div class="order-calculated"><span>Прибыль: <strong id="orderProfit">—</strong></span><span>Остаток оплаты: <strong id="orderDebt">—</strong></span></div>
           <p id="orderExportState" class="order-export-state" role="status"></p>
         </div><button id="saveStatusButton" class="primary-button" type="submit">Сохранить</button></form>
-        <section id="orderCardDeadlines" class="order-card-deadlines" aria-label="Все сроки заказа" hidden>
-          <h3>Сроки</h3><div id="orderCardDeadlineList" class="order-card-deadline-list"></div>
-          <div class="order-card-deadline-navigation"><button id="orderCardDeadlineEarlier" class="secondary-button" type="button">← Раньше</button><button id="orderCardDeadlineLater" class="secondary-button" type="button">Позже →</button></div>
-          <p id="orderCardDeadlineState" class="order-card-deadline-state" role="status"></p>
-        </section></details>
+        </details>
         <section id="todoPanel" class="todo-panel" aria-label="Список дел открытой папки" hidden>
           <header class="todo-heading"><h2>To-do</h2><span id="todoCount"></span></header>
           <div id="todoList" class="todo-list"></div>
@@ -91,6 +87,13 @@
             <div id="descendantTodoList" class="order-todos descendant-todo-list" tabindex="0" aria-label="Задачи вложенных папок"></div>
             <p id="descendantTodoState" class="todo-save-state" role="status"></p>
           </section>
+        </section>
+        <section id="orderCardDeadlines" class="order-card-deadlines" aria-label="Все сроки заказа" hidden>
+          <h3>Сроки</h3><div class="order-card-deadline-layout"><div>
+            <div id="orderCardDeadlineList" class="order-card-deadline-list"></div>
+            <div class="order-card-deadline-navigation"><button id="orderCardDeadlineEarlier" class="secondary-button" type="button">← Раньше</button><button id="orderCardDeadlineLater" class="secondary-button" type="button">Позже →</button></div>
+            <p id="orderCardDeadlineState" class="order-card-deadline-state" role="status"></p>
+          </div><div><div id="orderDeadlineComments" class="deadline-comments" aria-label="Комментарии к неделям"></div><p id="orderDeadlineCommentsState" class="order-card-deadline-state" role="status"></p><button id="retryDeadlineComments" class="secondary-button" type="button" hidden>Повторить сохранение</button></div></div>
         </section>
         </div>
         <div id="orderFinanceOverview" class="order-finance-overview" hidden>

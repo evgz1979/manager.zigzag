@@ -106,6 +106,7 @@ class OrderStore:
         result["purchase_items"] = document.read_purchases(result["extra_blocks"])
         result["is_favorite"] = document.read_favorite(result["extra_blocks"])
         result["deadline_weeks"] = order_deadlines.read(result["extra_blocks"])
+        result["deadline_comments"] = order_deadlines.read_comments(result["extra_blocks"])
         result["can_group_supplier_orders"] = work_orders.direct_order(result["path"])
         exported_revision, export_format = result.pop("exported_revision"), result.pop("export_format")
         result["sync_pending"] = result["revision"] != exported_revision or (result["registered"] and export_format < document.FORMAT)
@@ -233,6 +234,12 @@ class OrderStore:
 
     def save_deadline_week(self, payload):
         """Change one week's mark without replacing any other order data."""
+        return self._save_deadline_value(payload, lambda blocks: order_deadlines.write(blocks, payload.get("week"), payload.get("selected")))
+
+    def save_deadline_comment(self, payload):
+        return self._save_deadline_value(payload, lambda blocks: order_deadlines.write_comment(blocks, payload.get("week"), payload.get("comment")))
+
+    def _save_deadline_value(self, payload, write):
         relative = self.path(payload.get("path"))
         revision = payload.get("revision")
         identity = payload.get("id")
@@ -246,8 +253,8 @@ class OrderStore:
             row = db.execute("SELECT extra_blocks FROM orders WHERE path=? AND id=? AND revision=? AND registered=1",
                              (relative, identity, revision)).fetchone()
             if row is None:
-                raise OrderConflict("Заказ изменён в другой вкладке. Проверь актуальные сроки и повтори выбор недели.")
-            blocks = order_deadlines.write(json.loads(row["extra_blocks"]), payload.get("week"), payload.get("selected"))
+                raise OrderConflict("Заказ изменён в другой вкладке. Проверь актуальные сроки и повтори изменение.")
+            blocks = write(json.loads(row["extra_blocks"]))
             db.execute("""UPDATE orders SET extra_blocks=?,revision=revision+1,updated=?,sync_error=''
                 WHERE path=? AND id=? AND revision=? AND registered=1""",
                 (json.dumps(blocks, ensure_ascii=False), time.time(), relative, identity, revision))

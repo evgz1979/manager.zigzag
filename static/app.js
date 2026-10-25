@@ -1434,6 +1434,7 @@ async function saveCurrentPrintTask(force = false) {
 }
 
 async function saveCurrentStatus() {
+  await flushDeadlineComments();
   if (state.saving) {
     await state.saving;
     if (state.dirty) return saveCurrentStatus();
@@ -1727,13 +1728,15 @@ function renderOrderDeadlines(order, { options = state.deadlineWeekOptions, card
   return '<div class="order-deadline-line' + (card ? ' order-card-deadline-line' : '') + '"><div class="order-deadline-weeks" role="group" aria-label="Сроки · ' + escapeHtml(order.title) + '">' +
     options.map((option) => {
       const week = deadlineWeekInfo(option.start);
+      const comment = order.deadline_comments?.[week.start] || "";
+      const help = week.label + (comment ? "\n" + comment : "");
       const gap = card && previous && shiftDeadlineWeek(previous, 1) !== week.start ? '<span class="deadline-week-gap" title="Между этими неделями есть пропуск">…</span>' : '';
       previous = week.start;
       return gap + '<button type="button" class="deadline-week' + (week.current ? ' current' : '') +
       '" style="--deadline-month-hue:' + week.hue +
       '" data-order-deadline="' + escapeHtml(order.path) + '" data-deadline-week="' + week.start +
       '" data-order-id="' + escapeHtml(order.id) + '" data-revision="' + order.revision + '" aria-pressed="' + selected.has(week.start) +
-      '" aria-label="Неделя ' + week.number + ' · ' + week.label + '" title="' + week.label +
+      '" aria-label="' + escapeHtml("Неделя " + week.number + " · " + help) + '" title="' + escapeHtml(help) +
       '"' + (disabled || unknown || order.registered === false || orderRowSaving(order.path) ? ' disabled' : '') + '>' + week.number + '</button>';
     }).join("") + '</div>' +
     (range ? '<span class="order-deadline-range">' + escapeHtml(range) + '</span>' : '') + '</div>' +
@@ -1756,7 +1759,7 @@ function renderCardDeadlines() {
   const disabled = unknown || Boolean(folder.deadlineConflict) || orderRowSaving(order.path) || Boolean(state.saving);
   const visible = folder.deadlineVisibleWeeks ||= new Set();
   for (const week of state.deadlineWeekOptions) visible.add(week.start);
-  for (const week of order.deadline_weeks || []) {
+  for (const week of new Set([...(order.deadline_weeks || []), ...Object.keys(order.deadline_comments || {})])) {
     for (const offset of [-1, 0, 1]) { const start = shiftDeadlineWeek(week, offset); if (start) visible.add(start); }
   }
   const options = [...visible].sort().map((start) => ({ start }));
@@ -1767,6 +1770,119 @@ function renderCardDeadlines() {
   $("orderCardDeadlineState").textContent = folder.deadlineError || (unknown ? "Неизвестный формат сроков сохранён без изменений" :
     state.deadlineSaving.has(order.path) ? "Сохраняю сроки…" :
     "Нажми на номер недели, чтобы отметить или снять её. Даты — при наведении.");
+  renderDeadlineComments(folder);
+}
+
+function renderDeadlineComments(folder) {
+  const order = folder.order, comments = order.deadline_comments || {}, unknown = order.deadline_comments === null;
+  const drafts = folder.deadlineCommentDrafts ||= new Map();
+  const container = $("orderDeadlineComments"), scope = order.id + "|" + folder.path;
+  if (container.dataset.scope !== scope) { container.replaceChildren(); container.dataset.scope = scope; }
+  const weeks = new Set([...(order.deadline_weeks || []), ...Object.keys(comments), ...drafts.keys()]);
+  const rows = new Map([...container.children].map((row) => [row.dataset.weekCommentRow, row]));
+  let before = container.firstElementChild;
+  for (const week of [...weeks].sort()) {
+    let draft = drafts.get(week);
+    if (!draft) { draft = { value: comments[week] || "", saved: comments[week] || "", dirty: false, saving: false, error: "" }; drafts.set(week, draft); }
+    if (!draft.dirty && !draft.saving) draft.value = draft.saved = comments[week] || "";
+    const info = deadlineWeekInfo(week);
+    let row = rows.get(week);
+    if (!row) {
+      row = document.createElement("div");
+      row.className = "deadline-comment-row";
+      row.dataset.weekCommentRow = week;
+      row.innerHTML = '<span class="deadline-week deadline-comment-week" role="img" aria-label="Неделя ' + info.number +
+        '" style="--deadline-month-hue:' + info.hue + '">' + info.number + '</span><input type="text" maxlength="1000" autocomplete="off" data-deadline-comment="' +
+        week + '" placeholder="Комментарий к неделе" aria-label="Комментарий к неделе ' + info.number + ' · ' + info.label + '">';
+    }
+    row.title = info.label + (order.deadline_weeks?.includes(week) ? "" : " · Отметка недели снята");
+    const input = row.querySelector("input");
+    if (input.value !== draft.value) input.value = draft.value;
+    input.title = draft.value;
+    input.disabled = unknown;
+    input.readOnly = Boolean(folder.deadlineConflict);
+    input.setAttribute("aria-invalid", draft.error ? "true" : "false");
+    if (row !== before) container.insertBefore(row, before);
+    before = row.nextElementSibling;
+  }
+  const values = [...drafts.values()], error = values.find((draft) => draft.error)?.error;
+  $("orderDeadlineCommentsState").textContent = unknown ? "Неизвестный формат комментариев сохранён без изменений" : error ||
+    (values.some((draft) => draft.saving) ? "Сохраняю комментарии…" : values.some((draft) => draft.dirty) ? "Есть несохранённые комментарии" :
+      weeks.size ? "Комментарии сохранены" : "Отметь неделю, чтобы добавить комментарий");
+  $("retryDeadlineComments").hidden = !error || unknown || Boolean(folder.deadlineConflict);
+  $("retryDeadlineComments").disabled = Boolean(folder.deadlineCommentFlush);
+}
+
+function hasPendingDeadlineComments(folder = state.folder) {
+  return Boolean(folder?.deadlineCommentFlush) || [...(folder?.deadlineCommentDrafts?.values() || [])].some((draft) => draft.dirty || draft.saving);
+}
+
+function deadlineCommentInput(event) {
+  const input = event.target.closest("[data-deadline-comment]"), folder = state.folder;
+  const draft = folder?.deadlineCommentDrafts?.get(input?.dataset.deadlineComment);
+  if (!input || !draft) return;
+  draft.value = input.value;
+  draft.dirty = draft.value !== draft.saved;
+  draft.error = "";
+  clearTimeout(folder.deadlineCommentTimer);
+  renderDeadlineComments(folder);
+  if (!event.isComposing) folder.deadlineCommentTimer = setTimeout(() => run(() => flushDeadlineComments(folder)), 700);
+}
+
+function applyDeadlineOrder(folder, saved) {
+  ++state.ordersRequest;
+  for (const orders of [state.orders, state.favoriteOrders, state.objectOrders]) {
+    const current = orders.find((order) => order.path === saved.path);
+    if (current && current.id === saved.id && current.revision <= saved.revision) Object.assign(current, saved);
+  }
+  if (folder) folder.order = saved;
+}
+
+function flushDeadlineComments(folder = state.folder) {
+  if (!folder?.order) return Promise.resolve();
+  clearTimeout(folder.deadlineCommentTimer);
+  if (folder.deadlineCommentFlush) return folder.deadlineCommentFlush;
+  if (![...(folder.deadlineCommentDrafts?.values() || [])].some((draft) => draft.dirty)) return Promise.resolve();
+  const pending = (async () => {
+    while (true) {
+      while (state.saving) await state.saving;
+      if (state.folder !== folder) throw new Error("Комментарий остался в открытой карточке. Вернись к ней для сохранения.");
+      const entry = [...folder.deadlineCommentDrafts].find(([, draft]) => draft.dirty);
+      if (!entry) return;
+      const [week, draft] = entry, value = draft.value, order = folder.order;
+      if (folder.deadlineConflict) throw new Error(folder.deadlineError || "Обнови карточку перед сохранением комментария. Ввод остался в поле.");
+      draft.saving = true;
+      draft.error = "";
+      state.deadlineSaving.add(order.path);
+      ++state.ordersRequest;
+      const saving = request("/api/order-deadline-comment", { path: order.path, id: order.id, revision: order.revision, week, comment: value }).then((saved) => {
+        applyDeadlineOrder(folder, saved);
+        draft.saved = value;
+        draft.dirty = draft.value !== value;
+      });
+      state.saving = saving;
+      renderOrderHeading();
+      renderCardDeadlines();
+      try {
+        await saving;
+      } catch (error) {
+        folder.deadlineConflict = error.status === 409;
+        draft.error = error.message + " Текст остался в поле." + (folder.deadlineConflict ? " Обнови карточку перед повтором." : "");
+        if (folder.deadlineConflict) folder.deadlineError = draft.error;
+        throw error;
+      } finally {
+        if (state.saving === saving) state.saving = null;
+        state.deadlineSaving.delete(order.path);
+        draft.saving = false;
+        if (state.folder === folder) { renderOrderHeading(); renderStatus(); }
+      }
+    }
+  })();
+  folder.deadlineCommentFlush = pending.finally(() => {
+    folder.deadlineCommentFlush = null;
+    if (state.folder === folder) renderDeadlineComments(folder);
+  });
+  return folder.deadlineCommentFlush;
 }
 
 function expandCardDeadlineWeeks(direction) {
@@ -1791,6 +1907,7 @@ function focusOrderDeadline(path, week) {
 async function toggleOrderDeadline(button) {
   const path = button.dataset.orderDeadline, week = button.dataset.deadlineWeek;
   const selected = button.getAttribute("aria-pressed") !== "true";
+  if (state.folder?.path === path) await flushDeadlineComments();
   return changeOrderDeadline({ path, id: button.dataset.orderId, revision: Number(button.dataset.revision), week, selected }, button);
 }
 
@@ -1810,14 +1927,7 @@ async function changeOrderDeadline({ path, id, revision, week, selected }, butto
       if (state.folder !== folder || folder.order?.id !== id) return;
       revision = folder.order.revision;
     }
-    saving = request("/api/order-deadline-week", { path, id, revision, week, selected }).then((saved) => {
-      ++state.ordersRequest;
-      for (const orders of [state.orders, state.favoriteOrders, state.objectOrders]) {
-        const current = orders.find((order) => order.path === path);
-        if (current && current.id === saved.id && current.revision <= saved.revision) Object.assign(current, saved);
-      }
-      if (folder) folder.order = saved;
-    });
+    saving = request("/api/order-deadline-week", { path, id, revision, week, selected }).then((saved) => applyDeadlineOrder(folder, saved));
     // Card edits wait for this partial write; editor fields and dirty state stay intact.
     if (folder) state.saving = saving;
     await saving;
@@ -1862,6 +1972,7 @@ function focusOrderFavorite(path) {
 
 async function toggleOrderFavorite(path) {
   const folder = state.folder?.path === path ? state.folder : null;
+  if (folder) await flushDeadlineComments(folder);
   let order = folder?.order || findListOrder(path);
   if (!order || order.registered === false || order.is_favorite === null || orderRowSaving(path)) return;
   state.favoriteSaving.add(path);
@@ -1988,6 +2099,11 @@ function renderOrderComment(order) {
   return '<span class="order-row-comment' + (!firstLine ? ' empty' : '') + '" title="' + escapeHtml(firstLine) + '">' + escapeHtml(firstLine || "—") + '</span>';
 }
 
+function renderOrderLocationLink(label, path) {
+  return path ? '<a class="order-location-link" data-order-location="' + escapeHtml(path) + '" href="?path=' +
+    encodeURIComponent(path) + '">' + escapeHtml(label || "—") + '</a>' : escapeHtml(label || "—");
+}
+
 function compareOrderText(first, second) {
   first = String(first ?? "").normalize("NFC");
   second = String(second ?? "").normalize("NFC");
@@ -2055,7 +2171,7 @@ function renderOrders({ force = false } = {}) {
   });
   $("ordersTableBody").innerHTML = groups.filter((group) => group.orders.length).map((group) =>
     '<tr class="order-group-divider"><th colspan="7">' + escapeHtml(group.label) + '</th><td class="order-deadline-column">' + renderDeadlineMonthLegend(state.deadlineWeekOptions) + '</td><td colspan="8"></td></tr>' +
-    group.orders.map((order) => '<tr><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td><td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + escapeHtml(order.client || "—") + '</td><td class="order-object-column">' + escapeHtml(order.object || "—") + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен</span>' : '') + '<span class="order-row-path">' + escapeHtml(order.path) + '</span></td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td class="order-deadline-column">' + renderOrderDeadlines(order) + '</td><td>' + renderOrderProductionStatus(order) + '</td><td><span class="status-badge" data-financial-status="' + escapeHtml(order.financial_status) + '">' + escapeHtml(financialStatusLabels[order.financial_status] || "Не указан") + '</span></td>' +
+    group.orders.map((order) => '<tr><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td><td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + renderOrderLocationLink(order.client, order.client_path) + '</td><td class="order-object-column">' + renderOrderLocationLink(order.object, order.object_path) + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен</span>' : '') + '<span class="order-row-path">' + escapeHtml(order.path) + '</span></td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td class="order-deadline-column">' + renderOrderDeadlines(order) + '</td><td>' + renderOrderProductionStatus(order) + '</td><td><span class="status-badge" data-financial-status="' + escapeHtml(order.financial_status) + '">' + escapeHtml(financialStatusLabels[order.financial_status] || "Не указан") + '</span></td>' +
     ["amount", "costs", "profit", "paid", "debt"].map((field) => '<td class="order-money' + (order[field] < 0 ? " negative" : "") + '">' + rubles(order[field]) + '</td>').join("") +
     '<td class="order-updated">' + (order.updated ? formatDate(order.updated) : '—') + (order.sync_pending ? '<span class="sync-pending" title="' + escapeHtml(order.sync_error || "Ожидает выгрузки в папку") + '">' + (order.sync_error ? "В очереди · автоповтор" : "Ожидает выгрузки") + '</span>' : '<span class="sync-complete">' + (order.storage === 'database' ? 'В базе' : 'Выгружено') + '</span>') + '</td></tr>').join("")).join("");
   $("ordersEmpty").hidden = Boolean(filtered.length);
@@ -2704,6 +2820,14 @@ $("ordersTableBody").addEventListener("change", (event) => {
   if (select) run(() => changeOrderProductionStatus(select));
 });
 $("ordersTableBody").addEventListener("click", (event) => {
+  const locationLink = event.target.closest("[data-order-location]");
+  if (locationLink) {
+    if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0) {
+      event.preventDefault();
+      run(() => navigate(locationLink.dataset.orderLocation));
+    }
+    return;
+  }
   const deadlineButton = event.target.closest("[data-order-deadline]");
   if (deadlineButton) { run(() => toggleOrderDeadline(deadlineButton)); return; }
   const favoriteButton = event.target.closest("[data-order-favorite]");
@@ -2875,6 +2999,15 @@ $("orderCardDeadlineList").addEventListener("click", (event) => {
 });
 $("orderCardDeadlineEarlier").addEventListener("click", () => expandCardDeadlineWeeks(-1));
 $("orderCardDeadlineLater").addEventListener("click", () => expandCardDeadlineWeeks(1));
+$("orderDeadlineComments").addEventListener("input", deadlineCommentInput);
+$("orderDeadlineComments").addEventListener("compositionend", deadlineCommentInput);
+$("orderDeadlineComments").addEventListener("focusout", (event) => {
+  if (event.target.closest("[data-deadline-comment]")) run(() => flushDeadlineComments());
+});
+$("orderDeadlineComments").addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); run(() => flushDeadlineComments()); }
+});
+$("retryDeadlineComments").addEventListener("click", () => run(() => flushDeadlineComments()));
 $("createOrderFolderButton").addEventListener("click", openCreateOrderFolder);
 $("createObjectFolderButton").addEventListener("click",openCreateObject);
 $("createObjectFolderForm").addEventListener("submit",event=>{event.preventDefault();run(createObject);});
@@ -3076,7 +3209,7 @@ $("previewDialog").addEventListener("keydown", (event) => {
   if (event.key === "ArrowRight") { event.preventDefault(); stepPreview(1); }
 });
 window.addEventListener("popstate", () => run(() => openLocation()));
-window.addEventListener("beforeunload", (event) => { if (state.dirty || state.printTask?.dirty || state.printSaving || state.fileComment?.dirty || state.fileCommentSaving || state.upload?.busy) { event.preventDefault(); event.returnValue = ""; } });
+window.addEventListener("beforeunload", (event) => { if (hasPendingDeadlineComments() || state.dirty || state.printTask?.dirty || state.printSaving || state.fileComment?.dirty || state.fileCommentSaving || state.upload?.busy) { event.preventDefault(); event.returnValue = ""; } });
 
 $("chooseUploadFiles").addEventListener("click", () => $("uploadFileInput").click());
 $("uploadFileInput").addEventListener("change", (event) => {
