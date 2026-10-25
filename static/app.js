@@ -1735,6 +1735,8 @@ function orderDeadlineRange(weeks) {
 
 const deadlineMonthNames = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
 const deadlineMonthHues = [335, 270, 15, 185, 135, 90, 55, 30, 10, 160, 280, 215];
+// Manual Travel calendar: ISO weeks 51/2026 through 4/2027, inclusive.
+const deadlineTravelPeriod = { start: "2026-12-14", end: "2027-01-25", label: "Travel · Таиланд" };
 
 function shiftDeadlineWeek(start, offset) {
   const date = new Date(start + "T00:00:00Z");
@@ -1785,14 +1787,16 @@ function renderOrderDeadlines(order, { options = state.deadlineWeekOptions, card
   const range = orderDeadlineRange(order.deadline_weeks);
   let previous;
   return '<div class="order-deadline-line' + (card ? ' order-card-deadline-line' : '') + '"><div class="order-deadline-buttons"><div class="order-deadline-weeks" role="group" aria-label="Сроки · ' + escapeHtml(order.title) + '">' +
-    options.map((option) => {
+    options.map((option, index) => {
       const week = deadlineWeekInfo(option.start);
       const overdue = selected.has(week.start) && currentWeek && week.start < currentWeek;
+      const travel = week.start >= deadlineTravelPeriod.start && week.start <= deadlineTravelPeriod.end;
+      const travelContinues = travel && options[index + 1]?.start === shiftDeadlineWeek(week.start, 1) && options[index + 1].start <= deadlineTravelPeriod.end;
       const comment = order.deadline_comments?.[week.start] || "";
-      const help = (overdue ? "Просрочено · " : "") + week.label + (comment ? "\n" + comment : "");
+      const help = (overdue ? "Просрочено · " : "") + week.label + (travel ? "\n" + deadlineTravelPeriod.label : "") + (comment ? "\n" + comment : "");
       const gap = card && previous && shiftDeadlineWeek(previous, 1) !== week.start ? '<span class="deadline-week-gap" title="Между этими неделями есть пропуск">…</span>' : '';
       previous = week.start;
-      return gap + '<button type="button" class="deadline-week' + (week.current ? ' current' : '') + (overdue ? ' overdue' : '') +
+      return gap + '<button type="button" class="deadline-week' + (week.current ? ' current' : '') + (overdue ? ' overdue' : '') + (travel ? ' travel' : '') + (travelContinues ? ' travel-continues' : '') +
       '" style="--deadline-month-hue:' + week.hue +
       '" data-order-deadline="' + escapeHtml(order.path) + '" data-deadline-week="' + week.start +
       '" data-order-id="' + escapeHtml(order.id) + '" data-revision="' + order.revision + '" aria-pressed="' + selected.has(week.start) +
