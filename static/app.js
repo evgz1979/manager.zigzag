@@ -19,6 +19,7 @@ const state = {
   view: "orders", orders: [], orderFilter: "all", financialFilter: "all", orderQuery: "", orderSort: "updated", orderDirection: -1, scan: null, ordersRequest: 0,
   unregistrations: [], removeOrder: null, removingOrder: false,
   objectOrders: [], objectOrdersError: "", orderListScope: "",
+  collapsedOrderGroups: new Map(),
   flagSaving: new Set(), favoriteSaving: new Set(), orderStatusSaving: new Set(), deadlineSaving: new Set(), deadlineWeekOptions: [], favoriteOrders: [], supplierFavoriteSaving: new Set(), supplierFavoriteFocus: null,
   fileComment: null, fileCommentSaving: null,
   selectedFiles: new Set(), imageReport: null,
@@ -1520,6 +1521,45 @@ function findListOrder(path) {
 
 let homeFiltersOpen = false;
 
+const orderGroupStoragePrefix = "zigzag.order-groups.v1:";
+
+function orderGroupScope() {
+  return isObjectOrderList() ? "object:" + state.folder.path.normalize("NFC") : "main";
+}
+
+function orderGroupCollapsed(scope, group) {
+  const key = orderGroupStoragePrefix + JSON.stringify([scope, group]);
+  if (!state.collapsedOrderGroups.has(key)) {
+    let collapsed = false;
+    try { collapsed = localStorage.getItem(key) === "1"; } catch (_) { /* Keep groups usable when browser storage is unavailable. */ }
+    state.collapsedOrderGroups.set(key, collapsed);
+  }
+  return state.collapsedOrderGroups.get(key);
+}
+
+function applyOrderGroupVisibility(button) {
+  const collapsed = orderGroupCollapsed(button.dataset.orderGroupScope, button.dataset.orderGroupToggle);
+  button.setAttribute("aria-expanded", String(!collapsed));
+  $("ordersTableBody").querySelectorAll("[data-order-group-row]").forEach((row) => {
+    if (row.dataset.orderGroupRow === button.dataset.orderGroupToggle) row.hidden = collapsed;
+  });
+}
+
+function toggleOrderGroup(button) {
+  const scope = button.dataset.orderGroupScope, group = button.dataset.orderGroupToggle;
+  const key = orderGroupStoragePrefix + JSON.stringify([scope, group]);
+  const collapsed = !orderGroupCollapsed(scope, group);
+  state.collapsedOrderGroups.set(key, collapsed);
+  try { localStorage.setItem(key, collapsed ? "1" : "0"); }
+  catch (_) { notify("Не удалось запомнить вид группы в браузере. После обновления страницы он может сброситься."); }
+  applyOrderGroupVisibility(button);
+}
+
+function focusOrderGroup(group) {
+  if (!hasOrderList() || !group) return;
+  [...$("ordersTableBody").querySelectorAll("[data-order-group-toggle]")].find((button) => button.dataset.orderGroupToggle === group)?.focus({ preventScroll: true });
+}
+
 function mountOrderList() {
   const object = isObjectOrderList(), workspace = $("ordersWorkspace");
   const home = state.view === "orders", pane = document.querySelector(".content-pane");
@@ -2071,11 +2111,11 @@ function orderListGroups() {
   const groups = orderStatusGroups.map((group, index) => {
     let statuses = group.length ? group : Object.keys(statusLabels).filter((status) => !orderStatusGroups.some((group) => group.includes(status)));
     if (object) statuses = statuses.filter((status) => orderShownOnMain({ status }));
-    return { statuses, label: index < 2 ? statuses.map((status) => statusLabels[status]).join(" · ") : "Остальные" };
+    return { key: ["preparation", "production", "other"][index], statuses, label: index < 2 ? statuses.map((status) => statusLabels[status]).join(" · ") : "Остальные" };
   });
   if (object) {
     const statuses = Object.keys(statusLabels).filter((status) => !orderShownOnMain({ status }));
-    groups.push({ statuses, label: [...statuses.map((status) => statusLabels[status]), "Не добавлены"].join(" · ") });
+    groups.push({ key: "hidden", statuses, label: [...statuses.map((status) => statusLabels[status]), "Не добавлены"].join(" · ") });
   }
   return groups;
 }
@@ -2184,6 +2224,7 @@ function renderOrders({ force = false } = {}) {
   // Replacing a focused native select would close its menu during background polling.
   if (!force && (state.orderStatusSaving.size || state.deadlineSaving.size || state.flagSaving.size || document.activeElement?.dataset.orderStatus)) return;
   const focusedFlag = document.activeElement?.dataset.orderFlag;
+  const focusedGroup = document.activeElement?.dataset.orderGroupToggle;
   const focusedFavorite = document.activeElement?.dataset.orderFavorite;
   const focusedDeadline = document.activeElement?.dataset.orderDeadline, focusedWeek = document.activeElement?.dataset.deadlineWeek;
   const orders = orderListRows(), object = isObjectOrderList();
@@ -2209,14 +2250,18 @@ function renderOrders({ force = false } = {}) {
     const total = known.reduce((sum, order) => sum + order[field], 0);
     return '<div class="order-total"><span>' + label + '</span><strong>' + rubles(known.length ? total : null) + '</strong><small>' + (known.length === filtered.length && filtered.length ? "По всем выбранным заказам" : "Указано: " + known.length + " из " + filtered.length) + '</small></div>';
   }).join("");
-  const groups = orderListGroups().map((group) => ({ ...group, orders: [] }));
+  const groupScope = orderGroupScope();
+  const groups = orderListGroups().map((group) => ({ ...group, collapsed: orderGroupCollapsed(groupScope, group.key), orders: [] }));
   filtered.forEach((order) => {
     const group = object && !orderShownOnMain(order) ? groups[3] : groups.find((group) => group.statuses.includes(order.status)) || groups[2];
     group.orders.push(order);
   });
   $("ordersTableBody").innerHTML = groups.filter((group) => group.orders.length).map((group) =>
-    '<tr class="order-group-divider"><th colspan="8">' + escapeHtml(group.label) + '</th><td class="order-deadline-column">' + renderDeadlineMonthLegend(state.deadlineWeekOptions) + '</td><td colspan="8"></td></tr>' +
-    group.orders.map((order) => '<tr><td class="order-flag-column">' + renderOrderFlagButton(order) + '</td><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td><td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + renderOrderLocationLink(order.client, order.client_path) + '</td><td class="order-object-column">' + renderOrderLocationLink(order.object, order.object_path) + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен</span>' : '') + '<span class="order-row-path">' + escapeHtml(order.path) + '</span></td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td class="order-deadline-column">' + renderOrderDeadlines(order) + '</td><td>' + renderOrderProductionStatus(order) + '</td><td><span class="status-badge" data-financial-status="' + escapeHtml(order.financial_status) + '">' + escapeHtml(financialStatusLabels[order.financial_status] || "Не указан") + '</span></td>' +
+    '<tr class="order-group-divider"><th colspan="8"><button type="button" class="order-group-toggle" data-order-group-toggle="' + group.key +
+    '" data-order-group-scope="' + escapeHtml(groupScope) + '" aria-expanded="' + !group.collapsed +
+    '"><span class="order-group-chevron" aria-hidden="true">▸</span><span>' + escapeHtml(group.label) +
+    '</span><span class="count-badge">' + group.orders.length + '</span></button></th><td class="order-deadline-column">' + renderDeadlineMonthLegend(state.deadlineWeekOptions) + '</td><td colspan="8"></td></tr>' +
+    group.orders.map((order) => '<tr data-order-group-row="' + group.key + '"' + (group.collapsed ? ' hidden' : '') + '><td class="order-flag-column">' + renderOrderFlagButton(order) + '</td><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td><td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + renderOrderLocationLink(order.client, order.client_path) + '</td><td class="order-object-column">' + renderOrderLocationLink(order.object, order.object_path) + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен</span>' : '') + '<span class="order-row-path">' + escapeHtml(order.path) + '</span></td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td class="order-deadline-column">' + renderOrderDeadlines(order) + '</td><td>' + renderOrderProductionStatus(order) + '</td><td><span class="status-badge" data-financial-status="' + escapeHtml(order.financial_status) + '">' + escapeHtml(financialStatusLabels[order.financial_status] || "Не указан") + '</span></td>' +
     ["amount", "costs", "profit", "paid", "debt"].map((field) => '<td class="order-money' + (order[field] < 0 ? " negative" : "") + '">' + rubles(order[field]) + '</td>').join("") +
     '<td class="order-updated">' + (order.updated ? formatDate(order.updated) : '—') + (order.sync_pending ? '<span class="sync-pending" title="' + escapeHtml(order.sync_error || "Ожидает выгрузки в папку") + '">' + (order.sync_error ? "В очереди · автоповтор" : "Ожидает выгрузки") + '</span>' : '<span class="sync-complete">' + (order.storage === 'database' ? 'В базе' : 'Выгружено') + '</span>') + '</td></tr>').join("")).join("");
   $("ordersEmpty").hidden = Boolean(filtered.length);
@@ -2240,7 +2285,7 @@ function renderOrders({ force = false } = {}) {
   if (state.unregistrations.length) $("ordersSyncState").textContent += " · Сохранение снятой регистрации: " + state.unregistrations.length + (state.unregistrations.some((item) => item.sync_error) ? " · есть ошибки, повторим выгрузку" : "");
   if (object && state.objectOrdersError) $("ordersSyncState").textContent += " · Список папок неполный: " + state.objectOrdersError;
   $("ordersWorkspace").querySelectorAll("th").forEach((th) => {
-    const button = th.querySelector("button");
+    const button = th.querySelector("button[data-sort]");
     if (!button) return;
     const selected = button.dataset.sort === key;
     th.setAttribute("aria-sort", selected ? direction === 1 ? "ascending" : "descending" : "none");
@@ -2250,6 +2295,7 @@ function renderOrders({ force = false } = {}) {
   focusOrderFlag(focusedFlag);
   focusOrderFavorite(focusedFavorite);
   focusOrderDeadline(focusedDeadline, focusedWeek);
+  focusOrderGroup(focusedGroup);
 }
 
 async function showOrders({ history = true } = {}) {
@@ -2873,6 +2919,8 @@ $("ordersTableBody").addEventListener("change", (event) => {
   if (select) run(() => changeOrderProductionStatus(select));
 });
 $("ordersTableBody").addEventListener("click", (event) => {
+  const groupButton = event.target.closest("[data-order-group-toggle]");
+  if (groupButton) { toggleOrderGroup(groupButton); return; }
   const locationLink = event.target.closest("[data-order-location]");
   if (locationLink) {
     if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0) {

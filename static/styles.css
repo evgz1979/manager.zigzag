@@ -505,6 +505,10 @@ h2 { font-size: 13px; font-weight: 600; }
 .orders-table tbody tr:hover { background: #fafcf9; }
 .orders-table .order-group-divider > * { padding: 10px; border-top: 2px solid #cad8ce; background: #edf3ed; color: var(--muted); font-size: 11px; font-weight: 550; white-space: normal; }
 .orders-table .order-group-divider:first-child > * { border-top: 0; }
+.orders-table .order-group-toggle { display: flex; align-items: center; gap: 7px; width: 100%; padding: 0; border: 0; border-radius: 0; background: transparent; color: inherit; font: inherit; text-align: left; }
+.orders-table .order-group-toggle:hover { color: var(--accent); }
+.order-group-chevron { display: inline-block; flex: none; font-size: 10px; }
+.order-group-toggle[aria-expanded="true"] .order-group-chevron { transform: rotate(90deg); }
 .orders-table .order-todo-column { width: 68px; text-align: center; }
 .orders-table th.order-todo-column { padding: 8px 10px; color: var(--muted); font-size: 11px; font-weight: 400; }
 .orders-table .order-client-column { min-width: 110px; max-width: 160px; overflow-wrap: anywhere; }
