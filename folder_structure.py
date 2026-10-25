@@ -1,6 +1,7 @@
 """Recognize folder roles from names and immediate children, without reading cards."""
 import os
 import re
+import unicodedata
 from datetime import date
 from pathlib import Path
 
@@ -112,6 +113,25 @@ def client_path(relative):
     if is_catalog_group(parts[0]):
         return Path(*parts[:2]).as_posix() if grouped_client(parts) and not parts[1].startswith((".", "#")) else ""
     return parts[0]
+
+
+def order_location(relative):
+    """Table grouping from the stored path only; never enumerate iCloud folders."""
+    parts = Path(relative).parts
+    client = client_path(relative) or (parts[0] if parts else "")
+    depth = len(Path(client).parts)
+    names, object_path = [], ""
+    if parts and not parts[0].startswith((".", "#")):
+        for index, name in enumerate(parts[depth:-1], depth):
+            if dated(name) or DATE.match(name) or DATE_LIKE.match(name) or name.startswith((".", "#")):
+                break
+            if YEAR.fullmatch(name) or NUMBER.match(name):
+                continue
+            names.append(name)
+            object_path = Path(*parts[:index + 1]).as_posix()
+    return {"client_path": unicodedata.normalize("NFC", client),
+            "object": unicodedata.normalize("NFC", " / ".join(names)),
+            "object_path": unicodedata.normalize("NFC", object_path)}
 
 
 def folder_role(root, relative):

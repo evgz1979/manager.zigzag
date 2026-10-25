@@ -12,7 +12,7 @@ import order_document as document
 import order_deadlines
 import work_orders
 from order_document import money, MAX_MONEY
-from folder_structure import folder_role, is_service_folder, client_name
+from folder_structure import folder_role, is_service_folder, client_name, order_location
 from event_folder_undo import assert_unlocked, guard_database
 
 SNAPSHOT = ".order.json"  # Read-only compatibility with the previous export.
@@ -96,6 +96,7 @@ class OrderStore:
         result = dict(row)
         result["registered"] = bool(result["registered"])
         result["client"] = client_name(result["path"])
+        result.update(order_location(result["path"]))
         result["work_supplier"] = work_orders.supplier_name(result["path"])
         result["work_supplier_color"] = work_orders.supplier_color(db, result["path"]) if result["work_supplier"] else None
         result["profit"] = result["amount"] - result["costs"] if result["amount"] is not None and result["costs"] is not None else None

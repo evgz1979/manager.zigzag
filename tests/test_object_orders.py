@@ -57,6 +57,8 @@ class ObjectOrderTests(unittest.TestCase):
         self.assertEqual(set(rows), {active["path"], done["path"], cancelled["path"], draft})
         self.assertTrue(rows[done["path"]]["registered"])
         self.assertFalse(rows[draft]["registered"])
+        self.assertEqual({row["object"] for row in rows.values()}, {"Объект"})
+        self.assertEqual({row["object_path"] for row in rows.values()}, {self.scope})
         self.assertEqual(rows[draft]["note"], "Только черновик")
         self.assertIsNone(rows[draft]["id"])
         self.assertEqual(self.store.list(include_unregistered=True), before)

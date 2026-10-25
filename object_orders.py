@@ -7,7 +7,7 @@ from pathlib import Path
 
 import order_document as document
 import order_deadlines
-from folder_structure import folder_role, client_name
+from folder_structure import folder_role, client_name, order_location
 from order_todos import OrderTodos
 from local_metadata import MetadataStore
 from event_folder_undo import guard_database
@@ -136,7 +136,7 @@ class ObjectOrders:
                 blocks = body.get("extra_blocks", {})
                 values = {key: body.get(key) if type(body.get(key)) is int else None for key in ("amount", "costs", "paid")}
                 row = {"path": path, "id": None, "revision": None, "registered": False,
-                    "title": body.get("title") or Path(path).name, "client": client_name(path),
+                    "title": body.get("title") or Path(path).name, "client": client_name(path), **order_location(path),
                     "status": body.get("status", "unspecified"), "financial_status": body.get("financial_status", "unspecified"),
                     "note": body.get("note", ""), "extra_blocks": blocks, "updated": note["updated"] if note else None,
                     "todo_items": document.read_todos(blocks), "purchase_items": document.read_purchases(blocks),

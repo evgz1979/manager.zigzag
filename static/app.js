@@ -1972,6 +1972,38 @@ function renderOrderComment(order) {
   return '<span class="order-row-comment' + (!firstLine ? ' empty' : '') + '" title="' + escapeHtml(firstLine) + '">' + escapeHtml(firstLine || "—") + '</span>';
 }
 
+function compareOrderText(first, second) {
+  first = String(first ?? "").normalize("NFC");
+  second = String(second ?? "").normalize("NFC");
+  return first.localeCompare(second, "ru", { numeric: true }) || (first < second ? -1 : first > second ? 1 : 0);
+}
+
+function compareOrders(a, b, key = state.orderSort, direction = state.orderDirection) {
+  for (const [label, identity, groupDirection] of [
+    ["client", "client_path", key === "client" ? direction : 1],
+    ["object", "object_path", key === "object" ? direction : 1],
+  ]) {
+    const first = a[label] || "", second = b[label] || "";
+    if (!first || !second) { if (Boolean(first) !== Boolean(second)) return first ? -1 : 1; }
+    const nameOrder = compareOrderText(first, second);
+    if (nameOrder) return groupDirection * nameOrder;
+    const pathOrder = compareOrderText(a[identity] || "", b[identity] || "");
+    if (pathOrder) return groupDirection * pathOrder;
+  }
+  const favoriteOrder = Number(b.is_favorite === true) - Number(a.is_favorite === true);
+  if (favoriteOrder) return favoriteOrder;
+  if (a[key] == null || b[key] == null) {
+    if ((a[key] == null) !== (b[key] == null)) return a[key] == null ? 1 : -1;
+  } else {
+    const labels = key === "status" ? statusLabels : key === "financial_status" ? financialStatusLabels : null;
+    const first = labels ? labels[a[key]] || a[key] : a[key];
+    const second = labels ? labels[b[key]] || b[key] : b[key];
+    const valueOrder = typeof first === "string" ? compareOrderText(first, second) : first - second;
+    if (valueOrder) return direction * valueOrder;
+  }
+  return compareOrderText(a.title, b.title) || compareOrderText(a.path, b.path) || compareOrderText(a.id, b.id);
+}
+
 function renderOrders({ force = false } = {}) {
   // Replacing a focused native select would close its menu during background polling.
   if (!force && (state.orderStatusSaving.size || state.deadlineSaving.size || document.activeElement?.dataset.orderStatus)) return;
@@ -1979,21 +2011,12 @@ function renderOrders({ force = false } = {}) {
   const focusedDeadline = document.activeElement?.dataset.orderDeadline, focusedWeek = document.activeElement?.dataset.deadlineWeek;
   const orders = orderListRows(), object = isObjectOrderList();
   const needle = normalize(state.orderQuery.trim());
-  const matching = orders.filter((order) => !needle || normalize([order.title, order.path, order.note, orderTodoText(order), orderPurchaseText(order)].join(" ")).includes(needle));
+  const matching = orders.filter((order) => !needle || normalize([order.client, order.object, order.title, order.path, order.note, orderTodoText(order), orderPurchaseText(order)].join(" ")).includes(needle));
   const productionMatching = matching.filter((order) => state.financialFilter === "all" || order.financial_status === state.financialFilter);
   const financeMatching = matching.filter((order) => orderMatchesProduction(order, state.orderFilter));
   const filtered = productionMatching.filter((order) => orderMatchesProduction(order, state.orderFilter));
   const { orderSort: key, orderDirection: direction } = state;
-  filtered.sort((a, b) => {
-    const favoriteOrder = Number(b.is_favorite === true) - Number(a.is_favorite === true);
-    if (favoriteOrder) return favoriteOrder;
-    if (a[key] == null) return b[key] == null ? 0 : 1;
-    if (b[key] == null) return -1;
-    const labels = key === "status" ? statusLabels : key === "financial_status" ? financialStatusLabels : null;
-    const first = labels ? labels[a[key]] : a[key];
-    const second = labels ? labels[b[key]] : b[key];
-    return direction * (typeof first === "string" ? first.localeCompare(second, "ru", { numeric: true }) : first - second);
-  });
+  filtered.sort((a, b) => compareOrders(a, b, key, direction));
   $(object ? "objectOrdersSummary" : "folderSummary").textContent = filtered.length + " из " + orders.length + " заказов · данные из локальной базы";
   $("orderStatusFilters").innerHTML = Object.entries({ all: object ? "Все" : "Основные", ...statusLabels, ...(object ? { unregistered: "Не добавлены" } : {}) }).map(([status, label]) =>
     '<button data-status="' + status + '" aria-pressed="' + (state.orderFilter === status) + '" class="file-filter' + (state.orderFilter === status ? " active" : "") + '">' + label + '<span>' + productionMatching.filter((order) => orderMatchesProduction(order, status)).length + '</span></button>').join("");
@@ -2011,8 +2034,8 @@ function renderOrders({ force = false } = {}) {
     group.orders.push(order);
   });
   $("ordersTableBody").innerHTML = groups.filter((group) => group.orders.length).map((group) =>
-    '<tr class="order-group-divider"><th colspan="6">' + escapeHtml(group.label) + '</th><td class="order-deadline-column">' + renderDeadlineMonthLegend(state.deadlineWeekOptions) + '</td><td colspan="8"></td></tr>' +
-    group.orders.map((order) => '<tr><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td><td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + escapeHtml(order.client || "—") + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен</span>' : '') + '<span class="order-row-path">' + escapeHtml(order.path) + '</span></td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td class="order-deadline-column">' + renderOrderDeadlines(order) + '</td><td>' + renderOrderProductionStatus(order) + '</td><td><span class="status-badge" data-financial-status="' + escapeHtml(order.financial_status) + '">' + escapeHtml(financialStatusLabels[order.financial_status] || "Не указан") + '</span></td>' +
+    '<tr class="order-group-divider"><th colspan="7">' + escapeHtml(group.label) + '</th><td class="order-deadline-column">' + renderDeadlineMonthLegend(state.deadlineWeekOptions) + '</td><td colspan="8"></td></tr>' +
+    group.orders.map((order) => '<tr><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td><td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + escapeHtml(order.client || "—") + '</td><td class="order-object-column">' + escapeHtml(order.object || "—") + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен</span>' : '') + '<span class="order-row-path">' + escapeHtml(order.path) + '</span></td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td class="order-deadline-column">' + renderOrderDeadlines(order) + '</td><td>' + renderOrderProductionStatus(order) + '</td><td><span class="status-badge" data-financial-status="' + escapeHtml(order.financial_status) + '">' + escapeHtml(financialStatusLabels[order.financial_status] || "Не указан") + '</span></td>' +
     ["amount", "costs", "profit", "paid", "debt"].map((field) => '<td class="order-money' + (order[field] < 0 ? " negative" : "") + '">' + rubles(order[field]) + '</td>').join("") +
     '<td class="order-updated">' + (order.updated ? formatDate(order.updated) : '—') + (order.sync_pending ? '<span class="sync-pending" title="' + escapeHtml(order.sync_error || "Ожидает выгрузки в папку") + '">' + (order.sync_error ? "В очереди · автоповтор" : "Ожидает выгрузки") + '</span>' : '<span class="sync-complete">' + (order.storage === 'database' ? 'В базе' : 'Выгружено') + '</span>') + '</td></tr>').join("")).join("");
   $("ordersEmpty").hidden = Boolean(filtered.length);
