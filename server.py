@@ -15,10 +15,12 @@ import threading
 import unicodedata
 import urllib.parse
 from datetime import datetime
+from functools import lru_cache
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from zoneinfo import ZoneInfo
 import calendar_events
+import thumbnail_cache
 from orders import OrderStore, OrderConflict, CARD, SNAPSHOT, is_service_folder
 import order_document
 import order_deadlines
@@ -116,6 +118,15 @@ EXT_GROUPS = {
 }
 TEXT_EXTENSIONS = {".txt", ".md", ".csv", ".tsv", ".json", ".ini", ".log", ".yaml", ".yml", ".xml", ".py", ".js", ".css"}
 BROWSER_IMAGES = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif", ".bmp", ".svg"}
+
+
+@lru_cache(maxsize=8)
+def _thumbnail_store(root, data_dir):
+    return thumbnail_cache.ThumbnailCache(root, data_dir)
+
+
+def thumbnail_store():
+    return _thumbnail_store(DATA_ROOT, DATA_DIR)
 
 
 def normalized(value):
@@ -772,6 +783,7 @@ def sketch_target(relative, key=None):
 
 def read_sketches(directories, warnings):
     result = []
+    thumbnail_entries = []
     notes = FolderNotes(order_store())
     for folder in directories:
         if not sketches.cdr_folder(folder.name) or folder.is_symlink():
@@ -790,13 +802,21 @@ def read_sketches(directories, warnings):
                 if not visible(file) or not sketches.sketch_name(file.name) or not file.is_file():
                     continue
                 try:
+                    info = file.stat()
                     result.append({"name": file.name, "path": relative_path(file), "folder": relative_path(folder),
                                    "key": file_comments.binding(file), "preview_version": sketches.fingerprint(file),
+                                   "thumbnail_key": thumbnail_cache.signature(info),
                                    "relevance": sketches.info(record, file.name, error)})
+                    thumbnail_entries.append((relative_path(file), info))
                 except OSError as problem:
                     warnings.append("Не удалось прочитать эскиз: " + file.name + ": " + str(problem))
         except OSError as problem:
             warnings.append("Не удалось прочитать эскизы: " + folder.name + ": " + str(problem))
+    if thumbnail_entries:
+        try:
+            thumbnail_store().observe(thumbnail_entries, requested=True)
+        except (OSError, sqlite3.Error, ValueError):
+            warnings.append('Локальная база превью временно недоступна')
     return sorted(result, key=lambda item: (sort_key(Path(item["name"])), item["folder"]))
 
 
@@ -995,6 +1015,7 @@ def read_folder(relative="", show_inactive=False):
     def walk_error(error):
         warnings.append(f"Не удалось прочитать папку: {error.filename}")
 
+    thumbnail_entries = []
     for current, dirs, names in (() if hide_files else os.walk(target, onerror=walk_error, followlinks=False)):
         current_path = Path(current)
         dirs[:] = [name for name in dirs if visible(current_path / name)]
@@ -1027,6 +1048,14 @@ def read_folder(relative="", show_inactive=False):
                           "type": file_group(file), "preview": "cdr" if in_freza(relative) and sketches.sketch_name(file.name) else preview_kind(file),
                           "extension": file.suffix.lstrip(".").upper() or "ФАЙЛ", "comment": comment,
                           "comment_key": file_comments.binding(file)})
+            if thumbnail_cache.supported(file):
+                files[-1]['thumbnail_key'] = thumbnail_cache.signature(stat)
+                thumbnail_entries.append((relative_path(file), stat))
+    if thumbnail_entries:
+        try:
+            thumbnail_store().observe(thumbnail_entries, requested=True)
+        except (OSError, sqlite3.Error, ValueError):
+            warnings.append('Локальная база превью временно недоступна; повторим автоматически')
     if print_view and DATABASE_ONLY:
         for file in list(files):
             try:
@@ -1355,6 +1384,24 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(work_orders.read_supplier_favorites(order_store(), relative), head=head)
             elif parsed.path == "/api/storage":
                 self.send_json(metadata_store().status() if DATABASE_ONLY else {"database_only":False},head=head)
+            elif parsed.path == "/api/thumbnail-status":
+                self.send_json(thumbnail_store().status(), head=head)
+            elif parsed.path in {"/api/thumbnail", "/api/thumbnail-cover"}:
+                cover = thumbnail_store().cover(relative) if parsed.path == '/api/thumbnail-cover' else None
+                result = thumbnail_store().image(cover['path'] if cover and cover['path'] else relative,
+                                                 query.get('v', [''])[0])
+                if result is None:
+                    self.send_json({'state': 'pending'}, 202, head=head)
+                else:
+                    body, mime, key = result
+                    self.send_response(200)
+                    self.send_header('Content-Type', mime)
+                    self.send_header('Content-Length', str(len(body)))
+                    self.send_header('Cache-Control', 'private, max-age=86400, immutable' if query.get('v') and not cover else 'no-store')
+                    self.send_header('X-Content-Type-Options', 'nosniff')
+                    self.end_headers()
+                    if not head:
+                        self.wfile.write(body)
             elif parsed.path == "/api/invoices":
                 self.send_json({"items": invoice_store().list(relative), "trash": invoice_store().list(relative, trashed=True)}, head=head)
             elif parsed.path == "/api/invoice":
@@ -1473,6 +1520,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
             pass
         except OSError as error:
             self.send_json({"error": f"Не удалось прочитать данные: {error}"}, 500, head=head)
+        except sqlite3.Error:
+            self.send_json({'error': 'Локальная база временно недоступна'}, 503, head=head)
 
     def do_GET(self):
         self.handle_get()
@@ -1533,7 +1582,14 @@ class ManagerHandler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
             if not isinstance(payload, dict):
                 raise ValueError("Некорректный запрос")
-            if route == "/api/invoice-create":
+            if route == '/api/thumbnails':
+                folders = payload.get('folders', [])
+                if not isinstance(folders, list) or len(folders) > 120:
+                    raise ValueError('Запроси не больше 120 обложек')
+                self.send_json({'items': thumbnail_store().items(payload.get('paths', [])),
+                                'covers': {path: thumbnail_store().cover(path) for path in folders}})
+                return
+            elif route == "/api/invoice-create":
                 self.send_json(invoice_store().create(payload), 201)
                 return
             elif route == '/api/invoice-plan':
@@ -1848,6 +1904,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
             self.send_json({"error": str(error)}, 400)
         except OSError as error:
             self.send_json({"error": f"Не удалось выполнить действие: {error}"}, 500)
+        except sqlite3.Error:
+            self.send_json({'error': 'Локальная база временно недоступна'}, 503)
 
 
 def main():
@@ -1874,6 +1932,10 @@ def main():
         threading.Thread(target=recovery_backup.worker,
                          args=(order_store().database, DATA_ROOT, APP_DIR), daemon=True).start()
     server = ThreadingHTTPServer((SERVER_HOST, port), ManagerHandler)
+    thumbnail_stop = threading.Event()
+    thumbnail_worker = threading.Thread(target=thumbnail_cache.supervise,
+                                        args=(DATA_ROOT, DATA_DIR, thumbnail_stop), daemon=True)
+    thumbnail_worker.start()
     print(f"Менеджер заказов: http://127.0.0.1:{port}", flush=True)
     print(f"Адрес сервера: {SERVER_HOST}:{port}", flush=True)
     print(f"Папка данных: {DATA_ROOT}", flush=True)
@@ -1883,6 +1945,8 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
+        thumbnail_stop.set()
+        thumbnail_worker.join(timeout=7)
         server.server_close()
 
 

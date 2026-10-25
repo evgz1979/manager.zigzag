@@ -366,7 +366,7 @@ function renderSketches() {
       ? relevance.sync_error ? "В базе сохранено · не выгружено: " + relevance.sync_error : "В базе сохранено · ожидает выгрузки" : "");
     return '<div class="event-folder sketch-tile" data-relevance-state="' + escapeHtml(relevance.value || "none") + '">' +
       '<button class="subfolder sketch-open" data-sketch-open="' + escapeHtml(item.path) + '" data-sketch-key="' + escapeHtml(item.key) + '" title="' + escapeHtml(item.name + " · Открыть в CorelDRAW на M4") + '" aria-label="' + escapeHtml("Открыть в CorelDRAW: " + item.name) + '"' + (item.opening ? ' disabled' : '') + '>' +
-      '<span class="sketch-picture"><img src="' + escapeHtml(apiUrl("/api/sketch-preview", item.path, { v: item.preview_version })) + '" alt="" loading="lazy" decoding="async"><span class="sketch-fallback">CDR</span></span><span class="sketch-name">' + escapeHtml(item.name) + '</span></button>' +
+      '<span class="sketch-picture"><img data-thumbnail-path="' + escapeHtml(item.path) + '" data-thumbnail-key="' + escapeHtml(item.thumbnail_key) + '" src="' + escapeHtml(apiUrl("/api/thumbnail", item.path, { v: item.thumbnail_key })) + '" alt="" loading="lazy" decoding="async"><span class="sketch-fallback">CDR</span></span><span class="sketch-name">' + escapeHtml(item.name) + '</span></button>' +
       '<div class="event-relevance" role="group" aria-label="' + escapeHtml("Актуальность эскиза " + item.name) + '">' +
       Object.entries(eventRelevanceLabels).map(([value, label]) => '<button type="button" data-sketch-file="' + escapeHtml(item.path) + '" data-sketch-status="' + value +
         '" aria-pressed="' + (value === relevance.value) + '"' + (saving || relevance.error || !relevance.revision ? ' disabled' : '') + '>' + label + '</button>').join("") + '</div>' +
@@ -479,7 +479,7 @@ function renderSubfolders() {
     $("subfolders").classList.remove("with-event-relevance");
     $("foldersTitle").textContent = "Задания на фрезеровку";
     $("directoryCount").textContent = tasks.length;
-    $("subfolders").innerHTML = tasks.map((item) => '<button type="button" class="subfolder freza-task" data-path="' + escapeHtml(item.path) + '"><span class="freza-task-picture"><img src="' + escapeHtml(apiUrl("/api/freza-preview", item.path)) + '" alt="" loading="lazy" decoding="async"><span class="thumbnail-fallback">' + icon("file") + '</span></span><span>' + escapeHtml(item.name) + '</span>' + icon("chevron") + '</button>').join("") || '<p class="todo-empty">' + (query ? 'Задания не найдены' : 'Создай первое задание и добавь файлы') + '</p>';
+    $("subfolders").innerHTML = tasks.map((item) => '<button type="button" class="subfolder freza-task" data-path="' + escapeHtml(item.path) + '"><span class="freza-task-picture"><img data-thumbnail-folder="' + escapeHtml(item.path) + '" src="' + escapeHtml(apiUrl("/api/thumbnail-cover", item.path)) + '" alt="" loading="lazy" decoding="async"><span class="thumbnail-fallback">' + icon("file") + '</span></span><span>' + escapeHtml(item.name) + '</span>' + icon("chevron") + '</button>').join("") || '<p class="todo-empty">' + (query ? 'Задания не найдены' : 'Создай первое задание и добавь файлы') + '</p>';
     return;
   }
   const workRoot = folder.folderKind === "work_root";
@@ -850,9 +850,9 @@ function filteredFiles() {
 }
 
 function fileCard(file) {
-  const url = apiUrl(file.preview === "cdr" ? "/api/freza-preview" : "/api/preview", file.path);
-  const media = ["image", "cdr"].includes(file.preview)
-    ? '<img class="' + (file.preview === "cdr" ? "cdr-preview" : "") + '" src="' + escapeHtml(url) + '" alt="" loading="lazy" decoding="async"><span class="thumbnail-fallback">' + icon("file") + '<small>' + escapeHtml(file.extension) + "</small></span>"
+  const url = apiUrl(file.thumbnail_key ? "/api/thumbnail" : file.preview === "cdr" ? "/api/freza-preview" : "/api/preview", file.path, file.thumbnail_key ? { v: file.thumbnail_key } : {});
+  const media = file.thumbnail_key || ["image", "cdr"].includes(file.preview)
+    ? '<img class="' + (file.preview === "cdr" ? "cdr-preview" : "") + '"' + (file.thumbnail_key ? ' data-thumbnail-path="' + escapeHtml(file.path) + '" data-thumbnail-key="' + escapeHtml(file.thumbnail_key) + '"' : '') + ' src="' + escapeHtml(url) + '" alt="" loading="lazy" decoding="async"><span class="thumbnail-fallback">' + icon("file") + '<small>' + escapeHtml(file.extension) + "</small></span>"
     : '<span class="file-symbol">' + icon("file") + '<span>' + escapeHtml(file.extension) + "</span></span>";
   return '<article class="file-card type-' + file.type + (state.selectedFiles.has(file.path) ? ' selected' : '') + '"><label class="file-select-label"><input type="checkbox" class="file-select" data-select-file="' + escapeHtml(file.path) + '" aria-label="Выбрать файл: ' + escapeHtml(file.name) + '"' + (state.selectedFiles.has(file.path) ? ' checked' : '') + '></label><button class="file-main" data-file="' + escapeHtml(file.path) + '" data-comment-key="' + escapeHtml(file.comment_key || "") + '" title="' +
     escapeHtml(file.name + (file.folder ? "\n" + file.folder : "")) + '" aria-label="' + escapeHtml(file.name) + '"><div class="file-thumbnail">' + media +
@@ -909,7 +909,43 @@ function renderFiles() {
     image.hidden = true;
     image.parentElement.classList.add("preview-unavailable");
   }, { once: true }));
+  refreshThumbnails().catch(() => {});
 }
+
+let thumbnailsRefreshing = false;
+async function refreshThumbnails() {
+  if (thumbnailsRefreshing || document.hidden || state.view === "orders") return;
+  const images = [...document.querySelectorAll("img[data-thumbnail-path], img[data-thumbnail-folder]")];
+  if (!images.length) return;
+  thumbnailsRefreshing = true;
+  try {
+    // Only update image elements: selections, focus, comments and scroll stay in place.
+    for (let index = 0; index < images.length; index += 120) {
+      const batch = images.slice(index, index + 120);
+      const result = await request("/api/thumbnails", { paths: batch.map((image) => image.dataset.thumbnailPath).filter(Boolean), folders: batch.map((image) => image.dataset.thumbnailFolder).filter(Boolean) });
+      const items = new Map(result.items.map((item) => [item.path, item]));
+      for (const image of batch) {
+        if (!image.isConnected) continue;
+        const item = image.dataset.thumbnailFolder ? result.covers?.[image.dataset.thumbnailFolder] : items.get(image.dataset.thumbnailPath);
+        if (!item) continue;
+        const container = image.closest(".file-thumbnail, .sketch-picture, .freza-task-picture");
+        if (item.state === "ready" && (image.hidden || !image.complete || image.naturalWidth === 0 || image.dataset.thumbnailKey !== item.signature)) {
+          image.dataset.thumbnailKey = item.signature;
+          // A hidden lazy image may never start loading after its first 202 response.
+          image.loading = "eager";
+          image.hidden = false;
+          image.onload = () => { image.hidden = false; container?.classList.remove("preview-unavailable", "no-preview"); };
+          image.onerror = () => { image.hidden = true; container?.classList.add("preview-unavailable", "no-preview"); };
+          image.src = apiUrl("/api/thumbnail", item.path, { v: item.signature });
+        } else if (item.state !== "ready" && (item.state !== "pending" || item.signature && image.dataset.thumbnailKey !== item.signature)) {
+          image.hidden = true;
+          container?.classList.add("preview-unavailable", "no-preview");
+        }
+      }
+    }
+  } finally { thumbnailsRefreshing = false; }
+}
+setInterval(() => refreshThumbnails().catch(() => {}), 5000);
 
 function renderFileActions() {
   const selected = state.folder.files.filter((file) => state.selectedFiles.has(file.path));
