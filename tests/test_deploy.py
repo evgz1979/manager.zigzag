@@ -19,6 +19,18 @@ PREVIOUS = "20261019T170000Z-abcdef12"
 
 
 class DeploymentTests(unittest.TestCase):
+    def test_old_code_cannot_show_weekly_financial_plans_as_daily(self):
+        release = self.base / 'old-week-plans'
+        release.mkdir()
+        (release / 'invoices.py').write_text('INVOICE_PLAN_VERSION = 1')
+        with sqlite3.connect(self.db) as db:
+            db.execute('CREATE TABLE invoices (data TEXT)')
+            db.execute('INSERT INTO invoices VALUES (?)', (json.dumps({'kind': 'planned', 'period': 'week'}),))
+        with self.assertRaisesRegex(RuntimeError, 'недельные финансовые планы'):
+            remote.check_event_rename_compatibility(self.db, release)
+        (release / 'invoices.py').write_text('INVOICE_PLAN_VERSION = 1\nINVOICE_WEEK_PLAN_VERSION = 1')
+        remote.check_event_rename_compatibility(self.db, release)
+
     def test_old_code_cannot_ignore_invoice_sources_or_free_payments(self):
         release = self.base / 'old-payments'
         release.mkdir()

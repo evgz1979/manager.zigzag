@@ -31,6 +31,7 @@ MAX_EXTERNAL_BYTES = 20 * 1024 * 1024
 INVOICE_TRASH_VERSION = 1
 INVOICE_PLAN_VERSION = 1
 INVOICE_PAYMENT_SOURCE_VERSION = 1
+INVOICE_WEEK_PLAN_VERSION = 1
 LIST_STATUSES = {"none": "Без отметки", "active": "Актуально", "inactive": "Неактуально", "later": "Позже", "sent": "Отправлен"}
 EXTERNAL_REQUEST_LIMIT = ((MAX_EXTERNAL_BYTES + 2) // 3) * 4 + 64 * 1024
 DEFAULT_SELLER = {
@@ -74,11 +75,20 @@ def plan_date(value):
     return value
 
 
+def plan_period(value, scheduled):
+    if value not in ('day', 'week'):
+        raise ValueError('Выбери день или неделю планирования')
+    if value == 'week' and date.fromisoformat(scheduled).weekday() != 0:
+        raise ValueError('Для недельного плана укажи дату понедельника')
+    return value
+
+
 def known_plan(data):
     if type(data.get('version')) is not int or data['version'] != 1 or data.get('kind') != 'planned':
         return False
     try:
-        plan_date(data.get('date'))
+        scheduled = plan_date(data.get('date'))
+        plan_period(data.get('period', 'day'), scheduled)
         if data.get('scope', 'order') not in ('order', 'calendar') or not isinstance(data.get('text', ''), str):
             return False
         operation = data.get('operation', 'invoice')
@@ -351,7 +361,7 @@ class InvoiceStore:
                 owner, data = owners.get(row['path']), json.loads(row['data'])
                 free = row['path'] == '' and data.get('scope') == 'calendar'
                 if (owner is not None or free) and known_plan(data):
-                    result.append({'id': row['id'], 'path': row['path'], 'date': data['date'],
+                    result.append({'id': row['id'], 'path': row['path'], 'date': data['date'], 'period': data.get('period', 'day'),
                                    'revision': row['revision'], 'is_inactive': data.get('_calendar_inactive', False),
                                    'operation': data.get('operation', 'invoice'), 'amount': data.get('amount'),
                                    'text': data.get('text', ''), 'invoice_label': data.get('invoice_label', ''),
@@ -383,6 +393,7 @@ class InvoiceStore:
     def plan(self, payload):
         path, identity = ('' if payload.get('path') == '' else self.store.path(payload.get('path'))), payload.get('id')
         scheduled = plan_date(payload.get('date'))
+        period = plan_period(payload.get('period', 'day'), scheduled)
         operation = payload.get('operation', 'invoice')
         if not isinstance(operation, str) or operation not in {'invoice', 'incoming', 'outgoing'}:
             raise ValueError('Выбери выписку счёта, получение оплаты или платёж')
@@ -419,12 +430,15 @@ class InvoiceStore:
                     return self.record(row)
                 if type(payload['revision']) is not int or row['revision'] != payload['revision']:
                     raise InvoiceConflict('План изменился в другом окне. Проверь изменения перед повтором')
+                if 'period' not in payload:
+                    period = plan_period(data.get('period', 'day'), scheduled)
                 if data.get('invoice_id') and operation == 'invoice':
                     raise ValueError('Для готового счёта выбери получение оплаты или платёж')
-                if data['date'] == scheduled and data.get('operation', 'invoice') == operation and data.get('amount') == amount and data.get('text', '') == text:
+                if data['date'] == scheduled and data.get('period', 'day') == period and data.get('operation', 'invoice') == operation and data.get('amount') == amount and data.get('text', '') == text:
                     return self.record(row)
                 db.execute('INSERT INTO invoice_history VALUES (?,?,?,?)', (identity, row['revision'], row['data'], time.time()))
                 data['date'] = scheduled
+                data['period'] = period
                 data['operation'] = operation
                 data['text'] = text
                 if amount is None:
@@ -436,7 +450,7 @@ class InvoiceStore:
             else:
                 if 'revision' in payload:
                     raise InvoiceConflict('План не найден. Обнови список счетов')
-                data = {'version': 1, 'kind': 'planned', 'date': scheduled, 'operation': operation}
+                data = {'version': 1, 'kind': 'planned', 'date': scheduled, 'period': period, 'operation': operation}
                 if not path:
                     data['scope'] = 'calendar'
                 if text:
@@ -545,13 +559,22 @@ class InvoiceStore:
                        (json.dumps(data, ensure_ascii=False), time.time(), row['id']))
             return self.record(self.current(db, row['path'], row['id']))
 
-    def remove(self, payload):
+    @staticmethod
+    def require_calendar_payment(row):
+        data = json.loads(row['data'])
+        if row['path'] or row['state'] != 'planned' or data.get('scope') != 'calendar' or not known_plan(data) or data.get('operation') not in ('incoming', 'outgoing'):
+            raise ValueError('В календаре можно удалять только поступления и затраты без заказа')
+
+    def remove(self, payload, *, calendar_only=False):
         if payload.get('confirmed') is not True:
             raise ValueError('Подтверди перенос выбранного счёта в корзину')
         with orders.SYNC_LOCK, self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
             row = self.current(db, payload.get('path'), payload.get('id'), trashed=True)
-            self.owner(db, row['path'], active=True)
+            if calendar_only:
+                self.require_calendar_payment(row)
+            if row['path']:
+                self.owner(db, row['path'], active=True)
             data = json.loads(row['data'])
             if data.get('_trash'):
                 return self.record(row)
@@ -563,11 +586,14 @@ class InvoiceStore:
             db.execute('UPDATE invoices SET data=?,revision=revision+1,updated=? WHERE id=?', (json.dumps(data, ensure_ascii=False), time.time(), row['id']))
             return self.record(self.current(db, row['path'], row['id'], trashed=True))
 
-    def restore(self, payload):
+    def restore(self, payload, *, calendar_only=False):
         with orders.SYNC_LOCK, file_comments.LOCK:
             with self.connect() as db:
                 row = self.current(db, payload.get('path'), payload.get('id'), trashed=True)
-                self.owner(db, row['path'], active=True)
+                if calendar_only:
+                    self.require_calendar_payment(row)
+                if row['path']:
+                    self.owner(db, row['path'], active=True)
                 marker = json.loads(row['data']).get('_trash')
                 if not marker:
                     return self.record(row)

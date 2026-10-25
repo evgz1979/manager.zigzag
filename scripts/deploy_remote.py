@@ -210,6 +210,11 @@ def check_event_rename_compatibility(database, release_dir):
             if not source.is_file() or 'INVOICE_PAYMENT_SOURCE_VERSION = 1' not in source.read_text(encoding='utf-8'):
                 raise RuntimeError('В базе есть оплаты без заказа или по готовым счетам. Старый код не поддерживает их; откат заблокирован')
         if (db.execute("SELECT 1 FROM sqlite_master WHERE name='invoices'").fetchone()
+                and db.execute("SELECT 1 FROM invoices WHERE json_extract(data,'$.kind')='planned' AND json_extract(data,'$.period')='week' LIMIT 1").fetchone()):
+            source = release_dir / 'invoices.py'
+            if not source.is_file() or 'INVOICE_WEEK_PLAN_VERSION = 1' not in source.read_text(encoding='utf-8'):
+                raise RuntimeError('В базе есть недельные финансовые планы. Старый код показывает их как дневные; откат заблокирован')
+        if (db.execute("SELECT 1 FROM sqlite_master WHERE name='invoices'").fetchone()
                 and db.execute("SELECT 1 FROM invoices WHERE json_extract(data,'$._trash') IS NOT NULL LIMIT 1").fetchone()):
             source = release_dir / 'invoices.py'
             if not source.is_file() or 'INVOICE_TRASH_VERSION = 1' not in source.read_text(encoding='utf-8'):

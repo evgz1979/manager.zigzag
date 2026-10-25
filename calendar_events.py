@@ -106,6 +106,22 @@ class CalendarEvents:
                     order_calendar.mark_relevance_contract(db)
             return self.record(db.execute("SELECT * FROM calendar_events WHERE id=?", (identity,)).fetchone())
 
+    def set_deleted(self, payload, deleted):
+        identity, revision = self.identity(payload)
+        with self.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            row = db.execute('SELECT * FROM calendar_events WHERE id=?', (identity,)).fetchone()
+            if row is None or revision != row['revision']:
+                raise OrderConflict('Событие изменилось в другом окне. Проверь изменения перед повтором')
+            self.validate(row)
+            if row['period'] != 'day':
+                raise ValueError('Удалять можно только события на день')
+            if bool(row['deleted']) == deleted:
+                return self.record(row)
+            db.execute('UPDATE calendar_events SET deleted=?,revision=revision+1,updated=? WHERE id=?',
+                       (int(deleted), time.time(), identity))
+            return self.record(db.execute('SELECT * FROM calendar_events WHERE id=?', (identity,)).fetchone())
+
     def move(self, payload):
         identity, revision = self.identity(payload)
         days = payload.get("days")

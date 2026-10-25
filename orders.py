@@ -254,6 +254,12 @@ class OrderStore:
     def save_calendar_event(self, payload):
         return self._save_extra_block(payload, lambda blocks: order_calendar.write(blocks, payload.get("date"), payload.get("text"), payload.get("period", "day")), update_time=False)
 
+    def remove_calendar_event(self, payload):
+        return self._save_extra_block(payload, lambda blocks: order_calendar.remove(blocks, payload.get('date'), payload.get('period', 'day')), update_time=False)
+
+    def restore_calendar_event(self, payload):
+        return self._save_extra_block(payload, lambda blocks: order_calendar.restore(blocks, payload.get('date'), payload.get('text'), payload.get('is_inactive'), payload.get('period', 'day')), update_time=False)
+
     def save_calendar_inactive(self, payload):
         return self._save_extra_block(payload, lambda blocks: order_calendar.set_inactive(blocks, payload.get("date"), payload.get("is_inactive"), payload.get("period", "day")), update_time=False)
 

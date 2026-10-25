@@ -165,6 +165,36 @@ def write(blocks, day, text, period="day"):
     return {**blocks, block: json.dumps({"version": 1, "events": events}, ensure_ascii=False)}
 
 
+def remove(blocks, day, period="day"):
+    if period != 'day':
+        raise ValueError('Удалять можно только события на день')
+    day = validate_key(day, period)
+    events, flags = read(blocks), read_inactive(blocks)
+    if events is None or flags is None:
+        raise ValueError('Формат события или актуальности неизвестен. Данные сохранены без изменений')
+    if day not in events:
+        raise ValueError('Событие на этой дате уже отсутствует. Обнови календарь')
+    remaining = {key: value for key, value in events.items() if key != day}
+    result = {**blocks, BLOCK: json.dumps({'version': 1, 'events': remaining}, ensure_ascii=False)}
+    if day in flags['day']:
+        result[INACTIVE_BLOCK] = json.dumps({'version': 1, **flags, 'day': [key for key in flags['day'] if key != day]}, ensure_ascii=False)
+    return result
+
+
+def restore(blocks, day, text, inactive, period="day"):
+    if period != 'day':
+        raise ValueError('Восстановление удаления доступно только для событий на день')
+    day, text = validate_key(day, period), validate_text(text)
+    if not text or type(inactive) is not bool:
+        raise ValueError('Не указаны текст и актуальность удалённого события')
+    events = read(blocks)
+    if events is None or read_inactive(blocks) is None:
+        raise ValueError('Формат событий неизвестен. Данные сохранены без изменений')
+    if day in events:
+        raise ValueError('На этой дате уже есть событие. Оно сохранено без изменений')
+    return set_inactive(write(blocks, day, text), day, inactive)
+
+
 def move(blocks, day, days, period="day"):
     block = block_name(period)
     if period == "week":

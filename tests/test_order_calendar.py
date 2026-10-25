@@ -107,6 +107,36 @@ class CalendarApiTests(unittest.TestCase):
         return {"path": self.path, "id": record["id"], "revision": record["revision"],
                 "date": "2026-10-27", "text": "Монтаж", **changes}
 
+    def test_daily_delete_and_undo_preserve_other_fields_history_and_weekly_events(self):
+        daily = self.store.save_calendar_event(self.payload())
+        weekly = self.store.save_calendar_event(self.payload(daily, period='week', date='2026-10-26', text='План недели'))
+        before = self.store.save_calendar_inactive(self.payload(weekly, is_inactive=True))
+        payload = self.payload(before)
+        self.assertEqual(self.http('/api/order-calendar-event-remove', 'POST', json.dumps({**payload, 'period': 'week', 'date': '2026-10-26'}))[0], 400)
+        self.assertEqual(self.store.get(self.path), before)
+        status, _, body = self.http('/api/order-calendar-event-remove', 'POST', json.dumps(payload))
+        self.assertEqual(status, 200, body)
+        removed = json.loads(body)
+        self.assertEqual(removed['calendar_events'], {})
+        self.assertEqual(removed['calendar_inactive']['day'], [])
+        for field in before.keys() - {'calendar_events', 'calendar_inactive', 'extra_blocks', 'revision'}:
+            self.assertEqual(removed[field], before[field], field)
+        self.assertEqual(self.http('/api/order-calendar-event-remove', 'POST', json.dumps(payload))[0], 409)
+        undo = self.payload(removed, is_inactive=True)
+        status, _, body = self.http('/api/order-calendar-event-restore', 'POST', json.dumps(undo))
+        self.assertEqual(status, 200, body)
+        restored = json.loads(body)
+        self.assertEqual(restored['calendar_events'], before['calendar_events'])
+        self.assertEqual(restored['calendar_inactive'], before['calendar_inactive'])
+        self.assertEqual(self.http('/api/order-calendar-event-restore', 'POST', json.dumps(self.payload(restored, is_inactive=False)))[0], 400)
+        self.assertEqual(self.store.get(self.path), restored)
+        with self.store.connect() as db:
+            history = [json.loads(row[0]) for row in db.execute("SELECT data FROM metadata_history WHERE entity='orders' AND identity=?", (before['id'],))]
+        self.assertTrue(any(order_calendar.read(json.loads(row['extra_blocks'])) == before['calendar_events'] for row in history))
+        unknown = {**before['extra_blocks'], order_calendar.BLOCK: '{"version":2,"events":{}}'}
+        with self.assertRaises(ValueError):
+            order_calendar.remove(unknown, payload['date'])
+
     def test_weekly_http_save_move_conflict_and_delete_keep_daily_data_and_sorting(self):
         daily = self.store.save_calendar_event(self.payload())
         data = self.payload(daily, period="week", date="2026-10-26", text="Закончить за неделю")

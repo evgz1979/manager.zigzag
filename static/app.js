@@ -152,12 +152,22 @@ async function request(url, payload) {
   return result;
 }
 
-function notify(message, error = false) {
+function notify(message, error = false, action = null) {
   clearTimeout(toastTimer);
   $("toast").textContent = message;
+  if (action) {
+    const button = document.createElement('button');
+    button.type = 'button'; button.textContent = action.label;
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      try { await action.run(); }
+      catch (failure) { notify(failure.message, true, action); }
+    });
+    $("toast").append(button);
+  }
   $("toast").classList.toggle("error", error);
   $("toast").hidden = false;
-  toastTimer = setTimeout(() => { $("toast").hidden = true; }, error ? 7000 : 3000);
+  if (!action) toastTimer = setTimeout(() => { $("toast").hidden = true; }, error ? 7000 : 3000);
 }
 
 function registerNodes(nodes) {
@@ -2298,6 +2308,8 @@ function renderCalendarEventControls() {
   $("cancelCalendarEvent").disabled = Boolean(edit.saving);
   $("refreshCalendarEvent").hidden = !edit.conflict;
   $("refreshCalendarEvent").disabled = Boolean(edit.saving);
+  $("deleteCalendarEvent").hidden = edit.period !== 'day' || !edit.previous;
+  $("deleteCalendarEvent").disabled = Boolean(edit.saving || edit.conflict);
 }
 
 function closeCalendarEventMenu(restoreFocus = true) {
@@ -2347,6 +2359,7 @@ function openCalendarEventMenu(slot, x, y) {
   });
   $("calendarEventMoveDivider").hidden = Boolean(plan);
   $("calendarEventInactive").setAttribute("aria-checked", String(inactive));
+  $("calendarEventDelete").hidden = plan ? Boolean(order.path) : period !== 'day';
   $("calendarEventColors").hidden = !free;
   menu.querySelectorAll("[data-calendar-color]").forEach((button) => button.setAttribute("aria-checked", String(button.dataset.calendarColor === order.color)));
   menu.hidden = false;
@@ -2404,6 +2417,87 @@ async function toggleCalendarInactive() {
   }
 }
 
+function applyCalendarDeletion(entry, saved, deleted) {
+  if (entry.plan) {
+    ++state.ordersRequest;
+    state.calendarInvoicePlans = state.calendarInvoicePlans.filter((plan) => plan.id !== saved.id);
+    if (!deleted) state.calendarInvoicePlans.push({ ...entry.originalPlan, revision: saved.revision,
+      date: saved.data.date, period: saved.data.period || 'day', operation: saved.data.operation,
+      amount: saved.data.amount, text: saved.data.text || '', is_inactive: saved.data._calendar_inactive || false });
+  } else if (entry.free) applyFreeCalendarEvent(saved);
+  else applyOrderRecord(null, saved);
+}
+
+async function restoreCalendarDeletion(entry, revision) {
+  const key = entry.plan || entry.free ? entry.id : entry.path;
+  if (state.calendarMoving.has(key)) throw new Error('Дождись сохранения события');
+  state.calendarMoving.add(key);
+  ++state.ordersRequest;
+  try {
+    const route = entry.plan ? '/api/calendar-payment-restore' : entry.free ? '/api/calendar-event-restore' : '/api/order-calendar-event-restore';
+    const saved = await request(route, { path: entry.path || '', id: entry.id, revision, date: entry.date, period: entry.period, text: entry.previous, is_inactive: entry.inactive });
+    applyCalendarDeletion(entry, saved, false);
+    notify('Удаление отменено');
+  } finally {
+    state.calendarMoving.delete(key);
+    renderOrders({ force: true });
+  }
+}
+
+async function removeCalendarRecord(entry) {
+  if (entry.plan) {
+    const plan = state.calendarInvoicePlans.find((record) => record.id === entry.id);
+    if (!plan || plan.path || !['incoming', 'outgoing'].includes(plan.operation)) throw new Error('В календаре можно удалять только поступления и затраты без заказа');
+    entry = { ...entry, originalPlan: { ...plan }, path: '' };
+  } else if (entry.period !== 'day') throw new Error('Удалять можно только события на день');
+  const key = entry.plan || entry.free ? entry.id : entry.path;
+  if (state.calendarMoving.has(key)) throw new Error('Дождись сохранения события');
+  state.calendarMoving.add(key);
+  ++state.ordersRequest;
+  try {
+    const route = entry.plan ? '/api/calendar-payment-remove' : entry.free ? '/api/calendar-event-remove' : '/api/order-calendar-event-remove';
+    const saved = await request(route, { path: entry.path || '', id: entry.id, revision: entry.revision, date: entry.date, period: entry.period, confirmed: true });
+    applyCalendarDeletion(entry, saved, true);
+    notify(entry.plan ? 'Финансовая запись удалена' : 'Событие удалено', false,
+      { label: 'Отменить', run: () => restoreCalendarDeletion(entry, saved.revision) });
+    return saved;
+  } finally {
+    state.calendarMoving.delete(key);
+    renderOrders({ force: true });
+  }
+}
+
+async function deleteCalendarEventFromMenu() {
+  const menu = state.calendarMenu;
+  if (!menu) return;
+  const order = !menu.plan && !menu.free && findListOrder(menu.path);
+  const entry = { ...menu, previous: menu.free ? state.calendarEvents.find((event) => event.id === menu.id)?.text : order && calendarEventEntries(order, menu.period)?.[menu.date] };
+  closeCalendarEventMenu();
+  try { await removeCalendarRecord(entry); }
+  catch (error) {
+    notify(error.message, true);
+    if (error.status === 409) { try { await loadOrders(); } catch (_) { /* Retain the last calendar. */ } }
+  }
+}
+
+async function deleteCalendarEventFromDialog() {
+  const edit = state.calendarEvent;
+  if (!edit || edit.saving || edit.conflict || edit.period !== 'day' || !edit.previous) return;
+  edit.saving = true;
+  renderCalendarEventControls();
+  try {
+    await removeCalendarRecord(edit);
+    edit.saving = false;
+    closeCalendarEvent();
+  } catch (error) {
+    edit.conflict = error.status === 409;
+    $("calendarEventState").textContent = error.message + ' Твой текст остался в поле.';
+  } finally {
+    edit.saving = false;
+    renderCalendarEventControls();
+  }
+}
+
 async function colorCalendarEvent(color) {
   const menu = state.calendarMenu;
   if (!menu?.free || state.calendarMoving.has(menu.id)) return;
@@ -2432,7 +2526,8 @@ function openCalendarEvent(slot) {
   const entries = !free && calendarEventEntries(order, period);
   if (entries === null) { notify("События этого заказа имеют неизвестный формат и сохранены без изменений", true); return; }
   const previous = free ? order?.text || "" : entries?.[date] || "";
-  state.calendarEvent = { free: Boolean(free), path: order?.path, id: order?.id || freeCalendarIdentity(), revision: order?.revision || 0, date, period, previous, saving: false, conflict: false };
+  const inactive = free ? Boolean(order?.is_inactive) : Boolean(order.calendar_inactive?.[period]?.includes(date));
+  state.calendarEvent = { free: Boolean(free), path: order?.path, id: order?.id || freeCalendarIdentity(), revision: order?.revision || 0, date, period, previous, inactive, saving: false, conflict: false };
   $("calendarEventTitle").textContent = period === "week" ? "Событие на неделю" : "Событие календаря";
   $("calendarEventOrder").textContent = free ? "Без привязки к заказу" : (order.work_supplier ? [order.title, order.work_supplier] : [order.title, order.client, order.object]).filter(Boolean).join(" · ");
   const start = new Date(date + "T00:00:00Z");
@@ -2491,6 +2586,7 @@ async function refreshCalendarEvent() {
       if (current.date !== edit.date || current.period !== edit.period) throw new Error("Событие перенесено в другое окно календаря. Твой текст оставлен в поле; закрой форму и открой событие на новой дате.");
       edit.revision = current.revision;
       edit.previous = current.text;
+      edit.inactive = Boolean(current.is_inactive);
       edit.conflict = false;
       applyFreeCalendarEvent(current);
     } else {
@@ -2498,6 +2594,7 @@ async function refreshCalendarEvent() {
       if (order.id !== edit.id || calendarEventEntries(order, edit.period) === null) throw new Error("Заказ или формат событий изменён. Ввод сохранён; открой заказ заново.");
       edit.revision = order.revision;
       edit.previous = calendarEventEntries(order, edit.period)?.[edit.date] || "";
+      edit.inactive = Boolean(order.calendar_inactive?.[edit.period]?.includes(edit.date));
       edit.conflict = false;
       applyOrderRecord(null, order);
     }
@@ -3203,7 +3300,7 @@ $("orderListControls").addEventListener("toggle", () => { if (state.view === "or
 $("calendarWeeks").addEventListener("click", (event) => {
   const payment = event.target.closest('[data-calendar-payment-add]');
   if (payment && !payment.disabled) {
-    document.dispatchEvent(new CustomEvent('manager-plan-payment', { detail: { date: payment.dataset.calendarDate, operation: payment.dataset.calendarPaymentAdd } }));
+    document.dispatchEvent(new CustomEvent('manager-plan-payment', { detail: { date: payment.dataset.calendarDate, period: payment.dataset.calendarPeriod, operation: payment.dataset.calendarPaymentAdd } }));
     return;
   }
   const plan = event.target.closest('[data-calendar-plan-edit]');
@@ -3234,6 +3331,7 @@ $("calendarWeeks").addEventListener("keydown", (event) => {
   openCalendarEventMenu(slot, bounds.left, bounds.bottom);
 });
 $("calendarEventMenu").addEventListener("click", (event) => {
+  if (event.target.closest('#calendarEventDelete')) { run(deleteCalendarEventFromMenu); return; }
   if (event.target.closest("#calendarEventInactive")) { run(toggleCalendarInactive); return; }
   const color = event.target.closest("[data-calendar-color]");
   if (color) { run(() => colorCalendarEvent(color.dataset.calendarColor)); return; }
@@ -3255,6 +3353,7 @@ window.addEventListener("scroll", () => { if (state.calendarMenu) closeCalendarE
 window.addEventListener("blur", () => closeCalendarEventMenu(false));
 $("refreshCalendarEvent").addEventListener("click", () => run(refreshCalendarEvent));
 $("cancelCalendarEvent").addEventListener("click", closeCalendarEvent);
+$("deleteCalendarEvent").addEventListener('click', () => run(deleteCalendarEventFromDialog));
 $("calendarEventDialog").addEventListener("cancel", (event) => { event.preventDefault(); closeCalendarEvent(); });
 $("financialStatusFilter").addEventListener("change", (event) => { state.financialFilter = event.target.value; renderOrders(); });
 $("ordersTableBody").addEventListener("change", (event) => {

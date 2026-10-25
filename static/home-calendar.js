@@ -24,23 +24,51 @@ const HomeCalendar = (() => {
     return { today, from, through, start: monday(from), end: shiftDays(monday(through), 6) };
   }
 
-  let range, builtFor = "", initialized = false, frame = 0, rowPixels = 0, visibleWeek = 0, orders = [], events = [], invoicePlans = [];
+  let range, builtFor = "", initialized = false, frame = 0, weekTops = [], weekHeights = [], orders = [], events = [], invoicePlans = [];
+  let scrollAnchor = { index: 0, offset: 0 };
+  let layoutHidden = false;
   const get = (id) => document.getElementById(id);
   const monthName = new Intl.DateTimeFormat("ru-RU", { month: "long", timeZone: "UTC" });
-  const shortDate = new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short", timeZone: "UTC" });
   const fullDate = new Intl.DateTimeFormat("ru-RU", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
-  const weekHeight = () => get("calendarWeeks").firstElementChild?.getBoundingClientRect().height || 1;
   const maxScroll = () => Math.max(0, get("calendarViewport").scrollHeight - get("calendarViewport").clientHeight);
+
+  function measureWeeks() {
+    weekHeights = [...get("calendarWeeks").children].map((row) => row.getBoundingClientRect().height);
+    let top = 0;
+    weekTops = weekHeights.map((height) => { const value = top; top += height; return value; });
+  }
+
+  function weekIndex(top) {
+    let index = 0;
+    while (index + 1 < weekTops.length && weekTops[index + 1] <= top + 1) index++;
+    return Math.min(index, Math.max(0, weekTops.length - 3));
+  }
+
+  function fitViewport(index) {
+    const height = weekHeights.slice(index, index + 3).reduce((sum, value) => sum + value, 0);
+    const value = Math.round(height * 1000) / 1000 + "px";
+    if (height && get("calendarViewport").style.height !== value) get("calendarViewport").style.height = value;
+  }
+
+  function scrollToIndex(index, smooth = false) {
+    index = Math.max(0, Math.min(index, weekTops.length - 3));
+    fitViewport(index);
+    get("calendarViewport").scrollTo({ top: Math.min(maxScroll(), weekTops[index] || 0), behavior: smooth ? "smooth" : "auto" });
+    if (!smooth) updateHeading();
+  }
 
   function updateHeading() {
     frame = 0;
     const viewport = get("calendarViewport");
-    const height = weekHeight();
-    // A resize can trigger a scroll event before ResizeObserver corrects the position.
-    if (rowPixels && Math.abs(height - rowPixels) > .1) return;
-    rowPixels = height;
-    const index = visibleWeek = Math.round(viewport.scrollTop / height);
+    if (!viewport.clientWidth) { layoutHidden = true; return; }
+    if (!weekHeights.length) return;
+    // ResizeObserver restores the saved position after CSS changes week heights.
+    if (Math.abs(get("calendarWeeks").firstElementChild.getBoundingClientRect().height - weekHeights[0]) > .1) return;
+    const index = weekIndex(viewport.scrollTop);
+    fitViewport(index);
+    scrollAnchor = { index, offset: viewport.scrollTop - (weekTops[index] || 0) };
     const first = shiftDays(range.start, index * 7), last = shiftDays(first, 20);
+    viewport.setAttribute("aria-label", "Три недели календаря: " + fullDate.format(first) + " — " + fullDate.format(last) + " Home — начало, End — конец.");
     const sameMonth = first.getUTCMonth() === last.getUTCMonth() && first.getUTCFullYear() === last.getUTCFullYear();
     get("calendarTitle").textContent = sameMonth ? monthName.format(first) + " " + first.getUTCFullYear() :
       monthName.format(first) + (first.getUTCFullYear() !== last.getUTCFullYear() ? " " + first.getUTCFullYear() : "") + " — " + monthName.format(last) + " " + last.getUTCFullYear();
@@ -49,10 +77,7 @@ const HomeCalendar = (() => {
   }
 
   function scrollToWeek(date) {
-    rowPixels = weekHeight();
-    visibleWeek = Math.round((monday(date) - range.start) / (7 * DAY));
-    get("calendarViewport").scrollTop = Math.min(maxScroll(), Math.max(0, visibleWeek * rowPixels));
-    updateHeading();
+    scrollToIndex(Math.round((monday(date) - range.start) / (7 * DAY)));
   }
 
   function renderWeekOrders() {
@@ -195,18 +220,20 @@ const HomeCalendar = (() => {
   function renderInvoicePlans() {
     const byDate = new Map();
     for (const plan of invoicePlans) {
-      if (!byDate.has(plan.date)) byDate.set(plan.date, []);
-      byDate.get(plan.date).push(plan);
+      const key = (plan.period || 'day') + ':' + plan.date;
+      if (!byDate.has(key)) byDate.set(key, []);
+      byDate.get(key).push(plan);
     }
     for (const area of get("calendarWeeks").querySelectorAll('.calendar-invoice-plans')) {
       const order = { incoming: 0, outgoing: 1, invoice: 2 };
-      const plans = (byDate.get(area.dataset.date) || []).sort((a, b) => (order[a.operation || 'invoice'] ?? 3) - (order[b.operation || 'invoice'] ?? 3));
+      const plans = (byDate.get(area.dataset.period + ':' + area.dataset.date) || []).sort((a, b) => (order[a.operation || 'invoice'] ?? 3) - (order[b.operation || 'invoice'] ?? 3));
       const signature = JSON.stringify(plans);
       if (area.dataset.signature === signature) continue;
       area.dataset.signature = signature;
-      const top = area.scrollTop, focused = area.contains(document.activeElement) ? document.activeElement : null;
+      const focused = area.contains(document.activeElement) ? document.activeElement : null;
       const existing = new Map([...area.querySelectorAll('.calendar-invoice-plan')].map((link) => [link.dataset.invoicePlan, link]));
-      let before = area.querySelector('.calendar-payment-add').nextElementSibling;
+      const targets = { incoming: area.querySelector('[data-plan-column="incoming"]'), outgoing: area.querySelector('[data-plan-column="outgoing"]'), invoice: area.querySelector('.calendar-invoice-checks') };
+      const before = new Map(Object.values(targets).map((target) => [target, target.firstElementChild]));
       const retained = new Set();
       for (const plan of plans) {
         let link = existing.get(plan.id);
@@ -220,36 +247,93 @@ const HomeCalendar = (() => {
         const label = operation === 'incoming' ? 'Запланировано получение оплаты' : operation === 'outgoing' ? 'Запланирован платёж' : 'Запланирована выписка счёта';
         link.dataset.operation = operation;
         link.dataset.calendarDate = plan.date;
-        link.dataset.calendarPeriod = "day";
+        link.dataset.calendarPeriod = plan.period || 'day';
         link.classList.toggle("calendar-inactive", plan.is_inactive === true);
         link.setAttribute("aria-haspopup", "menu");
-        link.textContent = payment ? (operation === 'incoming' ? '+' : '−') + amount : '✓';
+        const signedAmount = payment ? (operation === 'incoming' ? '+' : '−') + amount : '';
+        if (payment) {
+          const value = document.createElement('span'), caption = document.createElement('span');
+          value.className = 'calendar-plan-amount'; value.textContent = signedAmount;
+          caption.className = 'calendar-plan-caption';
+          caption.textContent = plan.text || plan.invoice_label || (plan.path ? plan.title : '') || (operation === 'incoming' ? 'поступление' : 'затрата');
+          link.replaceChildren(value, caption);
+        } else link.textContent = '✓';
         if (plan.path) {
           link.href = '?path=' + encodeURIComponent(plan.path);
           link.dataset.calendarOrder = plan.path;
         } else link.dataset.calendarPlanEdit = plan.id;
-        const description = [plan.is_inactive === true ? 'Неактуально' : '', label, amount ? link.textContent + ' ₽' : '', plan.text, plan.invoice_label, plan.title, plan.client, plan.object, fullDate.format(new Date(plan.date + 'T00:00:00Z'))].filter(Boolean).join(' · ');
+        const start = new Date(plan.date + 'T00:00:00Z');
+        const periodLabel = plan.period === 'week' ? 'Неделя: ' + fullDate.format(start) + ' — ' + fullDate.format(shiftDays(start, 6)) : fullDate.format(start);
+        const description = [plan.is_inactive === true ? 'Неактуально' : '', label, signedAmount ? signedAmount + ' ₽' : '', plan.text, plan.invoice_label, plan.title, plan.client, plan.object, periodLabel].filter(Boolean).join(' · ');
         link.setAttribute('aria-label', description);
         link.title = plan.path ? description : plan.text || '';
-        if (link !== before) area.insertBefore(link, before);
-        before = link.nextElementSibling; retained.add(link);
+        const target = targets[operation] || targets.invoice, next = before.get(target);
+        if (link !== next) target.insertBefore(link, next);
+        before.set(target, link.nextElementSibling); retained.add(link);
       }
       for (const link of existing.values()) if (!retained.has(link)) link.remove();
-      area.scrollTop = top;
       if (focused && document.activeElement !== focused) (focused.isConnected ? focused : get('calendarViewport')).focus({ preventScroll: true });
     }
     sizeInvoicePlanHeaders();
   }
 
   function sizeInvoicePlanHeaders() {
+    const viewport = get('calendarViewport');
+    if (!viewport.clientWidth) { layoutHidden = true; return; }
+    if (!get('calendarWeeks').children.length) return;
+    const wasHidden = layoutHidden;
+    layoutHidden = false;
+    const resized = wasHidden || (weekHeights.length && Math.abs(get('calendarWeeks').firstElementChild.getBoundingClientRect().height - weekHeights[0]) > .1);
+    const index = resized ? scrollAnchor.index : weekIndex(viewport.scrollTop);
+    const offset = resized ? scrollAnchor.offset : viewport.scrollTop - (weekTops[index] || 0);
+    const previousHeights = weekHeights;
+    for (const amount of get('calendarWeeks').querySelectorAll('.calendar-plan-amount')) {
+      amount.style.fontSize = '';
+      const available = amount.parentElement.clientWidth;
+      if (available && amount.scrollWidth > available) amount.style.fontSize = (parseFloat(getComputedStyle(amount).fontSize) * available / amount.scrollWidth * .97) + 'px';
+    }
     for (const row of get('calendarWeeks').children) {
-      const height = Math.max(32, ...[...row.querySelectorAll('.calendar-invoice-plans')].map((area) => Math.ceil(area.getBoundingClientRect().height) + 8));
+      const height = Math.max(46, ...[...row.querySelectorAll('.calendar-invoice-plans')].map((area) => Math.ceil(area.getBoundingClientRect().height) + 8));
       const value = height + 'px';
       if (row.style.getPropertyValue('--calendar-header-height') === value) continue;
       const content = row.querySelector('.calendar-week-content'), top = content.scrollTop;
       row.style.setProperty('--calendar-header-height', value);
+      row.style.setProperty('--calendar-header-extra', (height - 32) + 'px');
       content.scrollTop = top;
     }
+    measureWeeks();
+    if (wasHidden || previousHeights.length !== weekHeights.length || weekHeights.some((height, i) => Math.abs(height - previousHeights[i]) > .1)) {
+      fitViewport(index);
+      viewport.scrollTop = Math.min(maxScroll(), Math.max(0, (weekTops[index] || 0) + offset));
+    }
+    updateHeading();
+  }
+
+  function planHeader(date, label, period = 'day') {
+    const controls = document.createElement('div');
+    controls.className = 'calendar-payment-add';
+    const periodLabel = period === 'week' ? 'Неделя: ' + fullDate.format(date) + ' — ' + fullDate.format(shiftDays(date, 6)) : fullDate.format(date);
+    for (const operation of ['incoming', 'outgoing']) {
+      const button = document.createElement('button'); button.type = 'button';
+      button.textContent = operation === 'incoming' ? '+' : '−';
+      button.dataset.calendarPaymentAdd = operation;
+      button.dataset.calendarDate = dateKey(date);
+      button.dataset.calendarPeriod = period;
+      button.disabled = (period === 'week' ? shiftDays(date, 6) : date) < range.from || date > range.through;
+      button.setAttribute('aria-label', (operation === 'incoming' ? 'Запланировать получение оплаты' : 'Запланировать платёж') + ' · ' + periodLabel);
+      controls.append(button);
+    }
+    const plans = document.createElement('div');
+    plans.className = 'calendar-invoice-plans'; plans.dataset.date = dateKey(date); plans.dataset.period = period;
+    const payments = document.createElement('div'); payments.className = 'calendar-payment-columns';
+    for (const operation of ['incoming', 'outgoing']) {
+      const column = document.createElement('div'); column.className = 'calendar-plan-column';
+      column.dataset.planColumn = operation; payments.append(column);
+    }
+    const rail = document.createElement('div'), checks = document.createElement('div');
+    rail.className = 'calendar-date-rail'; checks.className = 'calendar-invoice-checks';
+    rail.append(controls, label); plans.append(checks, payments, rail);
+    return plans;
   }
 
   function show(nextOrders, nextEvents, nextInvoicePlans) {
@@ -270,11 +354,10 @@ const HomeCalendar = (() => {
         content.className = "calendar-week-content";
         list.className = "calendar-orders-list";
         list.setAttribute("aria-label", "Заказы на неделю: " + fullDate.format(week) + " — " + fullDate.format(shiftDays(week, 6)));
-        const free = document.createElement("div"), freeLabel = document.createElement("span");
+        const free = document.createElement("div"), spacer = document.createElement("span");
         free.className = "calendar-free-events";
-        freeLabel.className = "calendar-free-label";
-        freeLabel.textContent = "События";
-        free.append(freeLabel);
+        spacer.setAttribute("aria-hidden", "true");
+        free.append(spacer);
         for (let column = 0; column < 8; column++) {
           const cell = document.createElement("div"), add = document.createElement("button");
           cell.className = "calendar-free-column";
@@ -293,37 +376,23 @@ const HomeCalendar = (() => {
         weekLabel.className = "calendar-week-number";
         weekLabel.textContent = weekNumber(week);
         weekLabel.setAttribute("aria-label", "Неделя " + weekNumber(week) + ": " + fullDate.format(week) + " — " + fullDate.format(shiftDays(week, 6)));
-        weekCell.append(weekLabel);
+        weekCell.append(planHeader(week, weekLabel, 'week'));
         row.append(weekCell);
         for (let day = 0; day < 7; day++) {
           const date = shiftDays(week, day), cell = document.createElement("div"), label = document.createElement("time");
           cell.className = "calendar-day" + (day > 4 ? " weekend" : "") + (date < range.from || date > range.through ? " calendar-outside" : "");
           label.dateTime = dateKey(date);
           label.setAttribute("aria-label", fullDate.format(date));
-          label.textContent = date.getUTCDate() === 1 ? shortDate.format(date) : String(date.getUTCDate());
+          label.textContent = String(date.getUTCDate());
           if (dateKey(date) === builtFor) { label.className = "calendar-today"; label.setAttribute("aria-current", "date"); }
-          cell.append(label);
-          const controls = document.createElement('div');
-          controls.className = 'calendar-payment-add';
-          for (const operation of ['incoming', 'outgoing']) {
-            const button = document.createElement('button'); button.type = 'button';
-            button.textContent = operation === 'incoming' ? '+' : '−';
-            button.dataset.calendarPaymentAdd = operation;
-            button.dataset.calendarDate = dateKey(date);
-            button.disabled = date < range.from || date > range.through;
-            button.setAttribute('aria-label', (operation === 'incoming' ? 'Запланировать получение оплаты' : 'Запланировать платёж') + ' · ' + fullDate.format(date));
-            controls.append(button);
-          }
-          const plans = document.createElement('div');
-          plans.className = 'calendar-invoice-plans'; plans.dataset.date = dateKey(date);
-          plans.append(controls);
-          cell.append(plans);
+          cell.append(planHeader(date, label));
           row.append(cell);
         }
         row.append(content);
         weeks.append(row);
       }
       get("calendarWeeks").replaceChildren(weeks);
+      measureWeeks();
       scrollToWeek(range.today);
     } else updateHeading();
     renderWeekOrders();
@@ -333,25 +402,18 @@ const HomeCalendar = (() => {
     initialized = true;
     const viewport = get("calendarViewport");
     get("calendarToday").addEventListener("click", () => { show(); scrollToWeek(range.today); });
-    get("calendarEarlier").addEventListener("click", () => { viewport.scrollBy({ top: -weekHeight(), behavior: "smooth" }); });
-    get("calendarLater").addEventListener("click", () => { viewport.scrollBy({ top: weekHeight(), behavior: "smooth" }); });
+    get("calendarEarlier").addEventListener("click", () => { scrollToIndex(weekIndex(viewport.scrollTop) - 1, true); });
+    get("calendarLater").addEventListener("click", () => { scrollToIndex(weekIndex(viewport.scrollTop) + 1, true); });
     viewport.addEventListener("scroll", () => { if (!frame) frame = requestAnimationFrame(updateHeading); }, { passive: true });
     viewport.addEventListener("keydown", (event) => {
       if (event.key === "Home" || event.key === "End") {
         event.preventDefault();
-        viewport.scrollTop = event.key === "Home" ? 0 : maxScroll();
+        scrollToIndex(event.key === "Home" ? 0 : weekTops.length - 3);
       }
     });
     // Keep the same week visible when the window changes height.
-    new ResizeObserver(() => {
-      sizeInvoicePlanHeaders();
-      const height = weekHeight();
-      if (viewport.clientHeight && Math.abs(height - rowPixels) > .1) {
-        rowPixels = height;
-        viewport.scrollTop = Math.min(maxScroll(), visibleWeek * height);
-        updateHeading();
-      }
-    }).observe(viewport);
+    const observer = new ResizeObserver(sizeInvoicePlanHeaders);
+    observer.observe(get("calendarWeeks"));
   }
   return { show, calendarRange };
 })();

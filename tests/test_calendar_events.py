@@ -30,6 +30,36 @@ class FreeCalendarTests(unittest.TestCase):
                 'date': record['date'] if record else '2026-12-31',
                 'period': record['period'] if record else 'day', 'text': '  Позвонить <клиенту>  ', **changes}
 
+    def test_daily_soft_delete_and_undo_reject_weekly_stale_and_unknown_events(self):
+        original = self.payload()
+        saved = self.events.save(original)
+        colored = self.events.color({**self.payload(saved), 'color': 'blue'})
+        status, _, body = self.http('/api/calendar-event-remove', 'POST', json.dumps(self.payload(colored)))
+        self.assertEqual(status, 200, body)
+        deleted = json.loads(body)
+        self.assertEqual(deleted['deleted'], 1)
+        self.assertEqual((deleted['text'], deleted['color']), (colored['text'], 'blue'))
+        self.assertEqual(self.events.list(), [])
+        for payload in (original, self.payload(colored), self.payload(deleted)):
+            with self.assertRaises(OrderConflict):
+                self.events.save(payload)
+        self.assertEqual(self.http('/api/calendar-event-restore', 'POST', json.dumps(self.payload(colored)))[0], 409)
+        status, _, body = self.http('/api/calendar-event-restore', 'POST', json.dumps(self.payload(deleted)))
+        self.assertEqual(status, 200, body)
+        restored = json.loads(body)
+        self.assertEqual(restored['deleted'], 0)
+        self.assertEqual(self.events.list(), [restored])
+        week = self.events.save(self.payload(period='week', date='2026-12-28'))
+        for route in ('/api/calendar-event-remove', '/api/calendar-event-restore'):
+            self.assertEqual(self.http(route, 'POST', json.dumps(self.payload(week, period='day')))[0], 400)
+        self.assertEqual(self.events.get(week['id']), week)
+        with self.store.connect() as db:
+            history = [json.loads(row[0]) for row in db.execute("SELECT data FROM metadata_history WHERE entity='calendar_events'")]
+            db.execute('UPDATE calendar_events SET version=2 WHERE id=?', (restored['id'],))
+        self.assertTrue(any(row['id'] == saved['id'] and row['deleted'] == 1 for row in history))
+        with self.assertRaises(ValueError):
+            self.events.set_deleted(self.payload(restored), True)
+
     def test_multiple_events_same_date_week_and_restart_are_independent(self):
         first = self.events.save(self.payload())
         second = self.events.save(self.payload(text='Встреча'))

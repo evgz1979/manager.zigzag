@@ -1597,6 +1597,12 @@ class ManagerHandler(BaseHTTPRequestHandler):
             elif route == '/api/invoice-plan':
                 self.send_json(invoice_store().plan(payload), 200 if 'revision' in payload else 201)
                 return
+            elif route == '/api/calendar-payment-remove':
+                self.send_json(invoice_store().remove(payload, calendar_only=True))
+                return
+            elif route == '/api/calendar-payment-restore':
+                self.send_json(invoice_store().restore(payload, calendar_only=True))
+                return
             elif route == '/api/invoice-upload':
                 self.send_json(invoice_store().upload(payload), 201)
                 schedule_order_sync()
@@ -1743,6 +1749,13 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 return
             elif route == "/api/calendar-event":
                 self.send_json(calendar_events.CalendarEvents(order_store()).save(payload))
+                return
+            elif route in ('/api/calendar-event-remove', '/api/calendar-event-restore'):
+                self.send_json(calendar_events.CalendarEvents(order_store()).set_deleted(payload, route.endswith('-remove')))
+                return
+            elif route in ('/api/order-calendar-event-remove', '/api/order-calendar-event-restore'):
+                operation = order_store().remove_calendar_event if route.endswith('-remove') else order_store().restore_calendar_event
+                self.send_json(operation(payload))
                 return
             elif route == "/api/calendar-color":
                 self.send_json(calendar_events.CalendarEvents(order_store()).color(payload))

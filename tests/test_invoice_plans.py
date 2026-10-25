@@ -181,6 +181,79 @@ class InvoicePlanTests(unittest.TestCase):
             self.store.plan({**payload, 'id': str(uuid.uuid4())})
         self.assertEqual(self.store.calendar_plans([self.owner])[0]['invoice_label'], detail['label'])
 
+    def test_weekly_payments_preserve_period_history_conflicts_and_restore(self):
+        payload = self.payload(path='', date='2026-10-26', period='week', operation='incoming', amount='28500', text='За неделю')
+        status, _, body = self.http('/api/invoice-plan', 'POST', json.dumps(payload))
+        self.assertEqual(status, 201, body)
+        record = json.loads(body)
+        self.assertEqual(record['data']['period'], 'week')
+        self.assertEqual([(p['date'], p['period'], p['amount']) for p in self.store.calendar_plans([])],
+                         [('2026-10-26', 'week', 2850000)])
+        edited = self.store.plan({**payload, 'revision': record['revision'], 'amount': '29000'})
+        self.assertEqual(self.store.plan(payload), edited)
+        with self.assertRaises(invoices.InvoiceConflict):
+            self.store.plan({**payload, 'revision': record['revision']})
+        # A partial caller that omits period must not turn a weekly plan into a day.
+        changed = self.store.plan({'path': '', 'id': edited['id'], 'revision': edited['revision'],
+                                  'date': '2026-11-02', 'operation': 'incoming', 'amount': '30000'})
+        self.assertEqual((changed['data']['period'], changed['data']['text']), ('week', 'За неделю'))
+        with self.store.connect() as db:
+            history = json.loads(db.execute('SELECT data FROM invoice_history WHERE id=? AND revision=?',
+                                           (record['id'], edited['revision'])).fetchone()[0])
+            self.assertEqual((history['period'], history['date'], history['amount']), ('week', '2026-10-26', 2900000))
+        removed = self.store.remove({**changed, 'confirmed': True})
+        self.assertFalse(self.store.calendar_plans([]))
+        with self.assertRaises(invoices.InvoiceConflict):
+            self.store.plan(payload)
+        restored = self.store.restore(removed)
+        self.assertEqual(restored['data']['period'], 'week')
+        daily = self.store.plan({**payload, 'date': '2026-11-04', 'period': 'day', 'revision': restored['revision']})
+        self.assertEqual((daily['data']['period'], daily['data']['date']), ('day', '2026-11-04'))
+        self.assertEqual(manager.order_store().get(self.path), self.owner)
+
+    def test_weekly_validation_and_legacy_daily_plans(self):
+        for period, scheduled in [('week', '2026-10-27'), ('month', '2026-10-26'), (None, '2026-10-26'), ([], '2026-10-26')]:
+            with self.subTest(period=period, date=scheduled), self.assertRaises(ValueError):
+                self.store.plan(self.payload(period=period, date=scheduled))
+        weekly = self.store.plan(self.payload(date='2026-10-26', period='week'))
+        daily = self.store.plan(self.payload(date='2026-10-26'))
+        with self.store.connect() as db:
+            db.execute("UPDATE invoices SET data=json_remove(data,'$.period') WHERE id=?", (daily['id'],))
+        self.assertTrue(self.store.get(self.path, daily['id'])['plan_editable'])
+        self.assertEqual({p['id']: p['period'] for p in self.store.calendar_plans([self.owner])},
+                         {weekly['id']: 'week', daily['id']: 'day'})
+        for unknown in ('month', None, []):
+            with self.subTest(unknown=unknown):
+                with self.store.connect() as db:
+                    data = {**weekly['data'], 'period': unknown, 'future': 'keep'}
+                    db.execute('UPDATE invoices SET data=? WHERE id=?', (json.dumps(data), weekly['id']))
+                current = self.store.get(self.path, weekly['id'])
+                self.assertFalse(current['plan_editable'])
+                with self.assertRaises(invoices.InvoiceConflict):
+                    self.store.plan({**self.payload(id=weekly['id'], date='2026-10-26'), 'revision': current['revision']})
+                self.assertEqual(self.store.get(self.path, weekly['id'])['data'], data)
+
+    def test_calendar_can_remove_only_free_day_or_week_payments_and_undo(self):
+        for period in ('day', 'week'):
+            payload = self.payload(path='', date='2026-10-26', period=period, operation='outgoing', amount='8000', text='Материалы')
+            record = self.store.plan(payload)
+            status, _, body = self.http('/api/calendar-payment-remove', 'POST', json.dumps({**record, 'confirmed': True}))
+            self.assertEqual(status, 200, body)
+            removed = json.loads(body)
+            self.assertEqual(removed['trash']['state'], 'complete')
+            self.assertNotIn(record['id'], [p['id'] for p in self.store.calendar_plans([])])
+            with self.assertRaises(invoices.InvoiceConflict):
+                self.store.plan(payload)
+            self.assertEqual(self.http('/api/calendar-payment-restore', 'POST', json.dumps(record))[0], 409)
+            status, _, body = self.http('/api/calendar-payment-restore', 'POST', json.dumps(removed))
+            self.assertEqual(status, 200, body)
+            restored = json.loads(body)
+            self.assertEqual((restored['data']['period'], restored['data']['amount'], restored['data']['text']), (period, 800000, 'Материалы'))
+            linked = self.store.plan(self.payload(date='2026-10-26', period=period, operation='incoming', amount='100'))
+            self.assertEqual(self.http('/api/calendar-payment-remove', 'POST', json.dumps({**linked, 'confirmed': True}))[0], 400)
+            self.assertEqual(self.store.get(self.path, linked['id']), linked)
+        self.assertEqual(manager.order_store().get(self.path), self.owner)
+
     def test_external_pdf_amount_is_local_and_fallback_does_not_guess(self):
         pdf = (manager.APP_DIR / 'output/pdf/invoice-example.pdf').read_bytes()
         record = self.store.upload({'path': self.path, 'id': str(uuid.uuid4()), 'name': 'Готовый.pdf', 'pdf': base64.b64encode(pdf).decode()})
