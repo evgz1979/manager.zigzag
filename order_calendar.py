@@ -3,6 +3,8 @@ import json
 import re
 from datetime import date, timedelta
 
+import order_deadlines
+
 BLOCK = "События календаря"
 WEEK_BLOCK = "События календаря на неделю"
 MAX_EVENTS = 5200
@@ -64,7 +66,6 @@ def _read(blocks, period="day"):
 
 def unify_weekly_blocks(blocks):
     """Convert known legacy comments without overwriting different texts."""
-    import order_deadlines
     if order_deadlines.COMMENTS_BLOCK not in blocks:
         return blocks
     old = order_deadlines.read_legacy_comments(blocks)
@@ -209,10 +210,12 @@ def move(blocks, day, days, period="day"):
         raise ValueError("События календаря имеют неизвестный формат и оставлены без изменений")
     if day not in events:
         raise ValueError("Событие на этой дате уже отсутствует. Обнови календарь")
+    source_date = date.fromisoformat(day)
     try:
-        target = (date.fromisoformat(day) + timedelta(days=days)).isoformat()
+        target_date = source_date + timedelta(days=days)
     except (ValueError, OverflowError):
         raise ValueError("Дата переноса выходит за допустимый диапазон") from None
+    target = target_date.isoformat()
     if target in events:
         raise ValueError("На выбранную дату у этого заказа уже есть событие. Оба события оставлены на своих местах")
     flags = read_inactive(blocks)
@@ -224,4 +227,8 @@ def move(blocks, day, days, period="day"):
     if day in flags[period]:
         selected = set(flags[period]); selected.remove(day); selected.add(target)
         result[INACTIVE_BLOCK] = json.dumps({"version": 1, **flags, period: sorted(selected)}, ensure_ascii=False)
+    source_week = source_date - timedelta(days=source_date.weekday())
+    target_week = target_date - timedelta(days=target_date.weekday())
+    if target_week != source_week:
+        result = order_deadlines.write(result, target_week.isoformat(), True)
     return result
