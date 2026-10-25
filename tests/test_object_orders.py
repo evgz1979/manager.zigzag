@@ -63,7 +63,7 @@ class ObjectOrderTests(unittest.TestCase):
         self.assertIsNone(rows[draft]["id"])
         self.assertEqual(self.store.list(include_unregistered=True), before)
         self.assertEqual((self.root / active["path"] / "original.pdf").read_bytes(), b"do not read")
-        self.assertEqual(len(listed["deadline_week_options"]), 10)
+        self.assertEqual(len(listed["deadline_week_options"]), 16)
 
     def test_metadata_poll_reads_only_sqlite_and_receives_updated_status_and_weeks(self):
         record = self.add("2026-10-20 - Заказ")

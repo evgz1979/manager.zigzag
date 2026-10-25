@@ -11,15 +11,15 @@ manager = fixtures.manager
 
 
 class DeadlineCalendarTests(unittest.TestCase):
-    def test_ten_iso_weeks_cross_year_without_reusing_week_numbers(self):
+    def test_sixteen_iso_weeks_cross_year_without_reusing_week_numbers(self):
         weeks = order_deadlines.week_options(datetime(2020, 12, 31, tzinfo=timezone.utc))
-        self.assertEqual(len(weeks), 10)
+        self.assertEqual(len(weeks), 16)
         self.assertEqual((weeks[0]["start"], weeks[0]["end"], weeks[0]["number"], weeks[0]["year"]),
                          ("2020-12-28", "2021-01-03", 53, 2020))
         self.assertEqual((weeks[1]["start"], weeks[1]["number"], weeks[1]["year"]), ("2021-01-04", 1, 2021))
-        self.assertEqual(weeks[-1]["start"], "2021-03-01")
+        self.assertEqual(weeks[-1]["start"], "2021-04-12")
         self.assertEqual(weeks[0]["label"], "28.12.2020 — 03.01.2021")
-        self.assertEqual([week["current"] for week in weeks], [True] + [False] * 9)
+        self.assertEqual([week["current"] for week in weeks], [True] + [False] * 15)
 
     def test_current_week_uses_moscow_midnight(self):
         before = order_deadlines.week_options(datetime(2026, 10, 25, 20, 59, tzinfo=timezone.utc))
@@ -127,8 +127,25 @@ class OrderDeadlineTests(unittest.TestCase):
         saved = self.store.save_status({"path": self.path, "revision": saved["revision"], "status": "waiting"})
         listed = json.loads(self.http("/api/orders")[2])
         self.assertEqual(listed["orders"][0]["deadline_weeks"], ["2026-10-19"])
-        self.assertEqual(len(listed["deadline_week_options"]), 10)
+        self.assertEqual(len(listed["deadline_week_options"]), 16)
         self.assertEqual(saved["deadline_weeks"], ["2026-10-19"])
+
+    def test_overdue_marks_survive_week_rollover_until_explicitly_unchecked(self):
+        saved = self.store.save_deadline_week(self.payload())
+        saved = self.store.save_deadline_week(self.payload(saved, week="2026-10-26"))
+        saved = self.store.save_deadline_comment({"path": self.path, "id": saved["id"],
+            "revision": saved["revision"], "week": "2026-10-19", "comment": "Перепланировать"})
+        for now, current in ((datetime(2026, 10, 25, 20, 59, tzinfo=timezone.utc), "2026-10-19"),
+                             (datetime(2026, 10, 25, 21, 0, tzinfo=timezone.utc), "2026-10-26")):
+            with patch.object(order_deadlines, "datetime") as clock:
+                clock.now.return_value = now
+                listed = json.loads(self.http("/api/orders")[2])
+            self.assertEqual(listed["deadline_week_options"][0]["start"], current)
+            self.assertEqual(listed["orders"][0]["deadline_weeks"], ["2026-10-19", "2026-10-26"])
+            self.assertEqual(listed["orders"][0]["revision"], saved["revision"])
+        unchecked = self.store.save_deadline_week(self.payload(saved, selected=False))
+        self.assertEqual(unchecked["deadline_weeks"], ["2026-10-26"])
+        self.assertEqual(unchecked["deadline_comments"], {"2026-10-19": "Перепланировать"})
 
 
 if __name__ == "__main__":

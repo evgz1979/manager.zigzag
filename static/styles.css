@@ -518,7 +518,7 @@ h2 { font-size: 13px; font-weight: 600; }
 .orders-table th.order-comment-column { padding: 8px 10px; color: var(--muted); font-size: 11px; font-weight: 400; }
 .orders-table th.order-deadline-column { padding: 8px 10px; color: var(--muted); font-size: 11px; font-weight: 400; }
 .order-deadline-line { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
-.order-deadline-weeks { display: grid; grid-template-columns: repeat(10, 24px); gap: 3px; flex: none; }
+.order-deadline-weeks { display: grid; grid-auto-flow: column; grid-auto-columns: 24px; gap: 3px; flex: none; }
 .order-deadline-range { color: var(--text); font-size: 11px; font-weight: 400; }
 .order-card-deadlines { border: 1px solid var(--line); border-radius: 8px; background: #fafbf9; padding: 13px; min-width: 0; }
 .order-card-deadline-layout { display: flex; flex-wrap: wrap; gap: 18px; }
@@ -545,6 +545,8 @@ h2 { font-size: 13px; font-weight: 600; }
 .deadline-week:hover:not(:disabled) { background: hsl(var(--deadline-month-hue) 45% 90%); }
 .deadline-week[aria-pressed="true"], .deadline-comment-row .deadline-comment-week { background: hsl(var(--deadline-month-hue) 57% 32%); color: #fff; border-color: hsl(var(--deadline-month-hue) 57% 32%); }
 .deadline-week[aria-pressed="true"]:hover:not(:disabled) { background: hsl(var(--deadline-month-hue) 57% 27%); }
+.deadline-week.overdue[aria-pressed="true"] { background: #b8504d; border-color: #b8504d; color: #fff; }
+.deadline-week.overdue[aria-pressed="true"]:hover:not(:disabled) { background: #9c403d; }
 .deadline-week-gap { width: 24px; height: 22px; display: grid; place-items: center; color: var(--muted); font-size: 10px; }
 .deadline-month-legend { display: flex; flex-wrap: wrap; gap: 3px 10px; font-size: 9px; line-height: 12px; font-weight: 400; }
 .deadline-month-legend span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; color: hsl(var(--deadline-month-hue) 32% 35%); }

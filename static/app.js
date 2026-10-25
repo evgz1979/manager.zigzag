@@ -1763,17 +1763,24 @@ function renderDeadlineMonthLegend(options) {
 function renderOrderDeadlines(order, { options = state.deadlineWeekOptions, card = false, disabled = false } = {}) {
   const unknown = order.deadline_weeks === null;
   const selected = new Set(order.deadline_weeks || []);
+  const currentWeek = state.deadlineWeekOptions[0]?.start;
+  if (!card && currentWeek) {
+    const visible = new Set(options.map((option) => option.start));
+    const overdue = [...selected].filter((week) => week < currentWeek && !visible.has(week)).sort();
+    options = [...overdue.map((start) => ({ start })), ...options];
+  }
   const outside = [...selected].filter((week) => !options.some((option) => option.start === week));
   const range = orderDeadlineRange(order.deadline_weeks);
   let previous;
   return '<div class="order-deadline-line' + (card ? ' order-card-deadline-line' : '') + '"><div class="order-deadline-weeks" role="group" aria-label="Сроки · ' + escapeHtml(order.title) + '">' +
     options.map((option) => {
       const week = deadlineWeekInfo(option.start);
+      const overdue = selected.has(week.start) && currentWeek && week.start < currentWeek;
       const comment = order.deadline_comments?.[week.start] || "";
-      const help = week.label + (comment ? "\n" + comment : "");
+      const help = (overdue ? "Просрочено · " : "") + week.label + (comment ? "\n" + comment : "");
       const gap = card && previous && shiftDeadlineWeek(previous, 1) !== week.start ? '<span class="deadline-week-gap" title="Между этими неделями есть пропуск">…</span>' : '';
       previous = week.start;
-      return gap + '<button type="button" class="deadline-week' + (week.current ? ' current' : '') +
+      return gap + '<button type="button" class="deadline-week' + (week.current ? ' current' : '') + (overdue ? ' overdue' : '') +
       '" style="--deadline-month-hue:' + week.hue +
       '" data-order-deadline="' + escapeHtml(order.path) + '" data-deadline-week="' + week.start +
       '" data-order-id="' + escapeHtml(order.id) + '" data-revision="' + order.revision + '" aria-pressed="' + selected.has(week.start) +

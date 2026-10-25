@@ -99,7 +99,7 @@ def week_options(now=None):
     today = (now or datetime.now(MOSCOW)).astimezone(MOSCOW).date()
     monday = today - timedelta(days=today.weekday())
     result = []
-    for offset in range(10):
+    for offset in range(16):
         start = monday + timedelta(weeks=offset)
         end = start + timedelta(days=6)
         year, number, _ = start.isocalendar()
