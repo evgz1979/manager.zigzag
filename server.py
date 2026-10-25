@@ -1649,6 +1649,11 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(record)
                 schedule_order_sync()
                 return
+            elif route == "/api/order-flag":
+                record = order_store().save_flag(payload)
+                self.send_json(record)
+                schedule_order_sync()
+                return
             elif route == "/api/order-status":
                 record = order_store().save_status(payload)
                 self.send_json(record)

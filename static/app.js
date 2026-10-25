@@ -19,7 +19,7 @@ const state = {
   view: "orders", orders: [], orderFilter: "all", financialFilter: "all", orderQuery: "", orderSort: "updated", orderDirection: -1, scan: null, ordersRequest: 0,
   unregistrations: [], removeOrder: null, removingOrder: false,
   objectOrders: [], objectOrdersError: "", orderListScope: "",
-  favoriteSaving: new Set(), orderStatusSaving: new Set(), deadlineSaving: new Set(), deadlineWeekOptions: [], favoriteOrders: [], supplierFavoriteSaving: new Set(), supplierFavoriteFocus: null,
+  flagSaving: new Set(), favoriteSaving: new Set(), orderStatusSaving: new Set(), deadlineSaving: new Set(), deadlineWeekOptions: [], favoriteOrders: [], supplierFavoriteSaving: new Set(), supplierFavoriteFocus: null,
   fileComment: null, fileCommentSaving: null,
   selectedFiles: new Set(), imageReport: null,
   fileRemoval: null, fileRemoving: false, trashRestoring: false,
@@ -1673,7 +1673,7 @@ function openOrderTodos(path, kind = "todos") {
 }
 
 function orderRowSaving(path) {
-  return state.favoriteSaving.has(path) || state.orderStatusSaving.has(path) || state.deadlineSaving.has(path);
+  return state.flagSaving.has(path) || state.favoriteSaving.has(path) || state.orderStatusSaving.has(path) || state.deadlineSaving.has(path);
 }
 
 function orderDeadlineRange(weeks) {
@@ -1829,7 +1829,7 @@ function deadlineCommentInput(event) {
   if (!event.isComposing) folder.deadlineCommentTimer = setTimeout(() => run(() => flushDeadlineComments(folder)), 700);
 }
 
-function applyDeadlineOrder(folder, saved) {
+function applyOrderRecord(folder, saved) {
   ++state.ordersRequest;
   for (const orders of [state.orders, state.favoriteOrders, state.objectOrders]) {
     const current = orders.find((order) => order.path === saved.path);
@@ -1856,7 +1856,7 @@ function flushDeadlineComments(folder = state.folder) {
       state.deadlineSaving.add(order.path);
       ++state.ordersRequest;
       const saving = request("/api/order-deadline-comment", { path: order.path, id: order.id, revision: order.revision, week, comment: value }).then((saved) => {
-        applyDeadlineOrder(folder, saved);
+        applyOrderRecord(folder, saved);
         draft.saved = value;
         draft.dirty = draft.value !== value;
       });
@@ -1917,8 +1917,8 @@ async function changeOrderDeadline({ path, id, revision, week, selected }, butto
   state.deadlineSaving.add(path);
   ++state.ordersRequest;
   if (folder) { folder.deadlineError = ""; renderOrderHeading(); renderCardDeadlines(); }
-  $("ordersTableBody").querySelectorAll("[data-order-deadline], [data-order-status], [data-order-favorite]").forEach((control) => {
-    if ((control.dataset.orderDeadline || control.dataset.orderStatus || control.dataset.orderFavorite) === path) control.disabled = true;
+  $("ordersTableBody").querySelectorAll("[data-order-deadline], [data-order-status], [data-order-favorite], [data-order-flag]").forEach((control) => {
+    if ((control.dataset.orderDeadline || control.dataset.orderStatus || control.dataset.orderFavorite || control.dataset.orderFlag) === path) control.disabled = true;
   });
   let saving;
   try {
@@ -1927,7 +1927,7 @@ async function changeOrderDeadline({ path, id, revision, week, selected }, butto
       if (state.folder !== folder || folder.order?.id !== id) return;
       revision = folder.order.revision;
     }
-    saving = request("/api/order-deadline-week", { path, id, revision, week, selected }).then((saved) => applyDeadlineOrder(folder, saved));
+    saving = request("/api/order-deadline-week", { path, id, revision, week, selected }).then((saved) => applyOrderRecord(folder, saved));
     // Card edits wait for this partial write; editor fields and dirty state stay intact.
     if (folder) state.saving = saving;
     await saving;
@@ -1953,6 +1953,45 @@ async function changeOrderDeadline({ path, id, revision, week, selected }, butto
       const restoreFocus = document.activeElement === button || document.activeElement === document.body;
       renderOrders({ force: true });
       if (restoreFocus && !focusOrderDeadline(path, week)) $("orderSearch").focus({ preventScroll: true });
+    }
+  }
+}
+
+function renderOrderFlagButton(order) {
+  const unknown = order.is_flagged === null;
+  const label = (order.is_flagged ? "Снять флажок" : "Поставить флажок") + " · " + order.title;
+  return '<button type="button" class="order-flag-button" data-order-flag="' + escapeHtml(order.path) +
+    '" data-order-id="' + escapeHtml(order.id) + '" data-revision="' + order.revision + '" aria-pressed="' + Boolean(order.is_flagged) +
+    '" aria-label="' + escapeHtml(label) + '" title="' + escapeHtml(unknown ? "Неизвестная отметка флажка сохранена без изменений" : label) +
+    '"' + (unknown || order.registered === false || orderRowSaving(order.path) ? ' disabled' : '') + '>' + icon("flag") + '</button>';
+}
+
+function focusOrderFlag(path) {
+  if (!hasOrderList() || !path) return;
+  [...$("ordersTableBody").querySelectorAll("[data-order-flag]")].find((button) => button.dataset.orderFlag === path)?.focus({ preventScroll: true });
+}
+
+async function toggleOrderFlag(button) {
+  const path = button.dataset.orderFlag, order = findListOrder(path);
+  if (!order || order.registered === false || order.is_flagged === null || orderRowSaving(path)) return;
+  const payload = { path, id: button.dataset.orderId, revision: Number(button.dataset.revision), is_flagged: button.getAttribute("aria-pressed") !== "true" };
+  state.flagSaving.add(path);
+  ++state.ordersRequest;
+  button.setAttribute("aria-busy", "true");
+  $("ordersTableBody").querySelectorAll("[data-order-flag], [data-order-favorite], [data-order-status], [data-order-deadline]").forEach((control) => {
+    if ((control.dataset.orderFlag || control.dataset.orderFavorite || control.dataset.orderStatus || control.dataset.orderDeadline) === path) control.disabled = true;
+  });
+  try {
+    applyOrderRecord(null, await request("/api/order-flag", payload));
+  } catch (error) {
+    try { await loadOrders(); } catch (_) { /* Keep the last loaded list while offline. */ }
+    throw error;
+  } finally {
+    state.flagSaving.delete(path);
+    if (hasOrderList()) {
+      const restoreFocus = document.activeElement === button || document.activeElement === document.body;
+      renderOrders();
+      if (restoreFocus) focusOrderFlag(path);
     }
   }
 }
@@ -2066,8 +2105,8 @@ async function changeOrderProductionStatus(select) {
   ++state.ordersRequest;
   select.disabled = true;
   select.setAttribute("aria-busy", "true");
-  $("ordersTableBody").querySelectorAll("[data-order-favorite], [data-order-deadline]").forEach((button) => {
-    if ((button.dataset.orderFavorite || button.dataset.orderDeadline) === path) button.disabled = true;
+  $("ordersTableBody").querySelectorAll("[data-order-favorite], [data-order-deadline], [data-order-flag]").forEach((button) => {
+    if ((button.dataset.orderFavorite || button.dataset.orderDeadline || button.dataset.orderFlag) === path) button.disabled = true;
   });
   try {
     const saved = await request("/api/order-status", { path, revision, status });
@@ -2138,7 +2177,8 @@ function compareOrders(a, b, key = state.orderSort, direction = state.orderDirec
 
 function renderOrders({ force = false } = {}) {
   // Replacing a focused native select would close its menu during background polling.
-  if (!force && (state.orderStatusSaving.size || state.deadlineSaving.size || document.activeElement?.dataset.orderStatus)) return;
+  if (!force && (state.orderStatusSaving.size || state.deadlineSaving.size || state.flagSaving.size || document.activeElement?.dataset.orderStatus)) return;
+  const focusedFlag = document.activeElement?.dataset.orderFlag;
   const focusedFavorite = document.activeElement?.dataset.orderFavorite;
   const focusedDeadline = document.activeElement?.dataset.orderDeadline, focusedWeek = document.activeElement?.dataset.deadlineWeek;
   const orders = orderListRows(), object = isObjectOrderList();
@@ -2170,8 +2210,8 @@ function renderOrders({ force = false } = {}) {
     group.orders.push(order);
   });
   $("ordersTableBody").innerHTML = groups.filter((group) => group.orders.length).map((group) =>
-    '<tr class="order-group-divider"><th colspan="7">' + escapeHtml(group.label) + '</th><td class="order-deadline-column">' + renderDeadlineMonthLegend(state.deadlineWeekOptions) + '</td><td colspan="8"></td></tr>' +
-    group.orders.map((order) => '<tr><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td><td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + renderOrderLocationLink(order.client, order.client_path) + '</td><td class="order-object-column">' + renderOrderLocationLink(order.object, order.object_path) + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен</span>' : '') + '<span class="order-row-path">' + escapeHtml(order.path) + '</span></td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td class="order-deadline-column">' + renderOrderDeadlines(order) + '</td><td>' + renderOrderProductionStatus(order) + '</td><td><span class="status-badge" data-financial-status="' + escapeHtml(order.financial_status) + '">' + escapeHtml(financialStatusLabels[order.financial_status] || "Не указан") + '</span></td>' +
+    '<tr class="order-group-divider"><th colspan="8">' + escapeHtml(group.label) + '</th><td class="order-deadline-column">' + renderDeadlineMonthLegend(state.deadlineWeekOptions) + '</td><td colspan="8"></td></tr>' +
+    group.orders.map((order) => '<tr><td class="order-flag-column">' + renderOrderFlagButton(order) + '</td><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td><td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + renderOrderLocationLink(order.client, order.client_path) + '</td><td class="order-object-column">' + renderOrderLocationLink(order.object, order.object_path) + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен</span>' : '') + '<span class="order-row-path">' + escapeHtml(order.path) + '</span></td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td class="order-deadline-column">' + renderOrderDeadlines(order) + '</td><td>' + renderOrderProductionStatus(order) + '</td><td><span class="status-badge" data-financial-status="' + escapeHtml(order.financial_status) + '">' + escapeHtml(financialStatusLabels[order.financial_status] || "Не указан") + '</span></td>' +
     ["amount", "costs", "profit", "paid", "debt"].map((field) => '<td class="order-money' + (order[field] < 0 ? " negative" : "") + '">' + rubles(order[field]) + '</td>').join("") +
     '<td class="order-updated">' + (order.updated ? formatDate(order.updated) : '—') + (order.sync_pending ? '<span class="sync-pending" title="' + escapeHtml(order.sync_error || "Ожидает выгрузки в папку") + '">' + (order.sync_error ? "В очереди · автоповтор" : "Ожидает выгрузки") + '</span>' : '<span class="sync-complete">' + (order.storage === 'database' ? 'В базе' : 'Выгружено') + '</span>') + '</td></tr>').join("")).join("");
   $("ordersEmpty").hidden = Boolean(filtered.length);
@@ -2202,6 +2242,7 @@ function renderOrders({ force = false } = {}) {
     button.textContent = button.textContent.replace(/ [↕↑↓]$/, "") + (selected ? direction === 1 ? " ↑" : " ↓" : " ↕");
   });
   renderOrderTodoDialog();
+  focusOrderFlag(focusedFlag);
   focusOrderFavorite(focusedFavorite);
   focusOrderDeadline(focusedDeadline, focusedWeek);
 }
@@ -2830,6 +2871,8 @@ $("ordersTableBody").addEventListener("click", (event) => {
   }
   const deadlineButton = event.target.closest("[data-order-deadline]");
   if (deadlineButton) { run(() => toggleOrderDeadline(deadlineButton)); return; }
+  const flagButton = event.target.closest("[data-order-flag]");
+  if (flagButton) { run(() => toggleOrderFlag(flagButton)); return; }
   const favoriteButton = event.target.closest("[data-order-favorite]");
   if (favoriteButton) { run(() => toggleOrderFavorite(favoriteButton.dataset.orderFavorite)); return; }
   const purchaseButton = event.target.closest("[data-order-purchases]");

@@ -21,6 +21,7 @@ MAX_MONEY = 999_999_999_999_99
 TODO_BLOCK = "Задачи"
 PURCHASE_BLOCK = "Закупки и затраты"
 FAVORITE_BLOCK = "Избранное"
+FLAG_BLOCK = "Флажок"
 PURCHASE_SUPPLIERS = ("newtek", "glass", "antares", "tbm", "remex")
 UNSET_TODOS = object()
 
@@ -37,6 +38,21 @@ def write_favorite(blocks, value):
     if read_favorite(blocks) is None:
         raise ValueError("Прежний раздел «Избранное» сохранён. Проверь его в !.txt заказа")
     return {**blocks, FAVORITE_BLOCK: "Да" if value else "Нет"}
+
+
+def read_flag(blocks):
+    if FLAG_BLOCK not in blocks:
+        return False
+    value = blocks[FLAG_BLOCK]
+    return {"да": True, "нет": False}.get(value.strip().casefold()) if isinstance(value, str) else None
+
+
+def write_flag(blocks, value):
+    if type(value) is not bool:
+        raise ValueError("Укажи состояние флажка: вкл или выкл")
+    if read_flag(blocks) is None:
+        raise ValueError("Неизвестная отметка флажка сохранена без изменений")
+    return {**blocks, FLAG_BLOCK: "Да" if value else "Нет"}
 
 
 def validate_todos(items):

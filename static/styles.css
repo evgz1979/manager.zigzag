@@ -538,6 +538,14 @@ h2 { font-size: 13px; font-weight: 600; }
 .order-row-comment { display: block; width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .order-row-comment.empty { color: var(--muted); }
 .orders-table .order-favorite-column { width: 38px; padding: 6px 3px; text-align: center; }
+.orders-table .order-flag-column { width: 30px; padding: 6px 2px; text-align: center; }
+.orders-table th.order-flag-column { color: #b6b9b4; }
+.order-flag-column > svg { width: 14px; height: 14px; }
+.order-flag-button { display: inline-grid; place-items: center; width: 26px; height: 28px; padding: 0; border: 0; background: transparent; color: #b8bcb6; }
+.order-flag-button svg { width: 16px; height: 16px; }
+.order-flag-button[aria-pressed="true"] { color: #b56c69; }
+.order-flag-button[aria-pressed="true"] svg { fill: currentColor; }
+.order-flag-button:hover { color: #a35f5c; background: #faf1f0; }
 .orders-table th.order-favorite-column { color: var(--muted); font-weight: 400; }
 .order-favorite-button { display: inline-grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; background: transparent; color: var(--muted); font-size: 21px; line-height: 1; }
 .order-favorite-button[aria-pressed="false"] > span { opacity: .35; }
