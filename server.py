@@ -1406,6 +1406,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json({"items": invoice_store().list(relative), "trash": invoice_store().list(relative, trashed=True)}, head=head)
             elif parsed.path == "/api/invoice":
                 self.send_json(invoice_store().get(relative, query.get("id", [""])[0]), head=head)
+            elif parsed.path == "/api/invoice-plan-source":
+                self.send_json(invoice_store().plan_source(relative, query.get("id", [""])[0]), head=head)
             elif parsed.path in {"/api/invoice-pdf-info", "/api/invoice-pdf-page"}:
                 target = invoice_pdf_target(relative, query.get("id", [""])[0])
                 if parsed.path == "/api/invoice-pdf-info":

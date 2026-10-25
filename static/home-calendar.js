@@ -205,13 +205,14 @@ const HomeCalendar = (() => {
       if (area.dataset.signature === signature) continue;
       area.dataset.signature = signature;
       const top = area.scrollTop, focused = area.contains(document.activeElement) ? document.activeElement : null;
-      const existing = new Map([...area.children].map((link) => [link.dataset.invoicePlan, link]));
-      let before = area.firstElementChild;
+      const existing = new Map([...area.querySelectorAll('.calendar-invoice-plan')].map((link) => [link.dataset.invoicePlan, link]));
+      let before = area.querySelector('.calendar-payment-add').nextElementSibling;
       const retained = new Set();
       for (const plan of plans) {
         let link = existing.get(plan.id);
         if (!link) {
-          link = document.createElement('a'); link.className = 'calendar-invoice-plan';
+          link = document.createElement(plan.path ? 'a' : 'button'); link.className = 'calendar-invoice-plan';
+          if (!plan.path) link.type = 'button';
           link.dataset.invoicePlan = plan.id;
         }
         const operation = plan.operation || 'invoice', payment = operation !== 'invoice';
@@ -223,9 +224,11 @@ const HomeCalendar = (() => {
         link.classList.toggle("calendar-inactive", plan.is_inactive === true);
         link.setAttribute("aria-haspopup", "menu");
         link.textContent = payment ? (operation === 'incoming' ? '+' : '−') + amount : '✓';
-        link.href = '?path=' + encodeURIComponent(plan.path);
-        link.dataset.calendarOrder = plan.path;
-        const description = [plan.is_inactive === true ? 'Неактуально' : '', label, amount ? link.textContent + ' ₽' : '', plan.title, plan.client, plan.object, fullDate.format(new Date(plan.date + 'T00:00:00Z'))].filter(Boolean).join(' · ');
+        if (plan.path) {
+          link.href = '?path=' + encodeURIComponent(plan.path);
+          link.dataset.calendarOrder = plan.path;
+        } else link.dataset.calendarPlanEdit = plan.id;
+        const description = [plan.is_inactive === true ? 'Неактуально' : '', label, amount ? link.textContent + ' ₽' : '', plan.text, plan.invoice_label, plan.title, plan.client, plan.object, fullDate.format(new Date(plan.date + 'T00:00:00Z'))].filter(Boolean).join(' · ');
         link.setAttribute('aria-label', description);
         link.title = description;
         if (link !== before) area.insertBefore(link, before);
@@ -300,8 +303,20 @@ const HomeCalendar = (() => {
           label.textContent = date.getUTCDate() === 1 ? shortDate.format(date) : String(date.getUTCDate());
           if (dateKey(date) === builtFor) { label.className = "calendar-today"; label.setAttribute("aria-current", "date"); }
           cell.append(label);
+          const controls = document.createElement('div');
+          controls.className = 'calendar-payment-add';
+          for (const operation of ['incoming', 'outgoing']) {
+            const button = document.createElement('button'); button.type = 'button';
+            button.textContent = operation === 'incoming' ? '+' : '−';
+            button.dataset.calendarPaymentAdd = operation;
+            button.dataset.calendarDate = dateKey(date);
+            button.disabled = date < range.from || date > range.through;
+            button.setAttribute('aria-label', (operation === 'incoming' ? 'Запланировать получение оплаты' : 'Запланировать платёж') + ' · ' + fullDate.format(date));
+            controls.append(button);
+          }
           const plans = document.createElement('div');
           plans.className = 'calendar-invoice-plans'; plans.dataset.date = dateKey(date);
+          plans.append(controls);
           cell.append(plans);
           row.append(cell);
         }

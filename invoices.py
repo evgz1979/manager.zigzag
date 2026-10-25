@@ -30,6 +30,7 @@ SYNC_LOCK = threading.Lock()
 MAX_EXTERNAL_BYTES = 20 * 1024 * 1024
 INVOICE_TRASH_VERSION = 1
 INVOICE_PLAN_VERSION = 1
+INVOICE_PAYMENT_SOURCE_VERSION = 1
 LIST_STATUSES = {"none": "Без отметки", "active": "Актуально", "inactive": "Неактуально", "later": "Позже", "sent": "Отправлен"}
 EXTERNAL_REQUEST_LIMIT = ((MAX_EXTERNAL_BYTES + 2) // 3) * 4 + 64 * 1024
 DEFAULT_SELLER = {
@@ -78,11 +79,62 @@ def known_plan(data):
         return False
     try:
         plan_date(data.get('date'))
+        if data.get('scope', 'order') not in ('order', 'calendar') or not isinstance(data.get('text', ''), str):
+            return False
         operation = data.get('operation', 'invoice')
         return isinstance(operation, str) and (operation == 'invoice' or (operation in {'incoming', 'outgoing'} and
             type(data.get('amount')) is int and 0 < data['amount'] <= 99999999999))
     except ValueError:
         return False
+
+
+def total_from_text(text):
+    """Only accept an unambiguous labelled total, never an arbitrary PDF number."""
+    text = text.replace('\u00a0', ' ').replace('\u202f', ' ')
+    money = r'(?<![\d.,])((?:\d{1,3}(?:[ .]\d{3})+|\d+)[,.]\d{2})(?!\d)'
+    labels = [r'(?:итого|всего|сумма)\s+к\s+оплате', r'всего\s+(?:на\s+сумму|с\s+ндс)', r'итого', r'всего']
+    for label in labels:
+        candidates = set()
+        for match in re.finditer(r'(?im)^\s*' + label + r'\s*[:=]?\s*', text):
+            tail = text[match.end():].split('\n', 1)[0]
+            if not tail.strip():
+                tail = text[match.end():].lstrip('\n').split('\n', 1)[0]
+            values = list(re.finditer(money, tail))
+            if len(values) != 1 or re.search(r'[$€]|\b(?:USD|EUR|CNY)\b', tail, re.I):
+                continue
+            if tail[:values[0].start()].rstrip().endswith(('-', '−')):
+                continue
+            value = values[0].group(1).replace(' ', '')
+            if ',' in value:
+                value = value.replace('.', '').replace(',', '.')
+            try:
+                cents = int(Decimal(value) * 100)
+                if 0 < cents <= 99999999999:
+                    candidates.add(cents)
+            except InvalidOperation:
+                pass
+        if candidates:
+            return candidates.pop() if len(candidates) == 1 else None
+    return None
+
+
+def pdf_total(body, app_dir, data_dir):
+    cache = Path(data_dir) / 'invoice-amounts'
+    cache.mkdir(parents=True, exist_ok=True)
+    digest = hashlib.sha256(body).hexdigest()
+    cached = cache / (digest + '.txt')
+    if cached.is_file():
+        return total_from_text(cached.read_text(encoding='utf-8'))
+    with tempfile.TemporaryDirectory(prefix='.amount-', dir=cache) as work:
+        source = Path(work) / 'invoice.pdf'
+        source.write_bytes(body)
+        binary = native_renderers.build(Path(app_dir) / 'pdf_preview.swift', data_dir, 'pdf-renderer', 90)
+        result = subprocess.run([str(binary), str(source), 'invoice-text'], capture_output=True, check=True, timeout=30)
+        text = result.stdout[:2000000].decode('utf-8', errors='replace')
+        temporary = Path(work) / 'text.txt'
+        temporary.write_text(text, encoding='utf-8')
+        temporary.replace(cached)
+        return total_from_text(text)
 
 
 def decimal(value, label, places, maximum):
@@ -238,14 +290,18 @@ class InvoiceStore:
         return result
 
     def current(self, db, path, identity, *, trashed=False):
-        path = self.store.path(path)
-        assert_unlocked(db, path)
+        path = '' if path == '' else self.store.path(path)
+        if path:
+            assert_unlocked(db, path)
         if not isinstance(identity, str):
             raise ValueError("Не указан идентификатор счёта")
         row = db.execute("SELECT * FROM invoices WHERE id=? AND path=?", (identity, path)).fetchone()
         if not row:
             raise InvoiceConflict("Счёт не найден по этому пути. Открой заказ заново")
-        self.owner(db, path)
+        if path:
+            self.owner(db, path)
+        elif row['state'] != 'planned' or json.loads(row['data']).get('scope') != 'calendar':
+            raise InvoiceConflict('План не найден в календаре')
         if not trashed and json.loads(row['data']).get('_trash'):
             raise InvoiceConflict('Счёт в корзине. Обнови список или восстанови его')
         return row
@@ -262,6 +318,30 @@ class InvoiceStore:
         with self.connect() as db:
             return self.record(self.current(db, path, identity))
 
+    @staticmethod
+    def source_label(row):
+        data = json.loads(row['data'])
+        return data.get('original_name', 'Внешний счёт') if row['state'] == 'external' else ('Счёт-договор' if data.get('kind') == 'contract' else 'Счёт') + ' № ' + row['number']
+
+    def plan_source(self, path, identity):
+        with self.connect() as db:
+            row = self.current(db, path, identity)
+            self.owner(db, path, active=True)
+            if row['state'] not in {'issued', 'external'}:
+                raise ValueError('Запланировать оплату можно по готовому счёту')
+            data = json.loads(row['data'])
+            total = data.get('total') if row['state'] == 'issued' else None
+            result = {'id': row['id'], 'revision': row['revision'], 'label': self.source_label(row), 'total': total, 'hint': ''}
+            body = row['pdf']
+        if row['state'] == 'external':
+            try:
+                result['total'] = pdf_total(body, self.app_dir, self.store.database.parent)
+            except (OSError, ValueError, subprocess.SubprocessError):
+                result['total'] = None
+            if result['total'] is None:
+                result['hint'] = 'Не удалось однозначно прочитать итог PDF. Укажи сумму вручную.'
+        return result
+
     def calendar_plans(self, visible_orders):
         owners = {order['path']: order for order in visible_orders if order.get('registered') is not False}
         with self.connect() as db:
@@ -269,11 +349,13 @@ class InvoiceStore:
             result = []
             for row in rows:
                 owner, data = owners.get(row['path']), json.loads(row['data'])
-                if owner is not None and known_plan(data):
+                free = row['path'] == '' and data.get('scope') == 'calendar'
+                if (owner is not None or free) and known_plan(data):
                     result.append({'id': row['id'], 'path': row['path'], 'date': data['date'],
                                    'revision': row['revision'], 'is_inactive': data.get('_calendar_inactive', False),
                                    'operation': data.get('operation', 'invoice'), 'amount': data.get('amount'),
-                                   'title': owner['title'], 'client': owner['client'], 'object': owner['object']})
+                                   'text': data.get('text', ''), 'invoice_label': data.get('invoice_label', ''),
+                                   'title': owner['title'] if owner else 'Без заказа', 'client': owner['client'] if owner else '', 'object': owner['object'] if owner else ''})
             return result
 
     def save_plan_calendar_inactive(self, payload):
@@ -284,7 +366,8 @@ class InvoiceStore:
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
             row = self.current(db, payload.get('path'), payload.get('id'))
-            self.owner(db, row['path'], active=True)
+            if row['path']:
+                self.owner(db, row['path'], active=True)
             if row['state'] != 'planned' or type(payload.get('revision')) is not int or row['revision'] != payload['revision']:
                 raise InvoiceConflict('План изменился в другом окне. Обнови календарь и повтори отметку')
             data = json.loads(row['data'])
@@ -298,11 +381,16 @@ class InvoiceStore:
             return self.record(self.current(db, row['path'], row['id']))
 
     def plan(self, payload):
-        path, identity = self.store.path(payload.get('path')), payload.get('id')
+        path, identity = ('' if payload.get('path') == '' else self.store.path(payload.get('path'))), payload.get('id')
         scheduled = plan_date(payload.get('date'))
         operation = payload.get('operation', 'invoice')
         if not isinstance(operation, str) or operation not in {'invoice', 'incoming', 'outgoing'}:
             raise ValueError('Выбери выписку счёта, получение оплаты или платёж')
+        if not path and operation == 'invoice':
+            raise ValueError('Для выписки счёта выбери заказ')
+        text = payload.get('text', '')
+        if not isinstance(text, str) or len(text) > 500 or any(ord(c) < 32 for c in text):
+            raise ValueError('Комментарий плана: одна строка до 500 символов')
         amount = None
         if operation != 'invoice':
             amount = int(decimal(payload.get('amount'), 'Сумма', 2, Decimal('999999999.99')) * 100)
@@ -315,24 +403,30 @@ class InvoiceStore:
             raise ValueError('Не указан идентификатор плана выписки счёта') from None
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
-            self.owner(db, path, active=True)
+            if path:
+                self.owner(db, path, active=True)
             row = db.execute('SELECT * FROM invoices WHERE id=?', (identity,)).fetchone()
             if row:
                 data = json.loads(row['data'])
-                if row['path'] != path or row['state'] != 'planned' or data.get('_trash'):
+                if row['path'] != path or row['state'] != 'planned' or data.get('_trash') or (not path and data.get('scope') != 'calendar'):
                     raise InvoiceConflict('План больше недоступен по этому пути. Обнови список счетов')
                 if not known_plan(data):
                     raise InvoiceConflict('Неизвестный формат плана сохранён без изменений')
+                if 'text' not in payload:
+                    text = data.get('text', '')
                 if 'revision' not in payload:
                     # Lost create responses never overwrite a later date edit.
                     return self.record(row)
                 if type(payload['revision']) is not int or row['revision'] != payload['revision']:
                     raise InvoiceConflict('План изменился в другом окне. Проверь изменения перед повтором')
-                if data['date'] == scheduled and data.get('operation', 'invoice') == operation and data.get('amount') == amount:
+                if data.get('invoice_id') and operation == 'invoice':
+                    raise ValueError('Для готового счёта выбери получение оплаты или платёж')
+                if data['date'] == scheduled and data.get('operation', 'invoice') == operation and data.get('amount') == amount and data.get('text', '') == text:
                     return self.record(row)
                 db.execute('INSERT INTO invoice_history VALUES (?,?,?,?)', (identity, row['revision'], row['data'], time.time()))
                 data['date'] = scheduled
                 data['operation'] = operation
+                data['text'] = text
                 if amount is None:
                     data.pop('amount', None)
                 else:
@@ -343,12 +437,26 @@ class InvoiceStore:
                 if 'revision' in payload:
                     raise InvoiceConflict('План не найден. Обнови список счетов')
                 data = {'version': 1, 'kind': 'planned', 'date': scheduled, 'operation': operation}
+                if not path:
+                    data['scope'] = 'calendar'
+                if text:
+                    data['text'] = text
+                if payload.get('source_invoice'):
+                    source = self.current(db, path, payload['source_invoice'])
+                    if source['state'] not in {'issued', 'external'} or operation == 'invoice':
+                        raise ValueError('Для готового счёта выбери получение оплаты или платёж')
+                    if type(payload.get('source_revision')) is not int or source['revision'] != payload['source_revision']:
+                        raise InvoiceConflict('Счёт изменился. Проверь его перед планированием')
+                    data.update(invoice_id=source['id'], invoice_label=self.source_label(source))
                 if amount is not None:
                     data['amount'] = amount
                 stamp = time.time()
                 # Plans reserve no annual number and never enter the PDF outbox.
                 db.execute("INSERT INTO invoices(id,path,year,number,revision,state,data,created,updated) VALUES (?,?,0,?,1,'planned',?,?,?)",
                            (identity, path, identity, json.dumps(data, ensure_ascii=False), stamp, stamp))
+                if not path or data.get('invoice_id'):
+                    local_metadata.schema(db)
+                    db.execute("INSERT OR REPLACE INTO metadata_settings VALUES ('invoice_payment_sources','1')")
             return self.record(self.current(db, path, identity))
 
     def upload(self, payload):

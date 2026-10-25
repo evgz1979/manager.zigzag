@@ -466,8 +466,13 @@ h2 { font-size: 13px; font-weight: 600; }
 .calendar-viewport:focus, .calendar-week-content:focus { outline: none; }
 .calendar-week { position: relative; height: var(--calendar-week-height); scroll-snap-align: start; }
 .calendar-day { position: relative; min-width: 0; padding: 4px 7px; border-right: 1px solid #e2e2e2; border-bottom: 1px solid #e2e2e2; background: #fff; text-align: right; }
-.calendar-invoice-plans { position: absolute; top: 4px; left: 4px; right: 30px; max-height: 52px; padding-bottom: 2px; display: flex; flex-wrap: wrap; justify-content: space-around; align-items: center; align-content: flex-start; gap: 0 2px; overflow-y: auto; scrollbar-width: thin; }
-.calendar-invoice-plan { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; min-width: 14px; height: 12px; color: #4868ef; font-size: 14px; font-weight: 700; line-height: 12px; text-decoration: none; border-radius: 3px; white-space: nowrap; }
+.calendar-invoice-plans { position: absolute; top: 4px; left: 4px; right: 30px; max-height: 64px; padding-bottom: 2px; display: flex; flex-wrap: wrap; justify-content: space-around; align-items: center; align-content: flex-start; gap: 0 2px; overflow-y: auto; scrollbar-width: thin; }
+.calendar-invoice-plan { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; min-width: 14px; height: 12px; padding: 0; border: 0; background: transparent; color: #4868ef; font-size: 14px; font-weight: 700; line-height: 12px; text-decoration: none; border-radius: 3px; white-space: nowrap; cursor: pointer; }
+.calendar-payment-add { display: inline-flex; flex: 0 0 auto; gap: 2px; height: 12px; }
+.calendar-payment-add button { min-width: 11px; height: 12px; padding: 0; border: 0; background: transparent; color: #1caa39; font-size: 12px; line-height: 12px; }
+.calendar-payment-add [data-calendar-payment-add="outgoing"] { color: #f04e35; }
+.calendar-payment-add button:hover:not(:disabled), .calendar-payment-add button:focus-visible { background: #eaf0fb; }
+.calendar-payment-add button:disabled { opacity: .25; cursor: default; }
 .calendar-invoice-plan[data-operation="incoming"] { color: #1caa39; font-size: 11px; }
 .calendar-invoice-plan[data-operation="outgoing"] { color: #f04e35; font-size: 11px; }
 .calendar-invoice-plan:hover, .calendar-invoice-plan:focus-visible { background: #eaf0fb; }
@@ -664,6 +669,7 @@ h2 { font-size: 13px; font-weight: 600; }
 .create-order-dialog label { display: grid; gap: 7px; font-size: 12px; color: var(--muted); }
 .create-order-dialog input { width: 100%; min-width: 0; padding: 10px; color: var(--text); }
 #planInvoiceDialog select { width: 100%; min-width: 0; padding: 10px; color: var(--text); }
+#planInvoiceSource { margin: 0; overflow-wrap: anywhere; }
 .create-order-dialog .confirm-actions { margin-top: 5px; }
 .new-order-preview { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
 .new-order-preview strong { color: var(--text); font-weight: 500; }
@@ -737,6 +743,15 @@ h2 { font-size: 13px; font-weight: 600; }
 .invoice-list { margin-top: 7px; }
 .invoice-row { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 7px 0; border-top: 1px solid #eef0f3; font-size: 12px; }
 .invoice-row-name { flex: 1 1 160px; min-width: 0; border: 0; background: transparent; padding: 0; text-align: left; font: inherit; font-weight: 600; line-height: 16px; cursor: pointer; color: inherit; }
+.invoice-row-content { flex: 1 1 160px; min-width: 0; }
+.invoice-row-content > .invoice-row-name { display: block; width: 100%; }
+.invoice-linked-plans { display: grid; gap: 3px; margin-top: 5px; }
+.invoice-linked-entry { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.invoice-linked-plan { flex: 1; min-width: 0; padding: 0; border: 0; background: transparent; text-align: left; font: inherit; font-size: 11px; line-height: 16px; color: #1c8b39; overflow-wrap: anywhere; cursor: pointer; }
+.invoice-linked-plan[data-operation="outgoing"] { color: #d84d38; }
+.invoice-linked-plan:hover:not(:disabled), .invoice-linked-plan:focus-visible { text-decoration: underline; }
+.invoice-linked-plan:disabled { opacity: .6; cursor: default; }
+.invoice-row .invoice-linked-entry .invoice-remove { padding: 0 4px; border-color: transparent; background: transparent; }
 .invoice-row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; margin-left: auto; max-width: 100%; }
 .invoice-row-actions > strong { white-space: nowrap; }
 .invoice-list-status { display: grid; grid-template-columns: repeat(2, max-content); gap: 3px; }

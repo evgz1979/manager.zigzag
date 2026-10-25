@@ -22,14 +22,26 @@
 
   function renderInvoiceList(records) {
     const focusedPlan = document.activeElement?.dataset.invoicePlan;
+    const focusedSchedule = document.activeElement?.dataset.invoiceSchedule;
     const focused = document.activeElement?.closest('[data-invoice-status]');
     const focusKey = focused ? { id: focused.dataset.invoiceStatus, value: focused.dataset.value } : null;
-    const markup = records.map((record) => {
+    const sources = new Map(records.filter((record) => ['issued', 'external'].includes(record.state)).map((record) => [record.id, record]));
+    const linkedPlans = new Map();
+    const rows = records.filter((record) => {
+      const source = record.state === 'planned' ? sources.get(record.data.invoice_id) : null;
+      if (!source || source.path !== record.path) return true;
+      if (!linkedPlans.has(source.id)) linkedPlans.set(source.id, []);
+      linkedPlans.get(source.id).push(record);
+      return false;
+    });
+    $("invoiceCount").textContent = rows.length || "";
+    const markup = rows.map((record) => {
       const external = record.state === "external";
       const label = invoiceLabel(record);
       const date = displayDate(record.data.date);
       if (record.state === 'planned') {
-        return '<div class="invoice-row"><button type="button" class="invoice-row-name" data-invoice-plan="' + record.id + '"' + (record.plan_editable ? '' : ' disabled') + '><span class="invoice-row-label">' + escapeHtml(label) + '</span><small class="invoice-row-meta">' + escapeHtml(date + (planAmount(record) ? ' · ' + planAmount(record) : '')) + (record.plan_editable ? '' : ' · Неизвестный формат плана') + '</small></button><div class="invoice-row-actions"><button class="secondary-button invoice-remove" type="button" data-invoice-remove="' + record.id + '" aria-label="В корзину · ' + escapeHtml(label + ' · ' + date) + '">×</button></div></div>';
+        const details = [date, planAmount(record), record.data.invoice_label, record.data.text].filter(Boolean).join(' · ');
+        return '<div class="invoice-row"><button type="button" class="invoice-row-name" data-invoice-plan="' + record.id + '"' + (record.plan_editable ? '' : ' disabled') + '><span class="invoice-row-label">' + escapeHtml(label) + '</span><small class="invoice-row-meta" title="' + escapeHtml(details) + '">' + escapeHtml(details) + (record.plan_editable ? '' : ' · Неизвестный формат плана') + '</small></button><div class="invoice-row-actions"><button class="secondary-button invoice-remove" type="button" data-invoice-remove="' + record.id + '" aria-label="В корзину · ' + escapeHtml(label + ' · ' + date) + '">×</button></div></div>';
       }
       const details = (external ? 'Внешний · ' : '') + date;
       const comment = external ? record.data.comment?.trim() : '';
@@ -40,7 +52,13 @@
       const status = record.list_status === undefined ? 'none' : record.list_status;
       const buttons = '<div class="invoice-list-status" role="group" aria-label="Отметка счёта · ' + escapeHtml(label) + '" aria-busy="' + busy + '">' +
         Object.entries(listStatusLabels).map(([value, name]) => '<button type="button" class="secondary-button" data-invoice-status="' + record.id + '" data-value="' + value + '" aria-pressed="' + (status === value) + '" title="' + (status === null ? 'Неизвестная отметка сохранена без замены' : status === value ? 'Снять отметку «' + name + '»' : name) + '"' + (busy || status === null ? ' disabled' : '') + '>' + name + '</button>').join('') + '</div>';
-      return '<div class="invoice-row"><button type="button" class="invoice-row-name" data-invoice-' + (external ? 'view' : 'edit') + '="' + record.id + '"><span class="invoice-row-label' + (comment ? ' invoice-row-comment' : '') + '" title="' + escapeHtml(heading) + '">' + escapeHtml(heading) + '</span><small class="invoice-row-meta" title="' + escapeHtml(secondary + ' · ' + sync) + '">' + escapeHtml(secondary) + '<span class="invoice-row-state' + (record.sync_error ? ' error' : '') + '"> · ' + escapeHtml(sync) + '</span></small></button><div class="invoice-row-actions">' + (external ? '' : '<strong>' + cash(record.data.total) + '</strong>') + buttons +
+      const schedule = record.state === 'draft' ? '' : '<button class="secondary-button" type="button" data-invoice-schedule="' + record.id + '" aria-label="Запланировать оплату · ' + escapeHtml(label) + '">Запланировать</button>';
+      const plans = (linkedPlans.get(record.id) || []).map((plan) => {
+        const summary = ['Запланировано: ' + planAmount(plan), displayDate(plan.data.date), plan.data.text].filter(Boolean).join(' · ');
+        const description = [invoiceLabel(plan), label, displayDate(plan.data.date), planAmount(plan), plan.data.text].filter(Boolean).join(' · ');
+        return '<div class="invoice-linked-entry"><button type="button" class="invoice-linked-plan" data-invoice-plan="' + plan.id + '" data-operation="' + escapeHtml(plan.data.operation || 'invoice') + '" aria-label="' + escapeHtml(description) + '" title="' + escapeHtml(description) + '"' + (plan.plan_editable ? '' : ' disabled') + '>' + escapeHtml(summary) + (plan.plan_editable ? '' : ' · Неизвестный формат плана') + '</button><button class="secondary-button invoice-remove" type="button" data-invoice-remove="' + plan.id + '" aria-label="' + escapeHtml('В корзину · ' + description) + '">×</button></div>';
+      }).join('');
+      return '<div class="invoice-row"><div class="invoice-row-content"><button type="button" class="invoice-row-name" data-invoice-' + (external ? 'view' : 'edit') + '="' + record.id + '"><span class="invoice-row-label' + (comment ? ' invoice-row-comment' : '') + '" title="' + escapeHtml(heading) + '">' + escapeHtml(heading) + '</span><small class="invoice-row-meta" title="' + escapeHtml(secondary + ' · ' + sync) + '">' + escapeHtml(secondary) + '<span class="invoice-row-state' + (record.sync_error ? ' error' : '') + '"> · ' + escapeHtml(sync) + '</span></small></button>' + (plans ? '<div class="invoice-linked-plans">' + plans + '</div>' : '') + '</div><div class="invoice-row-actions">' + (external ? '' : '<strong>' + cash(record.data.total) + '</strong>') + buttons + schedule +
         (external ? '<button class="secondary-button" type="button" data-invoice-view="' + record.id + '">PDF</button>' : record.state !== "draft" ? '<a class="secondary-button" href="' + escapeHtml(pdfUrl(record)) + '" target="_blank" rel="noopener">PDF ↗</a>' : '') + (external ? '' : '<button class="secondary-button" type="button" data-invoice-copy="' + record.id + '">На основе</button>') + '<button class="secondary-button invoice-remove" type="button" data-invoice-remove="' + record.id + '" title="В корзину" aria-label="' + escapeHtml('В корзину · ' + label) + '">×</button></div></div>';
     }).join("");
     if (markup !== listMarkup) {
@@ -48,6 +66,7 @@
       listMarkup = markup;
       if (focusKey && document.activeElement === document.body) focusStatusButton(focusKey);
       if (focusedPlan && document.activeElement === document.body) [...$("invoiceList").querySelectorAll('[data-invoice-plan]')].find((button) => button.dataset.invoicePlan === focusedPlan)?.focus({ preventScroll: true });
+      if (focusedSchedule && document.activeElement === document.body) [...$("invoiceList").querySelectorAll('[data-invoice-schedule]')].find((button) => button.dataset.invoiceSchedule === focusedSchedule)?.focus({ preventScroll: true });
     }
     // Store records on this exact list, independent of grid positions.
     $("invoiceList").invoiceRecords = records;
@@ -99,7 +118,6 @@
     try {
       const result = await request(apiUrl("/api/invoices", folder.path));
       if (version !== loading || state.folder?.path !== folder.path) return;
-      $("invoiceCount").textContent = result.items.length || "";
       $("invoiceListState").textContent = result.items.length ? "" : "Запланируй выписку, прикрепи PDF или выпиши счёт по этому заказу.";
       renderInvoiceList(result.items);
       const trashed = result.trash || [];
@@ -125,14 +143,21 @@
     return hex.slice(0, 8) + "-" + hex.slice(8, 12) + "-" + hex.slice(12, 16) + "-" + hex.slice(16, 20) + "-" + hex.slice(20);
   }
 
-  function showPlan(record = null) {
-    if (!state.folder?.order || (record && !record.plan_editable)) return;
-    const date = record?.data.date || new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Moscow', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-    planning = { path: record?.path || state.folder.path, id: record?.id || newIdentity(), record, saved: date, busy: false, conflict: false };
-    $("planInvoiceOrder").textContent = state.folder.order.title || planning.path;
+  function showPlan(record = null, options = {}) {
+    if ((record && !record.plan_editable) || (!record && !options.calendar && !state.folder?.order)) return;
+    const path = record ? record.path : options.source?.path || (options.calendar ? '' : state.folder.path);
+    const date = record?.data.date || options.date || new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Moscow', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    planning = { path, id: record?.id || newIdentity(), record, source: options.source || null, calendar: Boolean(options.calendar),
+      busy: false, sourceLoading: false, conflict: false };
+    for (const id of ['planInvoiceDate', 'planInvoiceOperation', 'planInvoiceAmount', 'planInvoiceText', 'cancelInvoicePlan']) $(id).disabled = false;
+    $("planInvoiceOrder").textContent = path ? (state.orders.find((order) => order.path === path)?.title || (state.folder?.path === path ? state.folder.order?.title : '') || path) : 'Оплата без заказа';
+    $("planInvoiceSource").hidden = !(options.source || record?.data.invoice_label);
+    $("planInvoiceSource").textContent = options.source ? invoiceLabel(options.source) : record?.data.invoice_label || '';
     $("planInvoiceDate").value = date;
-    $("planInvoiceOperation").value = record?.data.operation || 'invoice';
-    $("planInvoiceAmount").value = record?.data.amount ? (record.data.amount / 100).toFixed(2).replace('.', ',') : '';
+    $("planInvoiceOperation").value = record?.data.operation || options.operation || (options.source || options.calendar ? 'incoming' : 'invoice');
+    const amount = record?.data.amount ?? options.source?.data.total;
+    $("planInvoiceAmount").value = amount ? (amount / 100).toFixed(2).replace('.', ',') : '';
+    $("planInvoiceText").value = record?.data.text || '';
     updatePlanFields();
     planning.savedForm = JSON.stringify(planValues());
     $("planInvoiceState").textContent = '';
@@ -141,6 +166,7 @@
     $("saveInvoicePlan").disabled = false;
     $("saveInvoicePlan").textContent = record ? 'Сохранить' : 'Запланировать';
     $("planInvoiceDialog").showModal(); $("planInvoiceDate").focus();
+    if (options.source) readPlanSource(planning);
   }
 
   function closePlan() {
@@ -149,42 +175,79 @@
   }
 
   function planValues() {
-    return { date: $("planInvoiceDate").value, operation: $("planInvoiceOperation").value, amount: $("planInvoiceAmount").value };
+    return { path: planning?.path,
+      date: $("planInvoiceDate").value, operation: $("planInvoiceOperation").value, amount: $("planInvoiceAmount").value, text: $("planInvoiceText").value };
   }
 
   function updatePlanFields() {
     const payment = $("planInvoiceOperation").value !== 'invoice';
     $("planInvoiceAmountLabel").hidden = !payment;
     $("planInvoiceAmount").required = payment;
+    $("planInvoiceTextLabel").hidden = !payment;
+    const invoiceOption = $("planInvoiceOperation").querySelector('[value="invoice"]');
+    invoiceOption.hidden = invoiceOption.disabled = Boolean(planning?.calendar || planning?.source || planning?.record?.data.invoice_id);
+  }
+
+  async function readPlanSource(current, preserveInput = false) {
+    if (!current || current.sourceLoading) return;
+    const previous = $("planInvoiceAmount").value;
+    current.sourceLoading = true; $("saveInvoicePlan").disabled = true;
+    $("refreshInvoicePlan").disabled = true;
+    $("planInvoiceState").textContent = 'Читаю сумму счёта…';
+    try {
+      const source = await request(apiUrl('/api/invoice-plan-source', current.path, { id: current.source.id }));
+      if (planning !== current) return;
+      current.source = { ...current.source, ...source };
+      if (!preserveInput && $("planInvoiceAmount").value === previous && Number.isSafeInteger(source.total)) $("planInvoiceAmount").value = (source.total / 100).toFixed(2).replace('.', ',');
+      $("planInvoiceSource").textContent = source.label;
+      $("planInvoiceState").textContent = source.hint || 'Сумма из счёта: ' + cash(source.total) + '. Можно указать часть оплаты.';
+      $("planInvoiceState").classList.remove('error');
+      current.conflict = false; $("refreshInvoicePlan").hidden = true;
+    } catch (error) {
+      if (planning !== current) return;
+      current.conflict = true;
+      $("planInvoiceState").textContent = error.message + ' Ввод остался в форме.';
+      $("planInvoiceState").classList.add('error'); $("refreshInvoicePlan").hidden = false;
+    } finally {
+      current.sourceLoading = false;
+      if (planning === current) {
+        $("saveInvoicePlan").disabled = current.conflict;
+        $("refreshInvoicePlan").disabled = false;
+      }
+    }
   }
 
   async function savePlan() {
     const current = planning;
-    if (!current || current.busy || current.conflict) return;
+    if (!current || current.busy || current.conflict || current.sourceLoading) return;
     current.busy = true;
-    for (const id of ['planInvoiceDate', 'planInvoiceOperation', 'planInvoiceAmount', 'saveInvoicePlan', 'cancelInvoicePlan']) $(id).disabled = true;
+    for (const id of ['planInvoiceDate', 'planInvoiceOperation', 'planInvoiceAmount', 'planInvoiceText', 'saveInvoicePlan', 'cancelInvoicePlan']) $(id).disabled = true;
     const status = $("planInvoiceState");
     status.textContent = 'Сохраняю…'; status.classList.remove('error');
     try {
-      const record = await request('/api/invoice-plan', { path: current.path, id: current.id, ...planValues(),
-        ...(current.record ? { revision: current.record.revision } : {}) });
+      const record = await request('/api/invoice-plan', { id: current.id, ...planValues(),
+        ...(current.record ? { revision: current.record.revision } : current.source ? { source_invoice: current.source.id, source_revision: current.source.revision } : {}) });
       current.busy = false; closePlan();
       await refreshList(true);
       notify(invoiceLabel(record) + ' · ' + displayDate(record.data.date));
+      try { await loadOrders(); } catch (error) { notify('План сохранён. Не удалось обновить календарь: ' + error.message, true); }
     } catch (error) {
       status.textContent = error.message + ' Ввод остался в форме.'; status.classList.add('error');
       current.conflict = error.status === 409;
       $("refreshInvoicePlan").hidden = !current.conflict;
     } finally {
       current.busy = false;
-      for (const id of ['planInvoiceDate', 'planInvoiceOperation', 'planInvoiceAmount', 'cancelInvoicePlan']) $(id).disabled = false;
-      $("saveInvoicePlan").disabled = current.conflict;
+      if (!planning || planning === current) {
+        for (const id of ['planInvoiceDate', 'planInvoiceOperation', 'planInvoiceAmount', 'planInvoiceText', 'cancelInvoicePlan']) $(id).disabled = false;
+        $("saveInvoicePlan").disabled = current.conflict;
+      }
     }
   }
 
   async function checkPlan() {
     const current = planning;
     if (!current || current.busy) return;
+    if (!current.record && current.source) { await readPlanSource(current, true); return; }
     const button = $("refreshInvoicePlan"); button.disabled = true;
     try {
       const record = await request(apiUrl('/api/invoice', current.path, { id: current.id }));
@@ -443,6 +506,12 @@
     event.target.closest("tr").remove(); changed();
   });
   $("invoiceList").addEventListener("click", (event) => {
+    const schedule = event.target.closest('[data-invoice-schedule]');
+    if (schedule) {
+      const record = $("invoiceList").invoiceRecords?.find((item) => item.id === schedule.dataset.invoiceSchedule && item.path === state.folder?.path);
+      if (record) showPlan(null, { source: record });
+      return;
+    }
     const plan = event.target.closest('[data-invoice-plan]');
     if (plan) {
       const record = $("invoiceList").invoiceRecords?.find((item) => item.id === plan.dataset.invoicePlan && item.path === state.folder?.path);
@@ -533,6 +602,11 @@
     } finally { current.issuing = false; controls(); }
   }));
   document.addEventListener("manager-folder-rendered", () => refreshList());
+  document.addEventListener('manager-plan-payment', (event) => action(async () => {
+    const { id, path = '', date, operation } = event.detail;
+    if (id) showPlan(await request(apiUrl('/api/invoice', path, { id })), { calendar: true });
+    else showPlan(null, { calendar: true, date, operation });
+  }));
   document.addEventListener("manager-invoice-updated", () => refreshList(true));
   window.addEventListener("beforeunload", (event) => {
     if (removing || planning?.busy || (planning && JSON.stringify(planValues()) !== planning.savedForm) || editor?.dirty || editor?.saving || editor?.issuing || attachment?.busy || (attachment && $("externalInvoiceComment").value !== attachment.saved)) { event.preventDefault(); event.returnValue = ""; }

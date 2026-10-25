@@ -3201,6 +3201,16 @@ $("orderStatusFilters").addEventListener("click", (event) => {
 $("orderSearch").addEventListener("input", (event) => { state.orderQuery = event.target.value; renderOrders(); });
 $("orderListControls").addEventListener("toggle", () => { if (state.view === "orders") homeFiltersOpen = $("orderListControls").open; });
 $("calendarWeeks").addEventListener("click", (event) => {
+  const payment = event.target.closest('[data-calendar-payment-add]');
+  if (payment && !payment.disabled) {
+    document.dispatchEvent(new CustomEvent('manager-plan-payment', { detail: { date: payment.dataset.calendarDate, operation: payment.dataset.calendarPaymentAdd } }));
+    return;
+  }
+  const plan = event.target.closest('[data-calendar-plan-edit]');
+  if (plan) {
+    document.dispatchEvent(new CustomEvent('manager-plan-payment', { detail: { id: plan.dataset.calendarPlanEdit } }));
+    return;
+  }
   const slot = event.target.closest("[data-calendar-event]");
   if (slot && !slot.disabled) { openCalendarEvent(slot); return; }
   const link = event.target.closest("[data-calendar-order]");
