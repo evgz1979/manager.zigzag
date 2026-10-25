@@ -86,7 +86,7 @@ const HomeCalendar = (() => {
         const link = item.firstElementChild, title = order.title || order.path;
         link.href = "?path=" + encodeURIComponent(order.path);
         link.dataset.calendarOrder = order.path;
-        link.title = [title, order.client, order.object].filter(Boolean).join(" · ");
+        link.setAttribute("aria-label", [title, order.client, order.object].filter(Boolean).join(" · "));
         link.firstElementChild.textContent = title;
         link.lastElementChild.textContent = order.client || "";
         link.lastElementChild.hidden = !order.client;
@@ -129,7 +129,6 @@ const HomeCalendar = (() => {
           const date = shiftDays(week, day), cell = document.createElement("div"), label = document.createElement("time");
           cell.className = "calendar-day" + (day > 4 ? " weekend" : "") + (date < range.from || date > range.through ? " calendar-outside" : "");
           label.dateTime = dateKey(date);
-          label.title = fullDate.format(date);
           label.setAttribute("aria-label", fullDate.format(date));
           label.textContent = date.getUTCDate() === 1 ? shortDate.format(date) : String(date.getUTCDate());
           if (dateKey(date) === builtFor) { label.className = "calendar-today"; label.setAttribute("aria-current", "date"); }
@@ -139,7 +138,6 @@ const HomeCalendar = (() => {
         weeks.append(row);
       }
       get("calendarWeeks").replaceChildren(weeks);
-      get("calendarViewport").title = "Доступно: " + fullDate.format(range.from) + " — " + fullDate.format(range.through);
       scrollToWeek(range.today);
     } else updateHeading();
     renderWeekOrders();
