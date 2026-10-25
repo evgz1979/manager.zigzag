@@ -1776,6 +1776,9 @@ class ManagerHandler(BaseHTTPRequestHandler):
             elif route == "/api/calendar-color":
                 self.send_json(calendar_events.CalendarEvents(order_store()).color(payload))
                 return
+            elif route == "/api/order-calendar-color":
+                self.send_json(order_store().save_calendar_color(payload))
+                return
             elif route == "/api/calendar-move":
                 self.send_json(calendar_events.CalendarEvents(order_store()).move(payload))
                 return

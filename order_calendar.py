@@ -11,6 +11,9 @@ MAX_EVENTS = 5200
 WEEKLY_EVENTS_UNIFIED_VERSION = 1
 CALENDAR_RELEVANCE_VERSION = 1
 INACTIVE_BLOCK = "Неактуальные события календаря"
+ORDER_CALENDAR_COLORS_VERSION = 1
+COLORS_BLOCK = "Цвета событий календаря"
+COLORS = {"gray", "red", "orange", "yellow", "green", "blue", "purple"}
 
 
 def block_name(period):
@@ -119,6 +122,46 @@ def read_inactive(blocks):
         return None
 
 
+def read_colors(blocks):
+    if COLORS_BLOCK not in blocks:
+        return {"day": {}, "week": {}}
+    try:
+        value = json.loads(blocks[COLORS_BLOCK])
+        if not isinstance(value, dict) or set(value) != {"version", "day", "week"} or type(value["version"]) is not int or value["version"] != 1:
+            return None
+        for period in ("day", "week"):
+            entries = value[period]
+            if not isinstance(entries, dict) or len(entries) > MAX_EVENTS:
+                return None
+            for day, color in entries.items():
+                validate_key(day, period)
+                if not isinstance(color, str) or color not in COLORS:
+                    return None
+        return {period: value[period] for period in ("day", "week")}
+    except (ValueError, TypeError):
+        return None
+
+
+def _write_colors(blocks, colors, period, entries):
+    return {**blocks, COLORS_BLOCK: json.dumps({"version": 1, **colors, period: entries}, ensure_ascii=False)}
+
+
+def set_color(blocks, day, color, period="day"):
+    block_name(period)
+    day = validate_key(day, period)
+    if not isinstance(color, str) or color not in COLORS:
+        raise ValueError("Выбери цвет события")
+    colors, events = read_colors(blocks), read(blocks, period)
+    if colors is None or events is None:
+        raise ValueError("Формат события или цветов неизвестен. Данные сохранены без изменений")
+    if day not in events:
+        raise ValueError("Событие на этой дате отсутствует. Обнови календарь")
+    entries = {**colors[period], day: color}
+    if len(entries) > MAX_EVENTS:
+        raise ValueError("Сохранено слишком много цветов событий")
+    return _write_colors(blocks, colors, period, entries)
+
+
 def mark_relevance_contract(db):
     import local_metadata
     local_metadata.schema(db)
@@ -170,30 +213,33 @@ def remove(blocks, day, period="day"):
     if period != 'day':
         raise ValueError('Удалять можно только события на день')
     day = validate_key(day, period)
-    events, flags = read(blocks), read_inactive(blocks)
-    if events is None or flags is None:
-        raise ValueError('Формат события или актуальности неизвестен. Данные сохранены без изменений')
+    events, flags, colors = read(blocks), read_inactive(blocks), read_colors(blocks)
+    if events is None or flags is None or colors is None:
+        raise ValueError('Формат события, актуальности или цветов неизвестен. Данные сохранены без изменений')
     if day not in events:
         raise ValueError('Событие на этой дате уже отсутствует. Обнови календарь')
     remaining = {key: value for key, value in events.items() if key != day}
     result = {**blocks, BLOCK: json.dumps({'version': 1, 'events': remaining}, ensure_ascii=False)}
     if day in flags['day']:
         result[INACTIVE_BLOCK] = json.dumps({'version': 1, **flags, 'day': [key for key in flags['day'] if key != day]}, ensure_ascii=False)
+    if day in colors['day']:
+        result = _write_colors(result, colors, 'day', {key: value for key, value in colors['day'].items() if key != day})
     return result
 
 
-def restore(blocks, day, text, inactive, period="day"):
+def restore(blocks, day, text, inactive, period="day", color=None):
     if period != 'day':
         raise ValueError('Восстановление удаления доступно только для событий на день')
     day, text = validate_key(day, period), validate_text(text)
     if not text or type(inactive) is not bool:
         raise ValueError('Не указаны текст и актуальность удалённого события')
     events = read(blocks)
-    if events is None or read_inactive(blocks) is None:
+    if events is None or read_inactive(blocks) is None or read_colors(blocks) is None:
         raise ValueError('Формат событий неизвестен. Данные сохранены без изменений')
     if day in events:
         raise ValueError('На этой дате уже есть событие. Оно сохранено без изменений')
-    return set_inactive(write(blocks, day, text), day, inactive)
+    result = set_inactive(write(blocks, day, text), day, inactive)
+    return set_color(result, day, color) if color is not None else result
 
 
 def move(blocks, day, days, period="day"):
@@ -218,15 +264,22 @@ def move(blocks, day, days, period="day"):
     target = target_date.isoformat()
     if target in events:
         raise ValueError("На выбранную дату у этого заказа уже есть событие. Оба события оставлены на своих местах")
-    flags = read_inactive(blocks)
-    if flags is None:
-        raise ValueError("Формат актуальности неизвестен. Событие сохранено на прежней дате")
+    flags, colors = read_inactive(blocks), read_colors(blocks)
+    if flags is None or colors is None:
+        raise ValueError("Формат актуальности или цветов неизвестен. Событие сохранено на прежней дате")
     moved = {**events}
     moved[target] = moved.pop(day)
     result = {**blocks, block: json.dumps({"version": 1, "events": moved}, ensure_ascii=False)}
     if day in flags[period]:
         selected = set(flags[period]); selected.remove(day); selected.add(target)
         result[INACTIVE_BLOCK] = json.dumps({"version": 1, **flags, period: sorted(selected)}, ensure_ascii=False)
+    if COLORS_BLOCK in blocks:
+        entries = {**colors[period]}
+        entries.pop(target, None)
+        color = entries.pop(day, None)
+        if color is not None:
+            entries[target] = color
+        result = _write_colors(result, colors, period, entries)
     source_week = source_date - timedelta(days=source_date.weekday())
     target_week = target_date - timedelta(days=target_date.weekday())
     if target_week != source_week:

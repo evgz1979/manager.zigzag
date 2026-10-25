@@ -8,7 +8,7 @@ import local_metadata
 import order_calendar
 from orders import OrderConflict
 
-COLORS = {"gray", "red", "orange", "yellow", "green", "blue", "purple"}
+COLORS = order_calendar.COLORS
 
 
 def schema(db):

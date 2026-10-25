@@ -92,7 +92,7 @@ const HomeCalendar = (() => {
     }
     for (const row of get("calendarWeeks").children) {
       const list = row.querySelector(".calendar-orders-list"), weekly = byWeek.get(row.dataset.week) || [];
-      const signature = JSON.stringify(weekly.map((order) => [order.id, order.path, order.title, order.client, order.object, order.work_supplier, order.work_supplier_color, order.calendar_events, order.calendar_week_events, order.calendar_inactive]));
+      const signature = JSON.stringify(weekly.map((order) => [order.id, order.path, order.title, order.client, order.object, order.work_supplier, order.work_supplier_color, order.calendar_events, order.calendar_week_events, order.calendar_inactive, order.calendar_colors]));
       if (list.dataset.signature === signature) continue;
       list.dataset.signature = signature;
       const top = list.parentElement.scrollTop;
@@ -140,6 +140,9 @@ const HomeCalendar = (() => {
           slot.dataset.calendarEvent = order.path;
           slot.dataset.calendarDate = key;
           slot.dataset.calendarPeriod = isWeek ? "week" : "day";
+          const eventColor = !supplier && text && order.calendar_colors?.[isWeek ? "week" : "day"]?.[key];
+          if (eventColor) slot.dataset.calendarColor = eventColor;
+          else delete slot.dataset.calendarColor;
           slot.classList.toggle("calendar-week-event-slot", isWeek);
           slot.textContent = text;
           slot.classList.toggle("calendar-inactive", Boolean(text) && Boolean(order.calendar_inactive?.[isWeek ? "week" : "day"]?.includes(key)));

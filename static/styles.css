@@ -870,7 +870,7 @@ h2 { font-size: 13px; font-weight: 600; }
 [data-calendar-color="blue"] { --event-ink: #326fa8; --event-fill: #e4f0fc; --event-hover: #c6dff7; --event-dot: #48a8fa; }
 [data-calendar-color="purple"] { --event-ink: #8550a5; --event-fill: #f2e7fa; --event-hover: #e3ccf2; --event-dot: #cf70ee; }
 [data-calendar-color="gray"] { --event-ink: #6b7278; --event-fill: #edf0f2; --event-hover: #e0e4e7; --event-dot: #acafb4; }
-.calendar-free-event { --calendar-text: var(--event-ink); --calendar-event-bg: var(--event-fill); --calendar-slot-hover: var(--event-hover); }
+.calendar-event-slot[data-calendar-color] { --calendar-text: var(--event-ink); --calendar-event-bg: var(--event-fill); --calendar-slot-hover: var(--event-hover); }
 .calendar-event-colors { display: flex; gap: 10px; padding: 7px 9px 10px; }
 .calendar-event-menu .calendar-event-colors button { width: 16px; height: 16px; flex: 0 0 16px; padding: 0; border: 1px solid color-mix(in srgb, var(--event-dot), #000 15%); border-radius: 50%; background: var(--event-dot); }
 .calendar-event-menu .calendar-event-colors button[aria-checked="true"]::after { content: ""; display: block; width: 6px; height: 6px; margin: auto; border-radius: 50%; background: #fff; box-shadow: 0 0 0 1px #00000018; }

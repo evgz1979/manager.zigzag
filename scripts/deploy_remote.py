@@ -205,6 +205,11 @@ def check_event_rename_compatibility(database, release_dir):
             if not source.is_file() or 'CALENDAR_RELEVANCE_VERSION = 1' not in source.read_text(encoding='utf-8'):
                 raise RuntimeError('В календаре есть отметки актуальности. Старый код не сохраняет их; откат заблокирован')
         if (db.execute("SELECT 1 FROM sqlite_master WHERE name='metadata_settings'").fetchone()
+                and db.execute("SELECT 1 FROM metadata_settings WHERE key='order_calendar_colors' AND value='1'").fetchone()):
+            source = release_dir / 'order_calendar.py'
+            if not source.is_file() or 'ORDER_CALENDAR_COLORS_VERSION = 1' not in source.read_text(encoding='utf-8'):
+                raise RuntimeError('В календаре есть цвета событий заказов. Старый код не переносит их; откат заблокирован')
+        if (db.execute("SELECT 1 FROM sqlite_master WHERE name='metadata_settings'").fetchone()
                 and db.execute("SELECT 1 FROM metadata_settings WHERE key='invoice_payment_sources' AND value='1'").fetchone()):
             source = release_dir / 'invoices.py'
             if not source.is_file() or 'INVOICE_PAYMENT_SOURCE_VERSION = 1' not in source.read_text(encoding='utf-8'):

@@ -73,6 +73,18 @@ class DeploymentTests(unittest.TestCase):
         (release / 'order_calendar.py').write_text('CALENDAR_RELEVANCE_VERSION = 1')
         remote.check_event_rename_compatibility(self.db, release)
 
+    def test_old_code_cannot_ignore_order_event_colors(self):
+        release = self.base / 'old-order-event-colors'
+        release.mkdir()
+        (release / 'local_metadata.py').touch()
+        with sqlite3.connect(self.db) as db:
+            db.execute('CREATE TABLE metadata_settings (key TEXT PRIMARY KEY,value TEXT)')
+            db.execute("INSERT INTO metadata_settings VALUES ('order_calendar_colors','1')")
+        with self.assertRaisesRegex(RuntimeError, 'цвета событий заказов'):
+            remote.check_event_rename_compatibility(self.db, release)
+        (release / 'order_calendar.py').write_text('ORDER_CALENDAR_COLORS_VERSION = 1')
+        remote.check_event_rename_compatibility(self.db, release)
+
     def test_old_code_cannot_recreate_separate_week_comment_storage(self):
         release = self.base / 'old-week-comments'
         release.mkdir()

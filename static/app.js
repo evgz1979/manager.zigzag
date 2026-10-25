@@ -2351,7 +2351,9 @@ function openCalendarEventMenu(slot, x, y) {
   }
   closeCalendarEventMenu(false);
   const inactive = plan ? order.is_inactive : free ? Boolean(order.is_inactive) : Boolean(order.calendar_inactive?.[period]?.includes(date));
-  state.calendarMenu = { free: Boolean(free), plan: Boolean(plan), path: order.path, id: order.id, revision: order.revision, date, period, inactive, slot };
+  const canColor = !plan && (Boolean(free) || !order.work_supplier && order.calendar_colors !== null);
+  const color = free ? order.color : order.calendar_colors?.[period]?.[date];
+  state.calendarMenu = { free: Boolean(free), plan: Boolean(plan), path: order.path, id: order.id, revision: order.revision, date, period, inactive, color, canColor, slot };
   const menu = $("calendarEventMenu");
   $("calendarEventMenuName").textContent = text;
   menu.querySelectorAll('[data-calendar-move], .calendar-day-move-divider').forEach((item) => {
@@ -2360,8 +2362,8 @@ function openCalendarEventMenu(slot, x, y) {
   $("calendarEventMoveDivider").hidden = Boolean(plan);
   $("calendarEventInactive").setAttribute("aria-checked", String(inactive));
   $("calendarEventDelete").hidden = plan ? Boolean(order.path) : period !== 'day';
-  $("calendarEventColors").hidden = !free;
-  menu.querySelectorAll("[data-calendar-color]").forEach((button) => button.setAttribute("aria-checked", String(button.dataset.calendarColor === order.color)));
+  $("calendarEventColors").hidden = !canColor;
+  menu.querySelectorAll("[data-calendar-color]").forEach((button) => button.setAttribute("aria-checked", String(button.dataset.calendarColor === (color || "green"))));
   menu.hidden = false;
   const bounds = menu.getBoundingClientRect();
   menu.style.left = Math.max(8, Math.min(x, window.innerWidth - bounds.width - 8)) + "px";
@@ -2435,7 +2437,7 @@ async function restoreCalendarDeletion(entry, revision) {
   ++state.ordersRequest;
   try {
     const route = entry.plan ? '/api/calendar-payment-restore' : entry.free ? '/api/calendar-event-restore' : '/api/order-calendar-event-restore';
-    const saved = await request(route, { path: entry.path || '', id: entry.id, revision, date: entry.date, period: entry.period, text: entry.previous, is_inactive: entry.inactive });
+    const saved = await request(route, { path: entry.path || '', id: entry.id, revision, date: entry.date, period: entry.period, text: entry.previous, is_inactive: entry.inactive, color: entry.color });
     applyCalendarDeletion(entry, saved, false);
     notify('Удаление отменено');
   } finally {
@@ -2500,18 +2502,21 @@ async function deleteCalendarEventFromDialog() {
 
 async function colorCalendarEvent(color) {
   const menu = state.calendarMenu;
-  if (!menu?.free || state.calendarMoving.has(menu.id)) return;
+  if (!menu?.canColor) return;
+  const key = menu.free ? menu.id : menu.path;
+  if (state.calendarMoving.has(key) || (!menu.free && orderRowSaving(menu.path))) return;
   closeCalendarEventMenu();
-  state.calendarMoving.add(menu.id);
+  state.calendarMoving.add(key);
   ++state.ordersRequest;
   try {
-    const saved = await request("/api/calendar-color", { id: menu.id, revision: menu.revision, color });
-    applyFreeCalendarEvent(saved);
+    const saved = await request(menu.free ? "/api/calendar-color" : "/api/order-calendar-color", { path: menu.path, id: menu.id, revision: menu.revision, date: menu.date, period: menu.period, color });
+    if (menu.free) applyFreeCalendarEvent(saved);
+    else applyOrderRecord(null, saved);
   } catch (error) {
     notify(error.message, true);
     if (error.status === 409) { try { await loadOrders(); } catch (_) { /* Keep the last calendar. */ } }
   } finally {
-    state.calendarMoving.delete(menu.id);
+    state.calendarMoving.delete(key);
     renderOrders({ force: true });
   }
 }
@@ -2527,7 +2532,8 @@ function openCalendarEvent(slot) {
   if (entries === null) { notify("События этого заказа имеют неизвестный формат и сохранены без изменений", true); return; }
   const previous = free ? order?.text || "" : entries?.[date] || "";
   const inactive = free ? Boolean(order?.is_inactive) : Boolean(order.calendar_inactive?.[period]?.includes(date));
-  state.calendarEvent = { free: Boolean(free), path: order?.path, id: order?.id || freeCalendarIdentity(), revision: order?.revision || 0, date, period, previous, inactive, saving: false, conflict: false };
+  const color = free ? order?.color : order.calendar_colors?.[period]?.[date];
+  state.calendarEvent = { free: Boolean(free), path: order?.path, id: order?.id || freeCalendarIdentity(), revision: order?.revision || 0, date, period, previous, inactive, color, saving: false, conflict: false };
   $("calendarEventTitle").textContent = period === "week" ? "Событие на неделю" : "Событие календаря";
   $("calendarEventOrder").textContent = free ? "Без привязки к заказу" : (order.work_supplier ? [order.title, order.work_supplier] : [order.title, order.client, order.object]).filter(Boolean).join(" · ");
   const start = new Date(date + "T00:00:00Z");
@@ -2587,6 +2593,7 @@ async function refreshCalendarEvent() {
       edit.revision = current.revision;
       edit.previous = current.text;
       edit.inactive = Boolean(current.is_inactive);
+      edit.color = current.color;
       edit.conflict = false;
       applyFreeCalendarEvent(current);
     } else {
@@ -2595,6 +2602,7 @@ async function refreshCalendarEvent() {
       edit.revision = order.revision;
       edit.previous = calendarEventEntries(order, edit.period)?.[edit.date] || "";
       edit.inactive = Boolean(order.calendar_inactive?.[edit.period]?.includes(edit.date));
+      edit.color = order.calendar_colors?.[edit.period]?.[edit.date];
       edit.conflict = false;
       applyOrderRecord(null, order);
     }
