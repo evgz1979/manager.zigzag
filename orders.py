@@ -234,11 +234,11 @@ class OrderStore:
         return self.get(relative)
 
     def save_deadline_week(self, payload):
-        """Change one week's mark without replacing any other order data."""
-        return self._save_extra_block(payload, lambda blocks: order_deadlines.write(blocks, payload.get("week"), payload.get("selected")))
+        """Change one week's mark without moving the order in the sorted list."""
+        return self._save_extra_block(payload, lambda blocks: order_deadlines.write(blocks, payload.get("week"), payload.get("selected")), update_time=False)
 
     def save_deadline_comment(self, payload):
-        return self._save_extra_block(payload, lambda blocks: order_deadlines.write_comment(blocks, payload.get("week"), payload.get("comment")))
+        return self._save_extra_block(payload, lambda blocks: order_deadlines.write_comment(blocks, payload.get("week"), payload.get("comment")), update_time=False)
 
     def save_flag(self, payload):
         return self._save_extra_block(payload, lambda blocks: document.write_flag(blocks, payload.get("is_flagged")), update_time=False)

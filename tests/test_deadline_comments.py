@@ -69,7 +69,7 @@ class DeadlineCommentApiTests(unittest.TestCase):
         with patch.object(OrderStore, "target", side_effect=AssertionError("No folder reads")), \
                 patch("icloud_access.read_bytes", side_effect=AssertionError("No originals")):
             saved = self.store.save_deadline_comment(self.payload(note="Не заменять", amount="999"))
-            for field in self.order.keys() - {"deadline_comments", "extra_blocks", "revision", "updated"}:
+            for field in self.order.keys() - {"deadline_comments", "extra_blocks", "revision"}:
                 self.assertEqual(saved[field], self.order[field], field)
             removed = self.store.save_deadline_week({**self.payload(saved), "selected": False})
             self.assertEqual(removed["deadline_weeks"], [])
@@ -96,6 +96,7 @@ class DeadlineCommentApiTests(unittest.TestCase):
         for route in ("/api/orders", self.url("/api/object-orders", "Клиент/Объект")):
             rows = json.loads(self.http(route)[2])["orders"]
             self.assertEqual(rows[0]["deadline_comments"], saved["deadline_comments"])
+            self.assertEqual(rows[0]["updated"], self.order["updated"])
         with self.assertRaises(OrderConflict):
             self.store.save_deadline_comment(self.payload())
         with self.assertRaises(OrderConflict):

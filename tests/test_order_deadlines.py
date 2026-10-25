@@ -71,7 +71,7 @@ class OrderDeadlineTests(unittest.TestCase):
         self.assertEqual(both["deadline_weeks"], ["2026-10-19", "2026-10-26"])
         self.assertEqual(final["deadline_weeks"], ["2026-10-26"])
         self.assertEqual(final["revision"], self.order["revision"] + 3)
-        for field in self.order.keys() - {"extra_blocks", "deadline_weeks", "revision", "updated"}:
+        for field in self.order.keys() - {"extra_blocks", "deadline_weeks", "revision"}:
             self.assertEqual(final[field], self.order[field], field)
         for name, value in self.order["extra_blocks"].items():
             self.assertEqual(final["extra_blocks"][name], value)
@@ -129,6 +129,30 @@ class OrderDeadlineTests(unittest.TestCase):
         self.assertEqual(listed["orders"][0]["deadline_weeks"], ["2026-10-19"])
         self.assertEqual(len(listed["deadline_week_options"]), 16)
         self.assertEqual(saved["deadline_weeks"], ["2026-10-19"])
+
+    def test_week_edits_keep_list_order_and_sort_date_after_reload(self):
+        other_path = "Клиент/2026-00-00 - Другой"
+        self.folder(other_path)
+        other = self.store.add(other_path, {"status": "process", "note": "Соседний заказ"})
+        with self.store.connect() as db:
+            db.execute("UPDATE orders SET updated=100 WHERE path=?", (self.path,))
+            db.execute("UPDATE orders SET updated=200 WHERE path=?", (other_path,))
+        original = self.store.get(self.path)
+        saved = original
+        for week, selected in (("2026-10-19", True), ("2026-10-26", True), ("2026-10-19", False)):
+            with patch("orders.time.time", return_value=300):
+                status, _, body = self.http("/api/order-deadline-week", "POST",
+                    json.dumps(self.payload(saved, week=week, selected=selected)))
+            self.assertEqual(status, 200)
+            saved = json.loads(body)
+            self.assertEqual(saved["updated"], original["updated"])
+            rows = json.loads(self.http("/api/orders")[2])["orders"]
+            self.assertEqual([row["id"] for row in rows], [other["id"], original["id"]])
+        self.assertEqual(saved["deadline_weeks"], ["2026-10-26"])
+        self.assertEqual(saved["revision"], original["revision"] + 3)
+        restarted = OrderStore(self.root, manager.DATA_DIR, manager.STATUS_LABELS)
+        self.assertEqual([row["id"] for row in restarted.list()], [other["id"], original["id"]])
+        self.assertEqual(restarted.get(self.path)["updated"], original["updated"])
 
     def test_overdue_marks_survive_week_rollover_until_explicitly_unchecked(self):
         saved = self.store.save_deadline_week(self.payload())
