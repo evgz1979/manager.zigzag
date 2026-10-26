@@ -19,6 +19,7 @@ const HomeCalendar = (() => {
     const value = (name) => Number(parts.find((part) => part.type === name).value);
     return new Date(Date.UTC(value("year"), value("month") - 1, value("day")));
   };
+  const activeOrderDays = (order) => Object.keys(order.calendar_events || {}).filter((day) => !order.calendar_inactive?.day?.includes(day));
   function calendarRange(now = new Date(), calendarOrders = [], freeEvents = [], plans = []) {
     const today = moscowDate(now);
     let start = monday(today), end = shiftDays(start, 20);
@@ -33,8 +34,7 @@ const HomeCalendar = (() => {
     for (const order of calendarOrders) {
       if (!order.path || order.registered === false) continue;
       for (const week of order.deadline_weeks || []) include(week, "week");
-      for (const date of Object.keys(order.calendar_events || {})) include(date);
-      for (const week of Object.keys(order.calendar_week_events || {})) include(week, "week");
+      for (const date of activeOrderDays(order)) include(date);
     }
     for (const event of [...freeEvents, ...plans]) {
       if (!event.deleted && ["day", "week"].includes(event.period || "day")) include(event.date, event.period);
@@ -102,15 +102,15 @@ const HomeCalendar = (() => {
     const byWeek = new Map();
     for (const order of orders) {
       if (!order.path || order.registered === false) continue;
-      const eventWeeks = Object.keys(order.calendar_events || {}).map((day) => dateKey(monday(new Date(day + "T00:00:00Z"))));
-      for (const week of new Set([...(order.deadline_weeks || []), ...eventWeeks, ...Object.keys(order.calendar_week_events || {})])) {
+      const eventWeeks = activeOrderDays(order).map((day) => dateKey(monday(new Date(day + "T00:00:00Z"))));
+      for (const week of new Set([...(order.deadline_weeks || []), ...eventWeeks])) {
         if (!byWeek.has(week)) byWeek.set(week, []);
         byWeek.get(week).push(order);
       }
     }
     for (const row of get("calendarWeeks").children) {
       const list = row.querySelector(".calendar-orders-list"), weekly = byWeek.get(row.dataset.week) || [];
-      const signature = JSON.stringify(weekly.map((order) => [order.id, order.path, order.title, order.client, order.object, order.is_blue_plus, order.is_flagged, order.is_favorite, order.work_supplier, order.work_supplier_color, order.calendar_events, order.calendar_week_events, order.calendar_inactive, order.calendar_colors]));
+      const signature = JSON.stringify(weekly.map((order) => [order.id, order.path, order.title, order.client, order.object, order.is_blue_plus, order.is_flagged, order.is_favorite, order.work_supplier, order.work_supplier_color, order.deadline_weeks, order.calendar_events, order.calendar_week_events, order.calendar_inactive, order.calendar_colors]));
       if (list.dataset.signature === signature) continue;
       list.dataset.signature = signature;
       const top = list.parentElement.scrollTop;
@@ -171,12 +171,14 @@ const HomeCalendar = (() => {
           slot.classList.toggle("calendar-week-event-slot", isWeek);
           slot.textContent = text;
           slot.classList.toggle("calendar-inactive", Boolean(text) && Boolean(order.calendar_inactive?.[isWeek ? "week" : "day"]?.includes(key)));
+          const unselectedWeek = isWeek && Boolean(text) && Array.isArray(order.deadline_weeks) && !order.deadline_weeks.includes(key);
+          slot.classList.toggle("calendar-unselected-week", unselectedWeek);
           slot.classList.toggle("has-event", Boolean(text));
           if (text) slot.setAttribute("aria-haspopup", "menu");
           else slot.removeAttribute("aria-haspopup");
           slot.disabled = entries === null || (isWeek ? shiftDays(week, 6) < range.from || week > range.through : date < range.from || date > range.through);
           const periodLabel = isWeek ? "Неделя " + weekNumber(week) + ": " + fullDate.format(week) + " — " + fullDate.format(shiftDays(week, 6)) : fullDate.format(date);
-          slot.setAttribute("aria-label", (slot.classList.contains("calendar-inactive") ? "Неактуально · " : "") + (text ? "Изменить событие: " + text : "Добавить событие") + " · " + title + " · " + periodLabel);
+          slot.setAttribute("aria-label", (slot.classList.contains("calendar-inactive") ? "Неактуально · " : "") + (unselectedWeek ? "Отметка недели снята · " : "") + (text ? "Изменить событие: " + text : "Добавить событие") + " · " + title + " · " + periodLabel);
         }
         if (item !== before) list.insertBefore(item, before);
         before = item.nextElementSibling;

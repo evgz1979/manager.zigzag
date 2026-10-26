@@ -1898,8 +1898,14 @@ function renderDeadlineComments(folder) {
   const drafts = folder.deadlineCommentDrafts ||= new Map();
   const container = $("orderDeadlineComments"), scope = order.id + "|" + folder.path;
   if (container.dataset.scope !== scope) { container.replaceChildren(); container.dataset.scope = scope; }
+  const selected = new Set(order.deadline_weeks || []);
+  for (const [week, draft] of drafts) {
+    if (!selected.has(week) && !comments[week] && !draft.dirty && !draft.saving && !draft.error &&
+        document.activeElement?.dataset.deadlineComment !== week) drafts.delete(week);
+  }
   const weeks = new Set([...(order.deadline_weeks || []), ...Object.keys(comments), ...drafts.keys()]);
   const rows = new Map([...container.children].map((row) => [row.dataset.weekCommentRow, row]));
+  for (const [week, row] of rows) if (!weeks.has(week)) row.remove();
   let before = container.firstElementChild;
   for (const week of [...weeks].sort()) {
     let draft = drafts.get(week);
@@ -1915,8 +1921,11 @@ function renderDeadlineComments(folder) {
         '" style="--deadline-month-hue:' + info.hue + '">' + info.number + '</span><input type="text" maxlength="1000" autocomplete="off" data-deadline-comment="' +
         week + '" placeholder="Событие на неделю" aria-label="Событие на неделю ' + info.number + ' · ' + info.label + '">';
     }
-    row.title = info.label + (order.deadline_weeks?.includes(week) ? "" : " · Отметка недели снята");
+    const unselected = Array.isArray(order.deadline_weeks) && !selected.has(week);
+    row.classList.toggle("deadline-comment-unselected", unselected);
+    row.title = info.label + (unselected ? " · Отметка недели снята" : "");
     const input = row.querySelector("input");
+    input.setAttribute("aria-label", "Событие на неделю " + info.number + " · " + info.label + (unselected ? " · Отметка недели снята" : ""));
     if (input.value !== draft.value) input.value = draft.value;
     input.title = draft.value;
     input.disabled = unknown;

@@ -607,6 +607,8 @@ h2 { font-size: 13px; font-weight: 600; }
 .deadline-week.current { outline: 1px solid hsl(var(--deadline-month-hue) 45% 56%); outline-offset: 1px; font-weight: 650; }
 .deadline-week:hover:not(:disabled) { background: hsl(var(--deadline-month-hue) 45% 90%); }
 .deadline-week[aria-pressed="true"], .deadline-comment-row .deadline-comment-week { background: hsl(var(--deadline-month-hue) 57% 32%); color: #fff; border-color: hsl(var(--deadline-month-hue) 57% 32%); }
+.deadline-comment-unselected input { color: #8a9290; background: #f5f6f5; }
+.deadline-comment-unselected .deadline-comment-week { color: #8a9290; background: #f5f6f5; border-color: #dfe3e1; }
 .deadline-week[aria-pressed="true"]:hover:not(:disabled) { background: hsl(var(--deadline-month-hue) 57% 27%); }
 .deadline-week.past[aria-pressed="false"] { background: #f5f6f6; border-color: #e2e5e6; color: #b0b6b9; }
 .deadline-week.past[aria-pressed="false"]:hover:not(:disabled) { background: #e9eced; color: #7d878c; }
@@ -895,5 +897,5 @@ h2 { font-size: 13px; font-weight: 600; }
 
 .calendar-event-menu #calendarEventInactive::before { content: ""; display: inline-block; width: 16px; }
 .calendar-event-menu #calendarEventInactive[aria-checked="true"]::before { content: "✓"; }
-.calendar-event-slot.calendar-inactive.has-event, .calendar-invoice-plan.calendar-inactive { color: #d1d5d8; background: #fafafa; }
-.calendar-event-slot.calendar-inactive.has-event:hover:not(:disabled), .calendar-event-slot.calendar-inactive.has-event:focus-visible, .calendar-invoice-plan.calendar-inactive:hover, .calendar-invoice-plan.calendar-inactive:focus-visible { color: #c7cdd1; background: #f4f6f7; outline-color: #d1d5d8; }
+.calendar-event-slot.calendar-inactive.has-event, .calendar-event-slot.calendar-unselected-week.has-event, .calendar-invoice-plan.calendar-inactive { color: #d1d5d8; background: #fafafa; }
+.calendar-event-slot.calendar-inactive.has-event:hover:not(:disabled), .calendar-event-slot.calendar-inactive.has-event:focus-visible, .calendar-event-slot.calendar-unselected-week.has-event:hover:not(:disabled), .calendar-event-slot.calendar-unselected-week.has-event:focus-visible, .calendar-invoice-plan.calendar-inactive:hover, .calendar-invoice-plan.calendar-inactive:focus-visible { color: #c7cdd1; background: #f4f6f7; outline-color: #d1d5d8; }
