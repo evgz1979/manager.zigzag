@@ -33,13 +33,13 @@ class TelegramCalendarTests(unittest.TestCase):
         with patch.object(telegram.urllib.request, 'urlopen') as post:
             post.return_value.__enter__.return_value.read.return_value = b'{"ok":true,"result":{"message_id":42}}'
             result = telegram.send(PNG, '2026-10-26', self.data, now=NOW)
-        self.assertEqual(result, {'ok': True, 'start': '2026-10-26', 'through': '2026-11-15'})
+        self.assertEqual(result, {'ok': True, 'start': '2026-10-26', 'through': '2026-11-08'})
         request = post.call_args.args[0]
         self.assertEqual(request.full_url, f'https://api.telegram.org/bot{TOKEN}/sendDocument')
         self.assertIn(PNG, request.data)
         self.assertIn(b'name="chat_id"\r\n\r\n-123456', request.data)
         self.assertIn(b'zigzag-calendar-2026-10-26.png', request.data)
-        self.assertIn('26.10.2026 — 15.11.2026'.encode(), request.data)
+        self.assertIn('26.10.2026 — 08.11.2026'.encode(), request.data)
         self.assertNotIn(TOKEN, json.dumps(result))
         self.assertEqual(post.call_args.kwargs['timeout'], 40)
 

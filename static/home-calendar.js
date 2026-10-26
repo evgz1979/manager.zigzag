@@ -1,6 +1,7 @@
 /* A bounded calendar with weekly order deadlines. Civil dates use Moscow. */
 const HomeCalendar = (() => {
   const DAY = 86400000;
+  const VISIBLE_WEEKS = 2;
   // Inline paths survive PNG capture, which omits the page's SVG sprite.
   const orderMarkers = [
     { field: "is_blue_plus", name: "blue-plus", label: "Синий плюс", content: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>' },
@@ -22,7 +23,7 @@ const HomeCalendar = (() => {
   const activeOrderDays = (order) => Object.keys(order.calendar_events || {}).filter((day) => !order.calendar_inactive?.day?.includes(day));
   function calendarRange(now = new Date(), calendarOrders = [], freeEvents = [], plans = []) {
     const today = moscowDate(now);
-    let start = monday(today), end = shiftDays(start, 20);
+    let start = monday(today), end = shiftDays(start, VISIBLE_WEEKS * 7 - 1);
     const include = (key, period = "day") => {
       if (typeof key !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(key)) return;
       const date = new Date(key + "T00:00:00Z");
@@ -59,17 +60,17 @@ const HomeCalendar = (() => {
   function weekIndex(top) {
     let index = 0;
     while (index + 1 < weekTops.length && weekTops[index + 1] <= top + 1) index++;
-    return Math.min(index, Math.max(0, weekTops.length - 3));
+    return Math.min(index, Math.max(0, weekTops.length - VISIBLE_WEEKS));
   }
 
   function fitViewport(index) {
-    const height = weekHeights.slice(index, index + 3).reduce((sum, value) => sum + value, 0);
+    const height = weekHeights.slice(index, index + VISIBLE_WEEKS).reduce((sum, value) => sum + value, 0);
     const value = Math.round(height * 1000) / 1000 + "px";
     if (height && get("calendarViewport").style.height !== value) get("calendarViewport").style.height = value;
   }
 
   function scrollToIndex(index, smooth = false) {
-    index = Math.max(0, Math.min(index, weekTops.length - 3));
+    index = Math.max(0, Math.min(index, weekTops.length - VISIBLE_WEEKS));
     fitViewport(index);
     get("calendarViewport").scrollTo({ top: Math.min(maxScroll(), weekTops[index] || 0), behavior: smooth ? "smooth" : "auto" });
     if (!smooth) updateHeading();
@@ -85,8 +86,8 @@ const HomeCalendar = (() => {
     const index = weekIndex(viewport.scrollTop);
     fitViewport(index);
     scrollAnchor = { index, offset: viewport.scrollTop - (weekTops[index] || 0) };
-    const first = shiftDays(range.start, index * 7), last = shiftDays(first, 20);
-    viewport.setAttribute("aria-label", "Три недели календаря: " + fullDate.format(first) + " — " + fullDate.format(last) + " Home — начало, End — конец.");
+    const first = shiftDays(range.start, index * 7), last = shiftDays(first, VISIBLE_WEEKS * 7 - 1);
+    viewport.setAttribute("aria-label", "Две недели календаря: " + fullDate.format(first) + " — " + fullDate.format(last) + " Home — начало, End — конец.");
     const sameMonth = first.getUTCMonth() === last.getUTCMonth() && first.getUTCFullYear() === last.getUTCFullYear();
     get("calendarTitle").textContent = sameMonth ? monthName.format(first) + " " + first.getUTCFullYear() :
       monthName.format(first) + (first.getUTCFullYear() !== last.getUTCFullYear() ? " " + first.getUTCFullYear() : "") + " — " + monthName.format(last) + " " + last.getUTCFullYear();
@@ -451,7 +452,7 @@ const HomeCalendar = (() => {
     viewport.addEventListener("keydown", (event) => {
       if (event.key === "Home" || event.key === "End") {
         event.preventDefault();
-        scrollToIndex(event.key === "Home" ? 0 : weekTops.length - 3);
+        scrollToIndex(event.key === "Home" ? 0 : weekTops.length - VISIBLE_WEEKS);
       }
     });
     // Keep the same week visible when the window changes height.
@@ -459,7 +460,7 @@ const HomeCalendar = (() => {
     observer.observe(get("calendarWeeks"));
   }
   function createSnapshot(now = new Date()) {
-    const start = monday(moscowDate(now)), end = shiftDays(start, 20);
+    const start = monday(moscowDate(now)), end = shiftDays(start, VISIBLE_WEEKS * 7 - 1);
     const snapshot = document.createElement("section");
     snapshot.className = "home-calendar calendar-snapshot";
     snapshot.setAttribute("aria-hidden", "true");
@@ -467,10 +468,10 @@ const HomeCalendar = (() => {
     const title = document.createElement("h2");
     title.textContent = "Зигзаг · " + fullDate.format(start) + " — " + fullDate.format(end);
     snapshot.append(title, get("homeCalendar").querySelector(".calendar-weekdays").cloneNode(true));
-    for (let index = 0; index < 3; index++) {
+    for (let index = 0; index < VISIBLE_WEEKS; index++) {
       const key = dateKey(shiftDays(start, index * 7));
       const row = [...get("calendarWeeks").children].find((item) => item.dataset.week === key);
-      if (!row) throw new Error("Обнови календарь перед отправкой текущих трёх недель");
+      if (!row) throw new Error("Обнови календарь перед отправкой текущей и следующей недели");
       snapshot.append(row.cloneNode(true));
     }
     for (const element of snapshot.querySelectorAll("[id]")) element.removeAttribute("id");

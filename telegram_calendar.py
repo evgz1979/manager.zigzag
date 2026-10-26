@@ -191,7 +191,7 @@ def send(image, start, data_dir, *, now=None):
     if start != week.isoformat():
         raise ValueError("Текущая неделя изменилась. Обнови календарь и повтори отправку")
     token, chat = settings(data_dir)
-    through = week + timedelta(days=20)
+    through = week + timedelta(days=13)
     caption = f"Календарь Зигзаг · {week:%d.%m.%Y} — {through:%d.%m.%Y}"
     boundary = "manager-" + uuid4().hex
     chunks = []
