@@ -21,7 +21,7 @@ class WorkOrderList(ObjectOrders):
     def sections(self, relative):
         records = work_orders.read_supplier_favorites(self.store, relative)
         return sorted((row for row in records.values() if row["is_favorite"] is True and not is_print_section(row["path"])),
-                      key=lambda row: (row["position"], row["path"]))
+                      key=lambda row: (work_orders.is_etc_section(row["path"]), row["position"], row["path"]))
 
     def allowed_paths(self, relative, inactive=(), show_inactive=False):
         sections = {row["path"] for row in self.sections(relative)}

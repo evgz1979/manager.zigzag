@@ -134,3 +134,43 @@ class SupplierPurchaseTests(unittest.TestCase):
         self.assertTrue(json.loads(body)["purchase_items"][0]["done"])
         self.assertEqual(self.http("/api/supplier-purchase-done", "POST", json.dumps(self.payload()))[0], 409)
         self.assertTrue(json.loads(self.http(self.url("/api/order", self.path))[2])["purchase_items"][0]["done"])
+
+    def test_etc_selects_unassigned_and_other_suppliers_without_duplicating_primary_purchases(self):
+        items = [
+            {"text": "Без поставщика", "done": False, "suppliers": []},
+            {"text": "Фурнитура", "done": False, "suppliers": ["tbm"]},
+            {"text": "Доставка", "done": True, "suppliers": ["tbm", "remex"]},
+            {"text": "Стекло и фурнитура", "done": False, "suppliers": ["glass", "tbm"]},
+            {"text": "Профиль", "done": False, "suppliers": ["antares", "newtek"]},
+        ]
+        current = self.store.save({**self.order, "amount": "100", "costs": "20", "paid": "50", "purchase_items": items})
+        self.root.rename(self.base / "offline")
+        with patch.object(OrderStore, "target", side_effect=AssertionError("No folders")), patch("icloud_access.read_bytes", side_effect=AssertionError("No documents")):
+            for section in ("# work/# etc", "#work/#ETC", "# work/etc"):
+                data = self.view.read(section)
+                self.assertEqual(data["supplier"], "etc")
+                self.assertEqual(data["orders"][0]["items"], [{"index": index, **item} for index, item in enumerate(items[:3])])
+            self.assertFalse(document.purchase_matches_supplier({"suppliers": ["himlex"]}, "etc"))
+            self.assertEqual(self.store.get(self.path), current)
+
+    def test_etc_checkbox_uses_same_source_and_rejects_a_new_primary_assignment(self):
+        before = self.order
+        saved = self.view.save(self.payload(before, supplier_path="#work/#etc", index=2, text=self.items[2]["text"]))
+        self.assertTrue(saved["purchase_items"][2]["done"])
+        self.assertEqual(saved["purchase_items"][2]["suppliers"], [])
+        self.assertEqual(saved["updated"], before["updated"])
+        self.assertEqual(saved["todo_items"], before["todo_items"])
+        for key in ("amount", "costs", "paid", "status", "financial_status"):
+            self.assertEqual(saved[key], before[key])
+        with self.assertRaises(ValueError):
+            self.view.save(self.payload(saved, supplier_path="#work/#etc"))  # glass + tbm stays outside etc.
+        items = saved["purchase_items"]
+        items[2]["suppliers"] = ["glass"]
+        assigned = self.store.save({**saved, "amount": "100", "costs": "20", "paid": "50", "purchase_items": items})
+        with self.assertRaises(OrderConflict):
+            self.view.save(self.payload(saved, supplier_path="#work/#etc", index=2, text=self.items[2]["text"], done=False))
+        with self.assertRaises(ValueError):
+            self.view.save(self.payload(assigned, supplier_path="#work/#etc", index=2, text=self.items[2]["text"], done=False))
+        self.assertEqual(self.view.read("#work/#etc")["orders"], [])
+        self.assertTrue(self.view.read(self.section)["orders"][0]["items"][-1]["done"])
+        self.assertEqual(self.store.get(self.path), assigned)

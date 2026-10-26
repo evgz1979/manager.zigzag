@@ -215,6 +215,41 @@ class WorkOrderTests(unittest.TestCase):
         self.assertEqual({node['path']: node['supplierColor'] for node in manager.read_folder('# work')['directories']},
                          {path: node['supplierColor'] for path, node in nodes.items()})
 
+    def test_etc_default_star_is_fifth_and_existing_root_settings_are_not_replaced(self):
+        manager.DATABASE_ONLY = True
+        for name in ('# antares', '# HIMLEX', '# newtek', '# glass', '# ETC'):
+            self.folder('# work/' + name)
+        nodes = manager.read_folder('# work')['directories']
+        selected = sorted((node for node in nodes if node['supplierFavorite']['is_favorite']), key=lambda node: node['supplierFavorite']['position'])
+        self.assertEqual([node['name'] for node in selected], ['# antares', '# HIMLEX', '# newtek', '# glass', '# ETC'])
+        self.assertTrue(selected[-1]['supplierColor']['neutral'])
+        store = manager.order_store()
+        current = selected[-1]['supplierFavorite']
+        off = work_orders.save_supplier_favorite(store, {**current, 'is_favorite': False})
+        self.assertEqual(work_orders.read_supplier_favorites(store, '# work')[off['path']], off)
+        self.assertFalse(next(node for node in manager.read_folder('# work')['directories'] if node['name'] == '# ETC')['supplierFavorite']['is_favorite'])
+
+    def test_etc_gray_conversion_preserves_identity_hue_and_other_supplier_colors(self):
+        manager.DATABASE_ONLY = True
+        store = manager.order_store()
+        with store.connect() as db:
+            original = work_orders.supplier_color(db, self.supplier)
+            work_orders.supplier_color(db, '# work/# etc')
+            row = db.execute('SELECT * FROM metadata_records WHERE kind=? AND path=?', (work_orders.SUPPLIER_COLOR_KIND, '# work/# etc')).fetchone()
+            old = {**json.loads(row['data']), 'hue': 88, 'neutral': False}
+            db.execute('UPDATE metadata_records SET data=? WHERE id=?', (json.dumps(old), row['id']))
+            self.assertEqual(work_orders.supplier_color(db, '# work/# etc'), {'hue': 88, 'neutral': True})
+            changed = db.execute('SELECT * FROM metadata_records WHERE id=?', (row['id'],)).fetchone()
+            self.assertEqual(changed['revision'], row['revision'] + 1)
+            work_orders.supplier_color(db, '# work/# etc')
+            self.assertEqual(db.execute('SELECT revision FROM metadata_records WHERE id=?', (row['id'],)).fetchone()[0], changed['revision'])
+            self.assertEqual(work_orders.supplier_color(db, self.supplier), original)
+            future = '{"version":99,"future":"keep"}'
+            db.execute('UPDATE metadata_records SET data=? WHERE id=?', (future, row['id']))
+            with self.assertRaises(ValueError):
+                work_orders.supplier_color(db, '# work/# etc')
+            self.assertEqual(db.execute('SELECT data FROM metadata_records WHERE id=?', (row['id'],)).fetchone()[0], future)
+
     def test_supplier_star_scope_unknown_values_and_path_rewrite(self):
         manager.DATABASE_ONLY = True
         self.folder('# work/# antares')

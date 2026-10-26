@@ -111,6 +111,17 @@ class WorkOrderListTests(unittest.TestCase):
             with self.subTest(path=path), self.assertRaises(ValueError):
                 self.listing.read(path)
 
+    def test_etc_group_stays_last_when_a_later_supplier_is_starred(self):
+        self.folder(self.scope + '/#etc')
+        self.folder(self.scope + '/# cutter')
+        manager.read_folder(self.scope)
+        favorite = work_orders.read_supplier_favorites(self.store, self.scope)[self.scope + '/# cutter']
+        work_orders.save_supplier_favorite(self.store, {**favorite, 'is_favorite': True})
+        sections = self.listing.sections(self.scope)
+        self.assertEqual(sections[-1]['path'], self.scope + '/#etc')
+        self.assertLess(sections[-1]['position'], sections[-2]['position'])
+        self.assertEqual(self.listing.read(self.scope)['groups'][-2]['key'], self.scope + '/#etc')
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -498,6 +498,7 @@ function renderSubfolders() {
   let supplierDividerAfter = 0;
   if (workRoot) {
     const primary = directories.filter((item) => item.supplierFavorite?.is_favorite === true).sort((a,b) =>
+      Number(/^#\s*etc\s*$/i.test(a.name)) - Number(/^#\s*etc\s*$/i.test(b.name)) ||
       (a.supplierFavorite.position ?? Number.MAX_SAFE_INTEGER) - (b.supplierFavorite.position ?? Number.MAX_SAFE_INTEGER) || a.name.localeCompare(b.name, "ru", { numeric: true }));
     const other = directories.filter((item) => item.supplierFavorite?.is_favorite !== true);
     directories = [...primary, ...other];

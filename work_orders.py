@@ -13,7 +13,7 @@ MAX_LINKS = 200
 SUPPLIER_COLOR_KIND = "work_supplier_color"
 SUPPLIER_FAVORITE_KIND = "work_supplier_favorite"
 SUPPLIER_FAVORITE_INIT_KIND = "work_supplier_favorite_defaults"
-INITIAL_SUPPLIER_FAVORITES = ("antares", "himlex", "newtek", "glass")
+INITIAL_SUPPLIER_FAVORITES = ("antares", "himlex", "newtek", "glass", "etc")
 SUPPLIER_PALETTE_VERSION = 2
 SUPPLIER_PALETTE = {
     "antares": 0, "cutter": 270, "freza": 180, "glass": 30,
@@ -38,6 +38,11 @@ def supplier_section_path(relative):
     if len(parts) != 2 or not is_work_root(parts[0]) or not parts[1].startswith("#"):
         raise ValueError("Звезда доступна только у раздела с # в корне # work")
     return unicodedata.normalize("NFC", Path(*parts).as_posix())
+
+
+def is_etc_section(relative):
+    parts = Path(relative).parts
+    return len(parts) == 2 and is_work_root(parts[0]) and parts[1].removeprefix("#").strip().casefold() == "etc"
 
 
 def supplier_favorite_record(row):
@@ -184,8 +189,8 @@ def supplier_color(db, relative):
     name = unicodedata.normalize("NFC", name).lower()
     row = db.execute("SELECT * FROM metadata_records WHERE kind=? AND path=?", (SUPPLIER_COLOR_KIND, path)).fetchone()
     if row is None:
-        hue = SUPPLIER_PALETTE[name] if name in SUPPLIER_PALETTE else 0 if name == "razbor" else new_supplier_hue(db, name)
-        data = {"version": 1, "palette": SUPPLIER_PALETTE_VERSION, "hue": hue, "neutral": name == "razbor"}
+        hue = SUPPLIER_PALETTE[name] if name in SUPPLIER_PALETTE else 0 if name in {"razbor", "etc"} else new_supplier_hue(db, name)
+        data = {"version": 1, "palette": SUPPLIER_PALETTE_VERSION, "hue": hue, "neutral": name in {"razbor", "etc"}}
         db.execute("INSERT OR IGNORE INTO metadata_records VALUES (?,?,?,?,1,?)",
                    (str(uuid.uuid4()), SUPPLIER_COLOR_KIND, path, json.dumps(data), time.time()))
         row = db.execute("SELECT * FROM metadata_records WHERE kind=? AND path=?", (SUPPLIER_COLOR_KIND, path)).fetchone()
@@ -195,9 +200,9 @@ def supplier_color(db, relative):
             or type(data.get("hue")) is not int or not 0 <= data["hue"] < 360
             or type(data.get("neutral")) is not bool):
         raise ValueError("Неизвестный цвет поставщика сохранён в базе без изменений")
-    if "palette" not in data:
+    if "palette" not in data or (name == "etc" and not data["neutral"]):
         data = {**data, "palette": SUPPLIER_PALETTE_VERSION,
-                "hue": SUPPLIER_PALETTE.get(name, data["hue"]), "neutral": name == "razbor" or data["neutral"]}
+                "hue": SUPPLIER_PALETTE.get(name, data["hue"]), "neutral": name in {"razbor", "etc"} or data["neutral"]}
         result = db.execute("UPDATE metadata_records SET data=?,revision=revision+1,updated=? WHERE id=? AND revision=?",
                             (json.dumps(data), time.time(), row["id"], row["revision"]))
         if not result.rowcount:

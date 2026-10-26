@@ -10,6 +10,7 @@
     if (panel.hidden) return;
     const pane = document.querySelector(".content-pane"), scroll = pane.scrollTop;
     const focused = document.activeElement?.dataset.supplierPurchaseDone;
+    const focusedSource = document.activeElement?.dataset.supplierPurchaseSource;
     const groups = model?.orders || [], all = groups.flatMap(order => order.items);
     const showDone = $("supplierPurchasesShowDone").checked;
     $("supplierPurchasesCount").textContent = all.filter(item => !item.done).length;
@@ -18,15 +19,17 @@
       const items = order.items.filter(item => showDone || !item.done || itemKey(order, item) === pendingKey);
       if (!items.length) return "";
       const name = [order.client, order.object, order.title].filter(Boolean).join(" · ");
-      return '<section class="supplier-purchase-group" data-supplier-purchase-order="' + escapeHtml(order.id) + '"><a class="order-row-link" data-supplier-purchase-path="' + escapeHtml(order.path) +
-        '" href="?path=' + encodeURIComponent(order.path) + '">' + escapeHtml(name) + '</a><small class="order-row-path">' + escapeHtml(order.path) + '</small>' +
-        items.map(item => '<label class="supplier-purchase-row' + (item.done ? ' done' : '') + '"><input type="checkbox" class="todo-check" data-supplier-purchase-done="' + escapeHtml(itemKey(order, item)) +
+      return '<section class="supplier-purchase-group" data-supplier-purchase-order="' + escapeHtml(order.id) + '">' +
+        items.map(item => '<div class="supplier-purchase-row' + (item.done ? ' done' : '') + '"><label class="supplier-purchase-task"><input type="checkbox" class="todo-check" data-supplier-purchase-done="' + escapeHtml(itemKey(order, item)) +
           '" data-purchase-index="' + item.index + '" aria-label="Закупка выполнена: ' + escapeHtml(item.text + ' · ' + name) + '"' + (item.done ? ' checked' : '') + (saving ? ' disabled' : '') +
-          '><span>' + escapeHtml(item.text) + '</span></label>').join("") + '</section>';
+          '><span title="' + escapeHtml(item.text) + '">' + escapeHtml(item.text) + '</span></label>' +
+          '<a class="order-row-link supplier-purchase-source" data-supplier-purchase-path="' + escapeHtml(order.path) + '" data-supplier-purchase-source="' + escapeHtml(itemKey(order, item)) +
+          '" href="?path=' + encodeURIComponent(order.path) + '" title="' + escapeHtml(name + ' · ' + order.path) + '" aria-label="' + escapeHtml('Открыть заказ · ' + name + ' · ' + order.path) + '">' + escapeHtml(name) + '</a></div>').join("") + '</section>';
     }).join("") || (model ? '<p class="todo-empty">Все закупки выполнены. Их можно раскрыть выше.</p>' : '');
     if (markup !== next) { list.innerHTML = next; markup = next; }
     $("supplierPurchasesState").textContent = error || readError || (saving ? "Сохраняю…" : model ? "Выполнение общее с исходным заказом и другими выбранными поставщиками." : "Загрузка закупок…");
     if (focused) ([...list.querySelectorAll("[data-supplier-purchase-done]")].find(el => el.dataset.supplierPurchaseDone === focused) || $("supplierPurchasesShowDone")).focus({ preventScroll: true });
+    if (focusedSource) ([...list.querySelectorAll("[data-supplier-purchase-source]")].find(el => el.dataset.supplierPurchaseSource === focusedSource) || $("supplierPurchasesShowDone")).focus({ preventScroll: true });
     pane.scrollTop = scroll;
   }
 

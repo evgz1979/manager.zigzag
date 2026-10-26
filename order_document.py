@@ -24,6 +24,7 @@ FAVORITE_BLOCK = "Избранное"
 FLAG_BLOCK = "Флажок"
 BLUE_PLUS_BLOCK = "Синий плюс"
 PURCHASE_SUPPLIERS = ("newtek", "glass", "antares", "tbm", "remex")
+PRIMARY_PURCHASE_SUPPLIERS = ("antares", "himlex", "newtek", "glass")
 UNSET_TODOS = object()
 
 
@@ -145,6 +146,12 @@ def write_purchases(blocks, items):
     return result
 
 
+def purchase_matches_supplier(item, supplier):
+    if supplier == "etc":
+        return not any(name in PRIMARY_PURCHASE_SUPPLIERS for name in item["suppliers"])
+    return isinstance(supplier, str) and supplier in PURCHASE_SUPPLIERS and supplier in item["suppliers"]
+
+
 def write_purchase_done(blocks, index, text, supplier, done):
     """Change only the original checkbox; retain the rest of the stored block."""
     items = read_purchases(blocks)
@@ -153,7 +160,7 @@ def write_purchase_done(blocks, index, text, supplier, done):
     if type(index) is not int or index < 0 or index >= len(items) or type(done) is not bool:
         raise ValueError("Укажи закупку и отметку выполнения")
     item = items[index]
-    if not isinstance(supplier, str) or supplier not in PURCHASE_SUPPLIERS or supplier not in item["suppliers"] or text != item["text"]:
+    if not purchase_matches_supplier(item, supplier) or text != item["text"]:
         raise ValueError("Закупка или выбор поставщика изменились. Обнови список")
     lines = blocks[PURCHASE_BLOCK].splitlines(keepends=True)
     position = -1

@@ -19,7 +19,7 @@ def supplier_name(relative):
     if len(parts) != 2 or not is_work_root(parts[0]):
         return ""
     name = parts[1].removeprefix("#").strip().casefold()
-    return name if name in document.PURCHASE_SUPPLIERS else ""
+    return name if name == "etc" or name in document.PURCHASE_SUPPLIERS else ""
 
 
 class SupplierPurchases:
@@ -39,7 +39,7 @@ class SupplierPurchases:
         for order in self.store.list():
             if not client_path(order["path"]) or is_inactive(order["path"], inactive):
                 continue
-            items = [{"index": index, **item} for index, item in enumerate(order["purchase_items"] or []) if name in item["suppliers"]]
+            items = [{"index": index, **item} for index, item in enumerate(order["purchase_items"] or []) if document.purchase_matches_supplier(item, name)]
             if items:
                 groups.append({key: order[key] for key in ("path", "id", "revision", "title", "client", "object")})
                 groups[-1]["items"] = items
