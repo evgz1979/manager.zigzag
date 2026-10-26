@@ -595,6 +595,8 @@ h2 { font-size: 13px; font-weight: 600; }
 .deadline-week:hover:not(:disabled) { background: hsl(var(--deadline-month-hue) 45% 90%); }
 .deadline-week[aria-pressed="true"], .deadline-comment-row .deadline-comment-week { background: hsl(var(--deadline-month-hue) 57% 32%); color: #fff; border-color: hsl(var(--deadline-month-hue) 57% 32%); }
 .deadline-week[aria-pressed="true"]:hover:not(:disabled) { background: hsl(var(--deadline-month-hue) 57% 27%); }
+.deadline-week.past[aria-pressed="false"] { background: #f5f6f6; border-color: #e2e5e6; color: #b0b6b9; }
+.deadline-week.past[aria-pressed="false"]:hover:not(:disabled) { background: #e9eced; color: #7d878c; }
 .deadline-week.overdue[aria-pressed="true"] { background: #b8504d; border-color: #b8504d; color: #fff; }
 .deadline-week.overdue[aria-pressed="true"]:hover:not(:disabled) { background: #9c403d; }
 .deadline-week-gap { width: 24px; height: 22px; display: grid; place-items: center; color: var(--muted); font-size: 10px; }

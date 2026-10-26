@@ -1816,15 +1816,21 @@ function renderDeadlineMonthLegend(options) {
     deadlineMonthNames[month.month] + (years.size > 1 ? ' ' + month.year : '') + '</span>').join("") + '</div>';
 }
 
+function orderListDeadlineOptions(orders) {
+  const currentWeek = state.deadlineWeekOptions[0]?.start;
+  const starts = new Set(state.deadlineWeekOptions.map((week) => week.start));
+  for (const order of orders) {
+    for (const start of order.deadline_weeks || []) {
+      if (currentWeek && start < currentWeek) starts.add(start);
+    }
+  }
+  return [...starts].sort().map((start) => ({ start }));
+}
+
 function renderOrderDeadlines(order, { options = state.deadlineWeekOptions, card = false, disabled = false } = {}) {
   const unknown = order.deadline_weeks === null;
   const selected = new Set(order.deadline_weeks || []);
   const currentWeek = state.deadlineWeekOptions[0]?.start;
-  if (!card && currentWeek) {
-    const visible = new Set(options.map((option) => option.start));
-    const overdue = [...selected].filter((week) => week < currentWeek && !visible.has(week)).sort();
-    options = [...overdue.map((start) => ({ start })), ...options];
-  }
   const outside = [...selected].filter((week) => !options.some((option) => option.start === week));
   const comments = card ? [] : Object.entries(order.calendar_week_events || {}).filter(([, comment]) => comment.trim()).sort(([first], [second]) => first.localeCompare(second));
   const preview = comments.map(([start, comment]) => deadlineWeekInfo(start).number + '-' + comment.trim()).join(', ');
@@ -1837,14 +1843,15 @@ function renderOrderDeadlines(order, { options = state.deadlineWeekOptions, card
   return '<div class="order-deadline-line' + (card ? ' order-card-deadline-line' : '') + '"><div class="order-deadline-buttons"><div class="order-deadline-weeks" role="group" aria-label="Сроки · ' + escapeHtml(order.title) + '">' +
     options.map((option, index) => {
       const week = deadlineWeekInfo(option.start);
-      const overdue = selected.has(week.start) && currentWeek && week.start < currentWeek;
+      const past = currentWeek && week.start < currentWeek;
+      const overdue = selected.has(week.start) && past;
       const travel = week.start >= deadlineTravelPeriod.start && week.start <= deadlineTravelPeriod.end;
       const travelContinues = travel && options[index + 1]?.start === shiftDeadlineWeek(week.start, 1) && options[index + 1].start <= deadlineTravelPeriod.end;
       const comment = order.calendar_week_events?.[week.start] || "";
       const help = (overdue ? "Просрочено · " : "") + week.label + (travel ? "\n" + deadlineTravelPeriod.label : "") + (comment ? "\n" + comment : "");
       const gap = card && previous && shiftDeadlineWeek(previous, 1) !== week.start ? '<span class="deadline-week-gap" title="Между этими неделями есть пропуск">…</span>' : '';
       previous = week.start;
-      return gap + '<button type="button" class="deadline-week' + (week.current ? ' current' : '') + (overdue ? ' overdue' : '') + (travel ? ' travel' : '') + (travelContinues ? ' travel-continues' : '') +
+      return gap + '<button type="button" class="deadline-week' + (week.current ? ' current' : '') + (past ? ' past' : '') + (overdue ? ' overdue' : '') + (travel ? ' travel' : '') + (travelContinues ? ' travel-continues' : '') +
       '" style="--deadline-month-hue:' + week.hue +
       '" data-order-deadline="' + escapeHtml(order.path) + '" data-deadline-week="' + week.start +
       '" data-order-id="' + escapeHtml(order.id) + '" data-revision="' + order.revision + '" aria-pressed="' + selected.has(week.start) +
@@ -2626,6 +2633,7 @@ function renderOrders({ force = false } = {}) {
   const focusedFavorite = document.activeElement?.dataset.orderFavorite;
   const focusedDeadline = document.activeElement?.dataset.orderDeadline, focusedWeek = document.activeElement?.dataset.deadlineWeek;
   const orders = orderListRows(), object = isObjectOrderList();
+  const deadlineOptions = orderListDeadlineOptions(orders);
   if (!object) renderHomeCalendar();
   const needle = normalize(state.orderQuery.trim());
   const matching = orders.filter((order) => !needle || normalize([order.client, order.object, order.title, order.path, order.note, orderTodoText(order), orderPurchaseText(order)].join(" ")).includes(needle));
@@ -2658,8 +2666,8 @@ function renderOrders({ force = false } = {}) {
     '<tr class="order-group-divider"><th colspan="9"><button type="button" class="order-group-toggle" data-order-group-toggle="' + group.key +
     '" data-order-group-scope="' + escapeHtml(groupScope) + '" aria-expanded="' + !group.collapsed +
     '"><span class="order-group-chevron" aria-hidden="true">▸</span><span>' + escapeHtml(group.label) +
-    '</span><span class="count-badge">' + group.orders.length + '</span></button></th><td class="order-deadline-column">' + renderDeadlineMonthLegend(state.deadlineWeekOptions) + '</td><td colspan="8"></td></tr>' +
-    group.orders.map((order) => '<tr data-order-group-row="' + group.key + '"' + (group.collapsed ? ' hidden' : '') + '><td class="order-blue-plus-column">' + renderOrderMarkerButton(order, "bluePlus") + '</td><td class="order-flag-column">' + renderOrderMarkerButton(order, "flag") + '</td><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td><td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + renderOrderLocationLink(order.client, order.client_path) + '</td><td class="order-object-column">' + renderOrderLocationLink(order.object, order.object_path) + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен</span>' : '') + '<span class="order-row-path">' + escapeHtml(order.path) + '</span></td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td class="order-deadline-column">' + renderOrderDeadlines(order) + '</td><td>' + renderOrderProductionStatus(order) + '</td><td><span class="status-badge" data-financial-status="' + escapeHtml(order.financial_status) + '">' + escapeHtml(financialStatusLabels[order.financial_status] || "Не указан") + '</span></td>' +
+    '</span><span class="count-badge">' + group.orders.length + '</span></button></th><td class="order-deadline-column">' + renderDeadlineMonthLegend(deadlineOptions) + '</td><td colspan="8"></td></tr>' +
+    group.orders.map((order) => '<tr data-order-group-row="' + group.key + '"' + (group.collapsed ? ' hidden' : '') + '><td class="order-blue-plus-column">' + renderOrderMarkerButton(order, "bluePlus") + '</td><td class="order-flag-column">' + renderOrderMarkerButton(order, "flag") + '</td><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td><td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + renderOrderLocationLink(order.client, order.client_path) + '</td><td class="order-object-column">' + renderOrderLocationLink(order.object, order.object_path) + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен</span>' : '') + '<span class="order-row-path">' + escapeHtml(order.path) + '</span></td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td class="order-deadline-column">' + renderOrderDeadlines(order, { options: deadlineOptions }) + '</td><td>' + renderOrderProductionStatus(order) + '</td><td><span class="status-badge" data-financial-status="' + escapeHtml(order.financial_status) + '">' + escapeHtml(financialStatusLabels[order.financial_status] || "Не указан") + '</span></td>' +
     ["amount", "costs", "profit", "paid", "debt"].map((field) => '<td class="order-money' + (order[field] < 0 ? " negative" : "") + '">' + rubles(order[field]) + '</td>').join("") +
     '<td class="order-updated">' + (order.updated ? formatDate(order.updated) : '—') + (order.sync_pending ? '<span class="sync-pending" title="' + escapeHtml(order.sync_error || "Ожидает выгрузки в папку") + '">' + (order.sync_error ? "В очереди · автоповтор" : "Ожидает выгрузки") + '</span>' : '<span class="sync-complete">' + (order.storage === 'database' ? 'В базе' : 'Выгружено') + '</span>') + '</td></tr>').join("")).join("");
   $("ordersEmpty").hidden = Boolean(filtered.length);
