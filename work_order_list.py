@@ -1,5 +1,6 @@
 """Production order tables in #work and individual supplier sections."""
 from pathlib import Path
+import json
 
 from event_folder_undo import guard_database
 from folder_structure import dated, is_work_root, is_supplier_root, is_print_section, in_freza
@@ -85,8 +86,32 @@ class WorkOrderList(ObjectOrders):
                        "color": work_orders.supplier_color(db, row["path"])} for row in self.sections(result["path"])]
         colors = {row["key"]: row["color"] for row in groups}
         for order in result["orders"]:
+            order["folder_date"] = work_orders.folder_date(order["path"])
             order["work_supplier"] = work_orders.supplier_name(order["path"])
             order["work_supplier_color"] = colors.get(canonical(Path(order["path"]).parent.as_posix()))
+            if work_orders.status_order(order["path"]):
+                order["supplier_status"] = work_orders.read_status(order["extra_blocks"])
+        archived = [order for order in result["orders"] if work_orders.archived(order)]
+        result["archived_paths"] = [order["path"] for order in archived]
+        with self.store.connect() as db:
+            for order in archived:
+                order["archived_at"] = work_orders.archive_time(order["extra_blocks"])
+                order["archive_sequence"] = 0
+                if order["archived_at"] is None:
+                    for history in db.execute("SELECT seq,data,saved FROM metadata_history WHERE entity='orders' AND identity=? ORDER BY seq DESC", (order["id"],)):
+                        try:
+                            previous = json.loads(history["data"])
+                            previous_status = work_orders.read_status(json.loads(previous["extra_blocks"]))
+                        except (ValueError, TypeError, KeyError):
+                            continue
+                        if previous_status in {"work", "cancelled"}:
+                            order["archived_at"], order["archive_sequence"] = history["saved"], history["seq"]
+                            break
+        result["archived_orders"] = sorted(archived, key=lambda order: (-(order["archived_at"] or 0),
+            -order["archive_sequence"], order["path"], order["id"] or ""))[:10]
+        result["orders"] = [order for order in result["orders"] if not work_orders.archived(order)]
+        result["orders"].sort(key=lambda order: (order["folder_date"] is None,
+            -(int(order["folder_date"].replace("-", ""))) if order["folder_date"] else 0, order["path"], order["id"] or ""))
         result["groups"] = groups if supplier_scope(result["path"]) else groups + [
             {"key": result["path"], "label": "Заказы производства", "color": None}]
         return result

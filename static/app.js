@@ -1,5 +1,6 @@
 const $ = (id) => document.getElementById(id);
 const statusLabels = { new: "Новый", measure: "Замеры", process: "Расчеты", waiting: "Жду", offer_later: "Предложить позже", workshop: "В цех", install: "Монтаж", rework: "Переделка/доделка", finishing: "Завершение/добивка", deferred: "Отложен/возможно", done: "Готово", done_but: "Готово, но…", cancelled: "Отменён", unspecified: "Не указан" };
+const supplierStatusLabels = { work: "В работе", cancelled: "Отменён", archived: "В архив" };
 const orderStatusGroups = [
   ["new", "measure", "process"],
   ["workshop", "install", "rework", "finishing"],
@@ -18,7 +19,7 @@ const state = {
   printTask: null, printSaving: null, printQuery: "",
   view: "orders", orders: [], orderFilter: "all", financialFilter: "all", orderQuery: "", orderSort: "updated", orderDirection: -1, scan: null, ordersRequest: 0,
   unregistrations: [], removeOrder: null, removingOrder: false,
-  objectOrders: [], objectOrdersError: "", workOrderGroups: [], orderListScope: "",
+  objectOrders: [], objectOrdersError: "", workOrderGroups: [], workArchivedOrders: [], workArchivedPaths: [], orderListScope: "",
   collapsedOrderGroups: new Map(),
   markerSaving: new Set(), favoriteSaving: new Set(), orderStatusSaving: new Set(), deadlineSaving: new Set(), deadlineWeekOptions: [], favoriteOrders: [], supplierFavoriteSaving: new Set(), supplierFavoriteFocus: null,
   fileComment: null, fileCommentSaving: null,
@@ -196,7 +197,7 @@ function treeMarkup(nodes, depth = 0, searching = false) {
 
 function renderFavoriteOrders() {
   const container = $("favoriteOrders");
-  const favorites = state.favoriteOrders.filter((order) => order.is_favorite === true).sort((a,b) =>
+  const favorites = state.favoriteOrders.filter((order) => order.is_favorite === true && order.supplier_status !== "archived").sort((a,b) =>
     (a.client || "").localeCompare(b.client || "", "ru", { numeric:true }) || a.title.localeCompare(b.title,"ru",{ numeric:true }) || a.path.localeCompare(b.path,"ru"));
   const markup = favorites.map((order) => {
     const active = state.view !== "orders" && (state.selected === order.path || state.selected.startsWith(order.path + "/"));
@@ -469,6 +470,8 @@ function renderSubfolders() {
   const focusedSupplier = document.activeElement?.closest("[data-supplier-favorite]")?.dataset.supplierFavorite;
   const scroll = document.querySelector(".content-pane").scrollTop;
   const visibleDirectories = folder.directories.filter((item) => (["work_root", "moneys_root"].includes(folder.folderKind) || !item.name.startsWith("#")) &&
+    !(isWorkOrderList() && folder.folderKind !== "work_root") &&
+    !(isWorkOrderList() && state.workArchivedPaths.includes(item.path.normalize("NFC"))) &&
     !(isFolderOrderList() && state.objectOrders.some((order) => order.path.normalize("NFC") === item.path.normalize("NFC"))));
   $("frezaTaskSearchLabel").hidden = !folder.frezaSection;
   $("subfolders").classList.toggle("freza-task-grid", Boolean(folder.frezaSection));
@@ -628,7 +631,8 @@ function renderFolder(preserveForm = false) {
   const printView = folder.view === "print";
   const service = Boolean(folder.service);
   const noteOnly = service || Boolean(folder.noteOnly);
-  const workCard = isWorkOrderPath(folder.path);
+  const supplierCard = Boolean(folder.order && Object.hasOwn(folder.order, "supplier_status"));
+  const workCard = isWorkOrderPath(folder.path) || supplierCard;
   const hasTodo = Boolean(folder.path) && (!noteOnly || Boolean(folder.eventFolder));
   const showFinance = hasDescendantTodos(folder) && !workCard;
   $("orderFinanceOverview").hidden = !showFinance || !folder.order;
@@ -653,6 +657,8 @@ function renderFolder(preserveForm = false) {
   $("folderDetailsTitle").textContent = folder.frezaTask ? "Задание на фрезеровку" : noteOnly ? "Заметка" : "Карточка заказа";
   $("statusLabel").hidden = noteOnly || workCard;
   $("orderStatusFields").hidden = noteOnly || workCard;
+  $("supplierStatusLabel").hidden = !supplierCard;
+  $("supplierStatusLabel").firstChild.textContent = folder.order?.can_group_supplier_orders ? "Статус заказа производства" : "Статус заказа поставщику";
   $("orderTitleLabel").hidden = noteOnly || !folder.order;
   $("orderTitleLabel").firstChild.textContent = folder.frezaTask ? "Название задания" : "Название заказа";
   $("financialFields").hidden = noteOnly || workCard || !folder.order;
@@ -685,6 +691,12 @@ function renderFolder(preserveForm = false) {
     renderOrderCalculated();
     renderExportState();
     $("statusSelect").value = folder.status || "new";
+    const supplierStatus = folder.order?.supplier_status;
+    $("supplierStatusSelect").innerHTML = Object.entries(supplierStatusLabels).map(([key, label]) => '<option value="' + key + '">' + label + '</option>').join("") +
+      (supplierStatus === null ? '<option value="unknown">Неизвестный статус</option>' : '');
+    $("supplierStatusSelect").value = supplierStatus === null ? "unknown" : supplierStatus || "work";
+    $("supplierStatusSelect").disabled = supplierStatus === null;
+    $("supplierStatusSelect").title = supplierStatus === null ? "Неизвестный статус сохранён без изменений" : "";
     $("financialStatusSelect").value = folder.financial_status || "unspecified";
     $("orderNote").value = folder.note;
     resizeOrderNote();
@@ -751,14 +763,15 @@ function renderOrderHeading() {
 }
 
 function renderStatus() {
-  const hideStatuses = state.folder.service || state.folder.noteOnly || isWorkOrderPath(state.folder.path);
+  const supplierCard = Boolean(state.folder.order && Object.hasOwn(state.folder.order, "supplier_status"));
+  const hideStatuses = state.folder.service || state.folder.noteOnly || (isWorkOrderPath(state.folder.path) && !supplierCard);
   $("statusBadge").hidden = hideStatuses;
-  $("statusBadge").textContent = statusLabels[state.folder.status] || state.folder.status;
-  $("statusBadge").dataset.status = state.folder.status;
+  $("statusBadge").textContent = supplierCard ? supplierStatusLabels[state.folder.order.supplier_status] || "Неизвестный статус" : statusLabels[state.folder.status] || state.folder.status;
+  $("statusBadge").dataset.status = supplierCard ? "supplier-" + state.folder.order.supplier_status : state.folder.status;
   const financial = state.folder.financial_status || "unspecified";
   $("financialStatusBadge").textContent = financialStatusLabels[financial];
   $("financialStatusBadge").dataset.financialStatus = financial;
-  $("financialStatusBadge").hidden = hideStatuses || financial === "unspecified";
+  $("financialStatusBadge").hidden = hideStatuses || supplierCard || financial === "unspecified";
   $("saveStatusButton").textContent = state.dirty ? "Сохранить изменения" : "Сохранить";
   const folderNote = state.folder.folderNote;
   $("todoSaveState").textContent = state.saving ? "Сохраняю…" : state.dirty ? "Есть несохранённые изменения" : folderNote?.storage === "database" ? "Сохранено в базе" : folderNote?.sync_error ? "Сохранено в базе. Выгрузка: " + folderNote.sync_error : folderNote?.sync_pending ? "Сохранено в базе · ожидает выгрузки в папку" : folderNote ? folderNote.file_exists ? "Сохранено в базе и в !.txt этой папки" : "Автоматическое сохранение в эту папку" : "Сохранено";
@@ -1554,6 +1567,7 @@ function currentOrderValues() {
   if (state.folder?.service || state.folder?.noteOnly) return { note: $("orderNote").value,
     ...(state.folder.folderNote && Array.isArray(state.folder.todo_items) ? { todo_items: state.folder.todo_items.map((item) => ({ ...item })) } : {}) };
   return { status: $("statusSelect").value, financial_status: $("financialStatusSelect").value, note: $("orderNote").value, title: $("orderTitleInput").value,
+    ...(state.folder?.order && Object.hasOwn(state.folder.order, "supplier_status") && state.folder.order.supplier_status !== null ? { supplier_status: $("supplierStatusSelect").value } : {}),
     ...(Array.isArray(state.folder?.todo_items) ? { todo_items: state.folder.todo_items.map((item) => ({ ...item })) } : {}),
     ...(!isWorkOrderPath(state.folder?.path) && hasDescendantTodos(state.folder) && Array.isArray(state.folder?.purchase_items) ? { purchase_items: state.folder.purchase_items.map((item) => ({ ...item, suppliers: [...(item.suppliers || [])] })) } : {}),
     amount: $("orderAmount").value, costs: $("orderCosts").value, paid: $("orderPaid").value };
@@ -1592,7 +1606,7 @@ function hasOrderList() {
 }
 
 function orderListRows() {
-  return isFolderOrderList() ? state.objectOrders : state.orders;
+  return (isFolderOrderList() ? state.objectOrders : state.orders).filter(order => order.supplier_status !== "archived");
 }
 
 function findListOrder(path) {
@@ -1644,9 +1658,19 @@ function mountOrderList() {
   const object = isObjectOrderList(), workspace = $("ordersWorkspace");
   const work = isWorkOrderList(), scoped = object || work;
   const workTitle = state.folder?.folderKind === "work_root" ? "Заказы производства" : "Заказы поставщику";
-  if (work && !["title", "updated"].includes(state.orderSort)) { state.orderSort = "updated"; state.orderDirection = -1; }
+  if (work && (state.orderListScope !== state.folder.path || !["title", "folder_date"].includes(state.orderSort))) { state.orderSort = "folder_date"; state.orderDirection = -1; }
+  if (!work && state.orderSort === "folder_date") { state.orderSort = "updated"; state.orderDirection = -1; }
+  $("orderDateSort").dataset.sort = work ? "folder_date" : "updated";
+  $("orderDateSort").textContent = work ? "Дата заказа ↕" : "Обновлён ↕";
   workspace.classList.toggle("work-order-list", work);
-  workspace.querySelectorAll("thead th").forEach((th, index) => { th.hidden = work && [4, 5, 6, 10, 11, 12, 13, 14, 15, 16].includes(index); });
+  const deadlineHeader = workspace.querySelector("thead .order-deadline-column");
+  const statusHeader = workspace.querySelector('[data-sort="status"]').closest("th");
+  // Restore the shared table's column order before applying the production view.
+  deadlineHeader.after(statusHeader);
+  workspace.querySelectorAll("thead th").forEach((th, index) => { th.hidden = work && [4, 5, 6, 11, 12, 13, 14, 15, 16].includes(index); });
+  if (work) deadlineHeader.before(statusHeader);
+  $("supplierStatusHeading").hidden = !work;
+  workspace.querySelector('[data-sort="status"]').hidden = work;
   workspace.querySelector("caption").textContent = work ? workTitle : "Заказы и финансовые показатели в рублях";
   workspace.querySelector(".orders-hint").hidden = work;
   $("orderListControls").hidden = work;
@@ -1671,6 +1695,7 @@ function mountOrderList() {
     if (workspace.parentElement !== $("workOrdersSlot")) $("workOrdersSlot").append(workspace);
   } else if (workspace.parentElement !== $("folderView").parentElement) $("folderView").before(workspace);
   workspace.hidden = !hasOrderList();
+  renderWorkArchive();
   if (home) renderHomeCalendar();
   workspace.setAttribute("aria-label", work ? workTitle : object ? "Заказы объекта" : "Все заказы");
   $("syncOrdersButton").hidden = scoped;
@@ -1698,6 +1723,8 @@ async function loadOrders() {
         state.objectOrders = object.orders;
         state.objectOrdersError = object.error || "";
         state.workOrderGroups = object.groups || [];
+        state.workArchivedOrders = object.archived_orders || [];
+        state.workArchivedPaths = (object.archived_paths || []).map(path => path.normalize("NFC"));
       }
     } catch (error) {
       if (version !== state.ordersRequest) return;
@@ -2276,8 +2303,20 @@ function renderOrderProductionStatus(order) {
     renderProductionStatusOptions(order.status) + '</select>';
 }
 
+function renderSupplierOrderStatus(order) {
+  if (!Object.hasOwn(order, "supplier_status")) return "—";
+  const status = order.supplier_status, known = Object.hasOwn(supplierStatusLabels, status);
+  if (order.registered === false) return '<span class="status-badge">' + escapeHtml(supplierStatusLabels[status] || "Неизвестный статус") + '</span>';
+  return '<select class="status-badge order-status-select" data-status="supplier-' + escapeHtml(status || "unknown") +
+    '" data-order-status="' + escapeHtml(order.path) + '" data-supplier-status="true" data-order-id="' + escapeHtml(order.id) + '" data-revision="' + order.revision +
+    '" aria-label="' + (order.can_group_supplier_orders ? 'Статус заказа производства' : 'Статус заказа поставщику') + ' · ' + escapeHtml(order.title) + '"' + (orderRowSaving(order.path) || !known ? ' disabled' : '') + '>' +
+    (!known ? '<option selected>Неизвестный статус</option>' : '') + Object.entries(supplierStatusLabels).map(([key, label]) =>
+      '<option value="' + key + '"' + (status === key ? ' selected' : '') + '>' + label + '</option>').join("") + '</select>';
+}
+
 async function changeOrderProductionStatus(select) {
   const path = select.dataset.orderStatus, status = select.value, revision = Number(select.dataset.revision);
+  const supplier = select.dataset.supplierStatus === "true";
   if (orderRowSaving(path) || findListOrder(path)?.registered === false) return;
   state.orderStatusSaving.add(path);
   ++state.ordersRequest;
@@ -2287,14 +2326,19 @@ async function changeOrderProductionStatus(select) {
     if ((button.dataset.orderFavorite || button.dataset.orderDeadline || button.dataset.orderFlag || button.dataset.orderBluePlus) === path) button.disabled = true;
   });
   try {
-    const saved = await request("/api/order-status", { path, revision, status });
+    const saved = await request(supplier ? "/api/order-supplier-status" : "/api/order-status", supplier ? { path, id: select.dataset.orderId, revision, supplier_status: status } : { path, revision, status });
     ++state.ordersRequest;
     for (const orders of [state.orders, state.favoriteOrders, state.objectOrders]) {
       const current = orders.find((order) => order.path === path);
       if (current && current.revision <= saved.revision) Object.assign(current, saved);
     }
+    if (supplier && saved.supplier_status === "archived" && isWorkOrderList()) {
+      const source = state.objectOrders.find(order => order.id === saved.id);
+      state.workArchivedOrders = [{ ...source, ...saved }, ...state.workArchivedOrders.filter(order => order.id !== saved.id)];
+      state.workArchivedPaths.push(saved.path.normalize("NFC"));
+    }
     renderFavoriteOrders();
-    notify("Статус: " + statusLabels[saved.status]);
+    notify("Статус: " + (supplier ? supplierStatusLabels[saved.supplier_status] : statusLabels[saved.status]));
   } catch (error) {
     try { await loadOrders(); } catch (_) { /* Keep the last loaded list if the server is unavailable. */ }
     throw error;
@@ -2328,6 +2372,11 @@ function compareOrderText(first, second) {
 }
 
 function compareOrders(a, b, key = state.orderSort, direction = state.orderDirection) {
+  if (key === "folder_date") {
+    if ((a.folder_date == null) !== (b.folder_date == null)) return a.folder_date == null ? 1 : -1;
+    const dateOrder = compareOrderText(a.folder_date, b.folder_date);
+    return direction * dateOrder || compareOrderText(a.path, b.path) || compareOrderText(a.id, b.id);
+  }
   for (const [label, identity, groupDirection] of [
     ["client", "client_path", key === "client" ? direction : 1],
     ["object", "object_path", key === "object" ? direction : 1],
@@ -2697,14 +2746,57 @@ function renderWorkOrders(orders, options) {
     const style = group.color ? ' style="--supplier-hue:' + Number(group.color.hue) + '"' : '';
     return '<tr class="order-group-divider"' + style + '><th colspan="6"><button type="button" class="order-group-toggle" data-order-group-toggle="' + escapeHtml(group.key) +
       '" data-order-group-scope="' + escapeHtml(scope) + '" aria-expanded="' + !collapsed + '"><span class="order-group-chevron" aria-hidden="true">▸</span><span>' + escapeHtml(group.label) +
-      '</span><span class="count-badge">' + rows.length + '</span></button></th><td class="order-deadline-column">' + renderDeadlineMonthLegend(options) + '</td><td></td></tr>' +
+      '</span><span class="count-badge">' + rows.length + '</span></button></th><td></td><td class="order-deadline-column">' + renderDeadlineMonthLegend(options) + '</td><td></td></tr>' +
       rows.map((order) => '<tr data-order-group-row="' + escapeHtml(group.key) + '"' + style + (group.color?.neutral ? ' class="supplier-neutral"' : '') + (collapsed ? ' hidden' : '') + '>' +
         '<td class="order-blue-plus-column">' + renderOrderMarkerButton(order, "bluePlus") + '</td><td class="order-flag-column">' + renderOrderMarkerButton(order, "flag") + '</td>' +
         '<td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td><td class="order-todo-column">' + renderOrderTodoButton(order) + '</td>' +
         '<td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен в производство</span>' : '') +
-        '<span class="order-row-path">' + escapeHtml(order.path) + '</span></td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td class="order-deadline-column">' + renderOrderDeadlines(order, { options }) + '</td>' +
-        '<td class="order-updated">' + (order.updated ? formatDate(order.updated) : '—') + '</td></tr>').join("");
+        '<span class="order-row-path">' + escapeHtml(order.path) + '</span></td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td>' + renderSupplierOrderStatus(order) + '</td>' +
+        '<td class="order-deadline-column">' + renderOrderDeadlines(order, { options }) + '</td><td class="order-updated">' + (order.folder_date ? escapeHtml(order.folder_date.split("-").reverse().join(".")) : '—') + '</td></tr>').join("");
   }).join("");
+}
+
+function renderWorkArchive() {
+  const section = $("workArchiveSection");
+  section.hidden = !isWorkOrderList();
+  if (section.hidden) return;
+  const focused = document.activeElement?.dataset.workArchiveRestore;
+  const rows = state.workArchivedOrders.filter(order => order.supplier_status === "archived")
+    .sort((a, b) => (b.archived_at || 0) - (a.archived_at || 0) || (b.archive_sequence || 0) - (a.archive_sequence || 0) || compareOrderText(a.path, b.path)).slice(0, 10);
+  $("workArchiveCount").textContent = rows.length || "";
+  $("workArchiveList").innerHTML = rows.map(order => '<div class="work-archive-row"><div><a class="order-row-link" data-work-archive-order="' + escapeHtml(order.path) +
+    '" href="?path=' + encodeURIComponent(order.path) + '">' + escapeHtml(order.title) + '</a><small>' + escapeHtml([order.work_supplier, order.path].filter(Boolean).join(" · ")) +
+    '</small></div><span class="work-archive-date">' + (order.archived_at ? escapeHtml(formatDate(order.archived_at)) : '') + '</span><button type="button" class="secondary-button" data-work-archive-restore="' + escapeHtml(order.path) +
+    '"' + (orderRowSaving(order.path) || order.registered === false || order.supplier_status === null ? ' disabled' : '') + '>Вернуть в работу</button></div>').join("") || '<p class="todo-empty">В архиве пока нет заказов.</p>';
+  if (focused) ([...section.querySelectorAll("[data-work-archive-restore]")].find(button => button.dataset.workArchiveRestore === focused) || $("workArchiveHeading")).focus({ preventScroll: true });
+}
+
+async function restoreWorkArchive(button) {
+  const path = button.dataset.workArchiveRestore;
+  const order = state.workArchivedOrders.find(row => row.path === path);
+  const folder = state.folder;
+  if (!order || orderRowSaving(path) || order.registered === false) return;
+  state.orderStatusSaving.add(path);
+  ++state.ordersRequest;
+  renderWorkArchive();
+  try {
+    const saved = await request("/api/order-supplier-status", { path, id: order.id, revision: order.revision, supplier_status: "work" });
+    if (state.folder === folder && isWorkOrderList()) {
+      state.workArchivedOrders = state.workArchivedOrders.filter(row => row.id !== saved.id);
+      state.workArchivedPaths = state.workArchivedPaths.filter(item => item !== path.normalize("NFC"));
+      if (!state.objectOrders.some(row => row.id === saved.id)) state.objectOrders.push({ ...order, ...saved });
+    }
+    applyOrderRecord(null, saved);
+    notify("Заказ возвращён в работу");
+  } catch (error) {
+    try { await loadOrders(); } catch (_) { /* Keep the saved archive visible when refresh fails. */ }
+    throw error;
+  } finally {
+    state.orderStatusSaving.delete(path);
+    if (hasOrderList()) renderOrders({ force: true });
+    else renderWorkArchive();
+  }
+  try { await loadOrders(); } catch (_) { /* The confirmed restore is already visible locally. */ }
 }
 
 function renderOrders({ force = false } = {}) {
@@ -2721,6 +2813,7 @@ function renderOrders({ force = false } = {}) {
   const focusedDeadline = document.activeElement?.dataset.orderDeadline, focusedWeek = document.activeElement?.dataset.deadlineWeek;
   const orders = orderListRows(), object = isObjectOrderList(), work = isWorkOrderList();
   const deadlineOptions = orderListDeadlineOptions(orders);
+  renderWorkArchive();
   if (state.view === "orders") renderHomeCalendar();
   const needle = normalize(state.orderQuery.trim());
   const matching = orders.filter((order) => !needle || normalize([order.client, order.object, order.title, order.path, order.note, orderTodoText(order), work ? order.work_supplier : orderPurchaseText(order)].join(" ")).includes(needle));
@@ -2887,6 +2980,8 @@ async function navigate(path, { history = true } = {}) {
       state.objectOrders = data.objectOrders?.orders || [];
       state.objectOrdersError = data.objectOrders?.error || "";
       state.workOrderGroups = data.objectOrders?.groups || [];
+      state.workArchivedOrders = data.objectOrders?.archived_orders || [];
+      state.workArchivedPaths = (data.objectOrders?.archived_paths || []).map(path => path.normalize("NFC"));
       if (data.objectOrders?.deadline_week_options) state.deadlineWeekOptions = data.objectOrders.deadline_week_options;
     }
     $("fileTrashState").textContent = "";
@@ -3708,6 +3803,15 @@ $("refreshButton").addEventListener("click", () => run(async () => {
   } finally { $("refreshButton").disabled = false; }
 }));
 $("statusSelect").addEventListener("change", () => { state.dirty = true; renderStatus(); });
+$("supplierStatusSelect").addEventListener("change", () => { state.dirty = true; renderStatus(); });
+$("workArchiveList").addEventListener("click", event => {
+  const restore = event.target.closest("[data-work-archive-restore]");
+  if (restore) { run(() => restoreWorkArchive(restore)); return; }
+  const link = event.target.closest("[data-work-archive-order]");
+  if (link && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey && event.button === 0) {
+    event.preventDefault(); run(() => navigate(link.dataset.workArchiveOrder));
+  }
+});
 $("financialStatusSelect").addEventListener("change", () => { state.dirty = true; renderStatus(); });
 $("orderNote").addEventListener("input", () => { state.dirty = true; resizeOrderNote(); renderStatus(); });
 $("orderDetails").addEventListener("toggle", resizeOrderNote);

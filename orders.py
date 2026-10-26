@@ -103,6 +103,9 @@ class OrderStore:
         result["profit"] = result["amount"] - result["costs"] if result["amount"] is not None and result["costs"] is not None else None
         result["debt"] = result["amount"] - result["paid"] if result["amount"] is not None and result["paid"] is not None else None
         result["extra_blocks"] = json.loads(result["extra_blocks"])
+        if work_orders.status_order(result["path"]):
+            result["supplier_status"] = work_orders.read_status(result["extra_blocks"])
+            result["archived_at"] = work_orders.archive_time(result["extra_blocks"])
         result["todo_items"] = document.read_todos(result["extra_blocks"])
         result["purchase_items"] = document.read_purchases(result["extra_blocks"])
         result["is_favorite"] = document.read_favorite(result["extra_blocks"])
@@ -200,6 +203,10 @@ class OrderStore:
             if current is None:
                 raise OrderConflict("Заказ изменён в другой вкладке. Откройте его заново перед сохранением.")
             blocks = json.loads(current["extra_blocks"])
+            if "supplier_status" in payload:
+                if not work_orders.status_order(relative):
+                    raise ValueError("Статус поставщика доступен только в его заказе")
+                blocks = work_orders.write_status(blocks, payload["supplier_status"])
             if "purchase_items" in payload:
                 if document.read_purchases(blocks) is None:
                     raise ValueError("Прежние записи закупок и затрат сохранены. Проверь раздел в !.txt заказа")
@@ -251,6 +258,11 @@ class OrderStore:
 
     def save_blue_plus(self, payload):
         return self._save_extra_block(payload, lambda blocks: document.write_blue_plus(blocks, payload.get("is_blue_plus")), update_time=False)
+
+    def save_supplier_status(self, payload):
+        if not work_orders.status_order(self.path(payload.get("path"))):
+            raise ValueError("Выбери заказ поставщику")
+        return self._save_extra_block(payload, lambda blocks: work_orders.write_status(blocks, payload.get("supplier_status")), update_time=False)
 
     def save_purchase_done(self, payload, supplier):
         relative = self.path(payload.get("path"))
@@ -335,12 +347,14 @@ class OrderStore:
             if parent is None:
                 raise FileNotFoundError("Сначала добавь заказ в производство")
             identities = work_orders.read_links(json.loads(parent["extra_blocks"]))
-            rows = {row["id"]: row for row in db.execute("SELECT id,path,title,status,registered FROM orders")}
-            candidates = [work_orders.summary(row) for row in rows.values() if row["registered"] and work_orders.supplier_order(row["path"])]
+            rows = {row["id"]: {**dict(row), "extra_blocks": json.loads(row["extra_blocks"])}
+                    for row in db.execute("SELECT id,path,title,status,registered,extra_blocks FROM orders")}
+            candidates = [work_orders.summary(row) for row in rows.values()
+                          if row["registered"] and work_orders.supplier_order(row["path"]) and not work_orders.archived(row)]
             candidates.sort(key=lambda item: (item["supplier"].casefold(), item["title"].casefold(), item["path"]))
             items = [work_orders.summary(rows[identity]) if identity in rows else {
                 "id": identity, "path": None, "title": "Заказ недоступен", "supplier": "", "status": None, "registered": False}
-                for identity in identities or []]
+                for identity in identities or [] if identity not in rows or not work_orders.archived(rows[identity])]
             return {"path": relative, "revision": parent["revision"], "linked_ids": identities, "items": items, "candidates": candidates}
 
     def save_work_links(self, payload):
@@ -361,11 +375,13 @@ class OrderStore:
             previous = work_orders.read_links(blocks)
             updated = work_orders.write_links(blocks, identities)
             for identity in identities:
-                target = db.execute("SELECT path,registered FROM orders WHERE id=?", (identity,)).fetchone()
+                target = db.execute("SELECT path,registered,extra_blocks FROM orders WHERE id=?", (identity,)).fetchone()
                 if target:
                     assert_unlocked(db, target["path"])
                 if identity not in previous and (not target or not target["registered"] or not work_orders.supplier_order(target["path"])):
                     raise ValueError("Добавлять можно только зарегистрированные заказы из разделов поставщиков")
+                if identity not in previous and work_orders.archived({"path": target["path"], "extra_blocks": json.loads(target["extra_blocks"])}):
+                    raise ValueError("Архивный заказ нельзя добавить в подборку")
             db.execute("""UPDATE orders SET extra_blocks=?,revision=revision+1,updated=?,sync_error=''
                 WHERE path=? AND revision=? AND registered=1""",
                 (json.dumps(updated, ensure_ascii=False), time.time(), relative, revision))
@@ -415,7 +431,7 @@ class OrderStore:
                     phase = "Чтение карточки"
                     existing = document.load(folder, self.labels)
                     record["extra_blocks"].update({key: value for key, value in existing.get("extra_blocks", {}).items()
-                        if key != order_deadlines.COMMENTS_BLOCK and (key not in {document.TODO_BLOCK, document.PURCHASE_BLOCK, document.FAVORITE_BLOCK, order_deadlines.BLOCK, order_deadlines.COMMENTS_BLOCK, order_calendar.WEEK_BLOCK} or key not in record["extra_blocks"])})
+                        if key != order_deadlines.COMMENTS_BLOCK and (key not in {document.TODO_BLOCK, document.PURCHASE_BLOCK, document.FAVORITE_BLOCK, work_orders.STATUS_BLOCK, work_orders.ARCHIVED_AT_BLOCK, order_deadlines.BLOCK, order_deadlines.COMMENTS_BLOCK, order_calendar.WEEK_BLOCK} or key not in record["extra_blocks"])})
                     if existing.get("schema", 0) < document.FORMAT:
                         phase = "Сохранение прежней карточки в историю"
                         document.archive_current(folder)

@@ -3,12 +3,16 @@ import json
 import time
 import unicodedata
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 from event_folder_undo import assert_unlocked
-from folder_structure import dated, is_service_folder, is_supplier_root, is_work_root, is_print_section
+from folder_structure import DATE, dated, is_service_folder, is_supplier_root, is_work_root, is_print_section, in_freza
 
 LINKS_BLOCK = "Связанные заказы поставщиков"
+STATUS_BLOCK = "Статус заказа поставщику"
+STATUS_LABELS = {"work": "В работе", "cancelled": "Отменён", "archived": "В архив"}
+ARCHIVED_AT_BLOCK = "Дата архива заказа производства"
 MAX_LINKS = 200
 SUPPLIER_COLOR_KIND = "work_supplier_color"
 SUPPLIER_FAVORITE_KIND = "work_supplier_favorite"
@@ -218,6 +222,55 @@ def supplier_order(relative):
         len(parts) == 2 and is_supplier_root(parts[0]))
 
 
+def status_order(relative):
+    return direct_order(relative) or (supplier_order(relative) and not in_freza(relative))
+
+
+def folder_date(relative):
+    name = Path(relative).name
+    if not dated(name):
+        return None
+    match = DATE.match(name)
+    year, month, day = map(int, match.groups())
+    if len(match[1]) == 2:
+        year += 2000
+    return f"{year:04d}-{month:02d}-{day:02d}"
+
+
+def read_status(blocks):
+    if STATUS_BLOCK not in blocks:
+        return "work"
+    return next((key for key, label in STATUS_LABELS.items() if blocks[STATUS_BLOCK] == label), None)
+
+
+def write_status(blocks, status):
+    if not isinstance(status, str) or status not in STATUS_LABELS:
+        raise ValueError("Выбери статус заказа поставщику")
+    if read_status(blocks) is None:
+        raise ValueError("Неизвестный статус заказа поставщику сохранён без изменений")
+    updated = {**blocks, STATUS_BLOCK: STATUS_LABELS[status]}
+    if status == "archived" and read_status(blocks) != "archived":
+        if ARCHIVED_AT_BLOCK in blocks and archive_time(blocks) is None:
+            raise ValueError("Неизвестная дата архива сохранена без изменений")
+        updated[ARCHIVED_AT_BLOCK] = datetime.now(timezone.utc).isoformat(timespec="microseconds")
+    return updated
+
+
+def archive_time(blocks):
+    value = blocks.get(ARCHIVED_AT_BLOCK)
+    if not isinstance(value, str):
+        return None
+    try:
+        stamp = datetime.fromisoformat(value)
+        return stamp.timestamp() if stamp.tzinfo is not None else None
+    except (ValueError, OverflowError):
+        return None
+
+
+def archived(order):
+    return status_order(order["path"]) and read_status(order.get("extra_blocks", {})) == "archived"
+
+
 def checked_ids(value):
     if not isinstance(value, list) or len(value) > MAX_LINKS or any(
             not isinstance(item, str) or not item or len(item) > 100 for item in value):
@@ -247,4 +300,5 @@ def write_links(blocks, identities):
 
 def summary(row):
     return {key: row[key] for key in ("id", "path", "title", "status", "registered")} | {
-        "supplier": Path(row["path"]).parts[-2]}
+        "supplier": Path(row["path"]).parts[-2]} | (
+            {"supplier_status": read_status(row.get("extra_blocks", {}))} if status_order(row["path"]) else {})

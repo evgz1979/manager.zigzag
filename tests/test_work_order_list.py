@@ -200,6 +200,33 @@ class WorkOrderListTests(unittest.TestCase):
             self.assertFalse(opened["workOrderList"])
             self.assertIsNone(opened["objectOrders"])
 
+    def test_folder_date_sorts_old_orders_by_their_name_not_creation_update_title_or_favorite(self):
+        section = self.scope + "/#glass"
+        newer = self.add(section + "/2026-10-20 - Новая дата")
+        older = self.add(section + "/2024-01-12 - Старый заказ добавлен сейчас")
+        self.store.save_favorite({"path": older["path"], "revision": older["revision"], "is_favorite": True})
+        with self.store.connect() as db:
+            db.execute("UPDATE orders SET title='Дата в заголовке 2030-01-01',updated=9999999999 WHERE id=?", (older["id"],))
+            db.execute("UPDATE orders SET updated=1 WHERE id=?", (newer["id"],))
+        manager.read_folder(section)
+        for scope in (section, self.scope):
+            if scope == self.scope:
+                manager.read_folder(scope)
+            data = self.listing.read(scope)
+            self.assertEqual([row["id"] for row in data["orders"]], [newer["id"], older["id"]])
+            self.assertEqual([row["folder_date"] for row in data["orders"]], ["2026-10-20", "2024-01-12"])
+
+    def test_folder_date_handles_partial_dates_short_years_and_missing_dates(self):
+        section = self.scope + "/#glass"
+        names = ["Без даты", "2026-02-30 - Ошибка даты", "2026-00-00 - Только год",
+                 "2026-10-00 - Только месяц", "26-10-03 - Короткий год", "2025-12-31 - Прошлый год"]
+        for name in names:
+            self.folder(section + "/" + name)
+        manager.read_folder(section)
+        rows = self.listing.read(section)["orders"]
+        self.assertEqual([row["folder_date"] for row in rows], ["2026-10-03", "2026-10-00", "2026-00-00", "2025-12-31", None, None])
+        self.assertEqual({row["path"] for row in rows[-2:]}, {section + "/Без даты", section + "/2026-02-30 - Ошибка даты"})
+
 
 if __name__ == "__main__":
     unittest.main()

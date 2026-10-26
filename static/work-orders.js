@@ -11,7 +11,9 @@
     const next = items.map((item) => '<div class="work-link-row"><div>' + (item.path
       ? '<button type="button" class="order-row-link" data-work-order-path="' + escapeHtml(item.path) + '">' + escapeHtml(item.title) + '</button>'
       : '<span>' + escapeHtml(item.title) + '</span>') + '<small>' + escapeHtml(item.supplier || "") + (item.registered ? "" : " · Убран из списка") + '</small>' +
-      (item.path ? '<small>' + escapeHtml(item.path) + '</small>' : '') + '</div>' + (item.status ? '<span class="status-badge" data-status="' + escapeHtml(item.status) + '">' + escapeHtml(statusLabels[item.status] || item.status) + '</span>' : '') + '</div>').join("");
+      (item.path ? '<small>' + escapeHtml(item.path) + '</small>' : '') + '</div>' + (Object.hasOwn(item, "supplier_status")
+        ? '<span class="status-badge" data-status="supplier-' + escapeHtml(item.supplier_status || "unknown") + '">' + escapeHtml(supplierStatusLabels[item.supplier_status] || "Неизвестный статус") + '</span>'
+        : item.status ? '<span class="status-badge" data-status="' + escapeHtml(item.status) + '">' + escapeHtml(statusLabels[item.status] || item.status) + '</span>' : '') + '</div>').join("");
     if (next !== markup) { $("workLinksList").innerHTML = next; markup = next; }
     $("workLinksState").textContent = model?.linked_ids === null ? "Неизвестный раздел связанных заказов сохранён без изменений." : items.length ? "Папки заказов остаются у поставщиков." : "Можно оставить обычным заказом с событиями или собрать здесь заказы поставщиков.";
   }

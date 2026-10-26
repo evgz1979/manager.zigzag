@@ -841,11 +841,11 @@ def listed_orders():
     activity = client_activity_store()
     objects = object_activity_store()
     visible = objects.visible_orders(activity.visible_orders(store.list()))
-    return {"orders": OrderTodos(store).attach([order for order in visible if not work_orders.in_work(order["path"])]),
+    return {"orders": OrderTodos(store).attach([order for order in visible if not work_orders.in_work(order["path"]) and not work_orders.archived(order)]),
             "calendar_supplier_orders": [order for order in visible if order["work_supplier"]],
             "calendar_events": calendar_events.CalendarEvents(store).list(),
             "calendar_invoice_plans": invoice_store().calendar_plans([order for order in visible if not work_orders.in_work(order['path'])]),
-            "favorites": [order for order in visible if order["is_favorite"] is True],
+            "favorites": [order for order in visible if order["is_favorite"] is True and not work_orders.archived(order)],
             "deadline_week_options": order_deadlines.week_options(),
             "unregistrations": objects.visible_orders(activity.visible_orders([
                 order for order in store.pending_unregistrations() if not work_orders.in_work(order["path"])])), "scan": dict(SCAN_STATE),
@@ -1858,6 +1858,11 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 return
             elif route == "/api/order-status":
                 record = order_store().save_status(payload)
+                self.send_json(record)
+                schedule_order_sync()
+                return
+            elif route == "/api/order-supplier-status":
+                record = order_store().save_supplier_status(payload)
                 self.send_json(record)
                 schedule_order_sync()
                 return
