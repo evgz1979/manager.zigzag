@@ -26,6 +26,9 @@ def canonical(path):
 
 
 class ObjectOrders:
+    scope_kind = SCOPE
+    folder_kind = FOLDER
+
     def __init__(self, store):
         self.store = store
         self.meta = MetadataStore(store)
@@ -77,35 +80,42 @@ class ObjectOrders:
                             stack.append((child, depth + 1))
                 except (OSError, ValueError) as error:
                     errors.append(str(error))
-            with self.meta.connect() as db:
-                previous = [row["path"] for row in db.execute("SELECT path FROM metadata_records WHERE kind=?", (FOLDER,))
-                            if inside(row["path"], relative)]
-            for path in sorted(found):
+            self.save_catalog(relative, found, errors)
+
+    def save_catalog(self, relative, found, errors):
+        with self.meta.connect() as db:
+            previous = [row["path"] for row in db.execute("SELECT path FROM metadata_records WHERE kind=?", (self.folder_kind,))
+                        if inside(row["path"], relative)]
+        for path in sorted(found):
+            try:
+                self.put(self.folder_kind, path, {"version": 1, "present": True})
+            except ValueError as error:
+                errors.append(str(error))
+        if not errors:
+            for path in set(previous) - found:
                 try:
-                    self.put(FOLDER, path, {"version": 1, "present": True})
+                    self.put(self.folder_kind, path, {"version": 1, "present": False})
                 except ValueError as error:
                     errors.append(str(error))
-            if not errors:
-                for path in set(previous) - found:
-                    try:
-                        self.put(FOLDER, path, {"version": 1, "present": False})
-                    except ValueError as error:
-                        errors.append(str(error))
-            self.put(SCOPE, relative, {"version": 1, "checked": time.time(), "error": " · ".join(errors[:5])})
+        self.put(self.scope_kind, relative, {"version": 1, "checked": time.time(), "error": " · ".join(errors[:5])})
 
-    def read(self, relative, *, inactive=(), show_inactive=False):
-        relative = self.path(relative)
-        try:
-            scope = self.meta.get(SCOPE, relative)
-        except TypeError:
-            raise ValueError("Неизвестный формат каталога заказов сохранён без изменений: " + relative) from None
-        if not scope or type(scope.get("version")) is not int or scope["version"] != 1 or set(scope) != {"version", "checked", "error", "path", "revision", "updated"}:
-            raise ValueError("Открой объект или обнови его папки для загрузки списка заказов")
+    def allowed_paths(self, relative, inactive, show_inactive):
         hidden = [canonical(path) for path in inactive if canonical(path) != relative and not inside(relative, canonical(path))]
         def allowed(path):
             path = canonical(path)
             return inside(path, relative) and not any(part.startswith((".", "#")) for part in Path(path).parts) and (
                 show_inactive or not any(path == item or inside(path, item) for item in hidden))
+        return allowed
+
+    def read(self, relative, *, inactive=(), show_inactive=False):
+        relative = self.path(relative)
+        try:
+            scope = self.meta.get(self.scope_kind, relative)
+        except TypeError:
+            raise ValueError("Неизвестный формат каталога заказов сохранён без изменений: " + relative) from None
+        if not scope or type(scope.get("version")) is not int or scope["version"] != 1 or set(scope) != {"version", "checked", "error", "path", "revision", "updated"}:
+            raise ValueError("Открой объект или обнови его папки для загрузки списка заказов")
+        allowed = self.allowed_paths(relative, inactive, show_inactive)
         # Match equivalent Unicode spellings without changing the path/identity used by order APIs.
         # Keep distinct database rows even if their canonical paths collide; never merge cards.
         records = {}
@@ -114,7 +124,7 @@ class ObjectOrders:
                 records.setdefault(canonical(row["path"]), []).append(row)
         with self.meta.connect() as db:
             catalog = set()
-            for row in db.execute("SELECT path,data FROM metadata_records WHERE kind=?", (FOLDER,)):
+            for row in db.execute("SELECT path,data FROM metadata_records WHERE kind=?", (self.folder_kind,)):
                 if not allowed(row["path"]):
                     continue
                 data = json.loads(row["data"])

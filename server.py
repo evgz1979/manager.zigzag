@@ -50,6 +50,7 @@ import object_years
 import object_orders
 import file_uploads
 import work_orders
+from work_order_list import WorkOrderList
 from file_comments import FileCommentConflict
 from folder_structure import folder_role, is_catalog_group, client_name, is_print_section
 from folder_structure import client_path, in_freza, is_freza_task
@@ -854,6 +855,10 @@ def listed_object_orders(relative, show_inactive=False):
     return object_orders.ObjectOrders(order_store()).read(relative, inactive=inactive_paths(), show_inactive=show_inactive)
 
 
+def listed_work_orders(relative):
+    return WorkOrderList(order_store()).read(relative)
+
+
 METADATA_REFRESH = threading.Event()
 
 
@@ -1109,14 +1114,15 @@ def read_folder(relative="", show_inactive=False):
                         node["supplierColor"] = work_orders.supplier_color(db, node["path"])
                         node["supplierFavorite"] = favorites[unicodedata.normalize("NFC", node["path"])]
     object_list = None
-    if status["folderKind"] == "object":
+    if status["folderKind"] in {"object", "work_root"}:
         object_error = ""
+        work_list = status["folderKind"] == "work_root"
         try:
-            object_orders.ObjectOrders(order_store()).refresh(relative)
+            (WorkOrderList(order_store()) if work_list else object_orders.ObjectOrders(order_store())).refresh(relative)
         except (OSError, ValueError) as error:
             object_error = str(error)
         try:
-            object_list = listed_object_orders(relative, show_inactive)
+            object_list = listed_work_orders(relative) if work_list else listed_object_orders(relative, show_inactive)
             if object_error:
                 object_list["error"] = object_error
         except (OSError, ValueError) as error:
@@ -1388,6 +1394,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(telegram_calendar.status(DATA_DIR), head=head)
             elif parsed.path == "/api/object-orders":
                 self.send_json(listed_object_orders(relative, query.get("show_inactive", [""])[0] == "1"), head=head)
+            elif parsed.path == "/api/work-orders":
+                self.send_json(listed_work_orders(relative), head=head)
             elif parsed.path == "/api/work-supplier-favorites":
                 self.send_json(work_orders.read_supplier_favorites(order_store(), relative), head=head)
             elif parsed.path == "/api/storage":

@@ -18,7 +18,7 @@ const state = {
   printTask: null, printSaving: null, printQuery: "",
   view: "orders", orders: [], orderFilter: "all", financialFilter: "all", orderQuery: "", orderSort: "updated", orderDirection: -1, scan: null, ordersRequest: 0,
   unregistrations: [], removeOrder: null, removingOrder: false,
-  objectOrders: [], objectOrdersError: "", orderListScope: "",
+  objectOrders: [], objectOrdersError: "", workOrderGroups: [], orderListScope: "",
   collapsedOrderGroups: new Map(),
   markerSaving: new Set(), favoriteSaving: new Set(), orderStatusSaving: new Set(), deadlineSaving: new Set(), deadlineWeekOptions: [], favoriteOrders: [], supplierFavoriteSaving: new Set(), supplierFavoriteFocus: null,
   fileComment: null, fileCommentSaving: null,
@@ -463,6 +463,7 @@ function subfolderButton(item) {
 
 function renderSubfolders() {
   const folder = state.folder;
+  $("subfolders").classList.toggle("work-section-buttons", folder.folderKind === "work_root");
   const focused = document.activeElement?.closest("[data-relevance]");
   const focusPath = focused?.dataset.eventPath, focusValue = focused?.dataset.relevance;
   const focusedSupplier = document.activeElement?.closest("[data-supplier-favorite]")?.dataset.supplierFavorite;
@@ -502,10 +503,9 @@ function renderSubfolders() {
     directories = [...primary, ...other];
     if (primary.length && other.length) supplierDividerAfter = primary.length;
   }
-  const workOrders = workRoot ? visibleDirectories.filter((item) => !item.name.startsWith("#")) : [];
-  $("workOrdersSection").hidden = !workOrders.length;
+  const workOrders = workRoot ? visibleDirectories.filter((item) => !item.name.startsWith("#") && !state.objectOrders.some((order) => order.path.normalize("NFC") === item.path.normalize("NFC"))) : [];
+  $("workOrdersSection").hidden = !workRoot;
   $("workOrdersSection").classList.toggle("with-sections", Boolean(directories.length));
-  $("workOrderDirectoryCount").textContent = workOrders.length;
   $("workOrderFolders").innerHTML = workOrders.map(subfolderButton).join("");
   const printView = folder.view === "print";
   $("printLegacyFolders").hidden = !printView || !folder.directories.length;
@@ -577,6 +577,7 @@ async function toggleSupplierFavorite(path) {
     state.supplierFavoriteSaving.delete(path);
     if (state.folder === folder) {
       renderSubfolders();
+      await loadOrders();
       if (state.supplierFavoriteFocus === path && document.activeElement === document.body) focusSupplierStar(path);
     }
   }
@@ -629,7 +630,7 @@ function renderFolder(preserveForm = false) {
   const showFinance = hasDescendantTodos(folder) && !workCard;
   $("orderFinanceOverview").hidden = !showFinance || !folder.order;
   $("purchasePanel").hidden = !showFinance;
-  $("orderOverview").hidden = !folder.path || (printView && !folder.eventFolder);
+  $("orderOverview").hidden = !folder.path || folder.folderKind === "work_root" || (printView && !folder.eventFolder);
   $("orderOverview").classList.toggle("with-todos", hasTodo);
   $("todoPanel").hidden = !hasTodo;
   $("orderTasksColumn").hidden = !hasTodo && !showFinance;
@@ -710,7 +711,7 @@ function renderFolder(preserveForm = false) {
   } else renderFiles();
   renderCardDeadlines();
   mountOrderList();
-  if (isObjectOrderList()) renderOrders();
+  if (isFolderOrderList()) renderOrders();
 }
 
 function resizeOrderNote() {
@@ -1558,12 +1559,20 @@ function isObjectOrderList() {
   return state.view === "folder" && state.folder?.folderKind === "object";
 }
 
+function isWorkOrderList() {
+  return state.view === "folder" && state.folder?.folderKind === "work_root";
+}
+
+function isFolderOrderList() {
+  return isObjectOrderList() || isWorkOrderList();
+}
+
 function hasOrderList() {
-  return state.view === "orders" || isObjectOrderList();
+  return state.view === "orders" || isFolderOrderList();
 }
 
 function orderListRows() {
-  return isObjectOrderList() ? state.objectOrders : state.orders;
+  return isFolderOrderList() ? state.objectOrders : state.orders;
 }
 
 function findListOrder(path) {
@@ -1575,7 +1584,7 @@ let homeFiltersOpen = false;
 const orderGroupStoragePrefix = "zigzag.order-groups.v1:";
 
 function orderGroupScope() {
-  return isObjectOrderList() ? "object:" + state.folder.path.normalize("NFC") : "main";
+  return isFolderOrderList() ? (isWorkOrderList() ? "work:" : "object:") + state.folder.path.normalize("NFC") : "main";
 }
 
 function orderGroupCollapsed(scope, group) {
@@ -1613,6 +1622,14 @@ function focusOrderGroup(group) {
 
 function mountOrderList() {
   const object = isObjectOrderList(), workspace = $("ordersWorkspace");
+  const work = isWorkOrderList(), scoped = object || work;
+  if (work && !["title", "updated"].includes(state.orderSort)) { state.orderSort = "updated"; state.orderDirection = -1; }
+  workspace.classList.toggle("work-order-list", work);
+  workspace.querySelectorAll("thead th").forEach((th, index) => { th.hidden = work && [4, 5, 6, 10, 11, 12, 13, 14, 15, 16].includes(index); });
+  workspace.querySelector("caption").textContent = work ? "Заказы производства по поставщикам" : "Заказы и финансовые показатели в рублях";
+  workspace.querySelector(".orders-hint").hidden = work;
+  $("orderListControls").hidden = work;
+  $("orderSearch").placeholder = work ? "Найти заказ, поставщика или задачу…" : "Найти заказ, задачу или закупку…";
   const home = state.view === "orders", pane = document.querySelector(".content-pane");
   pane.classList.toggle("home-view", home);
   const heading = pane.querySelector(".order-heading");
@@ -1629,12 +1646,14 @@ function mountOrderList() {
   $("objectOrdersSection").hidden = !object;
   if (object) {
     if (workspace.parentElement !== $("objectOrdersSlot")) $("objectOrdersSlot").append(workspace);
+  } else if (work) {
+    if (workspace.parentElement !== $("workOrdersSlot")) $("workOrdersSlot").append(workspace);
   } else if (workspace.parentElement !== $("folderView").parentElement) $("folderView").before(workspace);
   workspace.hidden = !hasOrderList();
   if (home) renderHomeCalendar();
-  workspace.setAttribute("aria-label", object ? "Заказы объекта" : "Все заказы");
-  $("syncOrdersButton").hidden = object;
-  const scope = object ? state.folder.path : "main";
+  workspace.setAttribute("aria-label", work ? "Заказы производства" : object ? "Заказы объекта" : "Все заказы");
+  $("syncOrdersButton").hidden = scoped;
+  const scope = scoped ? state.folder.path : "main";
   if (hasOrderList() && scope !== state.orderListScope) {
     state.orderListScope = scope;
     state.orderFilter = "all";
@@ -1646,20 +1665,22 @@ function mountOrderList() {
 
 async function loadOrders() {
   const version = ++state.ordersRequest;
-  const objectPath = isObjectOrderList() ? state.folder.path : null;
+  const objectPath = isFolderOrderList() ? state.folder.path : null;
+  const work = isWorkOrderList();
   const result = await request("/api/orders");
   if (version !== state.ordersRequest) return;
   if (objectPath) {
     try {
-      const object = await request(apiUrl("/api/object-orders", objectPath, { show_inactive: state.showInactive ? "1" : "0" }));
+      const object = await request(apiUrl(work ? "/api/work-orders" : "/api/object-orders", objectPath, { show_inactive: state.showInactive ? "1" : "0" }));
       if (version !== state.ordersRequest) return;
-      if (isObjectOrderList() && state.folder.path === objectPath) {
+      if (isFolderOrderList() && state.folder.path === objectPath) {
         state.objectOrders = object.orders;
         state.objectOrdersError = object.error || "";
+        state.workOrderGroups = object.groups || [];
       }
     } catch (error) {
       if (version !== state.ordersRequest) return;
-      if (isObjectOrderList() && state.folder.path === objectPath) state.objectOrdersError = "Показаны последние данные: " + error.message;
+      if (isFolderOrderList() && state.folder.path === objectPath) state.objectOrdersError = "Показаны последние данные: " + error.message;
     }
   }
   state.orders = result.orders;
@@ -2646,6 +2667,25 @@ async function refreshCalendarEvent() {
   }
 }
 
+function renderWorkOrders(orders, options) {
+  const scope = orderGroupScope();
+  return state.workOrderGroups.map((group) => {
+    const rows = orders.filter((order) => order.path.normalize("NFC").split("/").slice(0, -1).join("/") === group.key);
+    if (!rows.length) return "";
+    const collapsed = orderGroupCollapsed(scope, group.key);
+    const style = group.color ? ' style="--supplier-hue:' + Number(group.color.hue) + '"' : '';
+    return '<tr class="order-group-divider"' + style + '><th colspan="6"><button type="button" class="order-group-toggle" data-order-group-toggle="' + escapeHtml(group.key) +
+      '" data-order-group-scope="' + escapeHtml(scope) + '" aria-expanded="' + !collapsed + '"><span class="order-group-chevron" aria-hidden="true">▸</span><span>' + escapeHtml(group.label) +
+      '</span><span class="count-badge">' + rows.length + '</span></button></th><td class="order-deadline-column">' + renderDeadlineMonthLegend(options) + '</td><td></td></tr>' +
+      rows.map((order) => '<tr data-order-group-row="' + escapeHtml(group.key) + '"' + style + (group.color?.neutral ? ' class="supplier-neutral"' : '') + (collapsed ? ' hidden' : '') + '>' +
+        '<td class="order-blue-plus-column">' + renderOrderMarkerButton(order, "bluePlus") + '</td><td class="order-flag-column">' + renderOrderMarkerButton(order, "flag") + '</td>' +
+        '<td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td><td class="order-todo-column">' + renderOrderTodoButton(order) + '</td>' +
+        '<td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен в производство</span>' : '') +
+        '<span class="order-row-path">' + escapeHtml(order.path) + '</span></td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td class="order-deadline-column">' + renderOrderDeadlines(order, { options }) + '</td>' +
+        '<td class="order-updated">' + (order.updated ? formatDate(order.updated) : '—') + '</td></tr>').join("");
+  }).join("");
+}
+
 function renderOrders({ force = false } = {}) {
   // Replacing a focused native select would close its menu during background polling.
   if (!force && (state.orderStatusSaving.size || state.deadlineSaving.size || state.markerSaving.size || state.calendarMoving.size || state.calendarEvent?.saving || document.activeElement?.dataset.orderStatus)) return;
@@ -2653,18 +2693,22 @@ function renderOrders({ force = false } = {}) {
   const focusedBluePlus = document.activeElement?.dataset.orderBluePlus;
   const focusedGroup = document.activeElement?.dataset.orderGroupToggle;
   const focusedFavorite = document.activeElement?.dataset.orderFavorite;
+  const focusedOrder = document.activeElement?.dataset.order;
+  const focusedTodos = document.activeElement?.dataset.orderTodos;
+  const listScroll = $("ordersWorkspace").querySelector(".orders-table-scroll"), scrollLeft = listScroll.scrollLeft;
+  const pane = document.querySelector(".content-pane"), scrollTop = pane.scrollTop;
   const focusedDeadline = document.activeElement?.dataset.orderDeadline, focusedWeek = document.activeElement?.dataset.deadlineWeek;
-  const orders = orderListRows(), object = isObjectOrderList();
+  const orders = orderListRows(), object = isObjectOrderList(), work = isWorkOrderList();
   const deadlineOptions = orderListDeadlineOptions(orders);
-  if (!object) renderHomeCalendar();
+  if (state.view === "orders") renderHomeCalendar();
   const needle = normalize(state.orderQuery.trim());
-  const matching = orders.filter((order) => !needle || normalize([order.client, order.object, order.title, order.path, order.note, orderTodoText(order), orderPurchaseText(order)].join(" ")).includes(needle));
-  const productionMatching = matching.filter((order) => state.financialFilter === "all" || order.financial_status === state.financialFilter);
+  const matching = orders.filter((order) => !needle || normalize([order.client, order.object, order.title, order.path, order.note, orderTodoText(order), work ? order.work_supplier : orderPurchaseText(order)].join(" ")).includes(needle));
+  const productionMatching = matching.filter((order) => work || state.financialFilter === "all" || order.financial_status === state.financialFilter);
   const financeMatching = matching.filter((order) => orderMatchesProduction(order, state.orderFilter));
-  const filtered = productionMatching.filter((order) => orderMatchesProduction(order, state.orderFilter));
+  const filtered = productionMatching.filter((order) => work || orderMatchesProduction(order, state.orderFilter));
   const { orderSort: key, orderDirection: direction } = state;
   filtered.sort((a, b) => compareOrders(a, b, key, direction));
-  $(object ? "objectOrdersSummary" : "folderSummary").textContent = filtered.length + " из " + orders.length + " заказов · данные из локальной базы";
+  $(work ? "workOrderDirectoryCount" : object ? "objectOrdersSummary" : "folderSummary").textContent = filtered.length + " из " + orders.length + " заказов · данные из локальной базы";
   $("orderStatusFilters").innerHTML = Object.entries({ all: object ? "Все" : "Основные", ...statusLabels, ...(object ? { unregistered: "Не добавлены" } : {}) }).map(([status, label]) =>
     '<button data-status="' + status + '" aria-pressed="' + (state.orderFilter === status) + '" class="file-filter' + (state.orderFilter === status ? " active" : "") + '">' + label + '<span>' + productionMatching.filter((order) => orderMatchesProduction(order, status)).length + '</span></button>').join("");
   $("financialStatusFilter").innerHTML = Object.entries({ all: "Все", ...financialStatusLabels }).map(([status, label]) =>
@@ -2684,7 +2728,7 @@ function renderOrders({ force = false } = {}) {
     const group = object && !orderShownOnMain(order) ? groups[3] : groups.find((group) => group.statuses.includes(order.status)) || groups[2];
     group.orders.push(order);
   });
-  $("ordersTableBody").innerHTML = groups.filter((group) => group.orders.length).map((group) =>
+  $("ordersTableBody").innerHTML = work ? renderWorkOrders(filtered, deadlineOptions) : groups.filter((group) => group.orders.length).map((group) =>
     '<tr class="order-group-divider"><th colspan="9"><button type="button" class="order-group-toggle" data-order-group-toggle="' + group.key +
     '" data-order-group-scope="' + escapeHtml(groupScope) + '" aria-expanded="' + !group.collapsed +
     '"><span class="order-group-chevron" aria-hidden="true">▸</span><span>' + escapeHtml(group.label) +
@@ -2694,7 +2738,7 @@ function renderOrders({ force = false } = {}) {
     '<td class="order-updated">' + (order.updated ? formatDate(order.updated) : '—') + (order.sync_pending ? '<span class="sync-pending" title="' + escapeHtml(order.sync_error || "Ожидает выгрузки в папку") + '">' + (order.sync_error ? "В очереди · автоповтор" : "Ожидает выгрузки") + '</span>' : '<span class="sync-complete">' + (order.storage === 'database' ? 'В базе' : 'Выгружено') + '</span>') + '</td></tr>').join("")).join("");
   $("ordersEmpty").hidden = Boolean(filtered.length);
   $("ordersEmptyTitle").textContent = orders.length ? "Нет заказов по этому фильтру" : "Заказов пока нет";
-  $("ordersEmptyHint").textContent = orders.length ? "Выберите другой статус или измените поисковый запрос." : object ? "Создай заказ в этом объекте или обнови его папки." : "Открой папку заказа в дереве слева и нажми «Добавить в список заказов».";
+  $("ordersEmptyHint").textContent = orders.length ? "Измени поисковый запрос или выбранный фильтр." : work ? "Создай заказ в разделе поставщика первой группы или прямо в # work. Для новых папок нажми «Обновить»." : object ? "Создай заказ в этом объекте или обнови его папки." : "Открой папку заказа в дереве слева и нажми «Добавить в список заказов».";
   const pending = orders.filter((order) => order.sync_pending), errors = pending.filter((order) => order.sync_error);
   const scan = state.scan;
   $("ordersSyncState").textContent = scan?.running ? "Поиск карточек в фоне · просмотрено папок: " + scan.folders + " · добавлено: " + scan.added :
@@ -2711,7 +2755,7 @@ function renderOrders({ force = false } = {}) {
   }
   if (scan?.errors.length) $("ordersSyncState").textContent += " · " + scan.errors.slice(0, 3).join(" · ");
   if (state.unregistrations.length) $("ordersSyncState").textContent += " · Сохранение снятой регистрации: " + state.unregistrations.length + (state.unregistrations.some((item) => item.sync_error) ? " · есть ошибки, повторим выгрузку" : "");
-  if (object && state.objectOrdersError) $("ordersSyncState").textContent += " · Список папок неполный: " + state.objectOrdersError;
+  if ((object || work) && state.objectOrdersError) $("ordersSyncState").textContent += " · Список папок неполный: " + state.objectOrdersError;
   $("ordersWorkspace").querySelectorAll("th").forEach((th) => {
     const button = th.querySelector("button[data-sort]");
     if (!button) return;
@@ -2725,6 +2769,8 @@ function renderOrders({ force = false } = {}) {
   focusOrderFavorite(focusedFavorite);
   focusOrderDeadline(focusedDeadline, focusedWeek);
   focusOrderGroup(focusedGroup);
+  if (work && (focusedOrder || focusedTodos)) [...$("ordersTableBody").querySelectorAll("[data-order], [data-order-todos]")].find((button) => focusedOrder ? button.dataset.order === focusedOrder : button.dataset.orderTodos === focusedTodos)?.focus({ preventScroll: true });
+  if (work) { listScroll.scrollLeft = scrollLeft; pane.scrollTop = scrollTop; }
 }
 
 async function showOrders({ history = true } = {}) {
@@ -2816,9 +2862,10 @@ async function navigate(path, { history = true } = {}) {
     $("openFolderButton").hidden = false;
     $("ordersButton").removeAttribute("aria-current");
     state.folder = data;
-    if (data.folderKind === "object") {
+    if (["object", "work_root"].includes(data.folderKind)) {
       state.objectOrders = data.objectOrders?.orders || [];
       state.objectOrdersError = data.objectOrders?.error || "";
+      state.workOrderGroups = data.objectOrders?.groups || [];
       if (data.objectOrders?.deadline_week_options) state.deadlineWeekOptions = data.objectOrders.deadline_week_options;
     }
     $("fileTrashState").textContent = "";

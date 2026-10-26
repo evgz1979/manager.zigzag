@@ -186,7 +186,11 @@ h2 { font-size: 13px; font-weight: 600; }
 .subfolders { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 660px), 1fr)); gap: 8px; }
 .work-supplier-divider { grid-column: 1 / -1; width: 100%; margin: 10px 0; border: 0; border-top: 1px solid var(--line); }
 .work-supplier-tile { position: relative; min-width: 0; }
+.subfolders.work-section-buttons { grid-template-columns: repeat(auto-fill, minmax(min(100%, 165px), 165px)); }
 .work-supplier-tile > .subfolder { width: 100%; height: 100%; padding-right: 52px; }
+.work-section-buttons .work-supplier-tile > .subfolder { padding-right: 36px; gap: 6px; }
+.work-section-buttons .work-supplier-star { right: 5px; }
+.work-section-buttons .subfolder > svg:first-child { width: 18px; height: 18px; flex-shrink: 0; }
 .work-supplier-star { position: absolute; right: 9px; top: 50%; transform: translateY(-50%); }
 .subfolder { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 12px 13px; text-align: left; font-size: 12px; background: #fcfdfb; }
 .subfolder > svg:first-child { width: 21px; height: 21px; color: #93a586; fill: #e3ebd8; }
@@ -652,6 +656,11 @@ h2 { font-size: 13px; font-weight: 600; }
 .order-row-path { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
 .order-unregistered-label { display: inline-block; margin-top: 3px; color: #986a31; font-size: 10px; }
 #objectOrdersSection .orders-workspace { padding-top: 0; }
+#workOrdersSection .orders-workspace { padding-top: 0; }
+.work-order-list .orders-table { min-width: 1000px; }
+.work-order-list .order-row-link { color: hsl(var(--supplier-hue, 140) 70% 33%); }
+.work-order-list .supplier-neutral .order-row-link { color: #6b7278; }
+.work-order-list .order-group-toggle { color: hsl(var(--supplier-hue, 140) 70% 33%); }
 .order-todo-dialog { width: min(620px, calc(100vw - 32px)); max-width: none; max-height: min(560px, calc(100dvh - 80px)); padding: 0; border: 1px solid var(--line); border-radius: 12px; color: var(--text); box-shadow: 0 20px 70px #19312633; overflow: hidden; }
 .order-todo-dialog[open] { display: flex; flex-direction: column; }
 .order-todo-dialog::backdrop { background: #1d33365c; }
