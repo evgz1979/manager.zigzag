@@ -1384,6 +1384,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json({"status": "ok", "release": RELEASE_ID, "root": str(DATA_ROOT)}, head=head)
             elif parsed.path == "/api/orders":
                 self.send_json(listed_orders(), head=head)
+            elif parsed.path == "/api/calendar-telegram-settings":
+                self.send_json(telegram_calendar.status(DATA_DIR), head=head)
             elif parsed.path == "/api/object-orders":
                 self.send_json(listed_object_orders(relative, query.get("show_inactive", [""])[0] == "1"), head=head)
             elif parsed.path == "/api/work-supplier-favorites":
@@ -1616,7 +1618,48 @@ class ManagerHandler(BaseHTTPRequestHandler):
             if acquired:
                 telegram_calendar.SEND_LOCK.release()
 
+    def receive_telegram_settings(self):
+        self.close_connection = True
+        acquired = False
+        try:
+            origin = self.headers.get('Origin')
+            if (self.headers.get('X-Manager-Calendar') != '1' or self.headers.get_content_type() != 'application/json'
+                    or (origin and urllib.parse.urlsplit(origin).netloc != self.headers.get('Host'))):
+                self.send_json({'error': 'Подключай бота через настройку Telegram менеджера'}, 403)
+                return
+            lengths = self.headers.get_all('Content-Length') or []
+            if self.headers.get('Transfer-Encoding') or len(lengths) != 1 or not re.fullmatch(r'[0-9]+', lengths[0]):
+                raise ValueError('Не указан размер запроса')
+            length = int(lengths[0])
+            if not 1 <= length <= 8192:
+                raise ValueError('Слишком большой запрос настройки Telegram')
+            acquired = telegram_calendar.SEND_LOCK.acquire(blocking=False)
+            if not acquired:
+                self.send_json({'error': 'Telegram сейчас занят. Дождись завершения запроса'}, 409)
+                return
+            self.connection.settimeout(30)
+            payload = json.loads(self.rfile.read(length))
+            if not isinstance(payload, dict):
+                raise ValueError('Некорректный запрос настройки Telegram')
+            self.send_json(telegram_calendar.configure(payload, DATA_DIR))
+        except telegram_calendar.TelegramError as error:
+            self.send_json({'error': str(error)}, 502)
+        except (ValueError, UnicodeDecodeError):
+            self.send_json({'error': 'Проверь токен нового бота и выбранный личный чат'}, 400)
+        except configparser.Error:
+            self.send_json({'error': 'Неизвестный формат настроек Telegram на M4. Исходный файл сохранён'}, 400)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        except OSError:
+            self.send_json({'error': 'Не удалось подключить Telegram. Введённые данные остались в форме'}, 502)
+        finally:
+            if acquired:
+                telegram_calendar.SEND_LOCK.release()
+
     def do_POST(self):
+        if urllib.parse.urlsplit(self.path).path == '/api/calendar-telegram-settings':
+            self.receive_telegram_settings()
+            return
         if urllib.parse.urlsplit(self.path).path == '/api/calendar-telegram':
             self.receive_calendar_telegram()
             return

@@ -526,6 +526,14 @@ h2 { font-size: 13px; font-weight: 600; }
 .calendar-order-link:hover { text-decoration: underline; }
 .calendar-order-link:focus-visible { outline-offset: -1px; }
 .calendar-order-title { display: inline; }
+.calendar-order-markers { display: inline-flex; align-items: center; gap: 1px; height: 12px; margin-right: 2px; vertical-align: top; }
+.calendar-order-marker { display: inline-flex; align-items: center; justify-content: center; width: 10px; height: 12px; line-height: 12px; }
+.calendar-order-marker svg { width: 10px; height: 10px; }
+.calendar-order-blue-plus { color: #236da8; }
+.calendar-order-blue-plus svg { stroke-width: 3.6; }
+.calendar-order-flag { color: #b56c69; }
+.calendar-order-flag svg { fill: currentColor; }
+.calendar-order-favorite { color: #b57b0b; font-size: 11px; }
 .calendar-order-client { display: inline; font-size: 9px; line-height: 1; color: var(--muted); }
 .calendar-order-client::before { content: " · "; }
 .calendar-orders-list > .calendar-orders-empty { padding-left: 4px; font-size: 11px; line-height: 12px; color: #b4b4b4; }
@@ -686,6 +694,8 @@ h2 { font-size: 13px; font-weight: 600; }
 .create-order-dialog label { display: grid; gap: 7px; font-size: 12px; color: var(--muted); }
 .create-order-dialog input { width: 100%; min-width: 0; padding: 10px; color: var(--text); }
 #planInvoiceDialog select { width: 100%; min-width: 0; padding: 10px; color: var(--text); }
+#calendarTelegramSettings select { width: 100%; min-width: 0; padding: 10px; color: var(--text); }
+#calendarTelegramSettings { max-height: 90dvh; overflow: auto; }
 #planInvoiceSource { margin: 0; overflow-wrap: anywhere; }
 .create-order-dialog .confirm-actions { margin-top: 5px; }
 .new-order-preview { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }

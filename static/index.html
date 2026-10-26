@@ -318,6 +318,20 @@
       <form id="deleteFilesForm"><h2 id="deleteFilesTitle">Переместить файлы в корзину?</h2><p id="deleteFilesCount"></p><ul id="deleteFilesList" class="file-operation-list"></ul><p>Файлы и их комментарии сохранятся в корзине менеджера. Их можно будет восстановить кнопкой «Корзина».</p><div class="confirm-actions"><button id="cancelDeleteFiles" class="secondary-button" type="button">Отмена</button><button id="confirmDeleteFiles" class="danger-button" type="submit">В корзину</button></div></form>
     </dialog>
     <dialog id="fileTrashDialog" class="confirm-dialog file-trash-dialog" aria-labelledby="fileTrashTitle"><h2 id="fileTrashTitle">Корзина менеджера</h2><div id="fileTrashList"></div><p id="fileTrashWarning" class="file-report-state error" role="status" hidden></p><p id="fileTrashDialogState" class="file-report-state" role="status"></p><div class="confirm-actions"><button id="closeFileTrash" class="secondary-button" type="button">Закрыть</button></div></dialog>
+    <dialog id="calendarTelegramSettings" class="confirm-dialog create-order-dialog" aria-labelledby="calendarTelegramSettingsTitle">
+      <h2 id="calendarTelegramSettingsTitle">Бот календаря Зигзаг</h2>
+      <p>Создай отдельного бота в <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer">@BotFather</a> командой <strong>/newbot</strong>. Например, назови его «Зигзаг — календарь». Затем открой нового бота и нажми «Старт».</p>
+      <p id="calendarTelegramConnected" class="new-order-preview" hidden></p>
+      <form id="calendarTelegramSettingsForm" autocomplete="off">
+        <label for="calendarTelegramToken">Токен нового бота<input id="calendarTelegramToken" type="password" autocomplete="new-password" spellcheck="false" autocapitalize="off" maxlength="200" required></label>
+        <button id="calendarTelegramFindChat" class="secondary-button" type="button">Найти мой чат</button>
+        <label for="calendarTelegramChat">Твой чат с ботом<select id="calendarTelegramChat"><option value="">Сначала нажми «Найти мой чат»</option></select></label>
+        <label for="calendarTelegramChatId">Или ID твоего личного чата<input id="calendarTelegramChatId" type="text" inputmode="numeric" pattern="[1-9][0-9]*" maxlength="20" placeholder="Если знаешь свой ID"></label>
+        <p id="calendarTelegramSettingsError" class="form-error" role="alert" hidden></p>
+        <p id="calendarTelegramSettingsHint" class="new-order-preview" role="status">Токен сохранится только на M4. При повторном открытии поле будет пустым.</p>
+        <div class="confirm-actions"><button id="calendarTelegramSettingsClose" class="secondary-button" type="button">Закрыть</button><button id="calendarTelegramSettingsSave" class="primary-button" type="submit">Подключить бота</button></div>
+      </form>
+    </dialog>
     <div id="toast" class="toast" role="status" hidden></div>
     <script src="/spreadsheet-preview.js"></script>
     <script src="/home-calendar.js"></script>

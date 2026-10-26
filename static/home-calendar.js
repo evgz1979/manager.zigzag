@@ -1,6 +1,12 @@
 /* A bounded calendar with weekly order deadlines. Civil dates use Moscow. */
 const HomeCalendar = (() => {
   const DAY = 86400000;
+  // Inline paths survive PNG capture, which omits the page's SVG sprite.
+  const orderMarkers = [
+    { field: "is_blue_plus", name: "blue-plus", label: "Синий плюс", content: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>' },
+    { field: "is_flagged", name: "flag", label: "Флажок", content: '<svg viewBox="0 0 24 24"><path d="M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0Z"/><path d="M5 3v18" fill="none"/></svg>' },
+    { field: "is_favorite", name: "favorite", label: "Избранное", content: '★' },
+  ];
   const dateKey = (date) => date.toISOString().slice(0, 10);
   const shiftDays = (date, days) => new Date(date.getTime() + days * DAY);
   const monday = (date) => shiftDays(date, -((date.getUTCDay() + 6) % 7));
@@ -104,7 +110,7 @@ const HomeCalendar = (() => {
     }
     for (const row of get("calendarWeeks").children) {
       const list = row.querySelector(".calendar-orders-list"), weekly = byWeek.get(row.dataset.week) || [];
-      const signature = JSON.stringify(weekly.map((order) => [order.id, order.path, order.title, order.client, order.object, order.work_supplier, order.work_supplier_color, order.calendar_events, order.calendar_week_events, order.calendar_inactive, order.calendar_colors]));
+      const signature = JSON.stringify(weekly.map((order) => [order.id, order.path, order.title, order.client, order.object, order.is_blue_plus, order.is_flagged, order.is_favorite, order.work_supplier, order.work_supplier_color, order.calendar_events, order.calendar_week_events, order.calendar_inactive, order.calendar_colors]));
       if (list.dataset.signature === signature) continue;
       list.dataset.signature = signature;
       const top = list.parentElement.scrollTop;
@@ -119,11 +125,14 @@ const HomeCalendar = (() => {
           item = document.createElement("li");
           item.dataset.orderKey = key;
           item.className = "calendar-order-row";
-          const link = document.createElement("a"), title = document.createElement("span"), client = document.createElement("small");
+          const link = document.createElement("a"), markers = document.createElement("span"), title = document.createElement("span"), client = document.createElement("small");
           link.className = "calendar-order-link";
+          markers.className = "calendar-order-markers";
+          markers.setAttribute("aria-hidden", "true");
+          markers.innerHTML = orderMarkers.map((marker) => '<span class="calendar-order-marker calendar-order-' + marker.name + '">' + marker.content + '</span>').join("");
           title.className = "calendar-order-title";
           client.className = "calendar-order-client";
-          link.append(title, client);
+          link.append(markers, title, client);
           item.append(link);
           for (let day = -1; day < 7; day++) {
             const slot = document.createElement("button");
@@ -138,10 +147,14 @@ const HomeCalendar = (() => {
         if (supplier) item.style.setProperty("--supplier-hue", String(color?.hue ?? 0));
         else item.style.removeProperty("--supplier-hue");
         const link = item.firstElementChild, title = order.title || order.path;
+        const activeMarkers = orderMarkers.filter((marker) => order[marker.field] === true);
+        const markers = link.firstElementChild;
+        orderMarkers.forEach((marker, index) => { markers.children[index].hidden = order[marker.field] !== true; });
+        markers.hidden = !activeMarkers.length;
         link.href = "?path=" + encodeURIComponent(order.path);
         link.dataset.calendarOrder = order.path;
-        link.setAttribute("aria-label", [title, order.client, order.object].filter(Boolean).join(" · "));
-        link.firstElementChild.textContent = title;
+        link.setAttribute("aria-label", [title, order.client, order.object, ...activeMarkers.map((marker) => marker.label)].filter(Boolean).join(" · "));
+        link.querySelector(".calendar-order-title").textContent = title;
         link.lastElementChild.textContent = order.client || "";
         link.lastElementChild.hidden = !order.client;
         for (let day = -1; day < 7; day++) {
