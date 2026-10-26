@@ -778,6 +778,7 @@ h2 { font-size: 13px; font-weight: 600; }
 .invoice-linked-entry { display: flex; align-items: center; gap: 4px; min-width: 0; }
 .invoice-linked-plan { flex: 1; min-width: 0; padding: 0; border: 0; background: transparent; text-align: left; font: inherit; font-size: 11px; line-height: 16px; color: #1c8b39; overflow-wrap: anywhere; cursor: pointer; }
 .invoice-linked-plan[data-operation="outgoing"] { color: #d84d38; }
+.invoice-linked-plan.invoice-linked-inactive { color: #8a9290; }
 .invoice-linked-plan:hover:not(:disabled), .invoice-linked-plan:focus-visible { text-decoration: underline; }
 .invoice-linked-plan:disabled { opacity: .6; cursor: default; }
 .invoice-row .invoice-linked-entry .invoice-remove { padding: 0 4px; border-color: transparent; background: transparent; }
