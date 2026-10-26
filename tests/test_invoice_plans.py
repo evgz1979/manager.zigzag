@@ -267,7 +267,64 @@ class InvoicePlanTests(unittest.TestCase):
         self.store.remove({**source, 'confirmed': True})
         with self.assertRaises(invoices.InvoiceConflict):
             self.store.plan({**payload, 'id': str(uuid.uuid4())})
-        self.assertEqual(self.store.calendar_plans([self.owner])[0]['invoice_label'], detail['label'])
+        self.assertEqual(self.store.calendar_plans([self.owner]), [])
+        self.assertEqual(self.store.get(self.path, partial['id'])['data']['invoice_label'], detail['label'])
+
+    def test_inactive_source_hides_all_its_payments_without_changing_plans_or_other_payments(self):
+        for state in ('issued', 'external'):
+            with self.subTest(source_state=state):
+                source = self.store.create({'path': self.path, 'id': str(uuid.uuid4())})
+                with self.store.connect() as db:
+                    db.execute('UPDATE invoices SET state=?,pdf=? WHERE id=?', (state, b'%PDF-immutable', source['id']))
+                source = self.store.get(self.path, source['id'])
+                linked = [self.store.plan(self.payload(date='2026-10-26', period=period, operation=operation, amount='146292',
+                    source_invoice=source['id'], source_revision=source['revision']))
+                    for period in ('day', 'week') for operation in ('incoming', 'outgoing')]
+                free = self.store.plan(self.payload(path='', operation='incoming', amount='146292'))
+                unlinked = self.store.plan(self.payload(operation='incoming', amount='146292'))
+                other_source = self.store.create({'path': self.path, 'id': str(uuid.uuid4())})
+                with self.store.connect() as db:
+                    db.execute("UPDATE invoices SET state='issued' WHERE id=?", (other_source['id'],))
+                other_payment = self.store.plan(self.payload(operation='incoming', amount='146292',
+                    source_invoice=other_source['id'], source_revision=other_source['revision']))
+                linked_ids = {plan['id'] for plan in linked}
+                inactive = self.store.save_list_status({**source, 'value': 'inactive'})
+                status, _, body = self.http('/api/orders')
+                self.assertEqual(status, 200, body)
+                shown = {plan['id'] for plan in json.loads(body)['calendar_invoice_plans']}
+                self.assertFalse(linked_ids & shown)
+                self.assertTrue({free['id'], unlinked['id'], other_payment['id']} <= shown)
+                self.assertTrue(linked_ids <= {record['id'] for record in self.store.list(self.path)})
+                for original in linked:
+                    self.assertEqual(self.store.get(self.path, original['id']), original)
+                for value in ('none', 'active', 'later', 'sent', 'paid'):
+                    inactive = self.store.save_list_status({**inactive, 'value': value})
+                    self.assertTrue(linked_ids <= {plan['id'] for plan in self.store.calendar_plans([self.owner])})
+                self.assertEqual(manager.order_store().get(self.path), self.owner)
+                self.assertEqual(self.store.pdf(self.path, source['id'])[0], b'%PDF-immutable')
+
+    def test_source_trash_hides_payments_and_restore_keeps_independently_removed_plan_deleted(self):
+        source = self.store.create({'path': self.path, 'id': str(uuid.uuid4())})
+        with self.store.connect() as db:
+            db.execute("UPDATE invoices SET state='issued',pdf=? WHERE id=?", (b'%PDF-immutable', source['id']))
+        source = self.store.get(self.path, source['id'])
+        payload = self.payload(operation='incoming', amount='146292', source_invoice=source['id'], source_revision=source['revision'])
+        kept = self.store.plan(payload)
+        removed = self.store.plan({**payload, 'id': str(uuid.uuid4()), 'date': '2026-11-02', 'period': 'week'})
+        removed = self.store.remove({**removed, 'confirmed': True})
+        trashed_source = self.store.remove({**source, 'confirmed': True})
+        self.assertEqual(self.store.calendar_plans([self.owner]), [])
+        self.assertEqual(self.store.get(self.path, kept['id']), kept)
+        restored_source = self.store.restore(trashed_source)
+        self.assertEqual([plan['id'] for plan in self.store.calendar_plans([self.owner])], [kept['id']])
+        self.assertEqual(self.store.list(self.path, trashed=True), [removed])
+        self.assertEqual(self.store.plan(payload), kept)
+        inactive = self.store.save_list_status({**restored_source, 'value': 'inactive'})
+        self.assertEqual(self.store.calendar_plans([self.owner]), [])
+        self.store.save_list_status({**inactive, 'value': 'none'})
+        with self.store.connect() as db:
+            db.execute('DELETE FROM invoices WHERE id=?', (source['id'],))  # Missing legacy source keeps access to the orphan plan.
+        self.assertEqual([plan['id'] for plan in self.store.calendar_plans([self.owner])], [kept['id']])
 
     def test_weekly_payments_preserve_period_history_conflicts_and_restore(self):
         payload = self.payload(path='', date='2026-10-26', period='week', operation='incoming', amount='28500', text='За неделю')

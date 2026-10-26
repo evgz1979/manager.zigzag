@@ -364,7 +364,13 @@ class InvoiceStore:
     def calendar_plans(self, visible_orders):
         owners = {order['path']: order for order in visible_orders if order.get('registered') is not False}
         with self.connect() as db:
-            rows = db.execute("SELECT id,path,data,revision FROM invoices WHERE state='planned' AND json_extract(data,'$._trash') IS NULL ORDER BY created,id")
+            rows = db.execute("""SELECT plan.id,plan.path,plan.data,plan.revision FROM invoices AS plan
+                LEFT JOIN invoices AS source ON source.id=json_extract(plan.data,'$.invoice_id')
+                    AND source.path=plan.path AND source.state IN ('issued','external')
+                WHERE plan.state='planned' AND json_extract(plan.data,'$._trash') IS NULL
+                    AND (source.id IS NULL OR (json_extract(source.data,'$._trash') IS NULL
+                        AND COALESCE(json_extract(source.data,'$._list_status'),'none')!='inactive'))
+                ORDER BY plan.created,plan.id""")
             result = []
             for row in rows:
                 owner, data = owners.get(row['path']), json.loads(row['data'])
