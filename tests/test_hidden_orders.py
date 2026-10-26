@@ -36,24 +36,40 @@ class HiddenOrderTests(unittest.TestCase):
         cancelled = self.add("Клиент/Объект/2026-01-01 - Отмена", "cancelled")
         inactive = self.add("Скрытый/Объект/2026-01-01 - Работа")
         similar = self.add("Скрытый 2/Объект/2026-01-01 - Работа")
-        production = self.add("# work/2026-01-01 - Производство", extra_blocks={"Статус заказа поставщику": "В архив"})
-        supplier = self.add("# work/# glass/2026-01-01 - Архив", extra_blocks={"Статус заказа поставщику": "В архив"})
         removed = self.add("Клиент/Объект/2026-01-01 - Снят")
         self.store.remove({"path": removed["path"], "revision": removed["revision"], "confirmed": True})
         rows = {row["path"]: row for row in hidden_orders.listed(self.store, {"Скрытый"}, {"Скрытый/Объект"})["orders"]}
-        self.assertEqual(set(rows), {order["path"] for order in (done, cancelled, inactive, production, supplier, removed)})
+        self.assertEqual(set(rows), {order["path"] for order in (done, cancelled, inactive, removed)})
         self.assertEqual(rows[done["path"]]["reasons"], ["done"])
         self.assertEqual(rows[inactive["path"]]["reasons"], ["inactive_client", "inactive_object"])
-        self.assertEqual(rows[supplier["path"]]["reasons"], ["production", "supplier_archive"])
-        self.assertEqual(rows[supplier["path"]]["status_label"], "В архив")
-        self.assertEqual(rows[production["path"]]["client"], "Производство")
-        self.assertEqual(rows[production["path"]]["reasons"], ["production", "supplier_archive"])
-        self.assertEqual(rows[production["path"]]["status_label"], "В архив")
         self.assertEqual(rows[removed["path"]]["reasons"], ["unregistered"])
         self.assertEqual(rows[done["path"]]["note"], "Первая строка")
         self.assertNotIn(active["path"], rows)
         # A similarly named client is a different branch.
         self.assertNotIn(similar["path"], rows)
+
+    def test_production_and_legacy_supplier_branches_are_excluded_in_all_states(self):
+        expected = self.add("Клиент/Объект/2026-01-01 - Готово", "done")
+        paths = ("# work/2026-01-01 - Общий", "#work/# glass/2026-01-01 - Архив",
+                 "# Work/etc/2026-01-01 - Снят", "# glass/2026-01-01 - Прежний")
+        for path in paths:
+            order = self.add(path, "done", extra_blocks={"Статус заказа поставщику": "В архив"})
+            if "Снят" in path:
+                self.store.remove({"path": path, "revision": order["revision"], "confirmed": True})
+        meta = MetadataStore(self.store)
+        for kind, path in (("work_order_folder", "# work/# etc/2026-01-02 - Черновик"),
+                           ("object_order_folder", "#glass/2026-01-01 - Заказ/00 - Прежнее вложение"),
+                           ("object_order_folder", "# glass/2026-01-02 - Черновик"),
+                           ("object_order_folder", "# work/# glass/2026-01-03 - Неизвестный")):
+            meta.put(kind, path, {"version": 2 if "Неизвестный" in path else 1, "present": True}, "missing")
+        with self.store.connect() as db:
+            before = list(db.iterdump())
+        result = hidden_orders.listed(self.store, {"# work", "#glass"}, {"#work/# glass", "# glass"})
+        self.assertEqual([row["id"] for row in result["orders"]], [expected["id"]])
+        self.assertEqual(set(result["reason_labels"]), {"done", "cancelled", "inactive_client", "inactive_object", "unregistered"})
+        self.assertEqual(result["warnings"], [])
+        with self.store.connect() as db:
+            self.assertEqual(list(db.iterdump()), before)
 
     def test_known_unregistered_folders_and_identity_paths(self):
         orders = []

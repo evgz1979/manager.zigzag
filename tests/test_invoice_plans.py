@@ -270,9 +270,9 @@ class InvoicePlanTests(unittest.TestCase):
         self.assertEqual(self.store.calendar_plans([self.owner]), [])
         self.assertEqual(self.store.get(self.path, partial['id'])['data']['invoice_label'], detail['label'])
 
-    def test_inactive_source_hides_all_its_payments_without_changing_plans_or_other_payments(self):
-        for state in ('issued', 'external'):
-            with self.subTest(source_state=state):
+    def test_inactive_or_paid_source_hides_all_its_payments_without_changing_plans_or_other_payments(self):
+        for state, hidden_status in ((state, status) for state in ('issued', 'external') for status in ('inactive', 'paid')):
+            with self.subTest(source_state=state, source_status=hidden_status):
                 source = self.store.create({'path': self.path, 'id': str(uuid.uuid4())})
                 with self.store.connect() as db:
                     db.execute('UPDATE invoices SET state=?,pdf=? WHERE id=?', (state, b'%PDF-immutable', source['id']))
@@ -280,6 +280,7 @@ class InvoicePlanTests(unittest.TestCase):
                 linked = [self.store.plan(self.payload(date='2026-10-26', period=period, operation=operation, amount='146292',
                     source_invoice=source['id'], source_revision=source['revision']))
                     for period in ('day', 'week') for operation in ('incoming', 'outgoing')]
+                linked[0] = self.store.save_plan_calendar_inactive({**linked[0], 'is_inactive': True})
                 free = self.store.plan(self.payload(path='', operation='incoming', amount='146292'))
                 unlinked = self.store.plan(self.payload(operation='incoming', amount='146292'))
                 other_source = self.store.create({'path': self.path, 'id': str(uuid.uuid4())})
@@ -288,7 +289,10 @@ class InvoicePlanTests(unittest.TestCase):
                 other_payment = self.store.plan(self.payload(operation='incoming', amount='146292',
                     source_invoice=other_source['id'], source_revision=other_source['revision']))
                 linked_ids = {plan['id'] for plan in linked}
-                inactive = self.store.save_list_status({**source, 'value': 'inactive'})
+                with self.store.connect() as db:
+                    history = {plan['id']: db.execute('SELECT COUNT(*) FROM invoice_history WHERE id=?', (plan['id'],)).fetchone()[0]
+                               for plan in linked}
+                hidden = self.store.save_list_status({**source, 'value': hidden_status})
                 status, _, body = self.http('/api/orders')
                 self.assertEqual(status, 200, body)
                 shown = {plan['id'] for plan in json.loads(body)['calendar_invoice_plans']}
@@ -297,9 +301,14 @@ class InvoicePlanTests(unittest.TestCase):
                 self.assertTrue(linked_ids <= {record['id'] for record in self.store.list(self.path)})
                 for original in linked:
                     self.assertEqual(self.store.get(self.path, original['id']), original)
-                for value in ('none', 'active', 'later', 'sent', 'paid'):
-                    inactive = self.store.save_list_status({**inactive, 'value': value})
+                for value in ('none', 'active', 'later', 'sent'):
+                    hidden = self.store.save_list_status({**hidden, 'value': value})
                     self.assertTrue(linked_ids <= {plan['id'] for plan in self.store.calendar_plans([self.owner])})
+                with self.store.connect() as db:
+                    for original in linked:
+                        self.assertEqual(db.execute('SELECT COUNT(*) FROM invoice_history WHERE id=?', (original['id'],)).fetchone()[0], history[original['id']])
+                for original in linked:
+                    self.assertEqual(self.store.get(self.path, original['id']), original)
                 self.assertEqual(manager.order_store().get(self.path), self.owner)
                 self.assertEqual(self.store.pdf(self.path, source['id'])[0], b'%PDF-immutable')
 
@@ -319,6 +328,11 @@ class InvoicePlanTests(unittest.TestCase):
         self.assertEqual([plan['id'] for plan in self.store.calendar_plans([self.owner])], [kept['id']])
         self.assertEqual(self.store.list(self.path, trashed=True), [removed])
         self.assertEqual(self.store.plan(payload), kept)
+        paid = self.store.save_list_status({**restored_source, 'value': 'paid'})
+        self.assertEqual(self.store.calendar_plans([self.owner]), [])
+        restored_source = self.store.save_list_status({**paid, 'value': 'none'})
+        self.assertEqual([plan['id'] for plan in self.store.calendar_plans([self.owner])], [kept['id']])
+        self.assertEqual(self.store.list(self.path, trashed=True), [removed])
         inactive = self.store.save_list_status({**restored_source, 'value': 'inactive'})
         self.assertEqual(self.store.calendar_plans([self.owner]), [])
         self.store.save_list_status({**inactive, 'value': 'none'})

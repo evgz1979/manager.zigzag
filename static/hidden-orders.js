@@ -29,10 +29,12 @@
   }
 
   function render() {
-    const needle = normalize($("hiddenOrdersSearch").value.trim()), reason = $("hiddenOrdersReason").value;
+    const needle = normalize($("hiddenOrdersSearch").value.trim()), selectedReason = $("hiddenOrdersReason").value;
+    const reason = selectedReason === "all" || Object.hasOwn(labels, selectedReason) ? selectedReason : "all";
     const matching = orders.filter((order) => (!needle || normalize([order.client, order.object, order.title, order.path, order.note].join(" ")).includes(needle)));
     const options = '<option value="all">Все причины · ' + matching.length + '</option>' + Object.entries(labels).map(([key, label]) => '<option value="' + escape(key) + '">' + escape(label) + ' · ' + matching.filter((order) => order.reasons.includes(key)).length + '</option>').join("");
     if (document.activeElement !== $("hiddenOrdersReason") && $("hiddenOrdersReason").innerHTML !== options) { $("hiddenOrdersReason").innerHTML = options; $("hiddenOrdersReason").value = reason; }
+    if ($("hiddenOrdersReason").value !== reason) $("hiddenOrdersReason").value = reason;
     const rows = matching.filter((order) => reason === "all" || order.reasons.includes(reason)), clients = groupOrders(rows);
     const active = document.activeElement, focusKey = active?.dataset.focusKey;
     const scrollTop = document.scrollingElement.scrollTop;
@@ -43,7 +45,7 @@
           const objectKey = groupKey("object", [client.path || client.name, object.path]);
           const sorted = object.orders.slice().sort((a, b) => (b.updated || 0) - (a.updated || 0) || compare(a.title, b.title) || compare(a.path, b.path));
           return '<details class="hidden-orders-object" data-group="' + escape(objectKey) + '"' + (collapsed.has(objectKey) ? '' : ' open') + '><summary data-focus-key="' + escape(objectKey) + '"><span>' + escape(object.name) + '</span><span class="count-badge">' + sorted.length + '</span></summary>' +
-            (object.path ? '<p class="hidden-orders-location">' + link(object.path, "Открыть объект / раздел ↗") + '</p>' : '') + '<ul class="hidden-orders-list">' + sorted.map((order) => '<li class="hidden-orders-row"><div class="hidden-orders-order">' +
+            (object.path ? '<p class="hidden-orders-location">' + link(object.path, "Открыть объект ↗") + '</p>' : '') + '<ul class="hidden-orders-list">' + sorted.map((order) => '<li class="hidden-orders-row"><div class="hidden-orders-order">' +
               '<a class="hidden-orders-title" data-focus-key="' + escape(groupKey("order", order.path)) + '" href="' + escape(href(order.path)) + '">' + escape(order.title) + '</a><span class="hidden-orders-order-path" title="' + escape(order.path) + '">' + escape(order.path) + '</span>' +
               (order.note ? '<span class="hidden-orders-note" title="' + escape(order.note) + '">' + escape(order.note) + '</span>' : '') + '</div><span class="status-badge">' + escape(order.status_label) + '</span><div class="hidden-orders-reasons">' + order.reasons.map((key) => '<span>' + escape(labels[key] || key) + '</span>').join("") + '</div></li>').join("") + '</ul></details>';
         }).join("") + '</div></details>';
@@ -54,7 +56,7 @@
       if (focusKey) [...$("hiddenOrdersGroups").querySelectorAll("[data-focus-key]")].find((element) => element.dataset.focusKey === focusKey)?.focus({ preventScroll: true });
       document.scrollingElement.scrollTop = scrollTop;
     }
-    $("hiddenOrdersCount").textContent = loaded ? rows.length + " из " + orders.length + " заказов · клиентов / разделов: " + clients.length : "Загрузка…";
+    $("hiddenOrdersCount").textContent = loaded ? rows.length + " из " + orders.length + " заказов · клиентов: " + clients.length : "Загрузка…";
     $("hiddenOrdersEmpty").hidden = !loaded || Boolean(rows.length);
   }
 

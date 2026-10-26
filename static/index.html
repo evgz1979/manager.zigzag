@@ -18,14 +18,11 @@
     </svg>
     <main class="workspace">
       <aside class="sidebar" aria-label="Папки">
-        <header class="brand"><button id="homeButton" class="brand-button" title="Все клиенты"><span class="brand-mark">З</span><span>Зигзаг<small>Менеджер заказов</small></span></button><button id="refreshButton" class="icon-button" title="Обновить" aria-label="Обновить"><svg><use href="#icon-refresh"/></svg></button></header>
-        <button id="mobileButton" class="orders-nav" type="button">iPhone · обмен</button>
+        <header class="brand"><button id="homeButton" class="brand-button" title="Все заказы" aria-label="Все заказы · Зигзаг"><span class="brand-mark">З</span><span>Зигзаг<small>Менеджер заказов</small></span></button><button id="refreshButton" class="icon-button" title="Обновить" aria-label="Обновить"><svg><use href="#icon-refresh"/></svg></button></header>
         <div id="auxiliaryButtons" class="auxiliary-buttons" aria-label="Общие папки"></div>
-        <button id="ordersButton" class="orders-nav" aria-current="page">Все заказы <span id="ordersNavCount" class="count-badge">0</span></button>
-        <a class="orders-nav hidden-orders-nav" href="/hidden-orders.html">Скрытые заказы <span aria-hidden="true">↗</span></a>
         <nav id="favoriteOrders" class="favorite-orders" aria-label="Избранные заказы" hidden></nav>
         <label class="search-field tree-search"><svg><use href="#icon-search"/></svg><input id="treeSearch" type="search" placeholder="Найти папку…" aria-label="Поиск по всем деревьям"></label>
-        <button id="showInactiveClients" class="inactive-clients-toggle" type="button" aria-pressed="false">Показать неактивных</button>
+        <div class="sidebar-visibility-links"><button id="showInactiveClients" class="inactive-clients-toggle sidebar-visibility-button" type="button" aria-label="Показать неактивных клиентов и объекты" aria-pressed="false">Неактивные</button><a class="hidden-orders-nav sidebar-visibility-button" href="/hidden-orders.html" aria-label="Скрытые заказы">Скрытые</a></div>
         <nav id="folderTree" class="folder-tree" aria-label="Деревья групп и клиентов"></nav>
         <section id="uploadPanel" class="upload-panel" aria-label="Загрузка файлов" hidden>
           <div class="upload-heading"><h2 id="uploadTitle">Загрузка файлов</h2><button id="closeUploadPanel" type="button" aria-label="Скрыть результат загрузки" title="Скрыть" hidden>×</button></div>
@@ -48,14 +45,9 @@
             <div class="calendar-weekdays" aria-hidden="true"><span class="calendar-orders-heading">Заказы</span><span>На неделю</span><span>пн</span><span>вт</span><span>ср</span><span>чт</span><span>пт</span><span class="weekend">сб</span><span class="weekend">вс</span></div>
             <div id="calendarViewport" class="calendar-viewport" tabindex="0" role="region" aria-label="Две недели календаря. Прокручивай вверх и вниз; Home — начало, End — конец."><div id="calendarWeeks" class="calendar-weeks"></div></div>
           </section>
-          <details id="orderListControls" class="order-list-controls"><summary><span id="orderListControlsLabel">Фильтры и итоги</span></summary>
-            <div id="orderStatusFilters" class="order-status-filters" aria-label="Фильтр по производственному статусу"></div>
-            <label class="financial-filter">Оплата<select id="financialStatusFilter" aria-label="Фильтр по финансовому статусу"></select></label>
-            <div id="orderTotals" class="order-totals" aria-label="Финансовые итоги"></div>
-          </details>
           <div id="listToolbarSlot"><div id="ordersToolbar" class="orders-toolbar">
             <label class="search-field orders-search"><svg><use href="#icon-search"/></svg><input id="orderSearch" type="search" placeholder="Найти заказ, задачу или закупку…" aria-label="Поиск заказов"></label>
-            <button id="refreshTodosButton" class="secondary-button">Обновить To-do</button><button id="syncOrdersButton" class="secondary-button">Повторить перенос / выпуск</button>
+            <button id="refreshTodosButton" class="secondary-button">Обновить To-do</button><button id="mobileButton" class="secondary-button" type="button">iPhone · обмен</button><button id="syncOrdersButton" class="secondary-button">Повторить перенос / выпуск</button>
           </div></div>
           <div id="listSyncSlot"><p id="ordersSyncState" class="orders-sync-state" role="status"></p></div>
           <div class="orders-table-scroll"><table class="orders-table"><caption class="visually-hidden">Заказы и финансовые показатели в рублях</caption><thead><tr>
@@ -65,7 +57,6 @@
             <th scope="col" class="order-money"><button data-sort="debt">Остаток ↕</button></th><th scope="col"><button id="orderDateSort" data-sort="updated">Обновлён ↓</button></th>
           </tr></thead><tbody id="ordersTableBody"></tbody></table></div>
           <div id="ordersEmpty" class="empty-state" hidden><h3 id="ordersEmptyTitle">Заказов пока нет</h3><p id="ordersEmptyHint">Открой папку заказа в дереве слева и нажми «Добавить в список заказов».</p></div>
-          <p class="orders-hint">Итоги рассчитаны по текущему фильтру. Прибыль = сумма − затраты, остаток = сумма − оплачено. Прочерк означает, что сумма ещё не указана; отрицательный остаток — переплата.</p>
         </section>
         <div id="folderView">
         <div id="orderOverview" class="order-overview">

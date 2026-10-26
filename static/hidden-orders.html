@@ -10,7 +10,7 @@
   <body class="hidden-orders-page">
     <main class="hidden-orders-main">
       <nav class="hidden-orders-back" aria-label="Навигация"><a href="/?view=orders">← Все заказы</a><span>Зигзаг · Менеджер заказов</span></nav>
-      <header class="hidden-orders-heading"><div><p class="eyebrow">КЛИЕНТЫ И ОБЪЕКТЫ</p><h1>Скрытые заказы</h1><p>Все известные менеджеру заказы, которых нет в основной таблице главной.</p></div><button id="hiddenOrdersRefresh" class="secondary-button" type="button">Обновить</button></header>
+      <header class="hidden-orders-heading"><div><p class="eyebrow">КЛИЕНТЫ И ОБЪЕКТЫ</p><h1>Скрытые заказы</h1><p>Все известные менеджеру заказы клиентов, которых нет в основной таблице главной.</p></div><button id="hiddenOrdersRefresh" class="secondary-button" type="button">Обновить</button></header>
       <div class="hidden-orders-toolbar">
         <label class="search-field"><input id="hiddenOrdersSearch" type="search" placeholder="Найти клиента, объект или заказ…" aria-label="Поиск скрытых заказов"></label>
         <label class="hidden-orders-filter">Причина скрытия<select id="hiddenOrdersReason"><option value="all">Все причины</option></select></label>
@@ -20,7 +20,7 @@
       <p id="hiddenOrdersState" class="hidden-orders-state" role="status"></p>
       <div id="hiddenOrdersGroups" class="hidden-orders-groups" aria-label="Заказы по клиентам и объектам" aria-busy="true"></div>
       <p id="hiddenOrdersEmpty" class="hidden-orders-empty" hidden>Нет заказов по этому запросу. Измени поиск или причину скрытия.</p>
-      <p class="hidden-orders-footnote">Нажми название, чтобы открыть карточку. Для старых папок без регистрации сначала открой объект или раздел поставщика и обнови его список.</p>
+      <p class="hidden-orders-footnote">Нажми название, чтобы открыть карточку. Для старых папок без регистрации сначала открой объект и обнови его список.</p>
     </main>
   </body>
 </html>

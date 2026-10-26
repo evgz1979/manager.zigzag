@@ -369,7 +369,7 @@ class InvoiceStore:
                     AND source.path=plan.path AND source.state IN ('issued','external')
                 WHERE plan.state='planned' AND json_extract(plan.data,'$._trash') IS NULL
                     AND (source.id IS NULL OR (json_extract(source.data,'$._trash') IS NULL
-                        AND COALESCE(json_extract(source.data,'$._list_status'),'none')!='inactive'))
+                        AND COALESCE(json_extract(source.data,'$._list_status'),'none') NOT IN ('inactive','paid')))
                 ORDER BY plan.created,plan.id""")
             result = []
             for row in rows:
