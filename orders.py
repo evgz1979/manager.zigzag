@@ -13,7 +13,7 @@ import order_deadlines
 import order_calendar
 import work_orders
 from order_document import money, MAX_MONEY
-from folder_structure import folder_role, is_service_folder, client_name, order_location
+from folder_structure import folder_role, is_service_folder, client_name, client_path, order_location
 from event_folder_undo import assert_unlocked, guard_database
 
 SNAPSHOT = ".order.json"  # Read-only compatibility with the previous export.
@@ -251,6 +251,13 @@ class OrderStore:
 
     def save_blue_plus(self, payload):
         return self._save_extra_block(payload, lambda blocks: document.write_blue_plus(blocks, payload.get("is_blue_plus")), update_time=False)
+
+    def save_purchase_done(self, payload, supplier):
+        relative = self.path(payload.get("path"))
+        if not client_path(relative):
+            raise ValueError("Выбери закупку обычного заказа")
+        return self._save_extra_block(payload, lambda blocks: document.write_purchase_done(
+            blocks, payload.get("index"), payload.get("text"), supplier, payload.get("done")), update_time=False)
 
     def save_calendar_event(self, payload):
         return self._save_extra_block(payload, lambda blocks: order_calendar.write(blocks, payload.get("date"), payload.get("text"), payload.get("period", "day")), update_time=False)

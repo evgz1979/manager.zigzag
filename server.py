@@ -51,6 +51,7 @@ import object_orders
 import file_uploads
 import work_orders
 from work_order_list import WorkOrderList
+import supplier_purchases
 from file_comments import FileCommentConflict
 from folder_structure import folder_role, is_catalog_group, client_name, is_print_section
 from folder_structure import client_path, in_freza, is_freza_task
@@ -1130,6 +1131,7 @@ def read_folder(relative="", show_inactive=False):
     return {"name": target.name, "path": relative_path(target), "client": client_name(relative),
             "workSupplier": work_orders.supplier_name(relative),
             "workSupplierColor": supplier_color,
+            "purchaseSupplier": supplier_purchases.supplier_name(relative),
             "root": str(DATA_ROOT), "breadcrumbs": breadcrumbs,
             "directories": nodes, "files": files, "sketches": sketch_files,
             "objectOrders": object_list,
@@ -1396,6 +1398,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(listed_object_orders(relative, query.get("show_inactive", [""])[0] == "1"), head=head)
             elif parsed.path == "/api/work-orders":
                 self.send_json(listed_work_orders(relative), head=head)
+            elif parsed.path == "/api/supplier-purchases":
+                self.send_json(supplier_purchases.SupplierPurchases(order_store()).read(relative, inactive=inactive_paths()), head=head)
             elif parsed.path == "/api/work-supplier-favorites":
                 self.send_json(work_orders.read_supplier_favorites(order_store(), relative), head=head)
             elif parsed.path == "/api/storage":
@@ -1829,6 +1833,10 @@ class ManagerHandler(BaseHTTPRequestHandler):
             elif route == "/api/order-save":
                 record = order_store().save(payload)
                 self.send_json(record)
+                schedule_order_sync()
+                return
+            elif route == "/api/supplier-purchase-done":
+                self.send_json(supplier_purchases.SupplierPurchases(order_store()).save(payload, inactive=inactive_paths()))
                 schedule_order_sync()
                 return
             elif route == "/api/order-favorite":

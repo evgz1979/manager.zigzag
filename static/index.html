@@ -122,6 +122,11 @@
           <div id="workLinksList" class="work-links-list"></div><p id="workLinksState" class="todo-save-state" role="status"></p>
         </section>
         <section id="sketchSection" class="folder-section" aria-label="Эскизы" hidden><div class="section-heading"><h2>Эскизы</h2><span id="sketchCount"></span></div><div id="sketchTiles" class="subfolders with-event-relevance sketch-grid"></div></section>
+        <section id="supplierPurchasesSection" class="supplier-purchases-section folder-section" aria-label="To-do из закупок обычных заказов" hidden>
+          <header class="todo-heading"><h2>To-do · закупки из заказов <span id="supplierPurchasesCount" class="count-badge"></span></h2><button id="refreshSupplierPurchases" class="secondary-button" type="button">Обновить</button></header>
+          <label class="supplier-purchases-completed"><input id="supplierPurchasesShowDone" type="checkbox">Показать выполненные</label>
+          <div id="supplierPurchasesList"></div><p id="supplierPurchasesState" class="todo-save-state" role="status"></p>
+        </section>
         <section id="objectOrdersSection" class="folder-section" aria-label="Заказы объекта" hidden><div class="section-heading"><h2>Заказы объекта</h2><span id="objectOrdersSummary"></span></div><div id="objectOrdersSlot"></div></section>
         <section id="folderSection" class="folder-section" aria-label="Подпапки"><div class="section-heading"><h2 id="foldersTitle">Папки</h2><span id="directoryCount"></span></div><label id="frezaTaskSearchLabel" class="search-field freza-task-search" hidden><svg><use href="#icon-search"/></svg><input id="frezaTaskSearch" type="search" placeholder="Найти задание…" aria-label="Поиск заданий на фрезеровку"></label><div id="subfolders" class="subfolders"></div></section>
         <details id="frezaLegacyFolders" class="folder-section" hidden><summary>Прежние подпапки <span id="frezaLegacyCount" class="count-badge"></span></summary><div id="frezaLegacyList" class="subfolders"></div></details>
@@ -340,6 +345,7 @@
     <script src="/invoice-documents.js"></script>
     <script src="/invoices.js"></script>
     <script src="/work-orders.js"></script>
+    <script src="/supplier-purchases.js"></script>
     <script src="/mobile.js"></script>
   </body>
 </html>

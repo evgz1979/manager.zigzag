@@ -784,6 +784,23 @@ function renderPurchases() {
   renderPurchaseSaveState();
 }
 
+function applyRemotePurchaseUpdate(folder, order) {
+  const previous = folder.order;
+  if (state.folder !== folder || state.dirty || state.saving || order.id !== previous?.id || order.revision <= previous.revision ||
+      document.activeElement?.closest("#purchasePanel") || $("purchaseNewText").value) return false;
+  // A partial purchase update may advance the card only when all other saved fields agree.
+  const unchanged = record => {
+    const blocks = { ...record.extra_blocks };
+    delete blocks["Закупки и затраты"];
+    return JSON.stringify([...["path", "id", "title", "status", "financial_status", "note", "amount", "costs", "paid", "updated"].map(key => record[key]), blocks]);
+  };
+  if (unchanged(previous) !== unchanged(order) || JSON.stringify(previous.purchase_items) === JSON.stringify(order.purchase_items)) return false;
+  folder.order = order;
+  folder.purchase_items = Array.isArray(order.purchase_items) ? order.purchase_items.map(item => ({ ...item, suppliers: [...item.suppliers] })) : null;
+  renderPurchases(); renderExportState();
+  return true;
+}
+
 function renderTodos() {
   const items = state.folder.todo_items;
   const editable = Array.isArray(items);
@@ -3614,6 +3631,7 @@ setInterval(() => {
   } else if (state.folder?.order && !state.dirty && !state.saving) {
     const folder = state.folder;
     request(apiUrl("/api/order", folder.path)).then((order) => {
+      if (applyRemotePurchaseUpdate(folder, order)) return;
       if (state.folder === folder && !state.dirty && !state.saving && order.revision === folder.order.revision) {
         folder.order = order;
         renderExportState();

@@ -145,6 +145,27 @@ def write_purchases(blocks, items):
     return result
 
 
+def write_purchase_done(blocks, index, text, supplier, done):
+    """Change only the original checkbox; retain the rest of the stored block."""
+    items = read_purchases(blocks)
+    if items is None:
+        raise ValueError("Неизвестные записи закупок сохранены без изменений")
+    if type(index) is not int or index < 0 or index >= len(items) or type(done) is not bool:
+        raise ValueError("Укажи закупку и отметку выполнения")
+    item = items[index]
+    if not isinstance(supplier, str) or supplier not in PURCHASE_SUPPLIERS or supplier not in item["suppliers"] or text != item["text"]:
+        raise ValueError("Закупка или выбор поставщика изменились. Обнови список")
+    lines = blocks[PURCHASE_BLOCK].splitlines(keepends=True)
+    position = -1
+    for line_index, line in enumerate(lines):
+        if line.startswith("- ["):
+            position += 1
+            if position == index:
+                lines[line_index] = line[:3] + ("x" if done else " ") + line[4:]
+                break
+    return {**blocks, PURCHASE_BLOCK: "".join(lines)}
+
+
 def folder_note(record):
     return {"note": record.get("note", ""), "extra_blocks": record.get("extra_blocks", {})}
 
