@@ -1740,7 +1740,7 @@ async function loadOrders() {
   state.unregistrations = result.unregistrations || [];
   state.scan = result.scan;
   state.storage = result.storage;
-  $("ordersNavCount").textContent = result.orders.length;
+  $("ordersNavCount").textContent = result.orders.filter(orderShownOnMain).length;
   renderFavoriteOrders();
   if (hasOrderList()) renderOrders();
   else if (state.folder?.order) renderCardDeadlines();
@@ -2266,6 +2266,7 @@ function orderShownOnMain(order) {
 }
 
 function orderMatchesProduction(order, filter) {
+  if (state.view === "orders" && !orderShownOnMain(order)) return false;
   if (filter === "unregistered") return order.registered === false;
   return filter === "all" ? isObjectOrderList() || orderShownOnMain(order) : order.status === filter;
 }
@@ -2811,7 +2812,7 @@ function renderOrders({ force = false } = {}) {
   const listScroll = $("ordersWorkspace").querySelector(".orders-table-scroll"), scrollLeft = listScroll.scrollLeft;
   const pane = document.querySelector(".content-pane"), scrollTop = pane.scrollTop;
   const focusedDeadline = document.activeElement?.dataset.orderDeadline, focusedWeek = document.activeElement?.dataset.deadlineWeek;
-  const orders = orderListRows(), object = isObjectOrderList(), work = isWorkOrderList();
+  const orders = orderListRows().filter((order) => state.view !== "orders" || orderShownOnMain(order)), object = isObjectOrderList(), work = isWorkOrderList();
   const deadlineOptions = orderListDeadlineOptions(orders);
   renderWorkArchive();
   if (state.view === "orders") renderHomeCalendar();
@@ -2823,7 +2824,7 @@ function renderOrders({ force = false } = {}) {
   const { orderSort: key, orderDirection: direction } = state;
   filtered.sort((a, b) => compareOrders(a, b, key, direction));
   $(work ? "workOrderDirectoryCount" : object ? "objectOrdersSummary" : "folderSummary").textContent = filtered.length + " из " + orders.length + " заказов · данные из локальной базы";
-  $("orderStatusFilters").innerHTML = Object.entries({ all: object ? "Все" : "Основные", ...statusLabels, ...(object ? { unregistered: "Не добавлены" } : {}) }).map(([status, label]) =>
+  $("orderStatusFilters").innerHTML = Object.entries({ all: object ? "Все" : "Основные", ...statusLabels, ...(object ? { unregistered: "Не добавлены" } : {}) }).filter(([status]) => state.view !== "orders" || status === "all" || orderShownOnMain({ status })).map(([status, label]) =>
     '<button data-status="' + status + '" aria-pressed="' + (state.orderFilter === status) + '" class="file-filter' + (state.orderFilter === status ? " active" : "") + '">' + label + '<span>' + productionMatching.filter((order) => orderMatchesProduction(order, status)).length + '</span></button>').join("");
   $("financialStatusFilter").innerHTML = Object.entries({ all: "Все", ...financialStatusLabels }).map(([status, label]) =>
     '<option value="' + status + '">' + label + ' · ' + financeMatching.filter((order) => status === "all" || order.financial_status === status).length + '</option>').join("");
@@ -3687,7 +3688,7 @@ $("removeOrderForm").addEventListener("submit", (event) => {
       state.orders = state.orders.filter((item) => item.path !== order.path);
       state.favoriteOrders = state.favoriteOrders.filter((item) => item.path !== order.path);
       renderFavoriteOrders();
-      $("ordersNavCount").textContent = state.orders.length;
+      $("ordersNavCount").textContent = state.orders.filter(orderShownOnMain).length;
       if (state.view === "orders") renderOrders();
       $("removeOrderDialog").close();
       notify(isWorkOrderPath(order.path) ? "Заказ убран из производства" : "Папка убрана из списка заказов");

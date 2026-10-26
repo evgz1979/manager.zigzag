@@ -36,6 +36,52 @@ h1, h2, h3, p { margin: 0; }
 .auxiliary-button svg { width: 16px; height: 16px; color: #8d9e90; }
 .auxiliary-button.active { color: var(--accent); background: var(--accent-soft); border-color: #b8d1c3; }
 .favorite-orders { display: grid; gap: 6px; margin: 0 16px 14px; max-height: min(240px, 30dvh); overflow: auto; flex-shrink: 0; scrollbar-width: thin; }
+.hidden-orders-nav { display: flex; justify-content: space-between; color: var(--muted); text-decoration: none; font-size: 12px; }
+.hidden-orders-page { background: #f7f9f7; }
+.hidden-orders-main { max-width: 1200px; margin: 0 auto; padding: 28px 36px 48px; }
+.hidden-orders-back { display: flex; justify-content: space-between; gap: 18px; margin-bottom: 30px; font-size: 12px; color: var(--muted); }
+.hidden-orders-back a, .hidden-orders-location a { color: var(--accent); text-decoration: none; }
+.hidden-orders-back a:hover, .hidden-orders-location a:hover { text-decoration: underline; }
+.hidden-orders-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+.hidden-orders-heading h1 { font-size: 28px; margin: 4px 0 7px; }
+.hidden-orders-heading p:last-child { color: var(--muted); font-size: 13px; }
+.hidden-orders-toolbar { display: flex; align-items: end; flex-wrap: wrap; gap: 10px; }
+.hidden-orders-toolbar .search-field { flex: 1 1 260px; align-self: end; }
+.hidden-orders-toolbar .search-field input { padding: 10px 0; }
+.hidden-orders-filter { display: grid; gap: 4px; font-size: 11px; color: var(--muted); }
+.hidden-orders-filter select { min-width: 220px; padding: 9px; color: var(--text); background: #fff; border: 1px solid var(--line); border-radius: 6px; }
+.hidden-orders-count { margin: 18px 0 5px; color: var(--muted); font-size: 12px; }
+.hidden-orders-state { margin-bottom: 12px; color: #986b34; font-size: 12px; overflow-wrap: anywhere; }
+.hidden-orders-groups { display: grid; gap: 12px; }
+.hidden-orders-client { border: 1px solid var(--line); border-radius: 9px; background: #fff; overflow: hidden; }
+.hidden-orders-client > summary { padding: 13px 16px; background: #edf2ee; }
+.hidden-orders-groups summary { cursor: pointer; overflow-wrap: anywhere; }
+.hidden-orders-groups summary .count-badge { margin-left: 8px; }
+.hidden-orders-group-path { margin-left: 12px; color: var(--muted); font-size: 11px; }
+.hidden-orders-objects { padding: 4px 16px 10px; }
+.hidden-orders-object + .hidden-orders-object { border-top: 1px solid var(--line); }
+.hidden-orders-object > summary { padding: 11px 0; font-size: 13px; font-weight: 550; }
+.hidden-orders-location { margin: -4px 0 8px 16px; font-size: 11px; }
+.hidden-orders-list { list-style: none; padding: 0; margin: 0; }
+.hidden-orders-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px 190px; align-items: start; gap: 16px; padding: 10px 0 10px 16px; border-top: 1px solid #eff2ef; }
+.hidden-orders-order { min-width: 0; }
+.hidden-orders-row > .status-badge { justify-self: start; }
+.hidden-orders-title { color: var(--text); font-weight: 550; text-decoration: none; overflow-wrap: anywhere; }
+.hidden-orders-title:hover { color: var(--accent); text-decoration: underline; }
+.hidden-orders-order-path, .hidden-orders-note { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hidden-orders-note { color: #687672; }
+.hidden-orders-reasons { display: flex; flex-wrap: wrap; gap: 4px; }
+.hidden-orders-reasons span { padding: 2px 6px; border-radius: 4px; background: #f4f1ec; color: #85745d; font-size: 10px; }
+.hidden-orders-empty { padding: 36px 0; color: var(--muted); }
+.hidden-orders-footnote { margin-top: 24px; font-size: 11px; color: var(--muted); }
+@media (max-width: 700px) {
+  .hidden-orders-main { padding: 20px 14px 32px; }
+  .hidden-orders-back > span { display: none; }
+  .hidden-orders-heading { align-items: start; }
+  .hidden-orders-row { grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; padding-left: 0; }
+  .hidden-orders-reasons { grid-column: 1 / -1; }
+  .hidden-orders-group-path { display: block; margin-left: 16px; }
+}
 .favorite-order-button { display: flex; align-items: flex-start; gap: 8px; min-width: 0; padding: 8px 10px; text-align: left; background: #fafbf9; font-size: 12px; }
 .favorite-order-button.active { color: var(--accent); background: var(--accent-soft); border-color: #b8d1c3; }
 .favorite-order-button:focus-visible { outline-offset: -2px; }

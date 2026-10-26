@@ -57,6 +57,7 @@ from folder_structure import folder_role, is_catalog_group, client_name, is_prin
 from folder_structure import client_path, in_freza, is_freza_task
 from client_activity import ClientActivity, ClientActivityConflict
 from client_activity import is_inactive
+import hidden_orders
 from object_activity import ObjectActivity
 
 APP_DIR = Path(__file__).resolve().parent
@@ -1394,6 +1395,9 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json({"status": "ok", "release": RELEASE_ID, "root": str(DATA_ROOT)}, head=head)
             elif parsed.path == "/api/orders":
                 self.send_json(listed_orders(), head=head)
+            elif parsed.path == "/api/hidden-orders":
+                self.send_json(hidden_orders.listed(order_store(), client_activity_store().inactive_paths(),
+                    object_activity_store().inactive_paths()), head=head)
             elif parsed.path == "/api/calendar-telegram-settings":
                 self.send_json(telegram_calendar.status(DATA_DIR), head=head)
             elif parsed.path == "/api/object-orders":
