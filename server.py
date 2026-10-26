@@ -20,6 +20,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from zoneinfo import ZoneInfo
 import calendar_events
+import telegram_calendar
 import thumbnail_cache
 from orders import OrderStore, OrderConflict, CARD, SNAPSHOT, is_service_folder
 import order_document
@@ -1575,7 +1576,50 @@ class ManagerHandler(BaseHTTPRequestHandler):
         except OSError as error:
             self.send_json({'error':'Не удалось сохранить файл на M4: '+str(error)},500)
 
+    def receive_calendar_telegram(self):
+        self.close_connection = True
+        acquired = False
+        try:
+            origin = self.headers.get('Origin')
+            if (self.headers.get('X-Manager-Calendar') != '1' or self.headers.get_content_type() != 'image/png'
+                    or (origin and urllib.parse.urlsplit(origin).netloc != self.headers.get('Host'))):
+                self.send_json({'error': 'Отправляй календарь кнопкой «В Telegram»'}, 403)
+                return
+            lengths = self.headers.get_all('Content-Length') or []
+            if self.headers.get('Transfer-Encoding') or len(lengths) != 1 or not re.fullmatch(r'[0-9]+', lengths[0]):
+                raise ValueError('Не указан размер снимка')
+            length = int(lengths[0])
+            if not 33 <= length <= telegram_calendar.MAX_IMAGE_BYTES:
+                self.send_json({'error': 'Снимок должен быть в формате PNG, до 10 МБ'}, 413)
+                return
+            query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            if len(query.get('start', [])) != 1:
+                raise ValueError('Не указана текущая неделя календаря')
+            acquired = telegram_calendar.SEND_LOCK.acquire(blocking=False)
+            if not acquired:
+                self.send_json({'error': 'Календарь уже отправляется. Дождись завершения'}, 429)
+                return
+            self.connection.settimeout(30)
+            image = self.rfile.read(length)
+            if len(image) != length:
+                raise ValueError('Снимок передан не полностью')
+            self.send_json(telegram_calendar.send(image, query['start'][0], DATA_DIR))
+        except telegram_calendar.TelegramError as error:
+            self.send_json({'error': str(error)}, 502)
+        except ValueError as error:
+            self.send_json({'error': str(error)}, 400)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        except OSError:
+            self.send_json({'error': 'Нет подтверждения отправки. Проверь Telegram перед повтором'}, 502)
+        finally:
+            if acquired:
+                telegram_calendar.SEND_LOCK.release()
+
     def do_POST(self):
+        if urllib.parse.urlsplit(self.path).path == '/api/calendar-telegram':
+            self.receive_calendar_telegram()
+            return
         if urllib.parse.urlsplit(self.path).path == '/api/file-upload':
             self.receive_upload()
             return

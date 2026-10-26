@@ -43,7 +43,7 @@
         <div id="homeSyncSlot" class="home-sync-slot" hidden></div>
         <section id="ordersWorkspace" class="orders-workspace" aria-label="Все заказы" hidden>
           <section id="homeCalendar" class="home-calendar" aria-label="Календарь" hidden>
-            <header class="calendar-heading"><h2 id="calendarTitle"></h2><span class="calendar-draft">Нажми на ячейку заказа или «+» под заказами</span><div class="calendar-navigation"><button id="calendarEarlier" type="button" aria-label="На неделю назад">⌃</button><button id="calendarToday" type="button">Сегодня</button><button id="calendarLater" type="button" aria-label="На неделю вперёд">⌄</button></div></header>
+            <header class="calendar-heading"><h2 id="calendarTitle"></h2><span class="calendar-draft">Нажми на ячейку заказа или «+» под заказами</span><div class="calendar-navigation"><button id="calendarTelegram" type="button" aria-label="Отправить текущую и две следующие недели в Telegram">В Telegram</button><button id="calendarEarlier" type="button" aria-label="На неделю назад">⌃</button><button id="calendarToday" type="button">Сегодня</button><button id="calendarLater" type="button" aria-label="На неделю вперёд">⌄</button></div></header>
             <div class="calendar-weekdays" aria-hidden="true"><span class="calendar-orders-heading">Заказы</span><span>На неделю</span><span>пн</span><span>вт</span><span>ср</span><span>чт</span><span>пт</span><span class="weekend">сб</span><span class="weekend">вс</span></div>
             <div id="calendarViewport" class="calendar-viewport" tabindex="0" role="region" aria-label="Три недели календаря. Прокручивай вверх и вниз; Home — начало, End — конец."><div id="calendarWeeks" class="calendar-weeks"></div></div>
           </section>
@@ -322,6 +322,7 @@
     <script src="/spreadsheet-preview.js"></script>
     <script src="/home-calendar.js"></script>
     <script src="/app.js"></script>
+    <script src="/calendar-telegram.js"></script>
     <script src="/invoice-documents.js"></script>
     <script src="/invoices.js"></script>
     <script src="/work-orders.js"></script>

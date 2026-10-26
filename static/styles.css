@@ -461,6 +461,11 @@ h2 { font-size: 13px; font-weight: 600; }
 .calendar-draft { font-size: 11px; color: #a1a1a1; }
 .calendar-navigation { display: flex; gap: 5px; margin-left: auto; }
 .calendar-navigation button { min-width: 30px; height: 26px; border-color: #dedede; padding: 2px 9px; border-radius: 5px; color: #6b6b6b; font-size: 12px; }
+.calendar-snapshot { position: fixed; left: -100000px; top: 0; padding: 12px; margin: 0; background: #fff; }
+.calendar-snapshot > h2 { margin: 0 0 10px; font-size: 18px; font-weight: 500; }
+.calendar-snapshot .calendar-week-content { overflow: hidden; }
+.calendar-snapshot .calendar-payment-add { visibility: hidden; }
+.calendar-snapshot .calendar-free-add { display: none; }
 .calendar-weekdays, .calendar-week { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); }
 .calendar-weekdays { padding-right: var(--calendar-scrollbar, 0px); }
 .calendar-weekdays > span { padding: 2px 10px 4px; text-align: right; font-size: 11px; color: #777; }

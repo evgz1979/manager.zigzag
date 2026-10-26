@@ -443,5 +443,23 @@ const HomeCalendar = (() => {
     const observer = new ResizeObserver(sizeInvoicePlanHeaders);
     observer.observe(get("calendarWeeks"));
   }
-  return { show, calendarRange };
+  function createSnapshot(now = new Date()) {
+    const start = monday(moscowDate(now)), end = shiftDays(start, 20);
+    const snapshot = document.createElement("section");
+    snapshot.className = "home-calendar calendar-snapshot";
+    snapshot.setAttribute("aria-hidden", "true");
+    snapshot.inert = true;
+    const title = document.createElement("h2");
+    title.textContent = "Зигзаг · " + fullDate.format(start) + " — " + fullDate.format(end);
+    snapshot.append(title, get("homeCalendar").querySelector(".calendar-weekdays").cloneNode(true));
+    for (let index = 0; index < 3; index++) {
+      const key = dateKey(shiftDays(start, index * 7));
+      const row = [...get("calendarWeeks").children].find((item) => item.dataset.week === key);
+      if (!row) throw new Error("Обнови календарь перед отправкой текущих трёх недель");
+      snapshot.append(row.cloneNode(true));
+    }
+    for (const element of snapshot.querySelectorAll("[id]")) element.removeAttribute("id");
+    return { element: snapshot, start: dateKey(start) };
+  }
+  return { show, calendarRange, createSnapshot };
 })();
