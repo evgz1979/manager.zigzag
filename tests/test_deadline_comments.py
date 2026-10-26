@@ -24,8 +24,9 @@ class DeadlineCommentFormatTests(unittest.TestCase):
         edited = order_deadlines.write_comment(removed, "2026-10-19", "Комментарий снятой недели")
         self.assertEqual(order_deadlines.read(edited), [])
         self.assertEqual(order_deadlines.read_comments(edited)["2026-10-19"], "Комментарий снятой недели")
-        self.assertEqual(order_deadlines.read_comments(order_deadlines.write_comment(edited, "2026-10-19", "")), order_deadlines.read_comments(edited))
-        self.assertEqual(order_calendar.read_inactive(order_deadlines.write_comment(edited, "2026-10-19", ""))["week"], ["2026-10-19"])
+        cleared = order_deadlines.write_comment(edited, "2026-10-19", "")
+        self.assertEqual(order_deadlines.read_comments(cleared), {})
+        self.assertEqual(order_calendar.read_inactive(cleared)["week"], [])
 
     def test_unknown_and_invalid_comments_are_preserved_without_replacement(self):
         for value in ('[]', '{"version":2,"comments":{}}', '{"version":true,"comments":{}}',
@@ -68,7 +69,8 @@ class DeadlineCommentApiTests(unittest.TestCase):
 
     def test_comments_survive_unmark_restart_and_card_save_without_cloud_reads(self):
         self.root.rename(self.base / "offline")
-        with patch.object(OrderStore, "target", side_effect=AssertionError("No folder reads")), \
+        with patch.object(manager, "schedule_order_sync"), \
+                patch.object(OrderStore, "target", side_effect=AssertionError("No folder reads")), \
                 patch("icloud_access.read_bytes", side_effect=AssertionError("No originals")):
             saved = self.store.save_deadline_comment(self.payload(note="Не заменять", amount="999"))
             for field in self.order.keys() - {"deadline_comments", "calendar_week_events", "extra_blocks", "revision"}:
@@ -112,6 +114,64 @@ class DeadlineCommentApiTests(unittest.TestCase):
             self.store.save_deadline_comment(self.payload(removed))
         restored = self.store.import_folder(self.path)
         self.assertEqual(restored["deadline_comments"], saved["deadline_comments"])
+
+    def test_clear_unmarked_week_removes_only_its_text_color_and_relevance(self):
+        first = self.store.save_deadline_comment(self.payload())
+        other = self.store.save_deadline_comment(self.payload(first, week="2026-10-26", comment="Другая неделя"))
+        daily = self.store.save_calendar_event({**self.payload(other), "date": "2026-10-19", "text": "Дневное событие"})
+        colored = self.store.save_calendar_color({**self.payload(daily), "date": "2026-10-19", "period": "week", "color": "blue"})
+        other_color = self.store.save_calendar_color({**self.payload(colored), "date": "2026-10-26", "period": "week", "color": "red"})
+        inactive = self.store.save_calendar_inactive({**self.payload(other_color), "date": "2026-10-19", "period": "week", "is_inactive": True})
+        before = self.store.save_deadline_week({**self.payload(inactive), "selected": False})
+        with self.store.connect() as db:
+            count = db.execute("SELECT count(*) FROM metadata_history WHERE identity=?", (before["id"],)).fetchone()[0]
+        with patch.object(manager, "schedule_order_sync"), \
+                patch.object(OrderStore, "target", side_effect=AssertionError("No folder reads")), \
+                patch("icloud_access.read_bytes", side_effect=AssertionError("No originals")):
+            status, _, body = self.http("/api/order-deadline-comment", "POST", json.dumps(self.payload(before, comment="", note="Не заменять")))
+        self.assertEqual(status, 200)
+        cleared = json.loads(body)
+        self.assertEqual(cleared["calendar_week_events"], {"2026-10-26": "Другая неделя"})
+        self.assertEqual(cleared["deadline_comments"], cleared["calendar_week_events"])
+        self.assertEqual(cleared["calendar_colors"], {"day": {}, "week": {"2026-10-26": "red"}})
+        self.assertEqual(cleared["calendar_inactive"], {"day": [], "week": []})
+        self.assertEqual(cleared["revision"], before["revision"] + 1)
+        for field in before.keys() - {"deadline_comments", "calendar_week_events", "calendar_colors", "calendar_inactive", "extra_blocks", "revision"}:
+            self.assertEqual(cleared[field], before[field], field)
+        self.assertEqual(cleared["extra_blocks"][order_calendar.BLOCK], before["extra_blocks"][order_calendar.BLOCK])
+        with self.store.connect() as db:
+            self.assertEqual(db.execute("SELECT count(*) FROM metadata_history WHERE identity=?", (before["id"],)).fetchone()[0], count + 1)
+        restarted = OrderStore(self.root, manager.DATA_DIR, manager.STATUS_LABELS)
+        self.assertEqual(restarted.get(self.path), cleared)
+        self.assertEqual(self.http("/api/order-deadline-comment", "POST", json.dumps(self.payload(before, comment="Старое")))[0], 409)
+        recreated = self.store.save_deadline_comment(self.payload(cleared, comment="Новый текст"))
+        self.assertNotIn("2026-10-19", recreated["calendar_colors"]["week"])
+        self.assertEqual(recreated["calendar_inactive"]["week"], [])
+
+    def test_clear_selected_supplier_week_and_already_empty_field(self):
+        path = "# work/# glass/2026-10-20 - Заказ поставщику"
+        self.folder(path)
+        supplier = self.store.add(path, {"status": "process"})
+        for initial in (self.order, supplier):
+            with self.subTest(path=initial["path"]):
+                payload = {**self.payload(initial), "path": initial["path"]}
+                saved = self.store.save_deadline_comment(payload)
+                cleared = self.store.save_deadline_comment({**payload, "revision": saved["revision"], "comment": ""})
+                self.assertEqual(cleared["calendar_week_events"], {})
+                self.assertEqual(cleared["deadline_weeks"], initial["deadline_weeks"])
+                empty = self.store.save_deadline_comment({**payload, "revision": cleared["revision"], "comment": ""})
+                self.assertEqual(empty["calendar_week_events"], {})
+
+    def test_clear_refuses_unknown_event_flags_or_colors_atomically(self):
+        saved = self.store.save_deadline_comment(self.payload())
+        for block in (order_calendar.WEEK_BLOCK, order_calendar.INACTIVE_BLOCK, order_calendar.COLORS_BLOCK):
+            with self.subTest(block=block):
+                blocks = {**saved["extra_blocks"], block: '{"version":2,"future":"Сохранить"}'}
+                with self.store.connect() as db:
+                    db.execute("UPDATE orders SET extra_blocks=? WHERE id=?", (json.dumps(blocks), saved["id"]))
+                before = self.store.get(self.path)
+                self.assertEqual(self.http("/api/order-deadline-comment", "POST", json.dumps(self.payload(before, comment="")))[0], 400)
+                self.assertEqual(self.store.get(self.path), before)
 
     def test_unknown_comment_format_does_not_block_week_marks_or_erase_itself(self):
         unknown = '{"version":2,"comments":{},"future":"Сохранить"}'

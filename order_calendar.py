@@ -212,18 +212,27 @@ def write(blocks, day, text, period="day"):
 def remove(blocks, day, period="day"):
     if period != 'day':
         raise ValueError('Удалять можно только события на день')
+    return _remove_entry(blocks, day, period)
+
+
+def clear_week_comment(blocks, week):
+    """An empty card comment explicitly clears the shared weekly event."""
+    return _remove_entry(unify_weekly_blocks(blocks), week, 'week', missing_ok=True)
+
+
+def _remove_entry(blocks, day, period, *, missing_ok=False):
     day = validate_key(day, period)
-    events, flags, colors = read(blocks), read_inactive(blocks), read_colors(blocks)
+    events, flags, colors = read(blocks, period), read_inactive(blocks), read_colors(blocks)
     if events is None or flags is None or colors is None:
         raise ValueError('Формат события, актуальности или цветов неизвестен. Данные сохранены без изменений')
-    if day not in events:
+    if day not in events and not missing_ok:
         raise ValueError('Событие на этой дате уже отсутствует. Обнови календарь')
     remaining = {key: value for key, value in events.items() if key != day}
-    result = {**blocks, BLOCK: json.dumps({'version': 1, 'events': remaining}, ensure_ascii=False)}
-    if day in flags['day']:
-        result[INACTIVE_BLOCK] = json.dumps({'version': 1, **flags, 'day': [key for key in flags['day'] if key != day]}, ensure_ascii=False)
-    if day in colors['day']:
-        result = _write_colors(result, colors, 'day', {key: value for key, value in colors['day'].items() if key != day})
+    result = {**blocks, block_name(period): json.dumps({'version': 1, 'events': remaining}, ensure_ascii=False)}
+    if day in flags[period]:
+        result[INACTIVE_BLOCK] = json.dumps({'version': 1, **flags, period: [key for key in flags[period] if key != day]}, ensure_ascii=False)
+    if day in colors[period]:
+        result = _write_colors(result, colors, period, {key: value for key, value in colors[period].items() if key != day})
     return result
 
 

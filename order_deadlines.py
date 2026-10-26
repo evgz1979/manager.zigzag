@@ -87,7 +87,10 @@ def read_comments(blocks):
 
 def write_comment(blocks, week, comment):
     import order_calendar
-    return order_calendar.write(blocks, validate_week(week), comment, "week")
+    week = validate_week(week)
+    if comment == "":
+        return order_calendar.clear_week_comment(blocks, week)
+    return order_calendar.write(blocks, week, comment, "week")
 
 
 def week_options(now=None):

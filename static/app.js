@@ -1968,7 +1968,7 @@ function flushDeadlineComments(folder = state.folder) {
       draft.error = "";
       state.deadlineSaving.add(order.path);
       ++state.ordersRequest;
-      const saving = request("/api/order-calendar-event", { path: order.path, id: order.id, revision: order.revision, date: week, period: "week", text: value }).then((saved) => {
+      const saving = request("/api/order-deadline-comment", { path: order.path, id: order.id, revision: order.revision, week, comment: value }).then((saved) => {
         applyOrderRecord(folder, saved);
         draft.saved = saved.calendar_week_events?.[week] || "";
         if (draft.value === value) draft.value = draft.saved;
