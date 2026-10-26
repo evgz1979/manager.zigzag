@@ -7,6 +7,7 @@
 
   function render() {
     panel.hidden = !visible() || (!error && !readError && model?.orders.length === 0);
+    $("orderOverview").classList.toggle("with-supplier-purchases", !panel.hidden);
     if (panel.hidden) return;
     const pane = document.querySelector(".content-pane"), scroll = pane.scrollTop;
     const focused = document.activeElement?.dataset.supplierPurchaseDone;
@@ -34,7 +35,7 @@
   }
 
   async function refresh() {
-    if (!visible()) { ++generation; folder = null; model = null; markup = null; panel.hidden = true; return; }
+    if (!visible()) { ++generation; folder = null; model = null; markup = null; panel.hidden = true; $("orderOverview").classList.remove("with-supplier-purchases"); return; }
     const current = state.folder;
     if (folder !== current) {
       folder = current; model = null; markup = null; error = ""; readError = "";
