@@ -82,10 +82,10 @@ class ObjectOrders:
                     errors.append(str(error))
             self.save_catalog(relative, found, errors)
 
-    def save_catalog(self, relative, found, errors):
+    def save_catalog(self, relative, found, errors, *, allowed=None):
         with self.meta.connect() as db:
             previous = [row["path"] for row in db.execute("SELECT path FROM metadata_records WHERE kind=?", (self.folder_kind,))
-                        if inside(row["path"], relative)]
+                        if inside(row["path"], relative) and (allowed is None or allowed(row["path"]))]
         for path in sorted(found):
             try:
                 self.put(self.folder_kind, path, {"version": 1, "present": True})

@@ -1115,9 +1115,10 @@ def read_folder(relative="", show_inactive=False):
                         node["supplierColor"] = work_orders.supplier_color(db, node["path"])
                         node["supplierFavorite"] = favorites[unicodedata.normalize("NFC", node["path"])]
     object_list = None
-    if status["folderKind"] in {"object", "work_root"}:
+    work_list = status["folderKind"] == "work_root" or (
+        status["folderKind"] in {"supplier_root", "work_section"} and not print_view and not freza_section)
+    if status["folderKind"] == "object" or work_list:
         object_error = ""
-        work_list = status["folderKind"] == "work_root"
         try:
             (WorkOrderList(order_store()) if work_list else object_orders.ObjectOrders(order_store())).refresh(relative)
         except (OSError, ValueError) as error:
@@ -1135,6 +1136,7 @@ def read_folder(relative="", show_inactive=False):
             "root": str(DATA_ROOT), "breadcrumbs": breadcrumbs,
             "directories": nodes, "files": files, "sketches": sketch_files,
             "objectOrders": object_list,
+            "workOrderList": work_list,
             "fileCount": len(files), "folderCount": folder_count,
             "totalSize": sum(file["size"] for file in files), "counts": counts,
             "warnings": warnings, "storage":"database" if DATABASE_ONLY else "legacy", "view": "print" if print_view else "files",

@@ -107,7 +107,7 @@ class WorkOrderListTests(unittest.TestCase):
         self.listing.refresh(self.scope)
         self.assertEqual(self.listing.meta.get(self.listing.folder_kind, draft)["future"], "Сохранить")
         self.assertIn("Неизвестный формат", self.listing.read(self.scope)["error"])
-        for path in ("Клиент", "# work/#glass", "#work/../Клиент", ""):
+        for path in ("Клиент", "#work/#glass/Заказ", "#work/../Клиент", "", "#work/#print", "#work/#freza"):
             with self.subTest(path=path), self.assertRaises(ValueError):
                 self.listing.read(path)
 
@@ -121,6 +121,84 @@ class WorkOrderListTests(unittest.TestCase):
         self.assertEqual(sections[-1]['path'], self.scope + '/#etc')
         self.assertLess(sections[-1]['position'], sections[-2]['position'])
         self.assertEqual(self.listing.read(self.scope)['groups'][-2]['key'], self.scope + '/#etc')
+
+    def test_supplier_section_lists_its_orders_and_drafts_without_entering_orders(self):
+        section = self.scope + "/#glass"
+        registered = self.add(section + "/2026-10-20 - Стекло")
+        draft = section + "/Произвольное имя"
+        self.folder(draft)
+        self.file(draft + "/original.txt", b"preserve")
+        for path in (registered["path"] + "/00 - Событие/Вложение", section + "/# bills", section + "/.hidden"):
+            self.folder(path)
+        self.add(self.scope + "/# antares/Чужой заказ")
+        (self.root / section / "Ссылка").symlink_to(self.root / "Клиент")
+        manager.save_note(section, "Заметка поставщика")
+        opened = manager.read_folder(section)
+        before = self.store.list(include_unregistered=True)
+        with patch("order_document.load", side_effect=AssertionError("No cards")), patch("icloud_access.read_bytes", side_effect=AssertionError("No contents")):
+            self.listing.refresh(section)
+            data = self.listing.read(section)
+        rows = {row["path"]: row for row in data["orders"]}
+        self.assertEqual(set(rows), {registered["path"], draft})
+        self.assertFalse(rows[draft]["registered"])
+        self.assertEqual(rows[registered["path"]]["id"], registered["id"])
+        self.assertEqual([group["key"] for group in data["groups"]], [section])
+        self.assertEqual(rows[draft]["work_supplier_color"], data["groups"][0]["color"])
+        self.assertTrue(opened["workOrderList"])
+        self.assertEqual(opened["note"], "Заметка поставщика")
+        self.assertEqual(self.store.list(include_unregistered=True), before)
+        self.assertFalse((self.root / draft / "!.txt").exists())
+
+    def test_section_poll_reads_sqlite_with_current_weeks_without_a_favorite(self):
+        section = self.scope + "/# laser"
+        record = self.add(section + "/2026-10-21 - Резка")
+        manager.read_folder(section)
+        record = self.store.save_deadline_week({"path": record["path"], "id": record["id"], "revision": record["revision"],
+                                                "week": "2026-10-26", "selected": True})
+        self.root.rename(self.base / "offline")
+        with patch.object(OrderStore, "target", side_effect=AssertionError("No filesystem")), patch("folder_structure.os.scandir", side_effect=AssertionError("No enumeration")):
+            status, _, body = self.http(self.url("/api/work-orders", section))
+        self.assertEqual(status, 200, body)
+        data = json.loads(body)
+        self.assertEqual([row["id"] for row in data["orders"]], [record["id"]])
+        self.assertEqual(data["orders"][0]["deadline_weeks"], ["2026-10-26"])
+        self.assertEqual(data["groups"][0]["key"], section)
+
+    def test_root_refresh_does_not_hide_unstarred_section_catalog_and_failed_section_keeps_it(self):
+        section = self.scope + "/# laser"
+        draft = section + "/Заказ без регистрации"
+        sibling = self.scope + "/#glass/Другой заказ"
+        self.folder(draft)
+        self.folder(sibling)
+        manager.read_folder(section)
+        manager.read_folder(self.scope)
+        self.assertEqual([row["path"] for row in self.listing.read(section)["orders"]], [draft])
+        self.assertEqual([row["path"] for row in self.listing.read(self.scope)["orders"]], [sibling])
+        original = Path.iterdir
+        def unavailable(folder):
+            if folder == self.root / section:
+                raise OSError("iCloud unavailable")
+            return original(folder)
+        with patch.object(Path, "iterdir", unavailable):
+            self.listing.refresh(section)
+        self.assertIn("iCloud unavailable", self.listing.read(section)["error"])
+        self.assertEqual([row["path"] for row in self.listing.read(section)["orders"]], [draft])
+        (self.root / draft).rmdir()
+        self.listing.refresh(section)
+        self.assertEqual(self.listing.read(section)["orders"], [])
+        self.assertEqual([row["path"] for row in self.listing.read(self.scope)["orders"]], [sibling])
+
+    def test_legacy_glass_etc_and_other_sections_use_table_but_special_editors_keep_their_views(self):
+        for section in ("#glass", self.scope + "/# etc", self.scope + "/Поставщик без решётки"):
+            with self.subTest(section=section):
+                self.folder(section + "/2026-10-21 - Заказ")
+                opened = manager.read_folder(section)
+                self.assertTrue(opened["workOrderList"])
+                self.assertEqual([row["path"] for row in opened["objectOrders"]["orders"]], [section + "/2026-10-21 - Заказ"])
+        for section in (self.scope + "/# print", self.scope + "/# freza"):
+            opened = manager.read_folder(section)
+            self.assertFalse(opened["workOrderList"])
+            self.assertIsNone(opened["objectOrders"])
 
 
 if __name__ == "__main__":

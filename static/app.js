@@ -469,7 +469,7 @@ function renderSubfolders() {
   const focusedSupplier = document.activeElement?.closest("[data-supplier-favorite]")?.dataset.supplierFavorite;
   const scroll = document.querySelector(".content-pane").scrollTop;
   const visibleDirectories = folder.directories.filter((item) => (["work_root", "moneys_root"].includes(folder.folderKind) || !item.name.startsWith("#")) &&
-    !(isObjectOrderList() && state.objectOrders.some((order) => order.path.normalize("NFC") === item.path.normalize("NFC"))));
+    !(isFolderOrderList() && state.objectOrders.some((order) => order.path.normalize("NFC") === item.path.normalize("NFC"))));
   $("frezaTaskSearchLabel").hidden = !folder.frezaSection;
   $("subfolders").classList.toggle("freza-task-grid", Boolean(folder.frezaSection));
   $("frezaLegacyFolders").hidden = !folder.frezaTask || !folder.directories.length;
@@ -505,7 +505,9 @@ function renderSubfolders() {
     if (primary.length && other.length) supplierDividerAfter = primary.length;
   }
   const workOrders = workRoot ? visibleDirectories.filter((item) => !item.name.startsWith("#") && !state.objectOrders.some((order) => order.path.normalize("NFC") === item.path.normalize("NFC"))) : [];
-  $("workOrdersSection").hidden = !workRoot;
+  $("workOrdersSection").hidden = !isWorkOrderList();
+  $("workOrdersTitle").textContent = workRoot ? "Заказы производства" : "Заказы поставщику";
+  $("workOrdersSection").setAttribute("aria-label", $("workOrdersTitle").textContent);
   $("workOrdersSection").classList.toggle("with-sections", Boolean(directories.length));
   $("workOrderFolders").innerHTML = workOrders.map(subfolderButton).join("");
   const printView = folder.view === "print";
@@ -518,7 +520,7 @@ function renderSubfolders() {
   }
   $("subfolders").classList.toggle("with-event-relevance", directories.some((item) => item.eventRelevance));
   $("folderSection").hidden = !directories.length;
-  $("foldersTitle").textContent = folder.canCreateEventFolder ? "События" : ["supplier_root", "work_section"].includes(folder.folderKind) ? "Заказы поставщикам" : folder.folderKind === "moneys_section" ? "Финансовые записи" : workRoot ? "Разделы производства" : folder.folderKind === "moneys_root" ? "Финансовые разделы" : folder.path ? "Подпапки" : "Папки";
+  $("foldersTitle").textContent = folder.canCreateEventFolder ? "События" : isWorkOrderList() && !workRoot ? "Другие папки" : ["supplier_root", "work_section"].includes(folder.folderKind) ? "Заказы поставщикам" : folder.folderKind === "moneys_section" ? "Финансовые записи" : workRoot ? "Разделы производства" : folder.folderKind === "moneys_root" ? "Финансовые разделы" : folder.path ? "Подпапки" : "Папки";
   $("directoryCount").textContent = directories.length;
   $("subfolders").innerHTML = directories.map((item, index) => {
     const open = subfolderButton(item);
@@ -1578,7 +1580,7 @@ function isObjectOrderList() {
 }
 
 function isWorkOrderList() {
-  return state.view === "folder" && state.folder?.folderKind === "work_root";
+  return state.view === "folder" && state.folder?.workOrderList === true;
 }
 
 function isFolderOrderList() {
@@ -1641,10 +1643,11 @@ function focusOrderGroup(group) {
 function mountOrderList() {
   const object = isObjectOrderList(), workspace = $("ordersWorkspace");
   const work = isWorkOrderList(), scoped = object || work;
+  const workTitle = state.folder?.folderKind === "work_root" ? "Заказы производства" : "Заказы поставщику";
   if (work && !["title", "updated"].includes(state.orderSort)) { state.orderSort = "updated"; state.orderDirection = -1; }
   workspace.classList.toggle("work-order-list", work);
   workspace.querySelectorAll("thead th").forEach((th, index) => { th.hidden = work && [4, 5, 6, 10, 11, 12, 13, 14, 15, 16].includes(index); });
-  workspace.querySelector("caption").textContent = work ? "Заказы производства по поставщикам" : "Заказы и финансовые показатели в рублях";
+  workspace.querySelector("caption").textContent = work ? workTitle : "Заказы и финансовые показатели в рублях";
   workspace.querySelector(".orders-hint").hidden = work;
   $("orderListControls").hidden = work;
   $("orderSearch").placeholder = work ? "Найти заказ, поставщика или задачу…" : "Найти заказ, задачу или закупку…";
@@ -1669,7 +1672,7 @@ function mountOrderList() {
   } else if (workspace.parentElement !== $("folderView").parentElement) $("folderView").before(workspace);
   workspace.hidden = !hasOrderList();
   if (home) renderHomeCalendar();
-  workspace.setAttribute("aria-label", work ? "Заказы производства" : object ? "Заказы объекта" : "Все заказы");
+  workspace.setAttribute("aria-label", work ? workTitle : object ? "Заказы объекта" : "Все заказы");
   $("syncOrdersButton").hidden = scoped;
   const scope = scoped ? state.folder.path : "main";
   if (hasOrderList() && scope !== state.orderListScope) {
@@ -2756,7 +2759,7 @@ function renderOrders({ force = false } = {}) {
     '<td class="order-updated">' + (order.updated ? formatDate(order.updated) : '—') + (order.sync_pending ? '<span class="sync-pending" title="' + escapeHtml(order.sync_error || "Ожидает выгрузки в папку") + '">' + (order.sync_error ? "В очереди · автоповтор" : "Ожидает выгрузки") + '</span>' : '<span class="sync-complete">' + (order.storage === 'database' ? 'В базе' : 'Выгружено') + '</span>') + '</td></tr>').join("")).join("");
   $("ordersEmpty").hidden = Boolean(filtered.length);
   $("ordersEmptyTitle").textContent = orders.length ? "Нет заказов по этому фильтру" : "Заказов пока нет";
-  $("ordersEmptyHint").textContent = orders.length ? "Измени поисковый запрос или выбранный фильтр." : work ? "Создай заказ в разделе поставщика первой группы или прямо в # work. Для новых папок нажми «Обновить»." : object ? "Создай заказ в этом объекте или обнови его папки." : "Открой папку заказа в дереве слева и нажми «Добавить в список заказов».";
+  $("ordersEmptyHint").textContent = orders.length ? "Измени поисковый запрос или выбранный фильтр." : work ? state.folder.folderKind === "work_root" ? "Создай заказ в разделе поставщика первой группы или прямо в # work. Для новых папок нажми «Обновить»." : "Создай заказ у этого поставщика или обнови его папки." : object ? "Создай заказ в этом объекте или обнови его папки." : "Открой папку заказа в дереве слева и нажми «Добавить в список заказов».";
   const pending = orders.filter((order) => order.sync_pending), errors = pending.filter((order) => order.sync_error);
   const scan = state.scan;
   $("ordersSyncState").textContent = scan?.running ? "Поиск карточек в фоне · просмотрено папок: " + scan.folders + " · добавлено: " + scan.added :
@@ -2880,7 +2883,7 @@ async function navigate(path, { history = true } = {}) {
     $("openFolderButton").hidden = false;
     $("ordersButton").removeAttribute("aria-current");
     state.folder = data;
-    if (["object", "work_root"].includes(data.folderKind)) {
+    if (data.folderKind === "object" || data.workOrderList) {
       state.objectOrders = data.objectOrders?.orders || [];
       state.objectOrdersError = data.objectOrders?.error || "";
       state.workOrderGroups = data.objectOrders?.groups || [];

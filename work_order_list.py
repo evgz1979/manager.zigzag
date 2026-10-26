@@ -1,10 +1,17 @@
-"""Orders of the favorite supplier sections, shown together in #work."""
+"""Production order tables in #work and individual supplier sections."""
 from pathlib import Path
 
 from event_folder_undo import guard_database
-from folder_structure import dated, is_work_root, is_print_section
+from folder_structure import dated, is_work_root, is_supplier_root, is_print_section, in_freza
 from object_orders import ObjectOrders, LOCK, canonical
 import work_orders
+
+
+def supplier_scope(relative):
+    parts = Path(relative).parts
+    return not is_print_section(relative) and not in_freza(relative) and (
+        (len(parts) == 1 and is_supplier_root(parts[0])) or
+        (len(parts) == 2 and is_work_root(parts[0]) and not dated(parts[1]) and not parts[1].startswith(".")))
 
 
 class WorkOrderList(ObjectOrders):
@@ -13,17 +20,22 @@ class WorkOrderList(ObjectOrders):
 
     def path(self, relative):
         relative = canonical(self.store.path(relative))
-        if len(Path(relative).parts) != 1 or not is_work_root(relative):
-            raise ValueError("Выбери корень # work")
+        if not (len(Path(relative).parts) == 1 and is_work_root(relative)) and not supplier_scope(relative):
+            raise ValueError("Выбери корень # work или раздел поставщика")
         guard_database(self.store.database, relative, include_children=True)
         return relative
 
     def sections(self, relative):
+        if supplier_scope(relative):
+            return [{"path": relative}]
         records = work_orders.read_supplier_favorites(self.store, relative)
         return sorted((row for row in records.values() if row["is_favorite"] is True and not is_print_section(row["path"])),
                       key=lambda row: (work_orders.is_etc_section(row["path"]), row["position"], row["path"]))
 
     def allowed_paths(self, relative, inactive=(), show_inactive=False):
+        if supplier_scope(relative):
+            return lambda path: (canonical(Path(path).parent.as_posix()) == relative and
+                                 not Path(path).name.startswith((".", "#")))
         sections = {row["path"] for row in self.sections(relative)}
         def allowed(path):
             path = canonical(path)
@@ -64,7 +76,7 @@ class WorkOrderList(ObjectOrders):
                             errors.append(str(error))
             except (OSError, ValueError) as error:
                 errors.append(str(error))
-            self.save_catalog(relative, found, errors)
+            self.save_catalog(relative, found, errors, allowed=allowed)
 
     def read(self, relative, **kwargs):
         result = super().read(relative, **kwargs)
@@ -75,5 +87,6 @@ class WorkOrderList(ObjectOrders):
         for order in result["orders"]:
             order["work_supplier"] = work_orders.supplier_name(order["path"])
             order["work_supplier_color"] = colors.get(canonical(Path(order["path"]).parent.as_posix()))
-        result["groups"] = groups + [{"key": result["path"], "label": "Заказы производства", "color": None}]
+        result["groups"] = groups if supplier_scope(result["path"]) else groups + [
+            {"key": result["path"], "label": "Заказы производства", "color": None}]
         return result
