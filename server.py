@@ -1692,6 +1692,9 @@ class ManagerHandler(BaseHTTPRequestHandler):
             elif route == '/api/invoice-plan':
                 self.send_json(invoice_store().plan(payload), 200 if 'revision' in payload else 201)
                 return
+            elif route == '/api/invoice-plan-calendar-move':
+                self.send_json(invoice_store().move_calendar_plan(payload))
+                return
             elif route == '/api/calendar-payment-remove':
                 self.send_json(invoice_store().remove(payload, calendar_only=True))
                 return

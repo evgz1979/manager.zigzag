@@ -399,6 +399,35 @@ class InvoiceStore:
             order_calendar.mark_relevance_contract(db)
             return self.record(self.current(db, row['path'], row['id']))
 
+    def move_calendar_plan(self, payload):
+        with self.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            row = self.current(db, payload.get('path'), payload.get('id'))
+            if row['path']:
+                self.owner(db, row['path'], active=True)
+            if row['state'] != 'planned':
+                raise ValueError('Переносить в календаре можно только планы')
+            if type(payload.get('revision')) is not int or row['revision'] != payload['revision']:
+                raise InvoiceConflict('План изменился в другом окне. Проверь новую дату перед повтором переноса')
+            data = json.loads(row['data'])
+            if not known_plan(data):
+                raise ValueError('Неизвестный формат плана сохранён без изменений')
+            period = data.get('period', 'day')
+            if payload.get('date') != data['date'] or payload.get('period', 'day') != period:
+                raise InvoiceConflict('Дата или период плана изменились. Проверь календарь перед повтором переноса')
+            days = payload.get('days')
+            if type(days) is not int or days not in ({-7, 7} if period == 'week' else {-7, -1, 1, 7}):
+                raise ValueError('Дневной план можно сдвинуть на день или неделю; недельный — на неделю')
+            try:
+                target = (date.fromisoformat(data['date']) + timedelta(days=days)).isoformat()
+            except (ValueError, OverflowError):
+                raise ValueError('Дата переноса выходит за допустимый диапазон') from None
+            db.execute('INSERT INTO invoice_history VALUES (?,?,?,?)', (row['id'], row['revision'], row['data'], time.time()))
+            data['date'] = target
+            db.execute('UPDATE invoices SET data=?,revision=revision+1,updated=? WHERE id=?',
+                       (json.dumps(data, ensure_ascii=False), time.time(), row['id']))
+            return self.record(self.current(db, row['path'], row['id']))
+
     def plan(self, payload):
         path, identity = ('' if payload.get('path') == '' else self.store.path(payload.get('path'))), payload.get('id')
         scheduled = plan_date(payload.get('date'))

@@ -2339,6 +2339,15 @@ function applyFreeCalendarEvent(saved) {
   state.calendarEvents.sort((a, b) => a.created - b.created || a.id.localeCompare(b.id));
 }
 
+function applyCalendarInvoicePlan(saved) {
+  ++state.ordersRequest;
+  const current = state.calendarInvoicePlans.find((plan) => plan.id === saved.id);
+  if (current && current.revision <= saved.revision) Object.assign(current, {
+    revision: saved.revision, date: saved.data.date, period: saved.data.period || 'day',
+    is_inactive: saved.data._calendar_inactive || false,
+  });
+}
+
 function freeCalendarIdentity() {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   bytes[6] = (bytes[6] & 15) | 64;
@@ -2364,9 +2373,9 @@ function openCalendarEventMenu(slot, x, y) {
   const menu = $("calendarEventMenu");
   $("calendarEventMenuName").textContent = text;
   menu.querySelectorAll('[data-calendar-move], .calendar-day-move-divider').forEach((item) => {
-    item.hidden = Boolean(plan) || (period === "week" && (!item.dataset.calendarMove || Math.abs(Number(item.dataset.calendarMove)) === 1));
+    item.hidden = period === "week" && (!item.dataset.calendarMove || Math.abs(Number(item.dataset.calendarMove)) === 1);
   });
-  $("calendarEventMoveDivider").hidden = Boolean(plan);
+  $("calendarEventMoveDivider").hidden = false;
   $("calendarEventInactive").setAttribute("aria-checked", String(inactive));
   $("calendarEventDelete").hidden = plan ? Boolean(order.path) : period !== 'day';
   $("calendarEventColors").hidden = !canColor;
@@ -2380,23 +2389,30 @@ function openCalendarEventMenu(slot, x, y) {
 
 async function moveCalendarEvent(days) {
   const menu = state.calendarMenu;
-  if (!menu || menu.plan || (menu.free ? state.calendarMoving.has(menu.id) : orderRowSaving(menu.path))) return;
+  if (!menu) return;
+  const key = menu.free || menu.plan ? menu.id : menu.path;
+  if (state.calendarMoving.has(key) || (!menu.free && !menu.plan && orderRowSaving(menu.path))) return;
   closeCalendarEventMenu();
-  state.calendarMoving.add(menu.free ? menu.id : menu.path);
+  state.calendarMoving.add(key);
   ++state.ordersRequest;
   try {
-    const saved = await request(menu.free ? "/api/calendar-move" : "/api/order-calendar-move", { path: menu.path, id: menu.id, revision: menu.revision, date: menu.date, days, period: menu.period });
-    if (menu.free) applyFreeCalendarEvent(saved);
+    const route = menu.plan ? "/api/invoice-plan-calendar-move" : menu.free ? "/api/calendar-move" : "/api/order-calendar-move";
+    const saved = await request(route, { path: menu.path, id: menu.id, revision: menu.revision, date: menu.date, days, period: menu.period });
+    if (menu.plan) applyCalendarInvoicePlan(saved);
+    else if (menu.free) applyFreeCalendarEvent(saved);
     else applyOrderRecord(null, saved);
     const target = new Date(menu.date + "T00:00:00Z");
     target.setUTCDate(target.getUTCDate() + days);
-    notify((menu.period === "week" ? "Событие перенесено на неделю с " : "Событие перенесено на ") + target.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }));
+    const label = menu.plan ? "План перенесён" : "Событие перенесено";
+    notify(label + (menu.period === "week" ? " на неделю с " : " на ") + target.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }));
   } catch (error) {
     notify(error.message, true);
     if (error.status === 409) { try { await loadOrders(); } catch (_) { /* Retain the last loaded calendar. */ } }
   } finally {
-    state.calendarMoving.delete(menu.free ? menu.id : menu.path);
+    state.calendarMoving.delete(key);
+    const focused = menu.plan && document.activeElement === menu.slot;
     renderOrders({ force: true });
+    if (focused) ($("calendarWeeks").querySelector('[data-invoice-plan="' + menu.id + '"]') || $("calendarViewport")).focus({ preventScroll: true });
   }
 }
 
@@ -2411,11 +2427,8 @@ async function toggleCalendarInactive() {
   try {
     const route = menu.plan ? "/api/invoice-plan-calendar-inactive" : menu.free ? "/api/calendar-inactive" : "/api/order-calendar-inactive";
     const saved = await request(route, { path: menu.path, id: menu.id, revision: menu.revision, date: menu.date, period: menu.period, is_inactive: !menu.inactive });
-    if (menu.plan) {
-      ++state.ordersRequest;
-      const current = state.calendarInvoicePlans.find((plan) => plan.id === saved.id);
-      if (current) Object.assign(current, { revision: saved.revision, is_inactive: saved.data._calendar_inactive });
-    } else if (menu.free) applyFreeCalendarEvent(saved);
+    if (menu.plan) applyCalendarInvoicePlan(saved);
+    else if (menu.free) applyFreeCalendarEvent(saved);
     else applyOrderRecord(null, saved);
   } catch (error) {
     notify(error.message, true);

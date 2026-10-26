@@ -2,6 +2,7 @@ import json
 import unittest
 import uuid
 import base64
+from datetime import date, timedelta
 from unittest.mock import patch
 
 import invoices
@@ -71,6 +72,93 @@ class InvoicePlanTests(unittest.TestCase):
         restored = self.store.restore(removed)
         self.assertEqual(restored['data']['date'], '2026-11-03')
         self.assertEqual(self.store.calendar_plans([self.owner])[0]['date'], '2026-11-03')
+
+    def test_calendar_move_preserves_payment_details_source_and_other_records(self):
+        source = self.store.create({'path': self.path, 'id': str(uuid.uuid4())})
+        with self.store.connect() as db:
+            db.execute("UPDATE invoices SET state='issued',pdf=? WHERE id=?", (b'%PDF-immutable', source['id']))
+        source = self.store.get(self.path, source['id'])
+        for path, operation in [('', 'incoming'), ('', 'outgoing'), (self.path, 'incoming'), (self.path, 'outgoing'), (self.path, 'invoice')]:
+            for days in (-7, -1, 1, 7):
+                with self.subTest(path=path, operation=operation, days=days):
+                    payload = self.payload(path=path, operation=operation, amount='123,45', text='Сохранить комментарий')
+                    if path and operation != 'invoice':
+                        payload.update(source_invoice=source['id'], source_revision=source['revision'])
+                    record = self.store.plan(payload)
+                    record = self.store.save_plan_calendar_inactive({**record, 'is_inactive': True})
+                    with self.store.connect() as db:
+                        db.execute("UPDATE invoices SET data=json_set(data,'$.future',?) WHERE id=?", ('keep', record['id']))
+                    record = self.store.get(path, record['id'])
+                    target = (date.fromisoformat(payload['date']) + timedelta(days=days)).isoformat()
+                    occupied = self.store.plan(self.payload(path=path, date=target, operation=operation, amount='1'))
+                    status, _, body = self.http('/api/invoice-plan-calendar-move', 'POST', json.dumps({
+                        'path': path, 'id': record['id'], 'revision': record['revision'], 'date': payload['date'], 'period': 'day', 'days': days,
+                        'amount': '0', 'operation': 'other', 'text': 'Не заменять',
+                    }))
+                    self.assertEqual(status, 200, body)
+                    moved = json.loads(body)
+                    self.assertEqual(moved['data'], {**record['data'], 'date': target})
+                    self.assertEqual(moved['revision'], record['revision'] + 1)
+                    self.assertEqual(self.store.get(path, occupied['id']), occupied)
+                    with self.store.connect() as db:
+                        history = db.execute('SELECT data FROM invoice_history WHERE id=? AND revision=?', (record['id'], record['revision'])).fetchone()[0]
+                        self.assertEqual(json.loads(history), record['data'])
+                    self.assertEqual(self.store.plan(payload), moved)
+        self.assertEqual(self.store.get(self.path, source['id']), source)
+        self.assertEqual(self.store.pdf(self.path, source['id'])[0], b'%PDF-immutable')
+        self.assertEqual(manager.order_store().get(self.path), self.owner)
+        self.assertFalse((self.root / self.path / '# bills').exists())
+
+    def test_calendar_move_weekly_plans_use_actual_period_and_reject_stale_requests(self):
+        for path in ('', self.path):
+            record = self.store.plan(self.payload(path=path, date='2026-12-28', period='week', operation='outgoing', amount='9,99'))
+            payload = {'path': path, 'id': record['id'], 'revision': record['revision'], 'date': '2026-12-28', 'period': 'week', 'days': 7}
+            status, _, body = self.http('/api/invoice-plan-calendar-move', 'POST', json.dumps(payload))
+            self.assertEqual(status, 200, body)
+            moved = json.loads(body)
+            self.assertEqual(moved['data'], {**record['data'], 'date': '2027-01-04'})
+            invalid = [({}, 409), ({'revision': moved['revision']}, 409),
+                       ({'revision': moved['revision'], 'date': '2027-01-04', 'period': 'day'}, 409)]
+            for days in (-1, 1, 0, 14, True, '7', None):
+                invalid.append(({'revision': moved['revision'], 'date': '2027-01-04', 'days': days}, 400))
+            for changes, expected in invalid:
+                with self.subTest(path=path, changes=changes):
+                    status, _, body = self.http('/api/invoice-plan-calendar-move', 'POST', json.dumps({**payload, **changes}))
+                    self.assertEqual(status, expected, body)
+                    self.assertEqual(self.store.get(path, record['id']), moved)
+            back = self.store.move_calendar_plan({**payload, 'revision': moved['revision'], 'date': '2027-01-04', 'days': -7})
+            self.assertEqual(back['data'], record['data'])
+
+    def test_calendar_move_rejects_unknown_deleted_nonplan_wrong_identity_and_date_overflow(self):
+        record = self.store.plan(self.payload(operation='incoming', amount='5'))
+        payload = {'path': self.path, 'id': record['id'], 'revision': record['revision'], 'date': record['data']['date'], 'days': 1}
+        for changes in ({'path': ''}, {'path': self.path + ' другой'}, {'id': str(uuid.uuid4())}, {'revision': True}, {'date': '2026-10-28'}, {'period': 'week'}, {'days': 2}):
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                self.store.move_calendar_plan({**payload, **changes})
+            self.assertEqual(self.store.get(self.path, record['id']), record)
+        for changes in ({'version': 2}, {'period': 'month'}, {'operation': 'future'}, {'amount': True}):
+            data = {**record['data'], **changes, 'future': 'keep'}
+            with self.store.connect() as db:
+                db.execute('UPDATE invoices SET data=? WHERE id=?', (json.dumps(data), record['id']))
+            with self.subTest(unknown=changes), self.assertRaises(ValueError):
+                self.store.move_calendar_plan(payload)
+            self.assertEqual(self.store.get(self.path, record['id'])['data'], data)
+        with self.store.connect() as db:
+            db.execute('UPDATE invoices SET data=? WHERE id=?', (json.dumps(record['data']), record['id']))
+        removed = self.store.remove({**record, 'confirmed': True})
+        with self.assertRaises(invoices.InvoiceConflict):
+            self.store.move_calendar_plan({**payload, 'revision': removed['revision']})
+        self.assertEqual(self.store.list(self.path, trashed=True)[0], removed)
+        draft = self.store.create({'path': self.path, 'id': str(uuid.uuid4())})
+        with self.assertRaises(ValueError):
+            self.store.move_calendar_plan({**payload, 'id': draft['id'], 'revision': draft['revision']})
+        for scheduled, days in [('0001-01-01', -1), ('9999-12-31', 1)]:
+            edge = self.store.plan(self.payload(date=scheduled))
+            with self.assertRaises(ValueError):
+                self.store.move_calendar_plan({**edge, 'date': scheduled, 'days': days})
+            self.assertEqual(self.store.get(self.path, edge['id']), edge)
+        with self.store.connect() as db:
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM invoice_history WHERE id=?', (record['id'],)).fetchone()[0], 1)
 
     def test_multiple_same_day_unknown_format_and_invalid_requests(self):
         original = self.store.plan(self.payload())
