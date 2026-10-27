@@ -650,6 +650,8 @@ function renderFolder(preserveForm = false) {
   $("folderSummary").textContent = folder.frezaSection ? printCountLabel(folder.directories.filter((item) => !item.name.startsWith("#")).length) + " · превью и файлы" : printView ? printCountLabel(folder.fileCount) + " · название, ссылка и описание" : folder.filesLoading ? "Карточка из локальной базы · подпапки загружаются…" : folder.filesUnavailable ? "Карточка из локальной базы · папка сейчас недоступна" : folder.frezaTask ? "Файлов: " + folder.fileCount + " · " + formatSize(folder.totalSize) + " · добавляй файлы прямо в задание" : folder.filesScope === "events" ? folder.folderCount + " папок · файлы доступны в событиях" : folder.filesScope === "subfolders" ? folder.folderCount + " папок" : folder.path
     ? folder.fileCount + " файлов · " + folder.folderCount + " папок · " + formatSize(folder.totalSize)
     : "Выберите клиента или заказ в дереве слева";
+  const foldersAnchor = folder.canCreateEventFolder ? $("orderOverview") : $("frezaLegacyFolders");
+  if ($("folderSection").nextElementSibling !== foldersAnchor) foldersAnchor.before($("folderSection"));
   renderSubfolders();
   renderSketches();
   renderDescendantTodos();
@@ -752,6 +754,14 @@ function renderOrderHeading() {
   const showFolderName = Boolean(order || folder?.folderKind === "order");
   $("orderFolderName").hidden = !showFolderName;
   $("orderFolderName").textContent = showFolderName ? "Папка: " + folder.name : "";
+  const headingMeta = $("folderHeadingMeta"), besideActions = showFolderName && Boolean(folder.canCreateEventFolder);
+  const createEvent = $("createEventFolderButton"), metaParent = besideActions ? createEvent.parentElement : $("orderHeadingTitle");
+  if (headingMeta.parentElement !== metaParent) {
+    if (besideActions) createEvent.before(headingMeta);
+    else metaParent.append(headingMeta);
+  }
+  headingMeta.classList.toggle("beside-actions", besideActions);
+  $("orderHeadingTitle").parentElement.classList.toggle("with-order-meta", besideActions);
   const button = $("orderPageFavorite");
   button.hidden = !order;
   if (!order) return;
