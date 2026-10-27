@@ -2441,6 +2441,7 @@ function applyCalendarInvoicePlan(saved) {
   if (current && current.revision <= saved.revision) Object.assign(current, {
     revision: saved.revision, date: saved.data.date, period: saved.data.period || 'day',
     is_inactive: saved.data._calendar_inactive || false,
+    is_completed: saved.data._calendar_completed ?? false,
   });
 }
 
@@ -2461,11 +2462,15 @@ function openCalendarEventMenu(slot, x, y) {
   if (plan ? typeof order.is_inactive !== "boolean" : free ? ![0, 1].includes(order.is_inactive) : order.calendar_inactive === null) {
     notify("Неизвестный формат актуальности события сохранён без изменений", true); return;
   }
+  if (plan ? typeof (order.is_completed ?? false) !== "boolean" : free ? ![0, 1].includes(order.is_completed ?? 0) : order.calendar_completed === null) {
+    notify("Неизвестный формат выполнения события сохранён без изменений", true); return;
+  }
   closeCalendarEventMenu(false);
   const inactive = plan ? order.is_inactive : free ? Boolean(order.is_inactive) : Boolean(order.calendar_inactive?.[period]?.includes(date));
+  const completed = plan ? order.is_completed === true : free ? order.is_completed === 1 : Boolean(order.calendar_completed?.[period]?.includes(date));
   const canColor = !plan && (Boolean(free) || !order.work_supplier && order.calendar_colors !== null);
   const color = free ? order.color : order.calendar_colors?.[period]?.[date];
-  state.calendarMenu = { free: Boolean(free), plan: Boolean(plan), path: order.path, id: order.id, revision: order.revision, date, period, inactive, color, canColor, slot };
+  state.calendarMenu = { free: Boolean(free), plan: Boolean(plan), path: order.path, id: order.id, revision: order.revision, date, period, inactive, completed, color, canColor, slot };
   const menu = $("calendarEventMenu");
   $("calendarEventMenuName").textContent = text;
   menu.querySelectorAll('[data-calendar-move], .calendar-day-move-divider').forEach((item) => {
@@ -2473,6 +2478,7 @@ function openCalendarEventMenu(slot, x, y) {
   });
   $("calendarEventMoveDivider").hidden = false;
   $("calendarEventInactive").setAttribute("aria-checked", String(inactive));
+  $("calendarEventCompleted").setAttribute("aria-checked", String(completed));
   $("calendarEventDelete").hidden = plan ? Boolean(order.path) : period !== 'day';
   $("calendarEventColors").hidden = !canColor;
   menu.querySelectorAll("[data-calendar-color]").forEach((button) => button.setAttribute("aria-checked", String(button.dataset.calendarColor === (color || "green"))));
@@ -2512,7 +2518,7 @@ async function moveCalendarEvent(days) {
   }
 }
 
-async function toggleCalendarInactive() {
+async function toggleCalendarEventFlag(flag) {
   const menu = state.calendarMenu;
   if (!menu) return;
   const key = menu.free || menu.plan ? menu.id : menu.path;
@@ -2521,17 +2527,19 @@ async function toggleCalendarInactive() {
   state.calendarMoving.add(key);
   ++state.ordersRequest;
   try {
-    const route = menu.plan ? "/api/invoice-plan-calendar-inactive" : menu.free ? "/api/calendar-inactive" : "/api/order-calendar-inactive";
-    const saved = await request(route, { path: menu.path, id: menu.id, revision: menu.revision, date: menu.date, period: menu.period, is_inactive: !menu.inactive });
+    const route = (menu.plan ? "/api/invoice-plan-calendar-" : menu.free ? "/api/calendar-" : "/api/order-calendar-") + flag;
+    const saved = await request(route, { path: menu.path, id: menu.id, revision: menu.revision, date: menu.date, period: menu.period, [flag === 'completed' ? 'is_completed' : 'is_inactive']: !menu[flag] });
     if (menu.plan) applyCalendarInvoicePlan(saved);
     else if (menu.free) applyFreeCalendarEvent(saved);
     else applyOrderRecord(null, saved);
+    if (flag === 'completed') notify(menu.completed ? 'Отметка «Выполнено» снята' : 'Отмечено «Выполнено»');
   } catch (error) {
     notify(error.message, true);
     if (error.status === 409) { try { await loadOrders(); } catch (_) { /* Keep the last calendar. */ } }
   } finally {
     state.calendarMoving.delete(key);
     renderOrders({ force: true });
+    if (!menu.slot.isConnected && document.activeElement === document.body) $("calendarViewport").focus({ preventScroll: true });
   }
 }
 
@@ -2541,7 +2549,7 @@ function applyCalendarDeletion(entry, saved, deleted) {
     state.calendarInvoicePlans = state.calendarInvoicePlans.filter((plan) => plan.id !== saved.id);
     if (!deleted) state.calendarInvoicePlans.push({ ...entry.originalPlan, revision: saved.revision,
       date: saved.data.date, period: saved.data.period || 'day', operation: saved.data.operation,
-      amount: saved.data.amount, text: saved.data.text || '', is_inactive: saved.data._calendar_inactive || false });
+      amount: saved.data.amount, text: saved.data.text || '', is_inactive: saved.data._calendar_inactive || false, is_completed: saved.data._calendar_completed ?? false });
   } else if (entry.free) applyFreeCalendarEvent(saved);
   else applyOrderRecord(null, saved);
 }
@@ -2553,7 +2561,7 @@ async function restoreCalendarDeletion(entry, revision) {
   ++state.ordersRequest;
   try {
     const route = entry.plan ? '/api/calendar-payment-restore' : entry.free ? '/api/calendar-event-restore' : '/api/order-calendar-event-restore';
-    const saved = await request(route, { path: entry.path || '', id: entry.id, revision, date: entry.date, period: entry.period, text: entry.previous, is_inactive: entry.inactive, color: entry.color });
+    const saved = await request(route, { path: entry.path || '', id: entry.id, revision, date: entry.date, period: entry.period, text: entry.previous, is_inactive: entry.inactive, is_completed: entry.completed, color: entry.color });
     applyCalendarDeletion(entry, saved, false);
     notify('Удаление отменено');
   } finally {
@@ -2648,8 +2656,9 @@ function openCalendarEvent(slot) {
   if (entries === null) { notify("События этого заказа имеют неизвестный формат и сохранены без изменений", true); return; }
   const previous = free ? order?.text || "" : entries?.[date] || "";
   const inactive = free ? Boolean(order?.is_inactive) : Boolean(order.calendar_inactive?.[period]?.includes(date));
+  const completed = free ? order?.is_completed === 1 : Boolean(order.calendar_completed?.[period]?.includes(date));
   const color = free ? order?.color : order.calendar_colors?.[period]?.[date];
-  state.calendarEvent = { free: Boolean(free), path: order?.path, id: order?.id || freeCalendarIdentity(), revision: order?.revision || 0, date, period, previous, inactive, color, saving: false, conflict: false };
+  state.calendarEvent = { free: Boolean(free), path: order?.path, id: order?.id || freeCalendarIdentity(), revision: order?.revision || 0, date, period, previous, inactive, completed, color, saving: false, conflict: false };
   $("calendarEventTitle").textContent = period === "week" ? "Событие на неделю" : "Событие календаря";
   $("calendarEventOrder").textContent = free ? "Без привязки к заказу" : (order.work_supplier ? [order.title, order.work_supplier] : [order.title, order.client, order.object]).filter(Boolean).join(" · ");
   const start = new Date(date + "T00:00:00Z");
@@ -2709,6 +2718,7 @@ async function refreshCalendarEvent() {
       edit.revision = current.revision;
       edit.previous = current.text;
       edit.inactive = Boolean(current.is_inactive);
+      edit.completed = current.is_completed === 1;
       edit.color = current.color;
       edit.conflict = false;
       applyFreeCalendarEvent(current);
@@ -2718,6 +2728,7 @@ async function refreshCalendarEvent() {
       edit.revision = order.revision;
       edit.previous = calendarEventEntries(order, edit.period)?.[edit.date] || "";
       edit.inactive = Boolean(order.calendar_inactive?.[edit.period]?.includes(edit.date));
+      edit.completed = Boolean(order.calendar_completed?.[edit.period]?.includes(edit.date));
       edit.color = order.calendar_colors?.[edit.period]?.[edit.date];
       edit.conflict = false;
       applyOrderRecord(null, order);
@@ -3508,7 +3519,8 @@ $("calendarWeeks").addEventListener("keydown", (event) => {
 });
 $("calendarEventMenu").addEventListener("click", (event) => {
   if (event.target.closest('#calendarEventDelete')) { run(deleteCalendarEventFromMenu); return; }
-  if (event.target.closest("#calendarEventInactive")) { run(toggleCalendarInactive); return; }
+  if (event.target.closest("#calendarEventInactive")) { run(() => toggleCalendarEventFlag('inactive')); return; }
+  if (event.target.closest("#calendarEventCompleted")) { run(() => toggleCalendarEventFlag('completed')); return; }
   const color = event.target.closest("[data-calendar-color]");
   if (color) { run(() => colorCalendarEvent(color.dataset.calendarColor)); return; }
   const button = event.target.closest("[data-calendar-move]");

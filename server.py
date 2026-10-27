@@ -1908,6 +1908,15 @@ class ManagerHandler(BaseHTTPRequestHandler):
             elif route == "/api/order-calendar-inactive":
                 self.send_json(order_store().save_calendar_inactive(payload))
                 return
+            elif route == "/api/order-calendar-completed":
+                self.send_json(order_store().save_calendar_completed(payload))
+                return
+            elif route == "/api/calendar-completed":
+                self.send_json(calendar_events.CalendarEvents(order_store()).set_completed(payload))
+                return
+            elif route == "/api/invoice-plan-calendar-completed":
+                self.send_json(invoice_store().save_plan_calendar_completed(payload))
+                return
             elif route == "/api/calendar-inactive":
                 self.send_json(calendar_events.CalendarEvents(order_store()).set_inactive(payload))
                 return

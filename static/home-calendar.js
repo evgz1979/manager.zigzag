@@ -20,7 +20,8 @@ const HomeCalendar = (() => {
     const value = (name) => Number(parts.find((part) => part.type === name).value);
     return new Date(Date.UTC(value("year"), value("month") - 1, value("day")));
   };
-  const activeOrderDays = (order) => Object.keys(order.calendar_events || {}).filter((day) => !order.calendar_inactive?.day?.includes(day));
+  const activeOrderDays = (order) => Object.keys(order.calendar_events || {}).filter((day) =>
+    !order.calendar_inactive?.day?.includes(day) && !order.calendar_completed?.day?.includes(day));
   function calendarRange(now = new Date(), calendarOrders = [], freeEvents = [], plans = []) {
     const today = moscowDate(now);
     let start = monday(today), end = shiftDays(start, VISIBLE_WEEKS * 7 - 1);
@@ -111,7 +112,7 @@ const HomeCalendar = (() => {
     }
     for (const row of get("calendarWeeks").children) {
       const list = row.querySelector(".calendar-orders-list"), weekly = byWeek.get(row.dataset.week) || [];
-      const signature = JSON.stringify(weekly.map((order) => [order.id, order.path, order.title, order.client, order.object, order.is_blue_plus, order.is_flagged, order.is_favorite, order.work_supplier, order.work_supplier_color, order.deadline_weeks, order.calendar_events, order.calendar_week_events, order.calendar_inactive, order.calendar_colors]));
+      const signature = JSON.stringify(weekly.map((order) => [order.id, order.path, order.title, order.client, order.object, order.is_blue_plus, order.is_flagged, order.is_favorite, order.work_supplier, order.work_supplier_color, order.deadline_weeks, order.calendar_events, order.calendar_week_events, order.calendar_inactive, order.calendar_completed, order.calendar_colors]));
       if (list.dataset.signature === signature) continue;
       list.dataset.signature = signature;
       const top = list.parentElement.scrollTop;
@@ -172,6 +173,7 @@ const HomeCalendar = (() => {
           slot.classList.toggle("calendar-week-event-slot", isWeek);
           slot.textContent = text;
           slot.classList.toggle("calendar-inactive", Boolean(text) && Boolean(order.calendar_inactive?.[isWeek ? "week" : "day"]?.includes(key)));
+          slot.classList.toggle("calendar-completed", Boolean(text) && Boolean(order.calendar_completed?.[isWeek ? "week" : "day"]?.includes(key)));
           const unselectedWeek = isWeek && Boolean(text) && Array.isArray(order.deadline_weeks) && !order.deadline_weeks.includes(key);
           slot.classList.toggle("calendar-unselected-week", unselectedWeek);
           slot.classList.toggle("has-event", Boolean(text));
@@ -179,7 +181,7 @@ const HomeCalendar = (() => {
           else slot.removeAttribute("aria-haspopup");
           slot.disabled = entries === null || (isWeek ? shiftDays(week, 6) < range.from || week > range.through : date < range.from || date > range.through);
           const periodLabel = isWeek ? "Неделя " + weekNumber(week) + ": " + fullDate.format(week) + " — " + fullDate.format(shiftDays(week, 6)) : fullDate.format(date);
-          slot.setAttribute("aria-label", (slot.classList.contains("calendar-inactive") ? "Неактуально · " : "") + (unselectedWeek ? "Отметка недели снята · " : "") + (text ? "Изменить событие: " + text : "Добавить событие") + " · " + title + " · " + periodLabel);
+          slot.setAttribute("aria-label", (slot.classList.contains("calendar-completed") ? "Выполнено · " : "") + (slot.classList.contains("calendar-inactive") ? "Неактуально · " : "") + (unselectedWeek ? "Отметка недели снята · " : "") + (text ? "Изменить событие: " + text : "Добавить событие") + " · " + title + " · " + periodLabel);
         }
         if (item !== before) list.insertBefore(item, before);
         before = item.nextElementSibling;
@@ -232,10 +234,11 @@ const HomeCalendar = (() => {
           button.textContent = event.text;
           button.dataset.calendarColor = event.color || "gray";
           button.classList.toggle("calendar-inactive", event.is_inactive === 1);
+          button.classList.toggle("calendar-completed", event.is_completed === 1);
           button.dataset.calendarDate = key;
           button.dataset.calendarPeriod = period;
-          button.disabled = event.version !== 1 || ![0, 1].includes(event.is_inactive) || !["gray", "red", "orange", "yellow", "green", "blue", "purple"].includes(event.color) || add.disabled;
-          button.setAttribute("aria-label", (button.classList.contains("calendar-inactive") ? "Неактуально · " : "") + "Изменить событие без заказа: " + event.text + " · " + label);
+          button.disabled = event.version !== 1 || ![0, 1].includes(event.is_inactive) || ![0, 1].includes(event.is_completed ?? 0) || !["gray", "red", "orange", "yellow", "green", "blue", "purple"].includes(event.color) || add.disabled;
+          button.setAttribute("aria-label", (button.classList.contains("calendar-completed") ? "Выполнено · " : "") + (button.classList.contains("calendar-inactive") ? "Неактуально · " : "") + "Изменить событие без заказа: " + event.text + " · " + label);
           column.insertBefore(button, add);
           retained.add(button);
         }
@@ -279,6 +282,7 @@ const HomeCalendar = (() => {
         link.dataset.calendarDate = plan.date;
         link.dataset.calendarPeriod = plan.period || 'day';
         link.classList.toggle("calendar-inactive", plan.is_inactive === true);
+        link.classList.toggle("calendar-completed", plan.is_completed === true);
         link.setAttribute("aria-haspopup", "menu");
         const signedAmount = payment ? (operation === 'incoming' ? '+' : '−') + amount : '';
         const value = document.createElement('span'), caption = document.createElement('span');
@@ -292,7 +296,7 @@ const HomeCalendar = (() => {
         } else link.dataset.calendarPlanEdit = plan.id;
         const start = new Date(plan.date + 'T00:00:00Z');
         const periodLabel = plan.period === 'week' ? 'Неделя: ' + fullDate.format(start) + ' — ' + fullDate.format(shiftDays(start, 6)) : fullDate.format(start);
-        const description = [plan.is_inactive === true ? 'Неактуально' : '', label, signedAmount ? signedAmount + ' ₽' : '', plan.text, plan.invoice_label, plan.title, plan.client, plan.object, periodLabel].filter(Boolean).join(' · ');
+        const description = [plan.is_completed === true ? 'Выполнено' : '', plan.is_inactive === true ? 'Неактуально' : '', label, signedAmount ? signedAmount + ' ₽' : '', plan.text, plan.invoice_label, plan.title, plan.client, plan.object, periodLabel].filter(Boolean).join(' · ');
         link.setAttribute('aria-label', description);
         link.title = plan.path ? description : plan.text || '';
         const target = operation === 'outgoing' ? targets.outgoing : targets.incoming, next = before.get(target);

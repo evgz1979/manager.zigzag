@@ -17,11 +17,16 @@ def schema(db):
         id TEXT PRIMARY KEY, version INTEGER NOT NULL, period TEXT NOT NULL,
         date TEXT NOT NULL, text TEXT NOT NULL, revision INTEGER NOT NULL,
         created REAL NOT NULL, updated REAL NOT NULL, deleted INTEGER NOT NULL DEFAULT 0,
-        color TEXT NOT NULL DEFAULT 'gray', is_inactive INTEGER NOT NULL DEFAULT 0)""")
+        color TEXT NOT NULL DEFAULT 'gray', is_inactive INTEGER NOT NULL DEFAULT 0,
+        is_completed INTEGER NOT NULL DEFAULT 0)""")
     if "color" not in {row[1] for row in db.execute("PRAGMA table_info(calendar_events)")}:
         db.execute("ALTER TABLE calendar_events ADD COLUMN color TEXT NOT NULL DEFAULT 'gray'")
     if "is_inactive" not in {row[1] for row in db.execute("PRAGMA table_info(calendar_events)")}:
         db.execute("ALTER TABLE calendar_events ADD COLUMN is_inactive INTEGER NOT NULL DEFAULT 0")
+        for event in ("UPDATE", "DELETE"):
+            db.execute("DROP TRIGGER IF EXISTS metadata_audit_calendar_events_" + event)
+    if "is_completed" not in {row[1] for row in db.execute("PRAGMA table_info(calendar_events)")}:
+        db.execute("ALTER TABLE calendar_events ADD COLUMN is_completed INTEGER NOT NULL DEFAULT 0")
         for event in ("UPDATE", "DELETE"):
             db.execute("DROP TRIGGER IF EXISTS metadata_audit_calendar_events_" + event)
     local_metadata.audit(db, "calendar_events")
@@ -55,7 +60,7 @@ class CalendarEvents:
 
     @staticmethod
     def validate(row):
-        if row["version"] != 1 or row["color"] not in COLORS or row["is_inactive"] not in (0, 1):
+        if row["version"] != 1 or row["color"] not in COLORS or row["is_inactive"] not in (0, 1) or row['is_completed'] not in (0, 1):
             raise ValueError("Событие имеет неизвестный формат и сохранено без изменений")
         order_calendar.block_name(row["period"])
         order_calendar.validate_key(row["date"], row["period"])
@@ -158,17 +163,23 @@ class CalendarEvents:
             return self.record(db.execute("SELECT * FROM calendar_events WHERE id=?", (identity,)).fetchone())
 
     def set_inactive(self, payload):
+        return self._set_flag(payload, 'is_inactive')
+
+    def set_completed(self, payload):
+        return self._set_flag(payload, 'is_completed')
+
+    def _set_flag(self, payload, field):
         identity, revision = self.identity(payload)
-        inactive = payload.get("is_inactive")
-        if type(inactive) is not bool:
-            raise ValueError("Укажи состояние актуальности события")
+        value = payload.get(field)
+        if type(value) is not bool:
+            raise ValueError("Укажи логическое состояние отметки события")
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute("SELECT * FROM calendar_events WHERE id=?", (identity,)).fetchone()
             if row is None or row["deleted"] or revision != row["revision"]:
                 raise OrderConflict("Событие изменилось в другом окне. Обнови календарь и повтори отметку")
             self.validate(row)
-            db.execute("UPDATE calendar_events SET is_inactive=?,revision=revision+1,updated=? WHERE id=?",
-                       (int(inactive), time.time(), identity))
-            order_calendar.mark_relevance_contract(db)
+            db.execute("UPDATE calendar_events SET " + field + "=?,revision=revision+1,updated=? WHERE id=?",
+                       (int(value), time.time(), identity))
+            (order_calendar.mark_completion_contract if field == 'is_completed' else order_calendar.mark_relevance_contract)(db)
             return self.record(db.execute("SELECT * FROM calendar_events WHERE id=?", (identity,)).fetchone())

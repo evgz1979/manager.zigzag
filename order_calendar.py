@@ -11,6 +11,8 @@ MAX_EVENTS = 5200
 WEEKLY_EVENTS_UNIFIED_VERSION = 1
 CALENDAR_RELEVANCE_VERSION = 1
 INACTIVE_BLOCK = "Неактуальные события календаря"
+CALENDAR_COMPLETION_VERSION = 1
+COMPLETED_BLOCK = "Выполненные события календаря"
 ORDER_CALENDAR_COLORS_VERSION = 1
 COLORS_BLOCK = "Цвета событий календаря"
 COLORS = {"gray", "red", "orange", "yellow", "green", "blue", "purple"}
@@ -107,10 +109,18 @@ def read(blocks, period="day"):
 
 
 def read_inactive(blocks):
-    if INACTIVE_BLOCK not in blocks:
+    return _read_flags(blocks, INACTIVE_BLOCK)
+
+
+def read_completed(blocks):
+    return _read_flags(blocks, COMPLETED_BLOCK)
+
+
+def _read_flags(blocks, block):
+    if block not in blocks:
         return {"day": [], "week": []}
     try:
-        value = json.loads(blocks[INACTIVE_BLOCK])
+        value = json.loads(blocks[block])
         if not isinstance(value, dict) or set(value) != {"version", "day", "week"} or type(value["version"]) is not int or value["version"] != 1:
             return None
         for period in ("day", "week"):
@@ -168,6 +178,34 @@ def mark_relevance_contract(db):
     db.execute("INSERT INTO metadata_settings VALUES ('calendar_event_relevance','1') ON CONFLICT(key) DO UPDATE SET value=excluded.value")
 
 
+def mark_completion_contract(db):
+    import local_metadata
+    local_metadata.schema(db)
+    db.execute("INSERT INTO metadata_settings VALUES ('calendar_event_completion','1') ON CONFLICT(key) DO UPDATE SET value=excluded.value")
+
+
+def set_completed(blocks, day, completed, period="day"):
+    block_name(period)
+    if period == "week":
+        blocks = unify_weekly_blocks(blocks)
+    day = validate_key(day, period)
+    if type(completed) is not bool:
+        raise ValueError("Укажи состояние выполнения события")
+    flags, events = read_completed(blocks), read(blocks, period)
+    if flags is None or events is None:
+        raise ValueError("Формат события или выполнения неизвестен. Данные сохранены без изменений")
+    if day not in events:
+        raise ValueError("Событие на этой дате отсутствует. Обнови календарь")
+    selected = set(flags[period])
+    if completed:
+        selected.add(day)
+    else:
+        selected.discard(day)
+    if len(selected) > MAX_EVENTS:
+        raise ValueError("Сохранено слишком много отметок выполнения")
+    return {**blocks, COMPLETED_BLOCK: json.dumps({"version": 1, **flags, period: sorted(selected)}, ensure_ascii=False)}
+
+
 def set_inactive(blocks, day, inactive, period="day"):
     block_name(period)
     if period == "week":
@@ -223,7 +261,8 @@ def clear_week_comment(blocks, week):
 def _remove_entry(blocks, day, period, *, missing_ok=False):
     day = validate_key(day, period)
     events, flags, colors = read(blocks, period), read_inactive(blocks), read_colors(blocks)
-    if events is None or flags is None or colors is None:
+    completed = read_completed(blocks)
+    if events is None or flags is None or colors is None or completed is None:
         raise ValueError('Формат события, актуальности или цветов неизвестен. Данные сохранены без изменений')
     if day not in events and not missing_ok:
         raise ValueError('Событие на этой дате уже отсутствует. Обнови календарь')
@@ -231,23 +270,27 @@ def _remove_entry(blocks, day, period, *, missing_ok=False):
     result = {**blocks, block_name(period): json.dumps({'version': 1, 'events': remaining}, ensure_ascii=False)}
     if day in flags[period]:
         result[INACTIVE_BLOCK] = json.dumps({'version': 1, **flags, period: [key for key in flags[period] if key != day]}, ensure_ascii=False)
+    if day in completed[period]:
+        result[COMPLETED_BLOCK] = json.dumps({'version': 1, **completed, period: [key for key in completed[period] if key != day]}, ensure_ascii=False)
     if day in colors[period]:
         result = _write_colors(result, colors, period, {key: value for key, value in colors[period].items() if key != day})
     return result
 
 
-def restore(blocks, day, text, inactive, period="day", color=None):
+def restore(blocks, day, text, inactive, period="day", color=None, completed=False):
     if period != 'day':
         raise ValueError('Восстановление удаления доступно только для событий на день')
     day, text = validate_key(day, period), validate_text(text)
-    if not text or type(inactive) is not bool:
+    if not text or type(inactive) is not bool or type(completed) is not bool:
         raise ValueError('Не указаны текст и актуальность удалённого события')
     events = read(blocks)
-    if events is None or read_inactive(blocks) is None or read_colors(blocks) is None:
+    if events is None or read_inactive(blocks) is None or read_colors(blocks) is None or read_completed(blocks) is None:
         raise ValueError('Формат событий неизвестен. Данные сохранены без изменений')
     if day in events:
         raise ValueError('На этой дате уже есть событие. Оно сохранено без изменений')
     result = set_inactive(write(blocks, day, text), day, inactive)
+    if completed or COMPLETED_BLOCK in blocks:
+        result = set_completed(result, day, completed)
     return set_color(result, day, color) if color is not None else result
 
 
@@ -273,8 +316,8 @@ def move(blocks, day, days, period="day"):
     target = target_date.isoformat()
     if target in events:
         raise ValueError("На выбранную дату у этого заказа уже есть событие. Оба события оставлены на своих местах")
-    flags, colors = read_inactive(blocks), read_colors(blocks)
-    if flags is None or colors is None:
+    flags, colors, completed = read_inactive(blocks), read_colors(blocks), read_completed(blocks)
+    if flags is None or colors is None or completed is None:
         raise ValueError("Формат актуальности или цветов неизвестен. Событие сохранено на прежней дате")
     moved = {**events}
     moved[target] = moved.pop(day)
@@ -282,6 +325,11 @@ def move(blocks, day, days, period="day"):
     if day in flags[period]:
         selected = set(flags[period]); selected.remove(day); selected.add(target)
         result[INACTIVE_BLOCK] = json.dumps({"version": 1, **flags, period: sorted(selected)}, ensure_ascii=False)
+    if COMPLETED_BLOCK in blocks:
+        selected = set(completed[period]) - {day, target}
+        if day in completed[period]:
+            selected.add(target)
+        result[COMPLETED_BLOCK] = json.dumps({"version": 1, **completed, period: sorted(selected)}, ensure_ascii=False)
     if COLORS_BLOCK in blocks:
         entries = {**colors[period]}
         entries.pop(target, None)

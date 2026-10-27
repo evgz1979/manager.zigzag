@@ -114,6 +114,7 @@ class OrderStore:
         result["deadline_weeks"] = order_deadlines.read(result["extra_blocks"])
         result["calendar_events"] = order_calendar.read(result["extra_blocks"])
         result["calendar_inactive"] = order_calendar.read_inactive(result["extra_blocks"])
+        result["calendar_completed"] = order_calendar.read_completed(result["extra_blocks"])
         result["calendar_colors"] = order_calendar.read_colors(result["extra_blocks"])
         result["calendar_week_events"] = order_calendar.read(result["extra_blocks"], "week")
         result["deadline_comments"] = result["calendar_week_events"]  # Old browser/API compatibility, never stored separately.
@@ -278,7 +279,7 @@ class OrderStore:
         return self._save_extra_block(payload, lambda blocks: order_calendar.remove(blocks, payload.get('date'), payload.get('period', 'day')), update_time=False)
 
     def restore_calendar_event(self, payload):
-        return self._save_extra_block(payload, lambda blocks: order_calendar.restore(blocks, payload.get('date'), payload.get('text'), payload.get('is_inactive'), payload.get('period', 'day'), payload.get('color')), update_time=False)
+        return self._save_extra_block(payload, lambda blocks: order_calendar.restore(blocks, payload.get('date'), payload.get('text'), payload.get('is_inactive'), payload.get('period', 'day'), payload.get('color'), payload.get('is_completed', False)), update_time=False)
 
     def save_calendar_color(self, payload):
         if work_orders.supplier_name(self.path(payload.get("path"))):
@@ -287,6 +288,9 @@ class OrderStore:
 
     def save_calendar_inactive(self, payload):
         return self._save_extra_block(payload, lambda blocks: order_calendar.set_inactive(blocks, payload.get("date"), payload.get("is_inactive"), payload.get("period", "day")), update_time=False)
+
+    def save_calendar_completed(self, payload):
+        return self._save_extra_block(payload, lambda blocks: order_calendar.set_completed(blocks, payload.get("date"), payload.get("is_completed"), payload.get("period", "day")), update_time=False)
 
     def move_calendar_event(self, payload):
         return self._save_extra_block(payload, lambda blocks: order_calendar.move(blocks, payload.get("date"), payload.get("days"), payload.get("period", "day")), update_time=False)
@@ -309,6 +313,8 @@ class OrderStore:
             blocks = write(json.loads(row["extra_blocks"]))
             if self.database_only and order_calendar.INACTIVE_BLOCK in blocks:
                 order_calendar.mark_relevance_contract(db)
+            if self.database_only and order_calendar.COMPLETED_BLOCK in blocks:
+                order_calendar.mark_completion_contract(db)
             if self.database_only and order_calendar.COLORS_BLOCK in blocks:
                 db.execute("INSERT INTO metadata_settings VALUES ('order_calendar_colors','1') ON CONFLICT(key) DO UPDATE SET value=excluded.value")
             if self.database_only and order_calendar.WEEK_BLOCK in blocks:
