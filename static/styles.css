@@ -797,6 +797,21 @@ h2 { font-size: 13px; font-weight: 600; }
 .order-calculated { display: flex; flex-wrap: wrap; gap: 12px 25px; grid-column: 1 / -1; font-size: 12px; color: var(--muted); }
 .order-calculated strong { color: var(--text); font-weight: 550; }
 .order-export-state { grid-column: 1 / -1; color: var(--muted); font-size: 10px; }
+.order-details summary { flex-wrap: wrap; gap: 7px; }
+.order-details summary .order-status-fields { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.order-details summary .order-status-fields label { min-width: 0; }
+.order-details summary .order-status-select { max-width: 155px; min-width: 0; font-size: 10px; }
+.status-form.with-finances { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+.status-form.with-finances > .note-label { grid-column: 1; grid-row: 2 / 4; min-width: 0; align-self: start; }
+.status-form.with-finances > .financial-fields { grid-column: 2; grid-row: 2; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.status-form.with-finances .financial-fields > label { grid-template-columns: minmax(0, 1fr) minmax(68px, .85fr); align-items: center; gap: 5px; }
+.status-form.with-finances .order-calculated { flex-direction: column; gap: 3px; font-size: 11px; }
+.status-form.with-finances > button { grid-column: 2; grid-row: 3; justify-self: start; }
+@media (max-width: 640px) {
+  .status-form.with-finances { grid-template-columns: minmax(0, 1fr); }
+  .status-form.with-finances > .note-label, .status-form.with-finances > .financial-fields, .status-form.with-finances > button { grid-column: 1; grid-row: auto; }
+  .status-form.with-finances .financial-fields > label { grid-template-columns: minmax(0, 1fr); }
+}
 @media (max-width: 760px) { .financial-fields { grid-template-columns: 1fr; } .order-heading { flex-wrap: wrap; gap: 12px; } .order-heading > div { flex-basis: 100%; } .order-heading > .secondary-button { margin-left: 0; } }
 .content-pane[aria-busy="true"] .print-workspace { opacity: .5; pointer-events: none; }
 @media (max-width: 1050px) { .print-layout { grid-template-columns: 150px minmax(0, 1fr); gap: 12px; } .print-editor { padding: 15px; } .print-editor-heading { flex-wrap: wrap; } .print-link-row { flex-wrap: wrap; } .print-link-row label { flex-basis: 100%; } }

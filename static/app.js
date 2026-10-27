@@ -662,6 +662,7 @@ function renderFolder(preserveForm = false) {
   $("orderTitleLabel").hidden = noteOnly || !folder.order;
   $("orderTitleLabel").firstChild.textContent = folder.frezaTask ? "Название задания" : "Название заказа";
   $("financialFields").hidden = noteOnly || workCard || !folder.order;
+  $("statusForm").classList.toggle("with-finances", !$("financialFields").hidden);
   $("statusForm").classList.toggle("note-only", noteOnly);
   $("orderNote").placeholder = folder.frezaTask ? "Материал, толщина, размеры, количество и другие детали задания…" : noteOnly ? "Заметка к этой папке" : "Что важно по этому заказу";
   $("removeOrderButton").hidden = !folder.order;
@@ -765,13 +766,11 @@ function renderOrderHeading() {
 function renderStatus() {
   const supplierCard = Boolean(state.folder.order && Object.hasOwn(state.folder.order, "supplier_status"));
   const hideStatuses = state.folder.service || state.folder.noteOnly || (isWorkOrderPath(state.folder.path) && !supplierCard);
-  $("statusBadge").hidden = hideStatuses;
+  $("statusBadge").hidden = hideStatuses || !supplierCard;
   $("statusBadge").textContent = supplierCard ? supplierStatusLabels[state.folder.order.supplier_status] || "Неизвестный статус" : statusLabels[state.folder.status] || state.folder.status;
   $("statusBadge").dataset.status = supplierCard ? "supplier-" + state.folder.order.supplier_status : state.folder.status;
-  const financial = state.folder.financial_status || "unspecified";
-  $("financialStatusBadge").textContent = financialStatusLabels[financial];
-  $("financialStatusBadge").dataset.financialStatus = financial;
-  $("financialStatusBadge").hidden = hideStatuses || supplierCard || financial === "unspecified";
+  $("statusSelect").dataset.status = $("statusSelect").value;
+  $("financialStatusSelect").dataset.financialStatus = $("financialStatusSelect").value;
   $("saveStatusButton").textContent = state.dirty ? "Сохранить изменения" : "Сохранить";
   const folderNote = state.folder.folderNote;
   $("todoSaveState").textContent = state.saving ? "Сохраняю…" : state.dirty ? "Есть несохранённые изменения" : folderNote?.storage === "database" ? "Сохранено в базе" : folderNote?.sync_error ? "Сохранено в базе. Выгрузка: " + folderNote.sync_error : folderNote?.sync_pending ? "Сохранено в базе · ожидает выгрузки в папку" : folderNote ? folderNote.file_exists ? "Сохранено в базе и в !.txt этой папки" : "Автоматическое сохранение в эту папку" : "Сохранено";
@@ -3766,6 +3765,7 @@ $("refreshButton").addEventListener("click", () => run(async () => {
   } finally { $("refreshButton").disabled = false; }
 }));
 $("statusSelect").addEventListener("change", () => { state.dirty = true; renderStatus(); });
+for (const type of ["click", "keydown"]) $("orderStatusFields").addEventListener(type, (event) => event.stopPropagation());
 $("supplierStatusSelect").addEventListener("change", () => { state.dirty = true; renderStatus(); });
 $("workArchiveList").addEventListener("click", event => {
   const restore = event.target.closest("[data-work-archive-restore]");
