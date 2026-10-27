@@ -30,6 +30,7 @@ from mobile_sync import MobileBridge, RUN_LOCK
 import image_reports
 import invoices
 import invoice_documents
+import invoice_discovery
 import native_renderers
 import icloud_access
 import spreadsheet_preview
@@ -1430,6 +1431,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                         self.wfile.write(body)
             elif parsed.path == "/api/invoices":
                 self.send_json({"items": invoice_store().list(relative), "trash": invoice_store().list(relative, trashed=True)}, head=head)
+            elif parsed.path == '/api/invoice-folder-candidates':
+                self.send_json(invoice_discovery.candidates(invoice_store(), relative), head=head)
             elif parsed.path == "/api/invoice":
                 self.send_json(invoice_store().get(relative, query.get("id", [""])[0]), head=head)
             elif parsed.path == '/api/invoice-document':
@@ -1686,7 +1689,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
             return
         try:
             route = urllib.parse.urlparse(self.path).path
-            if route in {'/api/invoice-upload', '/api/invoice-document-upload'}:
+            if route in {'/api/invoice-upload', '/api/invoice-document-upload', '/api/invoice-folder-attach'}:
                 origin = self.headers.get('Origin')
                 if self.headers.get_content_type() != 'application/json' or (origin and urllib.parse.urlsplit(origin).netloc != self.headers.get('Host')):
                     raise ValueError('Прикрепляй документы через форму в строке счёта')
@@ -1722,6 +1725,9 @@ class ManagerHandler(BaseHTTPRequestHandler):
             elif route == '/api/invoice-upload':
                 self.send_json(invoice_store().upload(payload), 201)
                 schedule_order_sync()
+                return
+            elif route == '/api/invoice-folder-attach':
+                self.send_json(invoice_discovery.attach(invoice_store(), payload), 201)
                 return
             elif route == '/api/invoice-document-upload':
                 self.send_json(invoice_documents.upload(invoice_store(), payload), 201)

@@ -38,7 +38,7 @@ def _coordinated_read(path, max_bytes=MAX_BYTES):
     return result.stdout
 
 
-def read_bytes(path, *, max_bytes=MAX_BYTES):
+def read_bytes(path, *, max_bytes=MAX_BYTES, coordinated=False):
     path = Path(path)
     if type(max_bytes) is not int or not 0 < max_bytes <= 20 * 1024 * 1024:
         raise ValueError("Предел чтения должен быть от 1 байта до 20 МБ")
@@ -46,7 +46,7 @@ def read_bytes(path, *, max_bytes=MAX_BYTES):
         raise ValueError(f"Вместо {path.name} должен быть обычный файл")
     arguments = (path,) if max_bytes == MAX_BYTES else (path, max_bytes)
     try:
-        raw = _plain_read(*arguments)
+        raw = _coordinated_read(*arguments) if coordinated and sys.platform == 'darwin' else _plain_read(*arguments)
     except OSError as error:
         if error.errno != errno.EDEADLK or sys.platform != "darwin":
             raise

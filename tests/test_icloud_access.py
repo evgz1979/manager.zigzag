@@ -48,6 +48,15 @@ class CloudReadTests(unittest.TestCase):
                 access.read_bytes(self.card)
             helper.assert_not_called()
 
+    def test_explicit_coordinated_read_uses_bounded_helper_even_for_local_file(self):
+        with patch.object(access.sys, 'platform', 'darwin'), \
+                patch.object(access, '_plain_read', side_effect=AssertionError('unbounded file read')), \
+                patch.object(access, 'renderer', return_value=Path('/helper')), \
+                patch.object(access.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, self.raw)) as run:
+            self.assertEqual(access.read_bytes(self.card, max_bytes=20 * access.MAX_BYTES, coordinated=True), self.raw)
+            self.assertEqual(run.call_args.args[0][-1], str(20 * access.MAX_BYTES))
+            self.assertEqual(run.call_args.kwargs['timeout'], access.READ_TIMEOUT)
+
     def test_helper_timeout_keeps_file_and_reports_automatic_retry(self):
         with patch.object(access.sys, "platform", "darwin"), \
                 patch.object(access, "_plain_read", side_effect=OSError(errno.EDEADLK, "deadlock")), \

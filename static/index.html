@@ -80,6 +80,8 @@
         <section id="invoiceSection" class="invoice-section" aria-label="Счета заказа" hidden>
           <header class="invoice-section-heading"><h2>Счета <span id="invoiceCount" class="count-badge"></span></h2><div class="invoice-section-actions"><button id="planInvoice" class="secondary-button" type="button">Запланировать</button><button id="attachInvoice" class="secondary-button" type="button">+ Прикрепить PDF</button><button id="newInvoice" class="secondary-button" type="button">+ Выписать счёт</button></div></header>
           <div id="invoiceList" class="invoice-list"></div><p id="invoiceListState" class="invoice-state" role="status"></p>
+          <div id="invoiceCandidates" class="invoice-list" aria-label="Найденные счета"></div>
+          <div class="invoice-folder-check"><button id="checkInvoiceFolder" class="secondary-button" type="button">Проверить # bills</button><span id="invoiceFolderState" class="invoice-state" role="status"></span></div>
           <details id="invoiceTrash" class="invoice-trash" hidden><summary>Корзина <span id="invoiceTrashCount" class="count-badge"></span></summary><div id="invoiceTrashList" class="invoice-list"></div></details>
         </section>
         </div>

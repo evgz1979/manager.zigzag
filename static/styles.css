@@ -830,6 +830,10 @@ h2 { font-size: 13px; font-weight: 600; }
 .external-invoice-drop small { overflow-wrap: anywhere; }
 .invoice-row-label.invoice-row-comment { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; overflow-wrap: anywhere; font-size: 14px; line-height: 19px; font-weight: 650; color: #263d36; }
 .invoice-list { margin-top: 7px; }
+.invoice-folder-check { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.invoice-folder-check > button { font-size: 11px; padding: 4px 8px; }
+.invoice-folder-check .invoice-state { margin: 0; }
+.invoice-candidate .invoice-row-meta { color: #987122; }
 .invoice-row { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 7px 0; border-top: 1px solid #eef0f3; font-size: 12px; }
 .invoice-row-name { flex: 1 1 160px; min-width: 0; border: 0; background: transparent; padding: 0; text-align: left; font: inherit; font-weight: 600; line-height: 16px; cursor: pointer; color: inherit; }
 .invoice-row-content { flex: 1 1 160px; min-width: 0; }

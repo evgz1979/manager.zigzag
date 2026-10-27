@@ -1,6 +1,7 @@
 /* Invoice fields live in SQLite; a browser draft is never the saved copy. */
 (() => {
   let editor = null, attachment = null, listedPath = null, listMarkup = null, trashMarkup = null, loading = 0, pendingCreate = null;
+  let folderCandidates = [], candidatePath = null, candidateLoading = 0, candidateMarkup = null;
   let pendingRemoval = null, removing = false, planning = null;
   const statusSaving = new Set();
   const listStatusLabels = { active: "Актуально", inactive: "Неактуально", later: "Позже", sent: "Отправлен", paid: "Оплачен" };
@@ -117,7 +118,7 @@
     const folder = state.folder;
     const visible = Boolean(folder?.order) && !isWorkOrderPath(folder.path);
     $("invoiceSection").hidden = !visible;
-    if (!visible) { listedPath = null; ++loading; return; }
+    if (!visible) { listedPath = null; candidatePath = null; ++candidateLoading; ++loading; return; }
     if (listedPath === folder.path && !force) return;
     const version = ++loading;
     if (listedPath !== folder.path) {
@@ -125,6 +126,9 @@
       listMarkup = null;
       trashMarkup = null; $("invoiceTrash").hidden = true; $("invoiceTrash").open = false;
       $("invoiceListState").textContent = "Загрузка счетов…";
+      folderCandidates = []; candidatePath = folder.path; candidateMarkup = null;
+      renderCandidates();
+      checkInvoiceFolder();
     }
     listedPath = folder.path;
     try {
@@ -133,6 +137,11 @@
       $("invoiceListState").textContent = result.items.length ? "" : "Запланируй выписку, прикрепи PDF или выпиши счёт по этому заказу.";
       renderInvoiceList(result.items);
       const trashed = result.trash || [];
+      const known = new Set([...result.items, ...trashed].flatMap((record) => [record.filename,
+        ...(record.closing_documents || []).map((item) => item.filename), ...(record.closing_documents_trash || []).map((item) => item.filename)])
+        .filter(Boolean).map((name) => name.normalize('NFC').toLowerCase()));
+      folderCandidates = folderCandidates.filter((item) => !known.has(item.name.normalize('NFC').toLowerCase()));
+      renderCandidates();
       $("invoiceTrash").hidden = !trashed.length;
       $("invoiceTrashCount").textContent = trashed.length;
       const removedMarkup = trashed.map((record) => {
@@ -146,6 +155,36 @@
     } catch (error) {
       if (version === loading && state.folder?.path === folder.path) $("invoiceListState").textContent = error.message;
     }
+  }
+
+  function renderCandidates() {
+    const list = $("invoiceCandidates"), focused = document.activeElement?.dataset.invoiceCandidate;
+    const markup = folderCandidates.map((item) => '<div class="invoice-row invoice-candidate"><div class="invoice-row-content"><a class="invoice-row-name" href="' +
+      escapeHtml(apiUrl('/api/file', candidatePath + '/# bills/' + item.name)) + '" target="_blank" rel="noopener"><span class="invoice-row-label">' + escapeHtml(item.name) +
+      '</span></a><small class="invoice-row-meta">В папке найден новый счёт · ' + escapeHtml(formatSize(item.size)) + '</small></div><button type="button" class="secondary-button" data-invoice-candidate="' +
+      escapeHtml(item.name) + '" aria-label="Прикрепить найденный счёт · ' + escapeHtml(item.name) + '">Прикрепить?</button></div>').join('');
+    if (markup === candidateMarkup) return;
+    list.innerHTML = markup; candidateMarkup = markup;
+    if (focused && document.activeElement === document.body) [...list.querySelectorAll('[data-invoice-candidate]')]
+      .find((button) => button.dataset.invoiceCandidate === focused)?.focus({ preventScroll: true });
+  }
+
+  async function checkInvoiceFolder() {
+    const path = state.folder?.path;
+    if (!state.folder?.order || isWorkOrderPath(path)) return;
+    const version = ++candidateLoading, status = $("invoiceFolderState");
+    $("checkInvoiceFolder").disabled = true;
+    status.textContent = 'Проверка # bills…'; status.classList.remove('error');
+    try {
+      const result = await request(apiUrl('/api/invoice-folder-candidates', path));
+      if (version !== candidateLoading || state.folder?.path !== path) return;
+      candidatePath = path; folderCandidates = result.items; renderCandidates();
+      status.textContent = [result.items.length ? 'Найдено новых PDF: ' + result.items.length : 'Новых PDF нет', result.warning].filter(Boolean).join(' · ');
+    } catch (error) {
+      if (version === candidateLoading && state.folder?.path === path) {
+        status.textContent = 'Не удалось проверить # bills: ' + error.message; status.classList.add('error');
+      }
+    } finally { if (version === candidateLoading) $("checkInvoiceFolder").disabled = false; }
   }
 
   function newIdentity() {
@@ -316,25 +355,25 @@
     finally { button.disabled = false; }
   }
 
-  function showExternal(record = null) {
+  function showExternal(record = null, candidate = null) {
     const path = record?.path || state.folder?.path;
     if (!path || !state.folder?.order) return;
-    attachment = { path, record, file: null, id: record?.id || newIdentity(), busy: false, saved: record?.data.comment || "" };
+    attachment = { path, record, candidate, file: null, id: record?.id || newIdentity(), busy: false, saved: record?.data.comment || "" };
     $("externalInvoiceTitle").textContent = record ? "Внешний счёт" : "Прикрепить внешний счёт";
     $("externalInvoicePath").textContent = path;
     $("externalInvoiceFile").value = "";
     $("externalInvoiceFileHint").textContent = "Один PDF до 20 МБ";
     $("externalInvoiceDialog").classList.remove("invoice-dragging");
-    $("externalInvoiceFileLabel").hidden = Boolean(record);
-    $("externalInvoiceName").hidden = !record;
-    $("externalInvoiceName").textContent = record?.data.original_name || "";
+    $("externalInvoiceFileLabel").hidden = Boolean(record || candidate);
+    $("externalInvoiceName").hidden = !record && !candidate;
+    $("externalInvoiceName").textContent = record?.data.original_name || candidate?.name || "";
     $("externalInvoiceComment").value = attachment.saved;
     $("externalInvoiceState").textContent = "";
     $("externalInvoiceState").classList.remove("error");
     $("externalInvoicePdf").hidden = !record;
     $("saveExternalInvoice").textContent = record ? "Сохранить комментарий" : "Прикрепить";
     $("externalInvoiceDialog").showModal();
-    (record ? $("externalInvoiceComment") : $("externalInvoiceFile")).focus();
+    (record || candidate ? $("externalInvoiceComment") : $("externalInvoiceFile")).focus();
   }
 
   function closeExternal() {
@@ -344,7 +383,7 @@
   }
 
   function selectExternalFile(file) {
-    if (!attachment || attachment.busy || attachment.record) return;
+    if (!attachment || attachment.busy || attachment.record || attachment.candidate) return;
     const status = $("externalInvoiceState");
     if (!file || !/\.pdf$/i.test(file.name) || !file.size || file.size > 20 * 1024 * 1024) {
       status.textContent = "Выбери один PDF до 20 МБ."; status.classList.add("error"); return;
@@ -360,26 +399,32 @@
     if (!current || current.busy) return;
     const file = current.file, comment = $("externalInvoiceComment").value;
     const status = $("externalInvoiceState");
-    if (!current.record && (!file || !/\.pdf$/i.test(file.name) || file.size > 20 * 1024 * 1024)) {
+    if (!current.record && !current.candidate && (!file || !/\.pdf$/i.test(file.name) || file.size > 20 * 1024 * 1024)) {
       status.textContent = "Выбери PDF до 20 МБ."; status.classList.add("error"); return;
     }
     current.busy = true;
     for (const id of ["externalInvoiceFile", "externalInvoiceComment", "saveExternalInvoice", "closeExternalInvoice"]) $(id).disabled = true;
     status.classList.remove("error");
-    status.textContent = current.record ? "Сохранение комментария…" : "Загрузка PDF на M4…";
+    status.textContent = current.record ? "Сохранение комментария…" : current.candidate ? "Чтение PDF из # bills…" : "Загрузка PDF на M4…";
     try {
-      if (!current.record) {
+      if (!current.record && current.candidate) {
+        current.record = await request('/api/invoice-folder-attach', { path: current.path, name: current.candidate.name, key: current.candidate.key, comment });
+      } else if (!current.record) {
         const pdf = await new Promise((resolve, reject) => {
           const reader = new FileReader(); reader.onerror = () => reject(new Error("Не удалось прочитать PDF на этом компьютере"));
           reader.onload = () => resolve(String(reader.result).split(",")[1]); reader.readAsDataURL(file);
         });
         current.record = await request("/api/invoice-upload", { path: current.path, id: current.id, name: file.name, comment, pdf });
       }
-      if (current.record.data.comment !== comment) current.record = await request("/api/invoice-comment", {
+      if (!current.candidate && current.record.data.comment !== comment) current.record = await request("/api/invoice-comment", {
         path: current.path, id: current.record.id, revision: current.record.revision, comment,
       });
       current.saved = comment;
       current.busy = false;
+      if (current.candidate && candidatePath === current.path) {
+        folderCandidates = folderCandidates.filter((item) => item.name !== current.candidate.name); renderCandidates();
+        $("invoiceFolderState").textContent = 'Счёт прикреплён';
+      }
       closeExternal();
       await refreshList(true);
     } catch (error) { status.textContent = error.message + " Ввод остался в форме."; status.classList.add("error"); }
@@ -519,6 +564,13 @@
   $("invoiceDialog").addEventListener("cancel", (event) => { event.preventDefault(); action(close); });
   $("newInvoice").addEventListener("click", () => action(() => create()));
   $("attachInvoice").addEventListener("click", () => showExternal());
+  $("checkInvoiceFolder").addEventListener("click", checkInvoiceFolder);
+  $("invoiceCandidates").addEventListener('click', (event) => {
+    const button = event.target.closest('[data-invoice-candidate]');
+    if (!button || candidatePath !== state.folder?.path) return;
+    const candidate = folderCandidates.find((item) => item.name === button.dataset.invoiceCandidate);
+    if (candidate) showExternal(null, candidate);
+  });
   $("planInvoice").addEventListener('click', () => showPlan());
   $("planInvoiceOperation").addEventListener('change', updatePlanFields);
   $("planInvoicePeriod").addEventListener('change', normalizePlanDate);
@@ -536,7 +588,7 @@
   $("externalInvoiceDialog").addEventListener("dragover", (event) => {
     if (!Array.from(event.dataTransfer?.types || []).includes("Files")) return;
     event.preventDefault(); event.stopPropagation();
-    const allowed = attachment && !attachment.busy && !attachment.record;
+    const allowed = attachment && !attachment.busy && !attachment.record && !attachment.candidate;
     event.dataTransfer.dropEffect = allowed ? "copy" : "none";
     $("externalInvoiceDialog").classList.toggle("invoice-dragging", Boolean(allowed));
   });
@@ -548,7 +600,7 @@
     if (!Array.from(event.dataTransfer?.types || []).includes("Files")) return;
     event.preventDefault(); event.stopPropagation();
     $("externalInvoiceDialog").classList.remove("invoice-dragging");
-    if (!attachment || attachment.busy || attachment.record) return;
+    if (!attachment || attachment.busy || attachment.record || attachment.candidate) return;
     const files = Array.from(event.dataTransfer.files || []);
     const directory = Array.from(event.dataTransfer.items || []).some((item) => item.webkitGetAsEntry?.()?.isDirectory);
     if (directory || files.length !== 1) {
