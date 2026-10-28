@@ -18,7 +18,7 @@ def schema(db):
         date TEXT NOT NULL, text TEXT NOT NULL, revision INTEGER NOT NULL,
         created REAL NOT NULL, updated REAL NOT NULL, deleted INTEGER NOT NULL DEFAULT 0,
         color TEXT NOT NULL DEFAULT 'gray', is_inactive INTEGER NOT NULL DEFAULT 0,
-        is_completed INTEGER NOT NULL DEFAULT 0)""")
+        is_completed INTEGER NOT NULL DEFAULT 0, is_trip INTEGER NOT NULL DEFAULT 0)""")
     if "color" not in {row[1] for row in db.execute("PRAGMA table_info(calendar_events)")}:
         db.execute("ALTER TABLE calendar_events ADD COLUMN color TEXT NOT NULL DEFAULT 'gray'")
     if "is_inactive" not in {row[1] for row in db.execute("PRAGMA table_info(calendar_events)")}:
@@ -27,6 +27,10 @@ def schema(db):
             db.execute("DROP TRIGGER IF EXISTS metadata_audit_calendar_events_" + event)
     if "is_completed" not in {row[1] for row in db.execute("PRAGMA table_info(calendar_events)")}:
         db.execute("ALTER TABLE calendar_events ADD COLUMN is_completed INTEGER NOT NULL DEFAULT 0")
+        for event in ("UPDATE", "DELETE"):
+            db.execute("DROP TRIGGER IF EXISTS metadata_audit_calendar_events_" + event)
+    if "is_trip" not in {row[1] for row in db.execute("PRAGMA table_info(calendar_events)")}:
+        db.execute("ALTER TABLE calendar_events ADD COLUMN is_trip INTEGER NOT NULL DEFAULT 0")
         for event in ("UPDATE", "DELETE"):
             db.execute("DROP TRIGGER IF EXISTS metadata_audit_calendar_events_" + event)
     local_metadata.audit(db, "calendar_events")
@@ -60,7 +64,7 @@ class CalendarEvents:
 
     @staticmethod
     def validate(row):
-        if row["version"] != 1 or row["color"] not in COLORS or row["is_inactive"] not in (0, 1) or row['is_completed'] not in (0, 1):
+        if row["version"] != 1 or row["color"] not in COLORS or row["is_inactive"] not in (0, 1) or row['is_completed'] not in (0, 1) or row['is_trip'] not in (0, 1):
             raise ValueError("Событие имеет неизвестный формат и сохранено без изменений")
         order_calendar.block_name(row["period"])
         order_calendar.validate_key(row["date"], row["period"])
@@ -168,6 +172,9 @@ class CalendarEvents:
     def set_completed(self, payload):
         return self._set_flag(payload, 'is_completed')
 
+    def set_trip(self, payload):
+        return self._set_flag(payload, 'is_trip')
+
     def _set_flag(self, payload, field):
         identity, revision = self.identity(payload)
         value = payload.get(field)
@@ -181,5 +188,5 @@ class CalendarEvents:
             self.validate(row)
             db.execute("UPDATE calendar_events SET " + field + "=?,revision=revision+1,updated=? WHERE id=?",
                        (int(value), time.time(), identity))
-            (order_calendar.mark_completion_contract if field == 'is_completed' else order_calendar.mark_relevance_contract)(db)
+            order_calendar.mark_flag_contract(db, field)
             return self.record(db.execute("SELECT * FROM calendar_events WHERE id=?", (identity,)).fetchone())

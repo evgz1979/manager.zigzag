@@ -379,6 +379,7 @@ class InvoiceStore:
                     result.append({'id': row['id'], 'path': row['path'], 'date': data['date'], 'period': data.get('period', 'day'),
                                    'revision': row['revision'], 'is_inactive': data.get('_calendar_inactive', False),
                                    'is_completed': data.get('_calendar_completed', False),
+                                   'is_trip': data.get('_calendar_trip', False),
                                    'operation': data.get('operation', 'invoice'), 'amount': data.get('amount'),
                                    'text': data.get('text', ''), 'invoice_label': data.get('invoice_label', ''),
                                    'title': owner['title'] if owner else 'Без заказа', 'client': owner['client'] if owner else '', 'object': owner['object'] if owner else ''})
@@ -389,6 +390,9 @@ class InvoiceStore:
 
     def save_plan_calendar_completed(self, payload):
         return self._save_plan_calendar_flag(payload, 'is_completed', '_calendar_completed')
+
+    def save_plan_calendar_trip(self, payload):
+        return self._save_plan_calendar_flag(payload, 'is_trip', '_calendar_trip')
 
     def _save_plan_calendar_flag(self, payload, field, key):
         import order_calendar
@@ -404,12 +408,12 @@ class InvoiceStore:
                 raise InvoiceConflict('План изменился в другом окне. Обнови календарь и повтори отметку')
             data = json.loads(row['data'])
             if not known_plan(data) or type(data.get(key, False)) is not bool:
-                raise ValueError('Неизвестный формат актуальности плана сохранён без изменений')
+                raise ValueError('Неизвестный формат отметки плана сохранён без изменений')
             db.execute('INSERT INTO invoice_history VALUES (?,?,?,?)', (row['id'], row['revision'], row['data'], time.time()))
             data[key] = value
             db.execute('UPDATE invoices SET data=?,revision=revision+1,updated=? WHERE id=?',
                        (json.dumps(data, ensure_ascii=False), time.time(), row['id']))
-            (order_calendar.mark_completion_contract if field == 'is_completed' else order_calendar.mark_relevance_contract)(db)
+            order_calendar.mark_flag_contract(db, field)
             return self.record(self.current(db, row['path'], row['id']))
 
     def move_calendar_plan(self, payload):

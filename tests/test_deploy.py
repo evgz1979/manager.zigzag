@@ -97,6 +97,18 @@ class DeploymentTests(unittest.TestCase):
         (release / 'order_calendar.py').write_text('CALENDAR_COMPLETION_VERSION = 1')
         remote.check_event_rename_compatibility(self.db, release)
 
+    def test_old_code_cannot_ignore_calendar_trip(self):
+        release = self.base / 'old-calendar-trip'
+        release.mkdir()
+        (release / 'local_metadata.py').touch()
+        with sqlite3.connect(self.db) as db:
+            db.execute('CREATE TABLE metadata_settings (key TEXT PRIMARY KEY,value TEXT)')
+            db.execute("INSERT INTO metadata_settings VALUES ('calendar_event_trip','1')")
+        with self.assertRaisesRegex(RuntimeError, 'отметки выезда'):
+            remote.check_event_rename_compatibility(self.db, release)
+        (release / 'order_calendar.py').write_text('CALENDAR_TRIP_VERSION = 1')
+        remote.check_event_rename_compatibility(self.db, release)
+
     def test_old_code_cannot_revive_removed_client_order_links(self):
         release = self.base / 'old-client-order-links'
         release.mkdir()

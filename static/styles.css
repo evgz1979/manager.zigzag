@@ -1025,8 +1025,11 @@ h2 { font-size: 13px; font-weight: 600; }
 .calendar-event-menu .calendar-event-colors button[aria-checked="true"]::after { content: ""; display: block; width: 6px; height: 6px; margin: auto; border-radius: 50%; background: #fff; box-shadow: 0 0 0 1px #00000018; }
 .calendar-event-menu .calendar-event-colors button:hover, .calendar-event-menu .calendar-event-colors button:focus-visible { outline: 2px solid var(--event-dot); outline-offset: 2px; }
 
-.calendar-event-menu :is(#calendarEventInactive, #calendarEventCompleted)::before { content: ""; display: inline-block; width: 16px; }
-.calendar-event-menu :is(#calendarEventInactive, #calendarEventCompleted)[aria-checked="true"]::before { content: "✓"; }
+.calendar-event-menu button[role="menuitemcheckbox"] { display: flex; align-items: center; }
+.calendar-menu-mark { display: inline-flex; align-items: center; width: 20px; flex: 0 0 20px; visibility: hidden; }
+[aria-checked="true"] > .calendar-menu-mark { visibility: visible; }
+.calendar-menu-mark svg, .calendar-trip-icon { width: 13px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.calendar-trip-icon { display: inline-block; flex: 0 0 13px; margin-right: 2px; vertical-align: -2px; }
 .calendar-completed::before { content: "✓"; margin-right: 2px; font-weight: 400; flex-shrink: 0; }
 .calendar-event-slot.calendar-completed.has-event, .calendar-invoice-plan.calendar-completed { color: #d1d5d8; background: #fafafa; }
 .calendar-event-slot.calendar-completed.has-event:hover:not(:disabled), .calendar-event-slot.calendar-completed.has-event:focus-visible, .calendar-invoice-plan.calendar-completed:hover, .calendar-invoice-plan.calendar-completed:focus-visible { color: #c7cdd1; background: #f4f6f7; outline-color: #d1d5d8; }

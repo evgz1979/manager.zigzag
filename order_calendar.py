@@ -13,6 +13,8 @@ CALENDAR_RELEVANCE_VERSION = 1
 INACTIVE_BLOCK = "Неактуальные события календаря"
 CALENDAR_COMPLETION_VERSION = 1
 COMPLETED_BLOCK = "Выполненные события календаря"
+CALENDAR_TRIP_VERSION = 1
+TRIP_BLOCK = "Выезды календаря"
 ORDER_CALENDAR_COLORS_VERSION = 1
 COLORS_BLOCK = "Цвета событий календаря"
 COLORS = {"gray", "red", "orange", "yellow", "green", "blue", "purple"}
@@ -116,6 +118,10 @@ def read_completed(blocks):
     return _read_flags(blocks, COMPLETED_BLOCK)
 
 
+def read_trip(blocks):
+    return _read_flags(blocks, TRIP_BLOCK)
+
+
 def _read_flags(blocks, block):
     if block not in blocks:
         return {"day": [], "week": []}
@@ -182,6 +188,39 @@ def mark_completion_contract(db):
     import local_metadata
     local_metadata.schema(db)
     db.execute("INSERT INTO metadata_settings VALUES ('calendar_event_completion','1') ON CONFLICT(key) DO UPDATE SET value=excluded.value")
+
+
+def mark_trip_contract(db):
+    import local_metadata
+    local_metadata.schema(db)
+    db.execute("INSERT INTO metadata_settings VALUES ('calendar_event_trip','1') ON CONFLICT(key) DO UPDATE SET value=excluded.value")
+
+
+def mark_flag_contract(db, field):
+    {"is_completed": mark_completion_contract, "is_inactive": mark_relevance_contract,
+     "is_trip": mark_trip_contract}[field](db)
+
+
+def set_trip(blocks, day, trip, period="day"):
+    block_name(period)
+    if period == "week":
+        blocks = unify_weekly_blocks(blocks)
+    day = validate_key(day, period)
+    if type(trip) is not bool:
+        raise ValueError("Укажи состояние отметки «Выезд»")
+    flags, events = read_trip(blocks), read(blocks, period)
+    if flags is None or events is None:
+        raise ValueError("Формат события или выездов неизвестен. Данные сохранены без изменений")
+    if day not in events:
+        raise ValueError("Событие на этой дате отсутствует. Обнови календарь")
+    selected = set(flags[period])
+    if trip:
+        selected.add(day)
+    else:
+        selected.discard(day)
+    if len(selected) > MAX_EVENTS:
+        raise ValueError("Сохранено слишком много отметок выезда")
+    return {**blocks, TRIP_BLOCK: json.dumps({"version": 1, **flags, period: sorted(selected)}, ensure_ascii=False)}
 
 
 def set_completed(blocks, day, completed, period="day"):
@@ -261,8 +300,8 @@ def clear_week_comment(blocks, week):
 def _remove_entry(blocks, day, period, *, missing_ok=False):
     day = validate_key(day, period)
     events, flags, colors = read(blocks, period), read_inactive(blocks), read_colors(blocks)
-    completed = read_completed(blocks)
-    if events is None or flags is None or colors is None or completed is None:
+    completed, trip = read_completed(blocks), read_trip(blocks)
+    if events is None or flags is None or colors is None or completed is None or trip is None:
         raise ValueError('Формат события, актуальности или цветов неизвестен. Данные сохранены без изменений')
     if day not in events and not missing_ok:
         raise ValueError('Событие на этой дате уже отсутствует. Обнови календарь')
@@ -272,25 +311,29 @@ def _remove_entry(blocks, day, period, *, missing_ok=False):
         result[INACTIVE_BLOCK] = json.dumps({'version': 1, **flags, period: [key for key in flags[period] if key != day]}, ensure_ascii=False)
     if day in completed[period]:
         result[COMPLETED_BLOCK] = json.dumps({'version': 1, **completed, period: [key for key in completed[period] if key != day]}, ensure_ascii=False)
+    if day in trip[period]:
+        result[TRIP_BLOCK] = json.dumps({'version': 1, **trip, period: [key for key in trip[period] if key != day]}, ensure_ascii=False)
     if day in colors[period]:
         result = _write_colors(result, colors, period, {key: value for key, value in colors[period].items() if key != day})
     return result
 
 
-def restore(blocks, day, text, inactive, period="day", color=None, completed=False):
+def restore(blocks, day, text, inactive, period="day", color=None, completed=False, trip=False):
     if period != 'day':
         raise ValueError('Восстановление удаления доступно только для событий на день')
     day, text = validate_key(day, period), validate_text(text)
-    if not text or type(inactive) is not bool or type(completed) is not bool:
+    if not text or type(inactive) is not bool or type(completed) is not bool or type(trip) is not bool:
         raise ValueError('Не указаны текст и актуальность удалённого события')
     events = read(blocks)
-    if events is None or read_inactive(blocks) is None or read_colors(blocks) is None or read_completed(blocks) is None:
+    if events is None or read_inactive(blocks) is None or read_colors(blocks) is None or read_completed(blocks) is None or read_trip(blocks) is None:
         raise ValueError('Формат событий неизвестен. Данные сохранены без изменений')
     if day in events:
         raise ValueError('На этой дате уже есть событие. Оно сохранено без изменений')
     result = set_inactive(write(blocks, day, text), day, inactive)
     if completed or COMPLETED_BLOCK in blocks:
         result = set_completed(result, day, completed)
+    if trip or TRIP_BLOCK in blocks:
+        result = set_trip(result, day, trip)
     return set_color(result, day, color) if color is not None else result
 
 
@@ -317,7 +360,8 @@ def move(blocks, day, days, period="day"):
     if target in events:
         raise ValueError("На выбранную дату у этого заказа уже есть событие. Оба события оставлены на своих местах")
     flags, colors, completed = read_inactive(blocks), read_colors(blocks), read_completed(blocks)
-    if flags is None or colors is None or completed is None:
+    trip = read_trip(blocks)
+    if flags is None or colors is None or completed is None or trip is None:
         raise ValueError("Формат актуальности или цветов неизвестен. Событие сохранено на прежней дате")
     moved = {**events}
     moved[target] = moved.pop(day)
@@ -330,6 +374,11 @@ def move(blocks, day, days, period="day"):
         if day in completed[period]:
             selected.add(target)
         result[COMPLETED_BLOCK] = json.dumps({"version": 1, **completed, period: sorted(selected)}, ensure_ascii=False)
+    if TRIP_BLOCK in blocks:
+        selected = set(trip[period]) - {day, target}
+        if day in trip[period]:
+            selected.add(target)
+        result[TRIP_BLOCK] = json.dumps({"version": 1, **trip, period: sorted(selected)}, ensure_ascii=False)
     if COLORS_BLOCK in blocks:
         entries = {**colors[period]}
         entries.pop(target, None)
