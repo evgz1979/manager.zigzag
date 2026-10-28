@@ -200,6 +200,21 @@ def check_event_rename_compatibility(database, release_dir):
             if not source.is_file() or 'ORDER_LINKS_VERSION = 1' not in source.read_text(encoding='utf-8'):
                 raise RuntimeError('В базе есть связанные клиентские заказы. Старый код может восстановить снятые связи; откат заблокирован')
         if (db.execute("SELECT 1 FROM sqlite_master WHERE name='metadata_settings'").fetchone()
+                and db.execute("SELECT 1 FROM metadata_settings WHERE key='client_order_link_roles' AND value='1'").fetchone()):
+            source = release_dir / 'order_links.py'
+            if not source.is_file() or 'ORDER_LINK_ROLES_VERSION = 1' not in source.read_text(encoding='utf-8'):
+                raise RuntimeError('У связанных заказов сохранён главный. Старый код не сохраняет роли связей; откат заблокирован')
+        if (db.execute("SELECT 1 FROM sqlite_master WHERE name='metadata_settings'").fetchone()
+                and db.execute("SELECT 1 FROM metadata_settings WHERE key='client_order_link_status' AND value='1'").fetchone()):
+            source = release_dir / 'order_links.py'
+            if not source.is_file() or 'ORDER_LINK_STATUS_VERSION = 1' not in source.read_text(encoding='utf-8'):
+                raise RuntimeError('У связанных заказов используются автоматические статусы. Старый код не поддерживает статус «Связанный»; откат заблокирован')
+        if (db.execute("SELECT 1 FROM sqlite_master WHERE name='metadata_settings'").fetchone()
+                and db.execute("SELECT 1 FROM metadata_settings WHERE key='client_order_link_star' AND value='1'").fetchone()):
+            source = release_dir / 'order_links.py'
+            if not source.is_file() or 'ORDER_LINK_STAR_VERSION = 1' not in source.read_text(encoding='utf-8'):
+                raise RuntimeError('Связи заказов используют одного главного. Старый код допускает несколько главных; откат заблокирован')
+        if (db.execute("SELECT 1 FROM sqlite_master WHERE name='metadata_settings'").fetchone()
                 and db.execute("SELECT 1 FROM metadata_settings WHERE key='weekly_events_unified' AND value='1'").fetchone()):
             source = release_dir / 'order_calendar.py'
             if not source.is_file() or 'WEEKLY_EVENTS_UNIFIED_VERSION = 1' not in source.read_text(encoding='utf-8'):

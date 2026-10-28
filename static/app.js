@@ -1,5 +1,5 @@
 const $ = (id) => document.getElementById(id);
-const statusLabels = { new: "Новый", measure: "Замеры", process: "Расчеты", awaiting_client: "Жду от клиента", awaiting_payment: "На оплате", waiting: "Жду", offer_later: "Предложить позже", workshop: "В цех", install: "Монтаж", rework: "Переделка/доделка", finishing: "Завершение/добивка", deferred: "Отложен/возможно", done: "Готово", done_but: "Готово, но…", cancelled: "Отменён", unspecified: "Не указан" };
+const statusLabels = { new: "Новый", measure: "Замеры", process: "Расчеты", awaiting_client: "Жду от клиента", awaiting_payment: "На оплате", related: "Связанный", waiting: "Жду", offer_later: "Предложить позже", workshop: "В цех", install: "Монтаж", rework: "Переделка/доделка", finishing: "Завершение/добивка", deferred: "Отложен/возможно", done: "Готово", done_but: "Готово, но…", cancelled: "Отменён", unspecified: "Не указан" };
 const supplierStatusLabels = { work: "В работе", cancelled: "Отменён", archived: "В архив" };
 const orderStatusGroups = [
   { key: "preparation", statuses: ["new", "measure", "process"] },
@@ -35,6 +35,7 @@ const state = {
   trashEventsOnly: false,
   orderTodoPath: null, orderTodoMarkup: null, orderTodoKind: "todos",
   orderLinks: null,
+  cardLinksMarkup: null,
   calendarEvent: null,
   calendarSupplierOrders: [],
   calendarEvents: [],
@@ -648,6 +649,7 @@ function renderFolder(preserveForm = false) {
     '<button data-path="' + escapeHtml(part.path) + '"' + (index === folder.breadcrumbs.length - 1 ? ' aria-current="page"' : "") + ">" +
     escapeHtml(part.name) + "</button>").join("");
   renderOrderHeading();
+  renderOrderCardLinks();
   $("clientLabel").textContent = folder.frezaSection || folder.frezaTask ? "ФРЕЗЕРОВКА" : printView ? "ШИРОКОФОРМАТНАЯ ПРОДУКЦИЯ" : service ? "СЛУЖЕБНАЯ ПАПКА" : folder.folderKindLabel && folder.folderKind !== "order" ? folder.folderKindLabel : folder.client || folder.name;
   $("folderSummary").textContent = folder.frezaSection ? printCountLabel(folder.directories.filter((item) => !item.name.startsWith("#")).length) + " · превью и файлы" : printView ? printCountLabel(folder.fileCount) + " · название, ссылка и описание" : folder.filesLoading ? "Карточка из локальной базы · подпапки загружаются…" : folder.filesUnavailable ? "Карточка из локальной базы · папка сейчас недоступна" : folder.frezaTask ? "Файлов: " + folder.fileCount + " · " + formatSize(folder.totalSize) + " · добавляй файлы прямо в задание" : folder.filesScope === "events" ? folder.folderCount + " папок · файлы доступны в событиях" : folder.filesScope === "subfolders" ? folder.folderCount + " папок" : folder.path
     ? folder.fileCount + " файлов · " + folder.folderCount + " папок · " + formatSize(folder.totalSize)
@@ -1747,7 +1749,11 @@ async function loadOrders() {
   state.storage = result.storage;
   renderFavoriteOrders();
   if (hasOrderList()) renderOrders();
-  else if (state.folder?.order) renderCardDeadlines();
+  else if (state.folder?.order) {
+    renderCardDeadlines();
+    const current = [...(result.orders || []), ...(result.favorites || [])].find(order => order.id === state.folder.order.id);
+    if (current) renderOrderCardLinks(current);
+  }
 }
 
 function orderTodoText(order) {
@@ -2213,12 +2219,37 @@ function renderOrderFavoriteButton(order) {
 }
 
 function renderOrderRelatedButton(order) {
-  const unknown = order.related_order_ids === null;
+  const unknown = order.related_order_ids === null || order.primary_related_order_ids === null;
   const count = order.related_order_ids?.length || 0;
-  const label = unknown ? "Неизвестный формат связанных заказов" : "Связанные заказы: " + count + " · " + order.title;
-  return '<button type="button" class="order-related-button' + (count ? ' linked' : '') + '" data-order-related="' + escapeHtml(order.path) +
+  const primary = Boolean(order.primary_related_order_ids?.length);
+  const label = unknown ? "Неизвестный формат связанных заказов" : (primary ? "Главный заказ · " : "") + "Связанные заказы: " + count + " · " + order.title;
+  return '<button type="button" class="order-related-button' + (count ? ' linked' : '') + (primary ? ' primary' : '') + '" data-order-related="' + escapeHtml(order.path) +
     '" aria-label="' + escapeHtml(label) + '" title="' + escapeHtml(label) + '" aria-haspopup="dialog" aria-controls="orderLinksDialog"' +
     (unknown || order.registered === false || !order.can_link_orders || orderRowSaving(order.path) ? ' disabled' : '') + '>' + icon("link") + '</button>';
+}
+
+function renderCompactOrderLinks(order) {
+  const items = order?.primary_related_orders;
+  if (!items?.length) return '';
+  return '<ul class="compact-order-links" aria-label="Связанные заказы">' + items.map(item => '<li>' + icon('link') +
+    (item.available ? '<a href="?path=' + encodeURIComponent(item.path) + '" data-related-card-open="' + escapeHtml(item.path) + '" data-related-card-id="' + escapeHtml(item.id) + '">' + escapeHtml(item.title) + '</a>' :
+      '<span class="unavailable">' + escapeHtml(item.title) + '</span>') + '</li>').join('') + '</ul>';
+}
+
+function renderOrderCardLinks(order = state.folder?.order) {
+  const container = $("orderCardLinks");
+  if (order && order.id === state.folder?.order?.id) {
+    if (order.revision < (state.folder.cardLinksRevision || 0)) return;
+    state.folder.cardLinksRevision = order.revision;
+  }
+  const markup = order?.id === state.folder?.order?.id ? renderCompactOrderLinks(order) : '';
+  container.hidden = !markup;
+  if (state.cardLinksMarkup !== markup) {
+    const active = container.contains(document.activeElement) ? document.activeElement.dataset.relatedCardId : null;
+    container.innerHTML = markup;
+    state.cardLinksMarkup = markup;
+    if (active) [...container.querySelectorAll('[data-related-card-id]')].find(link => link.dataset.relatedCardId === active)?.focus({ preventScroll: true });
+  }
 }
 
 function renderOrderLinks() {
@@ -2226,11 +2257,13 @@ function renderOrderLinks() {
   if (!edit) return;
   $("closeOrderLinks").disabled = edit.saving;
   $("refreshOrderLinks").disabled = edit.loading || edit.saving;
+  $("initializeOrderLinks").hidden = !edit.data?.needs_primary || Boolean(edit.data?.group_error);
+  $("initializeOrderLinks").disabled = edit.loading || edit.saving || edit.conflict;
   const order = edit.data?.order;
-  $("orderLinksOrder").textContent = order ? order.title + " · " + order.client + " · " + order.object : edit.title;
-  const unknown = edit.data?.linked_ids === null;
-  $("orderLinksState").textContent = edit.error || (edit.loading ? "Загружаю заказы…" : edit.saving ? "Сохраняю связь…" :
-    unknown ? "Неизвестный формат связей сохранён без изменений" : "Связи только внутри этого объекта");
+  $("orderLinksOrder").textContent = order ? "Главный заказ: " + order.title + " · " + order.client + " · " + order.object : edit.title;
+  const unknown = edit.data?.linked_ids === null || order?.primary_related_order_ids === null;
+  $("orderLinksState").textContent = edit.error || edit.data?.group_error || (edit.loading ? "Загружаю заказы…" : edit.saving ? "Сохраняю связь…" :
+    unknown ? "Неизвестный формат связей сохранён без изменений" : edit.data?.needs_primary ? "У прежней группы ещё не подтверждён главный заказ" : "Один главный заказ и его подчинённые в этом объекте");
   if (edit.loading && !edit.data) { $("orderLinksOptions").innerHTML = ''; return; }
   const query = normalize($("orderLinksSearch").value.trim());
   const active = document.activeElement?.dataset.relatedTarget ||
@@ -2239,11 +2272,12 @@ function renderOrderLinks() {
   const section = (items, linked) => {
     const visible = (items || []).filter(item => !query || normalize(item.title + " " + (item.path || "")).includes(query));
     if (!visible.length) return '';
-    return '<h3>' + (linked ? 'Связаны с этим заказом' : 'Другие заказы объекта') + '</h3>' + visible.map(item =>
+    return '<h3>' + (linked ? 'Подчинённые заказы' : 'Свободные заказы объекта') + '</h3>' + visible.map(item =>
       '<div class="order-link-option"><div>' + (item.available ? '<a href="?path=' + encodeURIComponent(item.path) + '" data-related-open="' + escapeHtml(item.path) + '">' + escapeHtml(item.title) + '</a>' : '<span>' + escapeHtml(item.title) + '</span>') +
-      '<small>' + escapeHtml(item.available ? item.path : item.registered ? 'Заказ больше не находится в этом объекте' : 'Заказ недоступен или убран из списка') + '</small></div>' +
+      '<small>' + escapeHtml(item.available ? item.path : item.registered ? 'Заказ больше не находится в этом объекте' : 'Заказ недоступен или убран из списка') +
+      '</small></div><div class="order-link-actions">' +
       '<button type="button" class="secondary-button" data-related-target="' + escapeHtml(item.id) + '" aria-label="' + escapeHtml((linked ? 'Убрать связь: ' : 'Связать: ') + item.title) + '"' +
-      (edit.saving || edit.loading || edit.conflict || unknown || !item.editable ? ' disabled' : '') + '>' + (linked ? 'Убрать связь' : 'Связать') + '</button></div>').join('');
+      (edit.saving || edit.loading || edit.conflict || unknown || edit.data?.group_error || edit.data?.needs_primary || !item.editable ? ' disabled' : '') + '>' + (linked ? 'Убрать связь' : 'Связать') + '</button></div></div>').join('');
   };
   const markup = section(edit.data?.items, true) + section(edit.data?.candidates, false);
   $("orderLinksOptions").innerHTML = markup || '<p class="todo-empty">' + (query ? 'Заказы не найдены.' : 'Других зарегистрированных заказов в этом объекте пока нет.') + '</p>';
@@ -2276,7 +2310,7 @@ async function refreshOrderLinks() {
 async function openOrderLinks(path) {
   if (!isObjectOrderList()) return;
   const order = findListOrder(path);
-  if (!order || order.registered === false || !order.can_link_orders || order.related_order_ids === null || orderRowSaving(path)) return;
+  if (!order || order.registered === false || !order.can_link_orders || order.related_order_ids === null || order.primary_related_order_ids === null || orderRowSaving(path)) return;
   state.orderLinks = { path, title: order.title, data: null, loading: false, saving: false, conflict: false, error: '' };
   $("orderLinksSearch").value = '';
   $("orderLinksOptions").scrollTop = 0;
@@ -2298,14 +2332,26 @@ async function toggleOrderLink(identity) {
   if (!edit?.data || edit.loading || edit.saving || edit.conflict || edit.data.linked_ids === null) return;
   const target = [...edit.data.items, ...edit.data.candidates].find(item => item.id === identity);
   if (!target?.editable) return;
-  const order = edit.data.order;
   edit.focusTarget = identity;
+  const order = edit.data.order;
+  await saveOrderLinksChange({ path: order.path, id: order.id, revision: order.revision,
+    target_id: identity, target_revision: target.revision, linked: !edit.data.linked_ids.includes(identity) });
+}
+
+async function initializeOrderLinks() {
+  const edit = state.orderLinks, order = edit?.data?.order;
+  if (!order || !edit.data.needs_primary || edit.loading || edit.saving || edit.conflict || edit.data.group_error) return;
+  await saveOrderLinksChange({ path: order.path, id: order.id, revision: order.revision, initialize: true, versions: edit.data.versions });
+}
+
+async function saveOrderLinksChange(payload) {
+  const edit = state.orderLinks;
+  if (!edit || edit.loading || edit.saving || edit.conflict || edit.data?.group_error) return;
   edit.saving = true;
   edit.error = '';
   renderOrderLinks();
   try {
-    const data = await request('/api/order-links', { path: order.path, id: order.id, revision: order.revision,
-      target_id: identity, target_revision: target.revision, linked: !edit.data.linked_ids.includes(identity) });
+    const data = await request('/api/order-links', payload);
     for (const saved of data.records) applyOrderRecord(null, saved);
     edit.data = data;
     if (hasOrderList()) renderOrders({ force: true });
@@ -2927,6 +2973,8 @@ function renderOrders({ force = false } = {}) {
   const focusedGroup = document.activeElement?.dataset.orderGroupToggle;
   const focusedFavorite = document.activeElement?.dataset.orderFavorite;
   const focusedRelated = document.activeElement?.dataset.orderRelated;
+  const relatedLink = document.activeElement?.closest('#ordersTableBody [data-related-card-id]');
+  const focusedRelatedLink = relatedLink ? { id: relatedLink.dataset.relatedCardId, path: relatedLink.closest('tr').querySelector('[data-order]')?.dataset.order } : null;
   const focusedOrder = document.activeElement?.dataset.order;
   const focusedTodos = document.activeElement?.dataset.orderTodos;
   const listScroll = $("ordersWorkspace").querySelector(".orders-table-scroll"), scrollLeft = listScroll.scrollLeft;
@@ -2953,7 +3001,7 @@ function renderOrders({ force = false } = {}) {
     '" data-order-group-scope="' + escapeHtml(groupScope) + '" aria-expanded="' + !group.collapsed +
     '"><span class="order-group-chevron" aria-hidden="true">▸</span><span>' + escapeHtml(group.label) +
     '</span><span class="count-badge">' + group.orders.length + '</span></button></th><td class="order-deadline-column">' + renderDeadlineMonthLegend(deadlineOptions) + '</td><td colspan="8"></td></tr>' +
-    group.orders.map((order) => '<tr data-order-group-row="' + group.key + '"' + (group.collapsed ? ' hidden' : '') + '><td class="order-blue-plus-column">' + renderOrderMarkerButton(order, "bluePlus") + '</td><td class="order-dollar-column">' + renderOrderMarkerButton(order, "dollar") + '</td><td class="order-flag-column">' + renderOrderMarkerButton(order, "flag") + '</td><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td>' + (object ? '<td class="order-related-column">' + renderOrderRelatedButton(order) + '</td>' : '') + '<td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + renderOrderLocationLink(order.client, order.client_path) + '</td><td class="order-object-column">' + renderOrderLocationLink(order.object, order.object_path) + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен</span>' : '') + '<span class="order-row-path">' + escapeHtml(order.path) + '</span></td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td class="order-deadline-column">' + renderOrderDeadlines(order, { options: deadlineOptions }) + '</td><td>' + renderOrderProductionStatus(order) + '</td><td><span class="status-badge" data-financial-status="' + escapeHtml(order.financial_status) + '">' + escapeHtml(financialStatusLabels[order.financial_status] || "Не указан") + '</span></td>' +
+    group.orders.map((order) => '<tr data-order-group-row="' + group.key + '"' + (group.collapsed ? ' hidden' : '') + '><td class="order-blue-plus-column">' + renderOrderMarkerButton(order, "bluePlus") + '</td><td class="order-dollar-column">' + renderOrderMarkerButton(order, "dollar") + '</td><td class="order-flag-column">' + renderOrderMarkerButton(order, "flag") + '</td><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td>' + (object ? '<td class="order-related-column">' + renderOrderRelatedButton(order) + '</td>' : '') + '<td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + renderOrderLocationLink(order.client, order.client_path) + '</td><td class="order-object-column">' + renderOrderLocationLink(order.object, order.object_path) + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен</span>' : '') + '<span class="order-row-path">' + escapeHtml(order.path) + '</span>' + (object ? renderCompactOrderLinks(order) : '') + '</td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td class="order-deadline-column">' + renderOrderDeadlines(order, { options: deadlineOptions }) + '</td><td>' + renderOrderProductionStatus(order) + '</td><td><span class="status-badge" data-financial-status="' + escapeHtml(order.financial_status) + '">' + escapeHtml(financialStatusLabels[order.financial_status] || "Не указан") + '</span></td>' +
     ["amount", "costs", "profit", "paid", "debt"].map((field) => '<td class="order-money' + (order[field] < 0 ? " negative" : "") + '">' + rubles(order[field]) + '</td>').join("") +
     '<td class="order-updated">' + (order.updated ? formatDate(order.updated) : '—') + (order.sync_pending ? '<span class="sync-pending" title="' + escapeHtml(order.sync_error || "Ожидает выгрузки в папку") + '">' + (order.sync_error ? "В очереди · автоповтор" : "Ожидает выгрузки") + '</span>' : '<span class="sync-complete">' + (order.storage === 'database' ? 'В базе' : 'Выгружено') + '</span>') + '</td></tr>').join("")).join("");
   $("ordersEmpty").hidden = Boolean(filtered.length);
@@ -2989,6 +3037,10 @@ function renderOrders({ force = false } = {}) {
   focusOrderMarker(focusedDollar, "dollar");
   focusOrderFavorite(focusedFavorite);
   if (focusedRelated) [...$("ordersTableBody").querySelectorAll("[data-order-related]")].find(button => button.dataset.orderRelated === focusedRelated)?.focus({ preventScroll: true });
+  if (focusedRelatedLink) {
+    const row = [...$("ordersTableBody").querySelectorAll('[data-order]')].find(button => button.dataset.order === focusedRelatedLink.path)?.closest('tr');
+    [...(row?.querySelectorAll('[data-related-card-id]') || [])].find(link => link.dataset.relatedCardId === focusedRelatedLink.id)?.focus({ preventScroll: true });
+  }
   focusOrderDeadline(focusedDeadline, focusedWeek);
   focusOrderGroup(focusedGroup);
   if (work && (focusedOrder || focusedTodos)) [...$("ordersTableBody").querySelectorAll("[data-order], [data-order-todos]")].find((button) => focusedOrder ? button.dataset.order === focusedOrder : button.dataset.orderTodos === focusedTodos)?.focus({ preventScroll: true });
@@ -3696,6 +3748,7 @@ $("ordersTableBody").addEventListener("click", (event) => {
 });
 $("orderLinksSearch").addEventListener("input", renderOrderLinks);
 $("refreshOrderLinks").addEventListener("click", () => run(refreshOrderLinks));
+$("initializeOrderLinks").addEventListener("click", () => run(initializeOrderLinks));
 $("closeOrderLinks").addEventListener("click", closeOrderLinks);
 $("orderLinksDialog").addEventListener("cancel", event => { event.preventDefault(); closeOrderLinks(); });
 $("orderLinksOptions").addEventListener("click", event => {
@@ -3707,6 +3760,13 @@ $("orderLinksOptions").addEventListener("click", event => {
     if (state.orderLinks?.saving) return;
     closeOrderLinks();
     run(() => navigate(link.dataset.relatedOpen));
+  }
+});
+for (const container of [$("orderCardLinks"), $("ordersTableBody")]) container.addEventListener("click", event => {
+  const link = event.target.closest('[data-related-card-open]');
+  if (link && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0) {
+    event.preventDefault();
+    run(() => navigate(link.dataset.relatedCardOpen));
   }
 });
 $("closeOrderTodos").addEventListener("click", () => $("orderTodoDialog").close());
@@ -3848,7 +3908,7 @@ setInterval(() => {
         renderStatus();
       }
     }).catch(() => {});
-  } else if (state.folder?.order && !state.dirty && !state.saving) {
+  } else if (state.folder?.order) {
     const folder = state.folder;
     request(apiUrl("/api/order", folder.path)).then((order) => {
       if (applyRemotePurchaseUpdate(folder, order)) return;
@@ -3856,6 +3916,7 @@ setInterval(() => {
         folder.order = order;
         renderExportState();
       }
+      if (state.folder === folder) renderOrderCardLinks(order);
     }).catch(() => {});
   }
 }, 5000);

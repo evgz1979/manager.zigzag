@@ -104,7 +104,7 @@ STATUS_LABELS = {
     "unspecified": "Не указан",
     "new": "Новый", "measure": "Замеры", "process": "Расчеты", "awaiting_client": "Жду от клиента", "awaiting_payment": "На оплате", "waiting": "Жду", "offer_later": "Предложить позже",
     "workshop": "В цех", "install": "Монтаж", "rework": "Переделка/доделка",
-    "finishing": "Завершение/добивка", "deferred": "Отложен/возможно",
+    "finishing": "Завершение/добивка", "related": "Связанный", "deferred": "Отложен/возможно",
     "done": "Готово", "done_but": "Готово, но…", "cancelled": "Отменён",
 }
 FINANCIAL_STATUS_LABELS = order_document.FINANCIAL_STATUS_LABELS
@@ -874,6 +874,7 @@ def metadata_worker():
         METADATA_REFRESH.clear()
         try:
             metadata_store().backup("before-migration")
+            OrderLinks(order_store()).migrate_statuses()
             order_creation.recover(order_store())
             if refresh or metadata_store().status()["errors"]:
                 metadata_store().migrate(sys.modules[__name__])

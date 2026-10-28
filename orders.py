@@ -114,6 +114,8 @@ class OrderStore:
         result["is_blue_plus"] = document.read_blue_plus(result["extra_blocks"])
         result["is_dollar"] = document.read_dollar(result["extra_blocks"])
         result["related_order_ids"] = order_links.read(result["extra_blocks"])
+        result["primary_related_order_ids"] = order_links.read_primary(result["extra_blocks"])
+        result["primary_related_orders"] = order_links.primary_items(db, result["path"], result["primary_related_order_ids"])
         result["can_link_orders"] = bool(order_links.scope(result["path"]))
         result["deadline_weeks"] = order_deadlines.read(result["extra_blocks"])
         result["calendar_events"] = order_calendar.read(result["extra_blocks"])
@@ -179,6 +181,8 @@ class OrderStore:
                 WHERE orders.registered=0""", (relative, str(uuid.uuid4()), initial.get("title", Path(relative).name),
                 status, financial_status, note, initial.get("amount"), initial.get("costs"), initial.get("paid"), time.time(),
                 json.dumps(order_calendar.normalize_weekly_blocks(initial.get("extra_blocks", {})), ensure_ascii=False)))
+            if self.database_only and status == 'related':
+                order_links.mark_status_contract(db)
         return self.get(relative)
 
     def require_order_folder(self, relative):
@@ -232,6 +236,8 @@ class OrderStore:
                 (title.strip(), status, financial_status, note, *values, json.dumps(blocks, ensure_ascii=False), time.time(), relative, revision))
             if not result.rowcount:
                 raise OrderConflict("Заказ изменён в другой вкладке. Откройте его заново перед сохранением.")
+            if self.database_only and status == 'related':
+                order_links.mark_status_contract(db)
         return self.get(relative)
 
     def save_status(self, payload):
@@ -249,6 +255,8 @@ class OrderStore:
                 WHERE path=? AND revision=? AND registered=1""", (status, time.time(), relative, revision))
             if not result.rowcount:
                 raise OrderConflict("Заказ изменён в другой вкладке. Проверь актуальный статус и выбери его заново.")
+            if self.database_only and status == 'related':
+                order_links.mark_status_contract(db)
         return self.get(relative)
 
     def save_deadline_week(self, payload):
@@ -485,8 +493,9 @@ class OrderStore:
                     blocks = order_calendar.normalize_weekly_blocks(body.get("extra_blocks", previous["extra_blocks"]))
                     # Another linked order may have removed a relation while this
                     # card was unregistered; the old note snapshot must not revive it.
-                    if order_links.BLOCK in previous["extra_blocks"]:
-                        blocks[order_links.BLOCK] = previous["extra_blocks"][order_links.BLOCK]
+                    for block in (order_links.BLOCK, order_links.PRIMARY_BLOCK):
+                        if block in previous["extra_blocks"]:
+                            blocks[block] = previous["extra_blocks"][block]
                     db.execute("UPDATE orders SET registered=1,note=?,extra_blocks=?,revision=revision+1,updated=? WHERE path=?",
                         (body.get("note",previous["note"]),json.dumps(blocks,ensure_ascii=False),time.time(),relative))
             return self.get(relative)
@@ -560,6 +569,8 @@ class OrderStore:
                 revision=MAX(orders.revision+1,excluded.revision),updated=excluded.updated,
                 extra_blocks=excluded.extra_blocks,sync_error='' WHERE orders.registered=0""", (relative, identity, title, status, snapshot.get("financial_status", "unspecified"), note,
                 *values, revision, time.time(), json.dumps(order_calendar.normalize_weekly_blocks(snapshot.get("extra_blocks", {})), ensure_ascii=False)))
+            if self.database_only and status == 'related':
+                order_links.mark_status_contract(db)
 
     def discover(self, read_status, progress):
         """Explicit background scan: directory names and metadata, never attachments."""

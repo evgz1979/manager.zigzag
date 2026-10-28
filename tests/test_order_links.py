@@ -50,18 +50,23 @@ class OrderLinksTests(unittest.TestCase):
             for old, new, other in ((self.a, a, b), (self.b, b, a)):
                 self.assertEqual(new["related_order_ids"], [other["id"]])
                 self.assertEqual(new["revision"], old["revision"] + 1)
-                for key in old.keys() - {"revision", "extra_blocks", "related_order_ids"}:
+                for key in old.keys() - {"status", "revision", "extra_blocks", "related_order_ids", "primary_related_order_ids", "primary_related_orders"}:
                     self.assertEqual(new[key], old[key], key)
-                self.assertEqual({key: value for key, value in new["extra_blocks"].items() if key != order_links.BLOCK}, old["extra_blocks"])
+                self.assertEqual({key: value for key, value in new["extra_blocks"].items() if key not in {order_links.BLOCK, order_links.PRIMARY_BLOCK}}, old["extra_blocks"])
+            self.assertEqual(a["primary_related_order_ids"], [b["id"]])
+            self.assertEqual(a["primary_related_orders"][0]["title"], b["title"])
+            self.assertEqual(b["primary_related_order_ids"], [])
+            self.assertEqual((a["status"], b["status"]), (self.a["status"], 'related'))
             self.assertEqual(self.links.save(self.payload(a, b))["records"], [])
             self.assertEqual(self.store.get(a["path"]), a)
             linked = self.links.save(self.payload(a, self.c))["order"]
             self.assertEqual(set(linked["related_order_ids"]), {b["id"], self.c["id"]})
             self.assertEqual(self.store.get(b["path"])["related_order_ids"], [a["id"]])
-            self.assertEqual(self.links.read(b["path"])["items"][0]["id"], a["id"])
+            self.assertEqual(self.links.read(b["path"])["order"]["id"], a["id"])
             removed = self.links.save(self.payload(linked, b, linked=False))["order"]
             self.assertEqual(removed["related_order_ids"], [self.c["id"]])
             self.assertEqual(self.store.get(b["path"])["related_order_ids"], [])
+            self.assertEqual(self.store.get(b["path"])["status"], 'new')
         with self.store.connect() as db:
             histories = {row[0] for row in db.execute("SELECT identity FROM metadata_history WHERE entity='orders'")}
             self.assertTrue({a["id"], b["id"]} <= histories)
@@ -192,6 +197,140 @@ class OrderLinksTests(unittest.TestCase):
         self.assertEqual(restored["id"], b["id"])
         self.assertEqual(restored["related_order_ids"], [])
         self.assertEqual(self.links.read(restored["path"])["items"], [])
+
+    def test_legacy_star_is_initialized_once_as_a_whole_group(self):
+        with self.store.connect() as db:
+            for source, ids in ((self.a, [self.b['id'], self.c['id']]), (self.b, [self.a['id']]), (self.c, [self.a['id']])):
+                blocks = order_links.write(source['extra_blocks'], ids)
+                db.execute('UPDATE orders SET extra_blocks=? WHERE id=?', (json.dumps(blocks), source['id']))
+        data = self.links.read(self.b['path'])
+        self.assertEqual(data['order']['id'], self.a['id'])
+        self.assertTrue(data['needs_primary'])
+        payload = {'path': self.a['path'], 'id': self.a['id'], 'revision': self.a['revision'], 'initialize': True, 'versions': data['versions']}
+        with self.assertRaises(OrderConflict):
+            self.links.save({**payload, 'versions': {**data['versions'], self.b['id']: 999}})
+        self.assertEqual(self.store.get(self.b['path'])['status'], self.b['status'])
+        result = self.links.save(payload)
+        self.assertFalse(result['needs_primary'])
+        self.assertEqual(result['order']['status'], self.a['status'])
+        self.assertEqual(set(result['order']['primary_related_order_ids']), {self.b['id'], self.c['id']})
+        for child in (self.b, self.c):
+            record = self.store.get(child['path'])
+            self.assertEqual(record['status'], 'related')
+            self.assertEqual(record['related_order_ids'], [self.a['id']])
+            self.assertEqual(record['primary_related_order_ids'], [])
+        with self.assertRaises(ValueError):
+            self.links.save({**payload, 'revision': result['order']['revision'], 'versions': result['versions']})
+
+    def test_primary_unknown_blocks_are_preserved_and_block_partial_writes(self):
+        a = self.links.save(self.payload())["order"]
+        b = self.store.get(self.b["path"])
+        for bad in ('future', '{"version":2,"order_ids":[]}', json.dumps({"version": 1, "order_ids": [str(uuid.uuid4())]})):
+            with self.store.connect() as db:
+                db.execute("UPDATE orders SET extra_blocks=?,revision=revision+1 WHERE id=?", (json.dumps({**b["extra_blocks"], order_links.PRIMARY_BLOCK: bad}), b["id"]))
+            b = self.store.get(b["path"])
+            self.assertIsNone(b["primary_related_order_ids"])
+            for changes in ({"linked": False}, {"make_primary": True}):
+                with self.subTest(bad=bad, changes=changes), self.assertRaises(ValueError):
+                    self.links.save(self.payload(a, b, **changes))
+            self.assertEqual(self.store.get(a["path"]), a)
+        for changes in ({"make_primary": 1}, {"make_primary": "true"}, {"make_primary": True, "linked": False}):
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                self.links.save(self.payload(a, b, **changes))
+
+    def test_primary_card_items_resolve_renames_and_removed_roles_do_not_return(self):
+        a = self.links.save(self.payload())["order"]
+        b = self.store.get(self.b["path"])
+        with self.store.connect() as db:
+            db.execute("UPDATE orders SET title='Переименованный',revision=revision+1 WHERE id=?", (b["id"],))
+        a_now = self.store.get(a["path"])
+        self.assertEqual(a_now["revision"], a["revision"])
+        self.assertEqual(a_now["primary_related_orders"][0]["title"], 'Переименованный')
+        removed = self.store.remove({"path": a["path"], "revision": a["revision"], "confirmed": True})
+        b = self.store.get(b["path"])
+        self.links.save(self.payload(b, removed, linked=False))
+        restored = self.store.import_folder(a["path"])
+        self.assertEqual(restored["primary_related_order_ids"], [])
+        self.assertEqual(restored["primary_related_orders"], [])
+
+    def test_child_unlink_always_returns_it_to_new_and_keeps_main_status(self):
+        a = self.links.save(self.payload())["order"]
+        b = self.store.get(self.b["path"])
+        result = self.links.save(self.payload(b, a, linked=False))
+        self.assertEqual(result['order']['id'], a['id'])
+        self.assertEqual(result['order']['status'], a['status'])
+        self.assertEqual(result['order']['updated'], a['updated'])
+        b_after = self.store.get(b['path'])
+        self.assertEqual(b_after['status'], 'new')
+        self.assertEqual(b_after['revision'], b['revision'] + 1)
+        self.assertEqual(b_after['updated'], b['updated'])
+        self.assertEqual(b_after['related_order_ids'], [])
+        for key in ('amount', 'costs', 'paid', 'financial_status', 'note'):
+            self.assertEqual(b_after[key], b[key])
+
+    def test_second_main_chains_cycles_and_role_switch_are_rejected(self):
+        a = self.links.save(self.payload())["order"]
+        b = self.store.get(self.b["path"])
+        for payload in (self.payload(self.c, b), self.payload(b, self.c), self.payload(self.c, a), self.payload(b, a, make_primary=True)):
+            with self.subTest(payload=payload), self.assertRaises(ValueError):
+                self.links.save(payload)
+        self.assertEqual(self.store.get(a['path']), a)
+        self.assertEqual(self.store.get(b['path']), b)
+        self.assertEqual(self.links.read(self.c['path'])['candidates'], [])
+        self.assertEqual(self.links.read(b['path'])['order']['id'], a['id'])
+        a = self.links.save(self.payload(a, self.c))['order']
+        self.assertEqual({item['id'] for item in self.links.read(b['path'])['items']}, {b['id'], self.c['id']})
+        self.assertEqual(a['status'], self.a['status'])
+
+    def test_main_status_is_never_changed_for_any_production_stage(self):
+        a, b = self.a, self.b
+        for status in manager.STATUS_LABELS:
+            a = self.store.save_status({'path': a['path'], 'revision': a['revision'], 'status': status})
+            before = a
+            a = self.links.save(self.payload(a, b))['order']
+            self.assertEqual((a['status'], a['updated']), (status, before['updated']))
+            b = self.store.get(b['path'])
+            self.assertEqual(b['status'], 'related')
+            a = self.links.save(self.payload(a, b, linked=False))['order']
+            self.assertEqual((a['status'], a['updated']), (status, before['updated']))
+            b = self.store.get(b['path'])
+            self.assertEqual(b['status'], 'new')
+
+    def test_existing_status_backfill_is_offline_atomic_and_runs_once(self):
+        with self.store.connect() as db:
+            for source, target, primary in ((self.a, self.b, [self.b['id']]), (self.b, self.a, [])):
+                blocks = order_links.write(source['extra_blocks'], [target['id']], primary)
+                db.execute('UPDATE orders SET extra_blocks=? WHERE id=?', (json.dumps(blocks), source['id']))
+        before = self.store.get(self.b['path'])
+        with patch('order_links.assert_unlocked', side_effect=ValueError('Перенос не завершён')):
+            with self.assertRaises(ValueError):
+                self.links.migrate_statuses()
+        self.assertEqual(self.store.get(self.b['path']), before)
+        self.root.rename(self.base / 'offline')
+        with patch.object(OrderStore, 'target', side_effect=AssertionError('No iCloud reads')):
+            self.assertEqual(self.links.migrate_statuses(), 1)
+            after = self.store.get(self.b['path'])
+            self.assertEqual(after['status'], 'related')
+            self.assertEqual(after['revision'], before['revision'] + 1)
+            for key in before.keys() - {'status', 'revision'}:
+                self.assertEqual(after[key], before[key], key)
+            self.assertEqual(self.store.get(self.a['path'])['status'], self.a['status'])
+            self.assertEqual(self.store.get(self.c['path'])['status'], self.c['status'])
+            self.assertEqual(self.links.migrate_statuses(), 0)
+            self.assertEqual(self.store.get(self.b['path']), after)
+        with self.store.connect() as db:
+            self.assertEqual(db.execute("SELECT value FROM metadata_settings WHERE key='client_order_link_status'").fetchone()[0], '1')
+            old = [json.loads(row[0]) for row in db.execute("SELECT data FROM metadata_history WHERE entity='orders' AND identity=?", (self.b['id'],))]
+            self.assertTrue(any(row['status'] == self.b['status'] for row in old))
+
+    def test_existing_links_without_known_primary_keep_their_statuses(self):
+        with self.store.connect() as db:
+            for source, target in ((self.a, self.b), (self.b, self.a)):
+                blocks = order_links.write(source['extra_blocks'], [target['id']])
+                db.execute('UPDATE orders SET extra_blocks=? WHERE id=?', (json.dumps(blocks), source['id']))
+        self.assertEqual(self.links.migrate_statuses(), 0)
+        self.assertEqual(self.store.get(self.a['path'])['status'], self.a['status'])
+        self.assertEqual(self.store.get(self.b['path'])['status'], self.b['status'])
 
 
 if __name__ == "__main__":

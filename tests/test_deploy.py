@@ -108,6 +108,24 @@ class DeploymentTests(unittest.TestCase):
             remote.check_event_rename_compatibility(self.db, release)
         (release / 'order_links.py').write_text('ORDER_LINKS_VERSION = 1')
         remote.check_event_rename_compatibility(self.db, release)
+        with sqlite3.connect(self.db) as db:
+            db.execute("INSERT INTO metadata_settings VALUES ('client_order_link_roles','1')")
+        with self.assertRaisesRegex(RuntimeError, 'роли связей'):
+            remote.check_event_rename_compatibility(self.db, release)
+        (release / 'order_links.py').write_text('ORDER_LINKS_VERSION = 1\nORDER_LINK_ROLES_VERSION = 1')
+        remote.check_event_rename_compatibility(self.db, release)
+        with sqlite3.connect(self.db) as db:
+            db.execute("INSERT INTO metadata_settings VALUES ('client_order_link_status','1')")
+        with self.assertRaisesRegex(RuntimeError, 'автоматические статусы'):
+            remote.check_event_rename_compatibility(self.db, release)
+        (release / 'order_links.py').write_text('ORDER_LINKS_VERSION = 1\nORDER_LINK_ROLES_VERSION = 1\nORDER_LINK_STATUS_VERSION = 1')
+        remote.check_event_rename_compatibility(self.db, release)
+        with sqlite3.connect(self.db) as db:
+            db.execute("INSERT INTO metadata_settings VALUES ('client_order_link_star','1')")
+        with self.assertRaisesRegex(RuntimeError, 'одного главного'):
+            remote.check_event_rename_compatibility(self.db, release)
+        (release / 'order_links.py').write_text('ORDER_LINKS_VERSION = 1\nORDER_LINK_ROLES_VERSION = 1\nORDER_LINK_STATUS_VERSION = 1\nORDER_LINK_STAR_VERSION = 1')
+        remote.check_event_rename_compatibility(self.db, release)
 
     def test_old_code_cannot_recreate_separate_week_comment_storage(self):
         release = self.base / 'old-week-comments'

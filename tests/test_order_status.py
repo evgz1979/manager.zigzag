@@ -76,8 +76,8 @@ class OrderStatusTests(unittest.TestCase):
         listed = json.loads(self.http("/api/orders")[2])["orders"]
         self.assertEqual((listed[0]["status"], listed[0]["revision"]), ("offer_later", saved["revision"]))
 
-    def test_client_waiting_stages_are_independent_and_survive_document_round_trip(self):
-        for production in ("awaiting_client", "awaiting_payment"):
+    def test_added_stages_are_independent_and_survive_document_round_trip(self):
+        for production in ("awaiting_client", "awaiting_payment", "related"):
             for financial in manager.FINANCIAL_STATUS_LABELS:
                 with self.subTest(status=production, financial_status=financial):
                     record = {**self.order, "financial_status": financial}
