@@ -111,6 +111,7 @@ class OrderStore:
         result["is_favorite"] = document.read_favorite(result["extra_blocks"])
         result["is_flagged"] = document.read_flag(result["extra_blocks"])
         result["is_blue_plus"] = document.read_blue_plus(result["extra_blocks"])
+        result["is_dollar"] = document.read_dollar(result["extra_blocks"])
         result["deadline_weeks"] = order_deadlines.read(result["extra_blocks"])
         result["calendar_events"] = order_calendar.read(result["extra_blocks"])
         result["calendar_inactive"] = order_calendar.read_inactive(result["extra_blocks"])
@@ -259,6 +260,9 @@ class OrderStore:
 
     def save_blue_plus(self, payload):
         return self._save_extra_block(payload, lambda blocks: document.write_blue_plus(blocks, payload.get("is_blue_plus")), update_time=False)
+
+    def save_dollar(self, payload):
+        return self._save_extra_block(payload, lambda blocks: document.write_dollar(blocks, payload.get("is_dollar")), update_time=False)
 
     def save_supplier_status(self, payload):
         if not work_orders.status_order(self.path(payload.get("path"))):

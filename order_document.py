@@ -23,6 +23,7 @@ PURCHASE_BLOCK = "Закупки и затраты"
 FAVORITE_BLOCK = "Избранное"
 FLAG_BLOCK = "Флажок"
 BLUE_PLUS_BLOCK = "Синий плюс"
+DOLLAR_BLOCK = "Зелёный доллар"
 PURCHASE_SUPPLIERS = ("newtek", "glass", "antares", "tbm", "remex")
 PRIMARY_PURCHASE_SUPPLIERS = ("antares", "himlex", "newtek", "glass")
 UNSET_TODOS = object()
@@ -70,6 +71,21 @@ def write_blue_plus(blocks, value):
     if read_blue_plus(blocks) is None:
         raise ValueError("Неизвестная отметка синего плюса сохранена без изменений")
     return {**blocks, BLUE_PLUS_BLOCK: "Да" if value else "Нет"}
+
+
+def read_dollar(blocks):
+    if DOLLAR_BLOCK not in blocks:
+        return False
+    value = blocks[DOLLAR_BLOCK]
+    return {"да": True, "нет": False}.get(value.strip().casefold()) if isinstance(value, str) else None
+
+
+def write_dollar(blocks, value):
+    if type(value) is not bool:
+        raise ValueError("Укажи состояние зелёного доллара: вкл или выкл")
+    if read_dollar(blocks) is None:
+        raise ValueError("Неизвестная отметка зелёного доллара сохранена без изменений")
+    return {**blocks, DOLLAR_BLOCK: "Да" if value else "Нет"}
 
 
 def validate_todos(items):
@@ -223,7 +239,9 @@ def split_statuses(record, labels):
     """Read previous mixed statuses without inventing a production stage."""
     result = dict(record)
     if "status" in result:
-        status = status_key(result["status"], {**labels, "payment": "На оплате"})
+        # Cards predating separate financial statuses used this label for payment.
+        status_labels = {**labels, "payment": "На оплате"} if "financial_status" in result else {"payment": "На оплате", **labels}
+        status = status_key(result["status"], status_labels)
         result["status"] = "unspecified" if status == "payment" else status
         result.setdefault("financial_status", "payment" if status == "payment" else "unspecified")
     if "financial_status" in result:

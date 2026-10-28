@@ -680,6 +680,11 @@ h2 { font-size: 13px; font-weight: 600; }
 .orders-table .order-favorite-column { width: 38px; padding: 6px 3px; text-align: center; }
 .orders-table .order-flag-column { width: 30px; padding: 6px 2px; text-align: center; }
 .orders-table .order-blue-plus-column { width: 30px; padding: 6px 2px; text-align: center; }
+.orders-table .order-dollar-column { width: 30px; padding: 6px 2px; text-align: center; }
+.orders-table th.order-dollar-column { color: #72a881; font-size: 14px; }
+.order-dollar-button { display: inline-grid; place-items: center; width: 26px; height: 28px; padding: 0; border: 0; background: transparent; color: #adcdb6; font-size: 18px; font-weight: 400; }
+.order-dollar-button:hover { color: #2f8551; background: #f0f7f1; }
+.order-dollar-button[aria-pressed="true"] { color: #238246; background: #e7f5eb; font-weight: 700; }
 .orders-table th.order-blue-plus-column { color: #9db2c8; }
 .order-blue-plus-column > svg { width: 14px; height: 14px; }
 .order-blue-plus-button { display: inline-grid; place-items: center; width: 26px; height: 28px; padding: 0; border: 0; background: transparent; color: #b5c6d8; }
@@ -795,7 +800,7 @@ h2 { font-size: 13px; font-weight: 600; }
 .sync-pending { color: #a57532; }
 .sync-complete { color: #78917f; }
 .status-badge[data-status="rework"] { color: #9a5537; background: #fce9dc; }
-.status-badge[data-financial-status="payment"] { color: #a26b26; background: #fff0ce; }
+.status-badge[data-financial-status="payment"], .status-badge[data-status="awaiting_payment"] { color: #a26b26; background: #fff0ce; }
 .status-badge[data-financial-status="partial"] { color: #456c97; background: #e6eef8; }
 .status-badge[data-financial-status="paid"] { color: #2f7d46; background: #e1f1e5; }
 .status-badge[data-status="cancelled"] { color: #916b68; background: #f5e8e7; }
