@@ -122,6 +122,7 @@ const HomeCalendar = (() => {
       const retained = new Set();
       let before = list.firstElementChild;
       for (const order of weekly) {
+        const supplier = Boolean(order.work_supplier), color = order.work_supplier_color;
         const key = JSON.stringify([order.id, order.path]);
         let item = existing.get(key);
         if (!item) {
@@ -135,7 +136,7 @@ const HomeCalendar = (() => {
           markers.innerHTML = orderMarkers.map((marker) => '<span class="calendar-order-marker calendar-order-' + marker.name + '">' + marker.content + '</span>').join("");
           title.className = "calendar-order-title";
           client.className = "calendar-order-client";
-          link.append(markers, title, client);
+          link.append(markers, ...(supplier ? [client, title] : [title, client]));
           item.append(link);
           for (let day = -1; day < 7; day++) {
             const slot = document.createElement("button");
@@ -144,7 +145,6 @@ const HomeCalendar = (() => {
             item.append(slot);
           }
         }
-        const supplier = Boolean(order.work_supplier), color = order.work_supplier_color;
         item.classList.toggle("calendar-supplier-order", supplier);
         item.classList.toggle("supplier-neutral", supplier && Boolean(color?.neutral));
         if (supplier) item.style.setProperty("--supplier-hue", String(color?.hue ?? 0));
@@ -156,10 +156,11 @@ const HomeCalendar = (() => {
         markers.hidden = !activeMarkers.length;
         link.href = "?path=" + encodeURIComponent(order.path);
         link.dataset.calendarOrder = order.path;
-        link.setAttribute("aria-label", [title, order.client, order.object, ...activeMarkers.map((marker) => marker.label)].filter(Boolean).join(" · "));
+        link.setAttribute("aria-label", [...(supplier ? [order.work_supplier, title] : [title, order.client]), order.object, ...activeMarkers.map((marker) => marker.label)].filter(Boolean).join(" · "));
         link.querySelector(".calendar-order-title").textContent = title;
-        link.lastElementChild.textContent = order.client || "";
-        link.lastElementChild.hidden = !order.client;
+        const client = link.querySelector(".calendar-order-client"), name = supplier ? order.work_supplier : order.client;
+        client.textContent = name || "";
+        client.hidden = !name;
         for (let day = -1; day < 7; day++) {
           const week = new Date(row.dataset.week + "T00:00:00Z"), isWeek = day === -1;
           const date = shiftDays(week, isWeek ? 0 : day), key = dateKey(date);
