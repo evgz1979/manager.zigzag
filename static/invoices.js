@@ -52,7 +52,8 @@
       const date = record.state === 'planned' ? displayPlanDate(record) : displayDate(record.data.date);
       if (record.state === 'planned') {
         const details = [date, planAmount(record), record.data.invoice_label, record.data.text].filter(Boolean).join(' · ');
-        return '<div class="invoice-row"><button type="button" class="invoice-row-name" data-invoice-plan="' + record.id + '"' + (record.plan_editable ? '' : ' disabled') + '><span class="invoice-row-label">' + escapeHtml(label) + '</span><small class="invoice-row-meta" title="' + escapeHtml(details) + '">' + escapeHtml(details) + (record.plan_editable ? '' : ' · Неизвестный формат плана') + '</small></button><div class="invoice-row-actions"><button class="secondary-button invoice-remove" type="button" data-invoice-remove="' + record.id + '" aria-label="В корзину · ' + escapeHtml(label + ' · ' + date) + '">×</button></div></div>';
+        const planLabelClass = (record.data.operation || 'invoice') === 'invoice' ? ' invoice-issuance-plan-label' : '';
+        return '<div class="invoice-row"><button type="button" class="invoice-row-name" data-invoice-plan="' + record.id + '"' + (record.plan_editable ? '' : ' disabled') + '><span class="invoice-row-label' + planLabelClass + '">' + escapeHtml(label) + '</span><small class="invoice-row-meta" title="' + escapeHtml(details) + '">' + escapeHtml(details) + (record.plan_editable ? '' : ' · Неизвестный формат плана') + '</small></button><div class="invoice-row-actions"><button class="secondary-button invoice-remove" type="button" data-invoice-remove="' + record.id + '" aria-label="В корзину · ' + escapeHtml(label + ' · ' + date) + '">×</button></div></div>';
       }
       const details = (external ? 'Внешний · ' : '') + date;
       const comment = external ? record.data.comment?.trim() : '';

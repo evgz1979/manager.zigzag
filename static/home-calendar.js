@@ -5,6 +5,7 @@ const HomeCalendar = (() => {
   // Inline paths survive PNG capture, which omits the page's SVG sprite.
   const orderMarkers = [
     { field: "is_blue_plus", name: "blue-plus", label: "Синий плюс", content: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>' },
+    { field: "is_dollar", name: "dollar", label: "Зелёный доллар", content: '$' },
     { field: "is_flagged", name: "flag", label: "Флажок", content: '<svg viewBox="0 0 24 24"><path d="M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0Z"/><path d="M5 3v18" fill="none"/></svg>' },
     { field: "is_favorite", name: "favorite", label: "Избранное", content: '★' },
   ];
@@ -112,7 +113,7 @@ const HomeCalendar = (() => {
     }
     for (const row of get("calendarWeeks").children) {
       const list = row.querySelector(".calendar-orders-list"), weekly = byWeek.get(row.dataset.week) || [];
-      const signature = JSON.stringify(weekly.map((order) => [order.id, order.path, order.title, order.client, order.object, order.is_blue_plus, order.is_flagged, order.is_favorite, order.work_supplier, order.work_supplier_color, order.deadline_weeks, order.calendar_events, order.calendar_week_events, order.calendar_inactive, order.calendar_completed, order.calendar_colors]));
+      const signature = JSON.stringify(weekly.map((order) => [order.id, order.path, order.title, order.client, order.object, order.is_blue_plus, order.is_dollar, order.is_flagged, order.is_favorite, order.work_supplier, order.work_supplier_color, order.deadline_weeks, order.calendar_events, order.calendar_week_events, order.calendar_inactive, order.calendar_completed, order.calendar_colors]));
       if (list.dataset.signature === signature) continue;
       list.dataset.signature = signature;
       const top = list.parentElement.scrollTop;
