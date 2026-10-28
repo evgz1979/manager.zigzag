@@ -97,6 +97,18 @@ class DeploymentTests(unittest.TestCase):
         (release / 'order_calendar.py').write_text('CALENDAR_COMPLETION_VERSION = 1')
         remote.check_event_rename_compatibility(self.db, release)
 
+    def test_old_code_cannot_revive_removed_client_order_links(self):
+        release = self.base / 'old-client-order-links'
+        release.mkdir()
+        (release / 'local_metadata.py').write_text('# supported')
+        with sqlite3.connect(self.db) as db:
+            db.execute("CREATE TABLE metadata_settings (key TEXT PRIMARY KEY,value TEXT NOT NULL)")
+            db.execute("INSERT INTO metadata_settings VALUES ('client_order_links','1')")
+        with self.assertRaisesRegex(RuntimeError, 'связанные клиентские заказы'):
+            remote.check_event_rename_compatibility(self.db, release)
+        (release / 'order_links.py').write_text('ORDER_LINKS_VERSION = 1')
+        remote.check_event_rename_compatibility(self.db, release)
+
     def test_old_code_cannot_recreate_separate_week_comment_storage(self):
         release = self.base / 'old-week-comments'
         release.mkdir()

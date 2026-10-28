@@ -23,6 +23,7 @@ import calendar_events
 import telegram_calendar
 import thumbnail_cache
 from orders import OrderStore, OrderConflict, CARD, SNAPSHOT, is_service_folder
+from order_links import OrderLinks
 import order_document
 import order_deadlines
 import file_comments
@@ -1493,6 +1494,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(record, head=head)
             elif parsed.path == "/api/order-todos":
                 self.send_json(OrderTodos(order_store()).in_order(relative), head=head)
+            elif parsed.path == "/api/order-links":
+                self.send_json(OrderLinks(order_store()).read(relative), head=head)
             elif parsed.path == "/api/work-order-links":
                 self.send_json(order_store().work_links(relative), head=head)
             elif parsed.path == "/api/tree":
@@ -1854,6 +1857,10 @@ class ManagerHandler(BaseHTTPRequestHandler):
             elif route == "/api/order-favorite":
                 record = order_store().save_favorite(payload)
                 self.send_json(record)
+                schedule_order_sync()
+                return
+            elif route == "/api/order-links":
+                self.send_json(OrderLinks(order_store()).save(payload))
                 schedule_order_sync()
                 return
             elif route == "/api/order-flag":

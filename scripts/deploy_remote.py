@@ -195,6 +195,11 @@ def check_event_rename_compatibility(database, release_dir):
                 and not (release_dir / "local_metadata.py").is_file()):
             raise RuntimeError("База переведена на новый формат хранения. Старый код не поддерживает рабочие комментарии и заметки; откат заблокирован")
         if (db.execute("SELECT 1 FROM sqlite_master WHERE name='metadata_settings'").fetchone()
+                and db.execute("SELECT 1 FROM metadata_settings WHERE key='client_order_links' AND value='1'").fetchone()):
+            source = release_dir / 'order_links.py'
+            if not source.is_file() or 'ORDER_LINKS_VERSION = 1' not in source.read_text(encoding='utf-8'):
+                raise RuntimeError('В базе есть связанные клиентские заказы. Старый код может восстановить снятые связи; откат заблокирован')
+        if (db.execute("SELECT 1 FROM sqlite_master WHERE name='metadata_settings'").fetchone()
                 and db.execute("SELECT 1 FROM metadata_settings WHERE key='weekly_events_unified' AND value='1'").fetchone()):
             source = release_dir / 'order_calendar.py'
             if not source.is_file() or 'WEEKLY_EVENTS_UNIFIED_VERSION = 1' not in source.read_text(encoding='utf-8'):

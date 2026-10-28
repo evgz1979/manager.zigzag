@@ -711,6 +711,23 @@ h2 { font-size: 13px; font-weight: 600; }
 .order-favorite-button[aria-pressed="false"]:hover > span, .order-favorite-button[aria-pressed="false"]:focus-visible > span { opacity: 1; }
 .order-favorite-button:hover { color: #a37413; background: #fcf4df; }
 .order-favorite-button[aria-pressed="true"] { color: #b57b0b; }
+.orders-table .order-related-column { width: 30px; padding: 6px 2px; text-align: center; }
+.order-related-column > svg { width: 14px; height: 14px; color: var(--muted); }
+.order-related-button { display: inline-grid; place-items: center; width: 26px; height: 28px; padding: 0; border: 0; background: transparent; color: #bec7c5; }
+.order-related-button svg { width: 17px; height: 17px; }
+.order-related-button.linked { color: #28786b; background: #e4efea; }
+.order-related-button:hover:not(:disabled) { color: #28786b; background: #e4efea; }
+.order-links-search { padding: 0 18px 12px; }
+.order-links-search input { width: 100%; padding: 8px 10px; }
+.order-links-options { min-height: 100px; }
+.order-links-options h3 { margin: 4px 0 8px; font-size: 12px; color: var(--muted); font-weight: 500; }
+.order-link-option { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-top: 1px solid var(--line); }
+.order-link-option > div { flex: 1; min-width: 0; }
+.order-link-option a { color: var(--accent); text-decoration: none; }
+.order-link-option a:hover { text-decoration: underline; }
+.order-link-option small { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
+.order-link-option button { flex-shrink: 0; padding: 5px 8px; font-size: 12px; }
+.order-links-dialog .order-todo-dialog-footer { align-items: center; }
 .order-todo-button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-width: 46px; padding: 5px 7px; font-size: 11px; color: var(--accent); background: var(--accent-soft); border-color: #cbded2; }
 .order-todo-button.empty { color: var(--muted); background: transparent; border-color: var(--line); }
 .order-todo-button svg { width: 11px; height: 11px; }

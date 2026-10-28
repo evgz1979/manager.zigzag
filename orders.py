@@ -11,6 +11,7 @@ from pathlib import Path
 import order_document as document
 import order_deadlines
 import order_calendar
+import order_links
 import work_orders
 from order_document import money, MAX_MONEY
 from folder_structure import folder_role, is_service_folder, client_name, client_path, order_location
@@ -112,6 +113,8 @@ class OrderStore:
         result["is_flagged"] = document.read_flag(result["extra_blocks"])
         result["is_blue_plus"] = document.read_blue_plus(result["extra_blocks"])
         result["is_dollar"] = document.read_dollar(result["extra_blocks"])
+        result["related_order_ids"] = order_links.read(result["extra_blocks"])
+        result["can_link_orders"] = bool(order_links.scope(result["path"]))
         result["deadline_weeks"] = order_deadlines.read(result["extra_blocks"])
         result["calendar_events"] = order_calendar.read(result["extra_blocks"])
         result["calendar_inactive"] = order_calendar.read_inactive(result["extra_blocks"])
@@ -479,8 +482,13 @@ class OrderStore:
                     folder_notes.schema(db)
                     draft = db.execute("SELECT document FROM folder_notes WHERE path=?",(relative,)).fetchone()
                     body = json.loads(draft[0]) if draft else previous
+                    blocks = order_calendar.normalize_weekly_blocks(body.get("extra_blocks", previous["extra_blocks"]))
+                    # Another linked order may have removed a relation while this
+                    # card was unregistered; the old note snapshot must not revive it.
+                    if order_links.BLOCK in previous["extra_blocks"]:
+                        blocks[order_links.BLOCK] = previous["extra_blocks"][order_links.BLOCK]
                     db.execute("UPDATE orders SET registered=1,note=?,extra_blocks=?,revision=revision+1,updated=? WHERE path=?",
-                        (body.get("note",previous["note"]),json.dumps(order_calendar.normalize_weekly_blocks(body.get("extra_blocks",previous["extra_blocks"])),ensure_ascii=False),time.time(),relative))
+                        (body.get("note",previous["note"]),json.dumps(blocks,ensure_ascii=False),time.time(),relative))
             return self.get(relative)
         if previous and not previous["registered"] and previous["sync_pending"]:
             with self.connect() as db:

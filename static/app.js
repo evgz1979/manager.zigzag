@@ -34,6 +34,7 @@ const state = {
   eventRemoval: null, eventRemoving: false,
   trashEventsOnly: false,
   orderTodoPath: null, orderTodoMarkup: null, orderTodoKind: "todos",
+  orderLinks: null,
   calendarEvent: null,
   calendarSupplierOrders: [],
   calendarEvents: [],
@@ -1675,7 +1676,8 @@ function mountOrderList() {
   const statusHeader = workspace.querySelector('[data-sort="status"]').closest("th");
   // Restore the shared table's column order before applying the production view.
   deadlineHeader.after(statusHeader);
-  workspace.querySelectorAll("thead th").forEach((th, index) => { th.hidden = work && [5, 6, 7, 12, 13, 14, 15, 16, 17].includes(index); });
+  [...workspace.querySelectorAll("thead th")].filter(th => th.id !== "orderRelatedHeading").forEach((th, index) => { th.hidden = work && [5, 6, 7, 12, 13, 14, 15, 16, 17].includes(index); });
+  $("orderRelatedHeading").hidden = !object;
   if (work) deadlineHeader.before(statusHeader);
   $("supplierStatusHeading").hidden = !work;
   workspace.querySelector('[data-sort="status"]').hidden = work;
@@ -2208,6 +2210,113 @@ function renderOrderFavoriteButton(order) {
   const unknown = order.is_favorite === null;
   const label = (order.is_favorite ? "Убрать из избранного" : "Добавить в избранное") + " · " + order.title;
   return '<button type="button" class="order-favorite-button" data-order-favorite="' + escapeHtml(order.path) + '" aria-pressed="' + Boolean(order.is_favorite) + '" aria-label="' + escapeHtml(label) + '" title="' + escapeHtml(unknown ? "Неизвестный раздел «Избранное» в !.txt сохранён без изменений" : label) + '"' + (unknown || order.registered === false || orderRowSaving(order.path) ? ' disabled' : '') + '><span aria-hidden="true">' + (order.is_favorite ? '★' : '☆') + '</span></button>';
+}
+
+function renderOrderRelatedButton(order) {
+  const unknown = order.related_order_ids === null;
+  const count = order.related_order_ids?.length || 0;
+  const label = unknown ? "Неизвестный формат связанных заказов" : "Связанные заказы: " + count + " · " + order.title;
+  return '<button type="button" class="order-related-button' + (count ? ' linked' : '') + '" data-order-related="' + escapeHtml(order.path) +
+    '" aria-label="' + escapeHtml(label) + '" title="' + escapeHtml(label) + '" aria-haspopup="dialog" aria-controls="orderLinksDialog"' +
+    (unknown || order.registered === false || !order.can_link_orders || orderRowSaving(order.path) ? ' disabled' : '') + '>' + icon("link") + '</button>';
+}
+
+function renderOrderLinks() {
+  const edit = state.orderLinks;
+  if (!edit) return;
+  $("closeOrderLinks").disabled = edit.saving;
+  $("refreshOrderLinks").disabled = edit.loading || edit.saving;
+  const order = edit.data?.order;
+  $("orderLinksOrder").textContent = order ? order.title + " · " + order.client + " · " + order.object : edit.title;
+  const unknown = edit.data?.linked_ids === null;
+  $("orderLinksState").textContent = edit.error || (edit.loading ? "Загружаю заказы…" : edit.saving ? "Сохраняю связь…" :
+    unknown ? "Неизвестный формат связей сохранён без изменений" : "Связи только внутри этого объекта");
+  if (edit.loading && !edit.data) { $("orderLinksOptions").innerHTML = ''; return; }
+  const query = normalize($("orderLinksSearch").value.trim());
+  const active = document.activeElement?.dataset.relatedTarget ||
+    ([document.body, $("orderLinksDialog")].includes(document.activeElement) ? edit.focusTarget : null);
+  const scroll = $("orderLinksOptions").scrollTop;
+  const section = (items, linked) => {
+    const visible = (items || []).filter(item => !query || normalize(item.title + " " + (item.path || "")).includes(query));
+    if (!visible.length) return '';
+    return '<h3>' + (linked ? 'Связаны с этим заказом' : 'Другие заказы объекта') + '</h3>' + visible.map(item =>
+      '<div class="order-link-option"><div>' + (item.available ? '<a href="?path=' + encodeURIComponent(item.path) + '" data-related-open="' + escapeHtml(item.path) + '">' + escapeHtml(item.title) + '</a>' : '<span>' + escapeHtml(item.title) + '</span>') +
+      '<small>' + escapeHtml(item.available ? item.path : item.registered ? 'Заказ больше не находится в этом объекте' : 'Заказ недоступен или убран из списка') + '</small></div>' +
+      '<button type="button" class="secondary-button" data-related-target="' + escapeHtml(item.id) + '" aria-label="' + escapeHtml((linked ? 'Убрать связь: ' : 'Связать: ') + item.title) + '"' +
+      (edit.saving || edit.loading || edit.conflict || unknown || !item.editable ? ' disabled' : '') + '>' + (linked ? 'Убрать связь' : 'Связать') + '</button></div>').join('');
+  };
+  const markup = section(edit.data?.items, true) + section(edit.data?.candidates, false);
+  $("orderLinksOptions").innerHTML = markup || '<p class="todo-empty">' + (query ? 'Заказы не найдены.' : 'Других зарегистрированных заказов в этом объекте пока нет.') + '</p>';
+  $("orderLinksOptions").scrollTop = scroll;
+  if (active) [...$("orderLinksOptions").querySelectorAll('[data-related-target]')].find(button => button.dataset.relatedTarget === active)?.focus({ preventScroll: true });
+}
+
+async function refreshOrderLinks() {
+  const edit = state.orderLinks;
+  if (!edit || edit.loading || edit.saving) return;
+  edit.loading = true;
+  edit.error = '';
+  renderOrderLinks();
+  try {
+    const data = await request(apiUrl('/api/order-links', edit.path));
+    if (state.orderLinks !== edit) return;
+    edit.data = data;
+    edit.conflict = false;
+    applyOrderRecord(null, data.order);
+    if (hasOrderList()) renderOrders({ force: true });
+  } catch (error) {
+    edit.error = error.message;
+    edit.conflict = true;
+  } finally {
+    edit.loading = false;
+    if (state.orderLinks === edit) renderOrderLinks();
+  }
+}
+
+async function openOrderLinks(path) {
+  if (!isObjectOrderList()) return;
+  const order = findListOrder(path);
+  if (!order || order.registered === false || !order.can_link_orders || order.related_order_ids === null || orderRowSaving(path)) return;
+  state.orderLinks = { path, title: order.title, data: null, loading: false, saving: false, conflict: false, error: '' };
+  $("orderLinksSearch").value = '';
+  $("orderLinksOptions").scrollTop = 0;
+  $("orderLinksDialog").showModal();
+  $("orderLinksSearch").focus({ preventScroll: true });
+  await refreshOrderLinks();
+}
+
+function closeOrderLinks() {
+  const edit = state.orderLinks;
+  if (!edit || edit.saving) return;
+  $("orderLinksDialog").close();
+  state.orderLinks = null;
+  [...$("ordersTableBody").querySelectorAll('[data-order-related]')].find(button => button.dataset.orderRelated === edit.path)?.focus({ preventScroll: true });
+}
+
+async function toggleOrderLink(identity) {
+  const edit = state.orderLinks;
+  if (!edit?.data || edit.loading || edit.saving || edit.conflict || edit.data.linked_ids === null) return;
+  const target = [...edit.data.items, ...edit.data.candidates].find(item => item.id === identity);
+  if (!target?.editable) return;
+  const order = edit.data.order;
+  edit.focusTarget = identity;
+  edit.saving = true;
+  edit.error = '';
+  renderOrderLinks();
+  try {
+    const data = await request('/api/order-links', { path: order.path, id: order.id, revision: order.revision,
+      target_id: identity, target_revision: target.revision, linked: !edit.data.linked_ids.includes(identity) });
+    for (const saved of data.records) applyOrderRecord(null, saved);
+    edit.data = data;
+    if (hasOrderList()) renderOrders({ force: true });
+  } catch (error) {
+    edit.error = error.message;
+    // Even an uncertain network result must be read before another change.
+    edit.conflict = true;
+  } finally {
+    edit.saving = false;
+    if (state.orderLinks === edit) renderOrderLinks();
+  }
 }
 
 function focusOrderFavorite(path) {
@@ -2817,6 +2926,7 @@ function renderOrders({ force = false } = {}) {
   const focusedDollar = document.activeElement?.dataset.orderDollar;
   const focusedGroup = document.activeElement?.dataset.orderGroupToggle;
   const focusedFavorite = document.activeElement?.dataset.orderFavorite;
+  const focusedRelated = document.activeElement?.dataset.orderRelated;
   const focusedOrder = document.activeElement?.dataset.order;
   const focusedTodos = document.activeElement?.dataset.orderTodos;
   const listScroll = $("ordersWorkspace").querySelector(".orders-table-scroll"), scrollLeft = listScroll.scrollLeft;
@@ -2839,11 +2949,11 @@ function renderOrders({ force = false } = {}) {
     group.orders.push(order);
   });
   $("ordersTableBody").innerHTML = work ? renderWorkOrders(filtered, deadlineOptions) : groups.filter((group) => group.orders.length).map((group) =>
-    '<tr class="order-group-divider"><th colspan="10"><button type="button" class="order-group-toggle" data-order-group-toggle="' + group.key +
+    '<tr class="order-group-divider"><th colspan="' + (object ? 11 : 10) + '"><button type="button" class="order-group-toggle" data-order-group-toggle="' + group.key +
     '" data-order-group-scope="' + escapeHtml(groupScope) + '" aria-expanded="' + !group.collapsed +
     '"><span class="order-group-chevron" aria-hidden="true">▸</span><span>' + escapeHtml(group.label) +
     '</span><span class="count-badge">' + group.orders.length + '</span></button></th><td class="order-deadline-column">' + renderDeadlineMonthLegend(deadlineOptions) + '</td><td colspan="8"></td></tr>' +
-    group.orders.map((order) => '<tr data-order-group-row="' + group.key + '"' + (group.collapsed ? ' hidden' : '') + '><td class="order-blue-plus-column">' + renderOrderMarkerButton(order, "bluePlus") + '</td><td class="order-dollar-column">' + renderOrderMarkerButton(order, "dollar") + '</td><td class="order-flag-column">' + renderOrderMarkerButton(order, "flag") + '</td><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td><td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + renderOrderLocationLink(order.client, order.client_path) + '</td><td class="order-object-column">' + renderOrderLocationLink(order.object, order.object_path) + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен</span>' : '') + '<span class="order-row-path">' + escapeHtml(order.path) + '</span></td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td class="order-deadline-column">' + renderOrderDeadlines(order, { options: deadlineOptions }) + '</td><td>' + renderOrderProductionStatus(order) + '</td><td><span class="status-badge" data-financial-status="' + escapeHtml(order.financial_status) + '">' + escapeHtml(financialStatusLabels[order.financial_status] || "Не указан") + '</span></td>' +
+    group.orders.map((order) => '<tr data-order-group-row="' + group.key + '"' + (group.collapsed ? ' hidden' : '') + '><td class="order-blue-plus-column">' + renderOrderMarkerButton(order, "bluePlus") + '</td><td class="order-dollar-column">' + renderOrderMarkerButton(order, "dollar") + '</td><td class="order-flag-column">' + renderOrderMarkerButton(order, "flag") + '</td><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td>' + (object ? '<td class="order-related-column">' + renderOrderRelatedButton(order) + '</td>' : '') + '<td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + renderOrderLocationLink(order.client, order.client_path) + '</td><td class="order-object-column">' + renderOrderLocationLink(order.object, order.object_path) + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен</span>' : '') + '<span class="order-row-path">' + escapeHtml(order.path) + '</span></td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td class="order-deadline-column">' + renderOrderDeadlines(order, { options: deadlineOptions }) + '</td><td>' + renderOrderProductionStatus(order) + '</td><td><span class="status-badge" data-financial-status="' + escapeHtml(order.financial_status) + '">' + escapeHtml(financialStatusLabels[order.financial_status] || "Не указан") + '</span></td>' +
     ["amount", "costs", "profit", "paid", "debt"].map((field) => '<td class="order-money' + (order[field] < 0 ? " negative" : "") + '">' + rubles(order[field]) + '</td>').join("") +
     '<td class="order-updated">' + (order.updated ? formatDate(order.updated) : '—') + (order.sync_pending ? '<span class="sync-pending" title="' + escapeHtml(order.sync_error || "Ожидает выгрузки в папку") + '">' + (order.sync_error ? "В очереди · автоповтор" : "Ожидает выгрузки") + '</span>' : '<span class="sync-complete">' + (order.storage === 'database' ? 'В базе' : 'Выгружено') + '</span>') + '</td></tr>').join("")).join("");
   $("ordersEmpty").hidden = Boolean(filtered.length);
@@ -2878,10 +2988,11 @@ function renderOrders({ force = false } = {}) {
   focusOrderMarker(focusedBluePlus, "bluePlus");
   focusOrderMarker(focusedDollar, "dollar");
   focusOrderFavorite(focusedFavorite);
+  if (focusedRelated) [...$("ordersTableBody").querySelectorAll("[data-order-related]")].find(button => button.dataset.orderRelated === focusedRelated)?.focus({ preventScroll: true });
   focusOrderDeadline(focusedDeadline, focusedWeek);
   focusOrderGroup(focusedGroup);
   if (work && (focusedOrder || focusedTodos)) [...$("ordersTableBody").querySelectorAll("[data-order], [data-order-todos]")].find((button) => focusedOrder ? button.dataset.order === focusedOrder : button.dataset.orderTodos === focusedTodos)?.focus({ preventScroll: true });
-  if (work) { listScroll.scrollLeft = scrollLeft; pane.scrollTop = scrollTop; }
+  if (work || object) { listScroll.scrollLeft = scrollLeft; pane.scrollTop = scrollTop; }
 }
 
 async function showOrders({ history = true } = {}) {
@@ -3554,6 +3665,8 @@ $("ordersTableBody").addEventListener("change", (event) => {
   if (select) run(() => changeOrderProductionStatus(select));
 });
 $("ordersTableBody").addEventListener("click", (event) => {
+  const relatedButton = event.target.closest("[data-order-related]");
+  if (relatedButton) { run(() => openOrderLinks(relatedButton.dataset.orderRelated)); return; }
   const groupButton = event.target.closest("[data-order-group-toggle]");
   if (groupButton) { toggleOrderGroup(groupButton); return; }
   const locationLink = event.target.closest("[data-order-location]");
@@ -3580,6 +3693,21 @@ $("ordersTableBody").addEventListener("click", (event) => {
   if (todoButton) { openOrderTodos(todoButton.dataset.orderTodos); return; }
   const button = event.target.closest("[data-order]");
   if (button) run(() => navigate(button.dataset.order));
+});
+$("orderLinksSearch").addEventListener("input", renderOrderLinks);
+$("refreshOrderLinks").addEventListener("click", () => run(refreshOrderLinks));
+$("closeOrderLinks").addEventListener("click", closeOrderLinks);
+$("orderLinksDialog").addEventListener("cancel", event => { event.preventDefault(); closeOrderLinks(); });
+$("orderLinksOptions").addEventListener("click", event => {
+  const button = event.target.closest('[data-related-target]');
+  if (button) { run(() => toggleOrderLink(button.dataset.relatedTarget)); return; }
+  const link = event.target.closest('[data-related-open]');
+  if (link && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0) {
+    event.preventDefault();
+    if (state.orderLinks?.saving) return;
+    closeOrderLinks();
+    run(() => navigate(link.dataset.relatedOpen));
+  }
 });
 $("closeOrderTodos").addEventListener("click", () => $("orderTodoDialog").close());
 $("orderTodoDialog").addEventListener("close", () => {
