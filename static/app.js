@@ -2478,9 +2478,7 @@ function openCalendarEventMenu(slot, x, y) {
   state.calendarMenu = { free: Boolean(free), plan: Boolean(plan), path: order.path, id: order.id, revision: order.revision, date, period, inactive, completed, color, canColor, slot };
   const menu = $("calendarEventMenu");
   $("calendarEventMenuName").textContent = text;
-  menu.querySelectorAll('[data-calendar-move], .calendar-day-move-divider').forEach((item) => {
-    item.hidden = period === "week" && (!item.dataset.calendarMove || Math.abs(Number(item.dataset.calendarMove)) === 1);
-  });
+  $("calendarEventDayMoves").hidden = period === "week";
   $("calendarEventMoveDivider").hidden = false;
   $("calendarEventInactive").setAttribute("aria-checked", String(inactive));
   $("calendarEventCompleted").setAttribute("aria-checked", String(completed));
