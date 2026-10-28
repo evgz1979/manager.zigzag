@@ -1,10 +1,11 @@
 const $ = (id) => document.getElementById(id);
-const statusLabels = { new: "Новый", measure: "Замеры", process: "Расчеты", awaiting_payment: "На оплате", waiting: "Жду", offer_later: "Предложить позже", workshop: "В цех", install: "Монтаж", rework: "Переделка/доделка", finishing: "Завершение/добивка", deferred: "Отложен/возможно", done: "Готово", done_but: "Готово, но…", cancelled: "Отменён", unspecified: "Не указан" };
+const statusLabels = { new: "Новый", measure: "Замеры", process: "Расчеты", awaiting_client: "Жду от клиента", awaiting_payment: "На оплате", waiting: "Жду", offer_later: "Предложить позже", workshop: "В цех", install: "Монтаж", rework: "Переделка/доделка", finishing: "Завершение/добивка", deferred: "Отложен/возможно", done: "Готово", done_but: "Готово, но…", cancelled: "Отменён", unspecified: "Не указан" };
 const supplierStatusLabels = { work: "В работе", cancelled: "Отменён", archived: "В архив" };
 const orderStatusGroups = [
-  ["new", "measure", "process", "awaiting_payment"],
-  ["workshop", "install", "rework", "finishing"],
-  [],
+  { key: "preparation", statuses: ["new", "measure", "process"] },
+  { key: "client_waiting", statuses: ["awaiting_client", "awaiting_payment"] },
+  { key: "production", statuses: ["workshop", "install", "rework", "finishing"] },
+  { key: "other", statuses: [] },
 ];
 const financialStatusLabels = { unspecified: "Не указан", payment: "На оплате", partial: "Частично оплачен", paid: "Оплачен" };
 const purchaseSuppliers = ["newtek", "glass", "antares", "tbm", "remex"];
@@ -2267,13 +2268,16 @@ function orderShownOnMain(order) {
   return order.registered !== false && !["cancelled", "done"].includes(order.status);
 }
 
+function productionStatusGroups() {
+  return orderStatusGroups.map((group) => {
+    const statuses = group.statuses.length ? group.statuses : Object.keys(statusLabels).filter((status) => !orderStatusGroups.some((group) => group.statuses.includes(status)));
+    return { ...group, statuses, label: group.key === "other" ? "Остальные" : statuses.map((status) => statusLabels[status]).join(" · ") };
+  });
+}
+
 function orderListGroups() {
   const object = isObjectOrderList();
-  const groups = orderStatusGroups.map((group, index) => {
-    let statuses = group.length ? group : Object.keys(statusLabels).filter((status) => !orderStatusGroups.some((group) => group.includes(status)));
-    if (object) statuses = statuses.filter((status) => orderShownOnMain({ status }));
-    return { key: ["preparation", "production", "other"][index], statuses, label: index < 2 ? statuses.map((status) => statusLabels[status]).join(" · ") : "Остальные" };
-  });
+  const groups = productionStatusGroups().map((group) => object ? { ...group, statuses: group.statuses.filter((status) => orderShownOnMain({ status })) } : group);
   if (object) {
     const statuses = Object.keys(statusLabels).filter((status) => !orderShownOnMain({ status }));
     groups.push({ key: "hidden", statuses, label: [...statuses.map((status) => statusLabels[status]), "Не добавлены"].join(" · ") });
@@ -2282,7 +2286,7 @@ function orderListGroups() {
 }
 
 function renderProductionStatusOptions(selected) {
-  return orderListGroups().map((group, index) => {
+  return productionStatusGroups().map((group, index) => {
     return '<optgroup label="— ' + (index + 1) + '-я группа —">' + group.statuses.map((status) =>
       '<option value="' + status + '"' + (selected === status ? ' selected' : '') + '>' +
       statusLabels[status] + '</option>').join("") + '</optgroup>';
@@ -2832,7 +2836,8 @@ function renderOrders({ force = false } = {}) {
   const groupScope = orderGroupScope();
   const groups = orderListGroups().map((group) => ({ ...group, collapsed: orderGroupCollapsed(groupScope, group.key), orders: [] }));
   filtered.forEach((order) => {
-    const group = object && !orderShownOnMain(order) ? groups[3] : groups.find((group) => group.statuses.includes(order.status)) || groups[2];
+    const hidden = object && !orderShownOnMain(order);
+    const group = hidden ? groups.find((group) => group.key === "hidden") : groups.find((group) => group.statuses.includes(order.status)) || groups.find((group) => group.key === "other");
     group.orders.push(order);
   });
   $("ordersTableBody").innerHTML = work ? renderWorkOrders(filtered, deadlineOptions) : groups.filter((group) => group.orders.length).map((group) =>

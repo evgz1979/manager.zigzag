@@ -63,7 +63,7 @@ class OrderStatusTests(unittest.TestCase):
     def test_http_partial_update_rejects_stale_version_and_exposes_new_status(self):
         with patch.object(manager, "schedule_order_sync") as schedule:
             saved = self.order
-            for value in ("awaiting_payment", "waiting", "offer_later"):
+            for value in ("awaiting_client", "awaiting_payment", "waiting", "offer_later"):
                 with self.subTest(status=value):
                     payload = self.payload(revision=saved["revision"], status=value)
                     status, _, body = self.http("/api/order-status", "POST", json.dumps(payload))
@@ -71,24 +71,25 @@ class OrderStatusTests(unittest.TestCase):
                     saved = json.loads(body)
                     self.assertEqual(saved["status"], value)
                     self.assertEqual(self.http("/api/order-status", "POST", json.dumps(payload))[0], 409)
-            self.assertEqual(schedule.call_count, 3)
+            self.assertEqual(schedule.call_count, 4)
             self.assertEqual(self.http("/api/order-status", "POST", json.dumps(self.payload(status="unknown")))[0], 400)
         listed = json.loads(self.http("/api/orders")[2])["orders"]
         self.assertEqual((listed[0]["status"], listed[0]["revision"]), ("offer_later", saved["revision"]))
 
-    def test_production_awaiting_payment_is_independent_and_survives_document_round_trip(self):
-        for financial in manager.FINANCIAL_STATUS_LABELS:
-            with self.subTest(financial_status=financial):
-                record = {**self.order, "financial_status": financial}
-                self.store.save({**record, "amount": "100", "costs": "20", "paid": "50"})
-                before = self.store.get(self.path)
-                saved = self.store.save_status({"path": self.path, "revision": before["revision"], "status": "awaiting_payment"})
-                self.assertEqual(saved["status"], "awaiting_payment")
-                for key in before.keys() - {"status", "revision", "updated"}:
-                    self.assertEqual(saved[key], before[key], key)
-                parsed = manager.order_document.parse(manager.order_document.render(saved, manager.STATUS_LABELS), manager.STATUS_LABELS)
-                self.assertEqual((parsed["status"], parsed["financial_status"]), ("awaiting_payment", financial))
-                self.order = saved
+    def test_client_waiting_stages_are_independent_and_survive_document_round_trip(self):
+        for production in ("awaiting_client", "awaiting_payment"):
+            for financial in manager.FINANCIAL_STATUS_LABELS:
+                with self.subTest(status=production, financial_status=financial):
+                    record = {**self.order, "financial_status": financial}
+                    self.store.save({**record, "amount": "100", "costs": "20", "paid": "50"})
+                    before = self.store.get(self.path)
+                    saved = self.store.save_status({"path": self.path, "revision": before["revision"], "status": production})
+                    self.assertEqual(saved["status"], production)
+                    for key in before.keys() - {"status", "revision", "updated"}:
+                        self.assertEqual(saved[key], before[key], key)
+                    parsed = manager.order_document.parse(manager.order_document.render(saved, manager.STATUS_LABELS), manager.STATUS_LABELS)
+                    self.assertEqual((parsed["status"], parsed["financial_status"]), (production, financial))
+                    self.order = saved
 
 
 if __name__ == "__main__":
