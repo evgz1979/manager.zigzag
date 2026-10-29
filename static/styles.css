@@ -939,6 +939,12 @@ h2 { font-size: 13px; font-weight: 600; }
 .purchase-suppliers button { border-color: var(--line); background: transparent; color: var(--accent); font-size: 10px; padding: 3px 7px; }
 .purchase-suppliers button:hover { background: var(--accent-soft); }
 .purchase-suppliers button[aria-pressed="true"] { color: #fff; background: var(--accent); border-color: var(--accent); }
+.purchase-suppliers .purchase-supplier-retained { opacity: .65; }
+.purchase-suppliers-empty { font-size: 10px; color: var(--muted); }
+.work-supplier-button .supplier-purchase-count { flex: 0 0 auto; min-width: 12px; font-size: 11px; font-variant-numeric: tabular-nums; }
+.work-section-buttons .work-supplier-button { gap: 4px; padding-left: 9px; padding-right: 32px; }
+.work-section-buttons .work-supplier-button > svg:first-child { width: 16px; height: 16px; }
+.work-section-buttons .work-supplier-button > span:first-of-type { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .invoice-section { margin: 18px 0; border: 1px solid var(--border, #e1e4e9); border-radius: 12px; padding: 12px 15px; }
 .invoice-section-heading, .invoice-total-row, .invoice-dialog-heading, .invoice-dialog-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .invoice-section-heading h2 { margin: 0; font-size: 15px; }

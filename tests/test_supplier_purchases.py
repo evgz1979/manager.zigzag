@@ -3,6 +3,7 @@ import unittest
 from unittest.mock import patch
 
 import order_document as document
+import work_orders
 from orders import OrderConflict, OrderStore
 from supplier_purchases import SupplierPurchases, supplier_name
 import test_server as fixtures
@@ -28,6 +29,12 @@ class SupplierPurchaseTests(unittest.TestCase):
         self.folder(self.section)
         self.store = manager.order_store()
         self.view = SupplierPurchases(self.store)
+        for name in document.PURCHASE_SUPPLIERS:
+            self.folder("# work/# " + name)
+        manager.read_folder("# work")
+        for path, row in work_orders.read_supplier_favorites(self.store, "# work").items():
+            if not row["is_favorite"]:
+                work_orders.save_supplier_favorite(self.store, {**row, "is_favorite": True})
         self.items = [{"text": "Заказать стекло", "done": False, "suppliers": ["glass", "tbm"]},
                       {"text": "Профиль", "done": True, "suppliers": ["antares"]},
                       {"text": "Без поставщика", "done": False, "suppliers": []}]
@@ -107,12 +114,12 @@ class SupplierPurchaseTests(unittest.TestCase):
             self.assertEqual(self.view.read(self.section, inactive={scope})["orders"], [])
             with self.assertRaises(ValueError):
                 self.view.save(self.payload(), inactive={scope})
-        for path in ("#work", "#work/#glass/Заказ", "Клиент/#glass", "#moneys/#glass", "#work/#glasshouse", "#work/../glass", "/#work/#glass", None):
+        for path in ("#work", "#work/#glass/Заказ", "Клиент/#glass", "#moneys/#glass", "#work/#", "#work/../glass", "/#work/#glass", "#work/2026-10-29 - Заказ", None):
             with self.subTest(path=path):
                 self.assertEqual(supplier_name(path), "")
                 with self.assertRaises(ValueError):
                     self.view.read(path)
-        for raw in ("Прежний неизвестный текст", "- [ ] Закупка\n  Поставщики: future-vendor"):
+        for raw in ("Прежний неизвестный текст", "- [ ] Закупка\n  Поставщики: #future-vendor"):
             with self.store.connect() as db:
                 db.execute("UPDATE orders SET extra_blocks=? WHERE id=?", (json.dumps({document.PURCHASE_BLOCK: raw}), self.order["id"]))
             before = self.store.get(self.path)
@@ -135,11 +142,11 @@ class SupplierPurchaseTests(unittest.TestCase):
         self.assertEqual(self.http("/api/supplier-purchase-done", "POST", json.dumps(self.payload()))[0], 409)
         self.assertTrue(json.loads(self.http(self.url("/api/order", self.path))[2])["purchase_items"][0]["done"])
 
-    def test_etc_selects_unassigned_and_other_suppliers_without_duplicating_primary_purchases(self):
+    def test_etc_selects_only_unassigned_without_duplicating_any_supplier(self):
         items = [
             {"text": "Без поставщика", "done": False, "suppliers": []},
             {"text": "Фурнитура", "done": False, "suppliers": ["tbm"]},
-            {"text": "Доставка", "done": True, "suppliers": ["tbm", "remex"]},
+            {"text": "пленка 8300 на 2 кроншт с 2х сторон = 4 м2", "done": False, "suppliers": ["remex"]},
             {"text": "Стекло и фурнитура", "done": False, "suppliers": ["glass", "tbm"]},
             {"text": "Профиль", "done": False, "suppliers": ["antares", "newtek"]},
         ]
@@ -149,9 +156,76 @@ class SupplierPurchaseTests(unittest.TestCase):
             for section in ("# work/# etc", "#work/#ETC", "# work/etc"):
                 data = self.view.read(section)
                 self.assertEqual(data["supplier"], "etc")
-                self.assertEqual(data["orders"][0]["items"], [{"index": index, **item} for index, item in enumerate(items[:3])])
+                self.assertEqual(data["orders"][0]["items"], [{"index": 0, **items[0]}])
             self.assertFalse(document.purchase_matches_supplier({"suppliers": ["himlex"]}, "etc"))
+            self.assertEqual(self.view.read("#work/#remex")["orders"][0]["items"], [{"index": 2, **items[2]}])
+            self.assertEqual(self.view.catalog()["counts"], {"etc": 1, "tbm": 2, "remex": 1, "glass": 1, "antares": 1, "newtek": 1})
             self.assertEqual(self.store.get(self.path), current)
+
+    def test_dynamic_starred_catalog_new_assignments_and_retained_suppliers(self):
+        for name in ("himlex", "Новый завод", "Без звезды"):
+            self.folder("# work/# " + name)
+        manager.read_folder("# work")
+        favorites = work_orders.read_supplier_favorites(self.store, "# work")
+        for name in ("himlex", "Новый завод"):
+            work_orders.save_supplier_favorite(self.store, {**favorites["# work/# " + name], "is_favorite": True})
+        names = [row["name"] for row in self.view.catalog()["suppliers"]]
+        self.assertIn("himlex", names)
+        self.assertIn("новый завод", names)
+        self.assertNotIn("без звезды", names)
+        self.assertNotIn("etc", names)
+        items = [{"text": "Два поставщика", "done": False, "suppliers": ["himlex", "новый завод"]},
+                 {"text": "Дубль", "done": False, "suppliers": ["himlex"]},
+                 {"text": "Дубль", "done": False, "suppliers": ["himlex"]},
+                 {"text": "Готово", "done": True, "suppliers": ["himlex"]}]
+        saved = self.store.save({**self.order, "amount": "100", "costs": "20", "paid": "50", "purchase_items": items})
+        self.assertEqual(saved["purchase_items"], items)
+        self.assertEqual(self.view.catalog()["counts"], {"etc": 0, "himlex": 3, "новый завод": 1})
+        with self.store.connect() as db:
+            self.assertEqual(db.execute("SELECT value FROM metadata_settings WHERE key='purchase_suppliers'").fetchone()[0], "1")
+        favorite = work_orders.read_supplier_favorites(self.store, "# work")["# work/# himlex"]
+        work_orders.save_supplier_favorite(self.store, {**favorite, "is_favorite": False})
+        with self.assertRaises(ValueError):
+            self.store.save({**saved, "amount": "100", "costs": "20", "paid": "50", "purchase_items": items + [items[1]]})
+        self.root.rename(self.base / "offline")
+        with patch.object(OrderStore, "target", side_effect=AssertionError("No folders")), patch("icloud_access.read_bytes", side_effect=AssertionError("No documents")):
+            self.assertNotIn("himlex", [row["name"] for row in self.view.catalog()["suppliers"]])
+            self.assertEqual(len(self.view.read("#work/#himlex")["orders"][0]["items"]), 4)
+            self.assertEqual(self.view.read("#work/#etc")["orders"], [])
+            retained = self.store.save({**saved, "amount": "100", "costs": "20", "paid": "50", "purchase_items": items})
+            self.assertEqual(retained["purchase_items"], items)
+            blocked = [{"text": "Не назначать", "done": False, "suppliers": ["без звезды"]}]
+            with self.assertRaises(ValueError):
+                self.store.save({**retained, "amount": "100", "costs": "20", "paid": "50", "purchase_items": blocked})
+            self.assertEqual(self.store.get(self.path), retained)
+            self.assertEqual(self.view.catalog(inactive={"Клиент"})["counts"], {"etc": 0})
+
+    def test_removed_section_and_unknown_catalog_are_not_offered_or_rewritten(self):
+        with self.store.connect() as db:
+            before = dict(db.execute("SELECT * FROM metadata_records WHERE kind='purchase_supplier_catalog'").fetchone())
+        manager.read_folder("# work")
+        with self.store.connect() as db:
+            self.assertEqual(dict(db.execute("SELECT * FROM metadata_records WHERE kind='purchase_supplier_catalog'").fetchone()), before)
+        (self.root / "# work/# remex").rmdir()
+        manager.read_folder("# work")
+        self.assertNotIn("remex", [row["name"] for row in self.view.catalog()["suppliers"]])
+        with self.store.connect() as db:
+            db.execute("UPDATE metadata_records SET data=? WHERE kind='purchase_supplier_catalog'", (json.dumps({"version": 2, "paths": []}),))
+        self.assertEqual(self.view.catalog()["suppliers"], [])
+        with self.assertRaises(ValueError):
+            manager.read_folder("# work")
+        with self.store.connect() as db:
+            self.assertEqual(json.loads(db.execute("SELECT data FROM metadata_records WHERE kind='purchase_supplier_catalog'").fetchone()[0])["version"], 2)
+
+    def test_http_catalog_and_supplier_buttons_share_outstanding_counts(self):
+        status, _, body = self.http("/api/purchase-suppliers")
+        self.assertEqual(status, 200)
+        data = json.loads(body)
+        self.assertEqual(data["counts"], {"etc": 1, "glass": 1, "tbm": 1})
+        nodes = manager.read_folder("# work")["directories"]
+        for node in nodes:
+            name = node["name"].removeprefix("#").strip().casefold()
+            self.assertEqual(node["supplierPurchaseCount"], data["counts"].get(name, 0))
 
     def test_etc_checkbox_uses_same_source_and_rejects_a_new_primary_assignment(self):
         before = self.order

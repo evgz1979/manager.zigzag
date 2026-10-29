@@ -19,6 +19,18 @@ PREVIOUS = "20261019T170000Z-abcdef12"
 
 
 class DeploymentTests(unittest.TestCase):
+    def test_dynamic_purchase_suppliers_block_rollback_to_fixed_list(self):
+        release = self.base / 'old-purchase-suppliers'
+        release.mkdir()
+        (release / 'local_metadata.py').write_text('# SQLite storage')
+        with sqlite3.connect(self.db) as db:
+            db.execute('CREATE TABLE metadata_settings (key TEXT PRIMARY KEY,value TEXT)')
+            db.execute("INSERT INTO metadata_settings VALUES ('purchase_suppliers','1')")
+        with self.assertRaisesRegex(RuntimeError, 'поставщики'):
+            remote.check_event_rename_compatibility(self.db, release)
+        (release / 'order_document.py').write_text('PURCHASE_SUPPLIERS_VERSION = 1')
+        remote.check_event_rename_compatibility(self.db, release)
+
     def test_deleted_inbox_tasks_block_rollback_to_original_receiver(self):
         release = self.base / 'inbox-without-deletion'
         release.mkdir()

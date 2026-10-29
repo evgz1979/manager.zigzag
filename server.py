@@ -1119,6 +1119,14 @@ def read_folder(relative="", show_inactive=False):
                     if node["name"].startswith("#"):
                         node["supplierColor"] = work_orders.supplier_color(db, node["path"])
                         node["supplierFavorite"] = favorites[unicodedata.normalize("NFC", node["path"])]
+                supplier_purchases.remember_sections(db, relative, [node["path"] for node in nodes if node["name"].startswith("#")])
+        if status["folderKind"] == "work_root":
+            counts = supplier_purchases.SupplierPurchases(order_store()).catalog(inactive=inactive_paths())["counts"]
+            for node in nodes:
+                name = supplier_purchases.supplier_name(node["path"])
+                if name:
+                    node["supplierPurchaseName"] = name
+                    node["supplierPurchaseCount"] = counts.get(name, 0)
     object_list = None
     work_list = status["folderKind"] == "work_root" or (
         status["folderKind"] in {"supplier_root", "work_section"} and not print_view and not freza_section)
@@ -1412,6 +1420,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(listed_work_orders(relative), head=head)
             elif parsed.path == "/api/supplier-purchases":
                 self.send_json(supplier_purchases.SupplierPurchases(order_store()).read(relative, inactive=inactive_paths()), head=head)
+            elif parsed.path == "/api/purchase-suppliers":
+                self.send_json(supplier_purchases.SupplierPurchases(order_store()).catalog(inactive=inactive_paths()), head=head)
             elif parsed.path == "/api/work-supplier-favorites":
                 self.send_json(work_orders.read_supplier_favorites(order_store(), relative), head=head)
             elif parsed.path == "/api/storage":

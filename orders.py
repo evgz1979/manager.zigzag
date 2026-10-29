@@ -218,9 +218,8 @@ class OrderStore:
                     raise ValueError("Статус поставщика доступен только в его заказе")
                 blocks = work_orders.write_status(blocks, payload["supplier_status"])
             if "purchase_items" in payload:
-                if document.read_purchases(blocks) is None:
-                    raise ValueError("Прежние записи закупок и затрат сохранены. Проверь раздел в !.txt заказа")
-                blocks = document.write_purchases(blocks, payload["purchase_items"])
+                from supplier_purchases import write_assignments
+                blocks = write_assignments(db, blocks, payload["purchase_items"])
             if "todo_items" in payload:
                 blocks = document.write_todos(blocks, payload["todo_items"])
                 # Update phone identities in this same transaction, including an

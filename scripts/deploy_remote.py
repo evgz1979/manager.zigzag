@@ -192,6 +192,11 @@ def check_event_rename_compatibility(database, release_dir):
         return
     with closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)) as db:
         if (db.execute("SELECT 1 FROM sqlite_master WHERE name='metadata_settings'").fetchone()
+                and db.execute("SELECT 1 FROM metadata_settings WHERE key='purchase_suppliers' AND value='1'").fetchone()):
+            source = release_dir / 'order_document.py'
+            if not source.is_file() or 'PURCHASE_SUPPLIERS_VERSION = 1' not in source.read_text(encoding='utf-8'):
+                raise RuntimeError('В закупках назначены новые поставщики. Старый код их не поддерживает; откат заблокирован')
+        if (db.execute("SELECT 1 FROM sqlite_master WHERE name='metadata_settings'").fetchone()
                 and db.execute("SELECT 1 FROM metadata_settings WHERE key='telegram_inbox_delete' AND value='1'").fetchone()):
             source = release_dir / 'telegram_inbox.py'
             if not source.is_file() or 'TELEGRAM_INBOX_DELETE_VERSION = 1' not in source.read_text(encoding='utf-8'):

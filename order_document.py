@@ -25,7 +25,7 @@ FLAG_BLOCK = "Флажок"
 BLUE_PLUS_BLOCK = "Синий плюс"
 DOLLAR_BLOCK = "Зелёный доллар"
 PURCHASE_SUPPLIERS = ("newtek", "glass", "antares", "tbm", "remex")
-PRIMARY_PURCHASE_SUPPLIERS = ("antares", "himlex", "newtek", "glass")
+PURCHASE_SUPPLIERS_VERSION = 1
 UNSET_TODOS = object()
 
 
@@ -124,13 +124,21 @@ def write_todos(blocks, items):
     return result
 
 
+def valid_purchase_supplier(name):
+    return (isinstance(name, str) and 0 < len(name) <= 200 and name == unicodedata.normalize("NFC", name).strip().casefold()
+            and name not in {"etc", "—", ".", ".."} and not name.startswith(".")
+            and not any(char in name for char in "/\\,#") and not any(ord(char) < 32 for char in name)
+            and len(name.splitlines()) == 1)
+
+
 def validate_purchases(items):
     result = validate_todos(items)
     for raw, item in zip(items, result):
         suppliers = raw.get("suppliers", [])
-        if not isinstance(suppliers, list) or any(not isinstance(name, str) or name not in PURCHASE_SUPPLIERS for name in suppliers) or len(set(suppliers)) != len(suppliers):
+        if not isinstance(suppliers, list) or len(suppliers) > 200 or any(not valid_purchase_supplier(name) for name in suppliers) or len(set(suppliers)) != len(suppliers):
             raise ValueError("Некорректный выбор поставщиков закупки")
-        item["suppliers"] = [name for name in PURCHASE_SUPPLIERS if name in suppliers]
+        # Keep the established order for old names and retain dynamic section names.
+        item["suppliers"] = [name for name in PURCHASE_SUPPLIERS if name in suppliers] + [name for name in suppliers if name not in PURCHASE_SUPPLIERS]
     return result
 
 
@@ -164,8 +172,8 @@ def write_purchases(blocks, items):
 
 def purchase_matches_supplier(item, supplier):
     if supplier == "etc":
-        return not any(name in PRIMARY_PURCHASE_SUPPLIERS for name in item["suppliers"])
-    return isinstance(supplier, str) and supplier in PURCHASE_SUPPLIERS and supplier in item["suppliers"]
+        return not item["suppliers"]
+    return valid_purchase_supplier(supplier) and supplier in item["suppliers"]
 
 
 def write_purchase_done(blocks, index, text, supplier, done):

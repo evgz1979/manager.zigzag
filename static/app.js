@@ -8,10 +8,10 @@ const orderStatusGroups = [
   { key: "other", statuses: [] },
 ];
 const financialStatusLabels = { unspecified: "Не указан", payment: "На оплате", partial: "Частично оплачен", paid: "Оплачен" };
-const purchaseSuppliers = ["newtek", "glass", "antares", "tbm", "remex"];
 const eventRelevanceLabels = { none: "Без статуса", active: "Актуально", check: "Проверить", inactive: "Неактуально" };
 const typeLabels = { all: "Все", images: "Фото", pdf: "PDF", design: "Макеты", docs: "Документы", video: "Видео", audio: "Аудио", other: "Другое" };
 const state = {
+  purchaseSuppliers: null, purchaseSupplierRequest: 0,
   tree: [], groups: [], auxiliary: [], nodes: new Map(), children: new Map(), expanded: new Set(),
   treeQuery: "", searchTree: null, folder: null, selected: "",
   showInactive: false, clientActivitySaving: false,
@@ -452,9 +452,11 @@ async function openSketch(path, key) {
 
 function subfolderButton(item) {
   const color = item.supplierColor;
+  const count = Number.isSafeInteger(item.supplierPurchaseCount) ? item.supplierPurchaseCount : null;
+  const openLabel = item.name + (count === null ? "" : " · Невыполненных закупок: " + count);
   const open = '<button type="button" class="subfolder' + (item.inactive ? ' inactive' : '') + (color ? ' work-supplier-button' + (color.neutral ? ' supplier-neutral' : '') : '') +
-    '"' + (color ? ' style="--supplier-hue:' + Number(color.hue) + '"' : '') + ' data-path="' + escapeHtml(item.path) + '" title="' + escapeHtml(item.name) + '">' +
-    icon("folder") + '<span>' + escapeHtml(item.name) + "</span>" + icon("chevron") + "</button>";
+    '"' + (color ? ' style="--supplier-hue:' + Number(color.hue) + '"' : '') + ' data-path="' + escapeHtml(item.path) + '" title="' + escapeHtml(openLabel) + '" aria-label="' + escapeHtml(openLabel) + '">' +
+    icon("folder") + '<span>' + escapeHtml(item.name) + '</span>' + (count === null ? "" : '<span class="supplier-purchase-count" aria-hidden="true">' + count + '</span>') + icon("chevron") + "</button>";
   const favorite = item.supplierFavorite;
   if (!favorite) return open;
   const label = (favorite.is_favorite ? "Убрать раздел из избранного: " : "Добавить раздел в избранное: ") + item.name;
@@ -472,6 +474,7 @@ function renderSubfolders() {
   const focused = document.activeElement?.closest("[data-relevance]");
   const focusPath = focused?.dataset.eventPath, focusValue = focused?.dataset.relevance;
   const focusedSupplier = document.activeElement?.closest("[data-supplier-favorite]")?.dataset.supplierFavorite;
+  const focusedFolder = document.activeElement?.closest("#subfolders [data-path]")?.dataset.path;
   const scroll = document.querySelector(".content-pane").scrollTop;
   const visibleDirectories = folder.directories.filter((item) => (["work_root", "moneys_root"].includes(folder.folderKind) || !item.name.startsWith("#")) &&
     !(isWorkOrderList() && folder.folderKind !== "work_root") &&
@@ -543,6 +546,7 @@ function renderSubfolders() {
   }).join("");
   if (focusPath) [...$("subfolders").querySelectorAll("[data-relevance]")].find((button) => button.dataset.eventPath === focusPath && button.dataset.relevance === focusValue)?.focus();
   if (focusedSupplier) focusSupplierStar(focusedSupplier);
+  if (focusedFolder) [...$("subfolders").querySelectorAll("[data-path]")].find(button => button.dataset.path === focusedFolder)?.focus({ preventScroll: true });
   if (workRoot) document.querySelector(".content-pane").scrollTop = scroll;
 }
 
@@ -799,6 +803,60 @@ function renderPurchaseSaveState() {
   $("purchaseSaveState").textContent = state.saving ? "Сохраняю…" : state.dirty ? "Есть несохранённые изменения" : order?.storage === "database" ? "Сохранено в базе" : order?.sync_error ? "Сохранено в базе · выгрузка: " + order.sync_error : order?.sync_pending ? "Сохранено в базе · ожидает выгрузки в папку" : order ? "Выгружено в !.txt" : "Автоматическое сохранение в !.txt заказа";
 }
 
+function purchaseSupplierButtons(item) {
+  const available = (state.purchaseSuppliers || []).map(row => row.name);
+  const names = [...available, ...(item.suppliers || []).filter(name => !available.includes(name))];
+  return names.map(name => {
+    const selected = (item.suppliers || []).includes(name), inactive = !available.includes(name);
+    const label = inactive ? "Снять назначение " + name + " · поставщик без звезды или недоступен" : "Отметить поставщика " + name;
+    return '<button type="button" data-purchase-supplier="' + escapeHtml(name) + '" aria-pressed="' + selected + '" title="' + escapeHtml(label) + '"' +
+      (inactive ? ' class="purchase-supplier-retained"' : '') + '>' + escapeHtml(name) + (inactive ? ' ×' : '') + '</button>';
+  }).join("") || '<span class="purchase-suppliers-empty">' + (state.purchaseSuppliers === null ? 'Загрузка поставщиков…' : 'Отметь поставщиков звёздочкой в # work') + '</span>';
+}
+
+function updatePurchaseSupplierButtons() {
+  const focused = document.activeElement, name = focused?.dataset.purchaseSupplier;
+  const index = focused?.closest("[data-purchase-index]")?.dataset.purchaseIndex;
+  const scroll = document.querySelector(".content-pane").scrollTop;
+  for (const row of $("purchaseList").querySelectorAll("[data-purchase-index]")) {
+    const item = state.folder?.purchase_items?.[Number(row.dataset.purchaseIndex)];
+    if (!item) continue;
+    const group = row.querySelector(".purchase-suppliers"), next = purchaseSupplierButtons(item);
+    if (group.innerHTML !== next) group.innerHTML = next;
+  }
+  if (name && !focused.isConnected) {
+    const row = $("purchaseList").querySelector('[data-purchase-index="' + Number(index) + '"]');
+    ([...(row?.querySelectorAll("[data-purchase-supplier]") || [])].find(button => button.dataset.purchaseSupplier === name) || row?.querySelector(".todo-text"))?.focus({ preventScroll: true });
+  }
+  document.querySelector(".content-pane").scrollTop = scroll;
+}
+
+async function refreshPurchaseSuppliers() {
+  const folder = state.folder;
+  if (state.view !== "folder" || !folder || (folder.folderKind !== "work_root" && isWorkOrderPath(folder.path))) return;
+  const version = ++state.purchaseSupplierRequest;
+  const data = await request("/api/purchase-suppliers");
+  if (state.folder !== folder || version !== state.purchaseSupplierRequest) return;
+  state.purchaseSuppliers = data.suppliers;
+  updatePurchaseSupplierButtons();
+  if (folder.folderKind === "work_root") {
+    for (const item of folder.directories) {
+      if (!Number.isSafeInteger(item.supplierPurchaseCount)) continue;
+      const name = item.supplierPurchaseName;
+      item.supplierPurchaseCount = data.counts[name] || 0;
+      const button = [...$("subfolders").querySelectorAll("[data-path]")].find(node => node.dataset.path === item.path);
+      const badge = button?.querySelector(".supplier-purchase-count");
+      if (badge) badge.textContent = item.supplierPurchaseCount;
+      if (button) {
+        button.title = item.name + " · Невыполненных закупок: " + item.supplierPurchaseCount;
+        button.setAttribute("aria-label", button.title);
+      }
+    }
+  }
+}
+
+document.addEventListener("manager-folder-rendered", () => { refreshPurchaseSuppliers().catch(() => {}); });
+
 function renderPurchases() {
   const folder = state.folder, items = folder.purchase_items;
   const editable = Array.isArray(items);
@@ -810,7 +868,7 @@ function renderPurchases() {
   $("purchaseList").innerHTML = editable ? items.map((item, index) => '<div class="todo-row' + (item.done ? ' done' : '') + '" data-purchase-index="' + index + '">' +
     '<input class="todo-check" type="checkbox" aria-label="Закупка выполнена: ' + escapeHtml(item.text) + '"' + (item.done ? ' checked' : '') + '>' +
     '<input class="todo-text" type="text" maxlength="1000" size="' + Math.max(4, Array.from(item.text).length + 1) + '" aria-label="Текст закупки или затраты" value="' + escapeHtml(item.text) + '">' +
-    '<div class="purchase-suppliers" role="group" aria-label="Поставщики для закупки: ' + escapeHtml(item.text) + '">' + purchaseSuppliers.map((name) => '<button type="button" data-purchase-supplier="' + name + '" aria-pressed="' + String((item.suppliers || []).includes(name)) + '" title="Отметить поставщика ' + name + '">' + name + '</button>').join("") + '</div>' +
+    '<div class="purchase-suppliers" role="group" aria-label="Поставщики для закупки: ' + escapeHtml(item.text) + '">' + purchaseSupplierButtons(item) + '</div>' +
     '<button class="todo-delete" type="button" aria-label="Удалить закупку: ' + escapeHtml(item.text) + '">×</button></div>').join("") : "";
   renderPurchaseSaveState();
 }
@@ -3929,6 +3987,7 @@ setInterval(() => {
   if (state.view !== "orders" && state.folder?.canCreateEventFolder) refreshEventRelevance(state.folder).catch(() => {});
   if (state.view !== "orders" && state.folder?.sketches?.length) refreshSketchRelevance(state.folder).catch(() => {});
   if (state.view !== "orders" && state.folder?.folderKind === "work_root") refreshSupplierFavorites(state.folder).catch(() => {});
+  if (state.view !== "orders") refreshPurchaseSuppliers().catch(() => {});
   if (state.view !== "orders") loadDescendantTodos(state.folder);
   loadOrders().catch(() => { if (hasOrderList()) $("ordersSyncState").textContent = "Нет связи с сервером · показаны последние загруженные данные"; });
   if (state.view !== "orders" && !state.folder?.order && state.folder?.folderNote && !state.dirty && !state.saving) {
@@ -4118,9 +4177,11 @@ $("purchaseList").addEventListener("click", (event) => {
   if (supplier) {
     const item = state.folder.purchase_items[Number(supplier.closest("[data-purchase-index]").dataset.purchaseIndex)];
     const selected = new Set(item.suppliers || []), name = supplier.dataset.purchaseSupplier;
-    if (selected.has(name)) selected.delete(name); else selected.add(name);
-    item.suppliers = purchaseSuppliers.filter((value) => selected.has(value));
-    supplier.setAttribute("aria-pressed", String(selected.has(name)));
+    if (selected.has(name)) selected.delete(name);
+    else if (state.purchaseSuppliers?.some(row => row.name === name)) selected.add(name);
+    else return;
+    item.suppliers = [...selected];
+    updatePurchaseSupplierButtons();
     saveTodosSoon();
     return;
   }

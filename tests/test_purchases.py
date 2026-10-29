@@ -3,6 +3,7 @@ import unittest
 from unittest.mock import patch
 
 import order_document as document
+import work_orders
 from orders import OrderConflict, OrderStore
 import test_server as fixtures
 
@@ -10,7 +11,14 @@ manager = fixtures.manager
 
 
 class PurchaseTests(unittest.TestCase):
-    setUp = fixtures.ManagerTests.setUp
+    def setUp(self):
+        fixtures.ManagerTests.setUp(self)
+        for name in document.PURCHASE_SUPPLIERS:
+            self.folder("# work/# " + name)
+        manager.read_folder("# work")
+        for path, row in work_orders.read_supplier_favorites(manager.order_store(), "# work").items():
+            if not row["is_favorite"]:
+                work_orders.save_supplier_favorite(manager.order_store(), {**row, "is_favorite": True})
     tearDown = fixtures.ManagerTests.tearDown
     folder = fixtures.ManagerTests.folder
     file = fixtures.ManagerTests.file
@@ -36,7 +44,7 @@ class PurchaseTests(unittest.TestCase):
         self.assertEqual(document.read_purchases(parsed["extra_blocks"]), items)
         self.assertEqual(parsed["extra_blocks"]["Особое"], "Не терять")
         self.assertEqual(document.read_purchases({document.PURCHASE_BLOCK: "- [ ] Старый список"}), [{"text": "Старый список", "done": False, "suppliers": []}])
-        for suppliers in (["unknown"], ["tbm", "tbm"], True, [None], [[]]):
+        for suppliers in (["#unknown"], ["tbm", "tbm"], True, [None], [[]], ["etc"], ["a, b"], ["../other"]):
             with self.assertRaises(ValueError):
                 document.write_purchases({}, [{"text": "Проверка", "done": False, "suppliers": suppliers}])
 
@@ -77,7 +85,7 @@ class PurchaseTests(unittest.TestCase):
         self.assertEqual(document.read_purchases(body), deleted["purchase_items"])
 
     def test_unknown_block_or_future_supplier_is_preserved_during_other_edits(self):
-        for raw in ("Свободный прежний текст\nНе удалять", "- [ ] Новый поставщик\n  Поставщики: future-vendor"):
+        for raw in ("Свободный прежний текст\nНе удалять", "- [ ] Новый поставщик\n  Поставщики: #future-vendor"):
             with self.subTest(raw=raw):
                 before = self.add({document.PURCHASE_BLOCK: raw, "Особое": "Не менять"})
                 # Simulate an imported opaque block in this fixture's order.
