@@ -269,7 +269,10 @@ class MetadataStore:
                     self.imported("walk",relative)
                 try:
                     if not self.complete("folder",relative):
-                        if not relative or not self.store.get(relative,include_unregistered=True):
+                        kind = app.folder_role(self.root,relative)["folderKind"]
+                        if kind == 'reconciliation':
+                            self.card(folder)  # Сверка переходит явно; общая пустая заметка не нужна.
+                        elif not relative or not self.store.get(relative,include_unregistered=True):
                             app.folder_note_store().read(relative)
                         else:
                             self.card(folder)  # Existing SQLite values win, source bytes survive.

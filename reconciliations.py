@@ -76,6 +76,13 @@ def invoice_link(db, identity):
             'title': record(target)['title'] if target else '', 'path': target['path'] if target else ''}
 
 
+def untouched_empty_note(db, row, data):
+    # Прежний фоновый импорт создавал {} по новому пути ещё до открытия сверки.
+    return (data == {} and row['revision'] == 1 and row['exported_revision'] == 1
+            and row['file_revision'] == 'database' and row['parent_order'] == '' and row['sync_error'] == ''
+            and not db.execute("SELECT 1 FROM metadata_history WHERE entity='folder_notes' AND identity=? LIMIT 1", (row['id'],)).fetchone())
+
+
 class Reconciliations:
     def __init__(self, store):
         self.store = store
@@ -113,6 +120,8 @@ class Reconciliations:
                 data = {'title': row['title'], 'note': row['note'], 'extra_blocks': json.loads(row['extra_blocks'])}
             elif note:
                 data = json.loads(note['document'])
+                if not row and source == path and untouched_empty_note(db, note, data):
+                    continue
             else:
                 continue
             blocks = data.get('extra_blocks', {}) if isinstance(data, dict) else None

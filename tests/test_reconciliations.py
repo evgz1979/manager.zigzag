@@ -127,6 +127,53 @@ class ReconciliationTests(unittest.TestCase):
                 self.assertEqual(self.post(route, {'path': path, 'note': 'Старая вкладка', 'revision': 1})[0], 400)
         self.assertEqual(self.service.get(target['path'])['note'], '')
 
+    def test_empty_background_note_after_section_rename_does_not_shadow_legacy_source(self):
+        old = '# moneys/# reports/01'
+        self.folder(old)
+        notes = manager.folder_note_store()
+        source = notes.read(old)
+        notes.save({'path': old, 'revision': source['revision'], 'note': 'Прежние данные',
+                    'todo_items': [{'text': 'Сохранить задачу', 'done': True}]})
+        (self.root / self.section).rmdir()
+        (self.root / '# moneys/# reports').rename(self.root / self.section)
+        path = self.section + '/01'
+        notes.read(path)  # Состояние, оставленное старым фоновым импортом до обновления.
+        with self.store.connect() as db:
+            before = [tuple(row) for row in db.execute('SELECT * FROM folder_notes ORDER BY path')]
+            self.assertEqual(db.execute('SELECT document FROM folder_notes WHERE path=?', (path,)).fetchone()[0], '{}')
+        current = self.service.open(path)
+        self.assertEqual(current['source_path'], old)
+        self.assertEqual(current['note'], 'Прежние данные')
+        self.assertEqual(current['todo_items'], [{'text': 'Сохранить задачу', 'done': True}])
+        with self.store.connect() as db:
+            self.assertEqual([tuple(row) for row in db.execute('SELECT * FROM folder_notes ORDER BY path')], before)
+
+    def test_edited_new_path_note_keeps_ambiguity_protection_even_when_cleared(self):
+        old_section = '# moneys/# reports'
+        for name in ('01', '02'):
+            old = old_section + '/' + name
+            self.folder(old)
+            self.store.add(old, {'title': 'Прежняя сверка', 'status': 'new', 'note': 'Не терять'})
+        (self.root / self.section).rmdir()
+        (self.root / old_section).rename(self.root / self.section)
+        notes = manager.folder_note_store()
+        for name, text in (('01', 'Другие данные'), ('02', '')):
+            path = self.section + '/' + name
+            note = notes.read(path)
+            notes.save({'path': path, 'revision': note['revision'], 'note': text, 'todo_items': []})
+            with self.assertRaises(reconciliations.ReconciliationConflict):
+                self.service.open(path)
+            with self.store.connect() as db:
+                self.assertIsNone(db.execute('SELECT 1 FROM reconciliations WHERE path=?', (path,)).fetchone())
+
+    def test_background_migration_leaves_reconciliation_storage_for_explicit_open(self):
+        path = self.section + '/Сверка'
+        self.folder(path)
+        manager.metadata_store().migrate(manager)
+        with self.store.connect() as db:
+            self.assertIsNone(db.execute('SELECT 1 FROM folder_notes WHERE path=?', (path,)).fetchone())
+            self.assertIsNone(db.execute('SELECT 1 FROM reconciliations WHERE path=?', (path,)).fetchone())
+
     def test_pending_creation_recovers_the_same_reconciliation(self):
         with patch.object(reconciliations, 'insert', side_effect=ValueError('Временный сбой')):
             status, _, _ = self.post('/api/order-folder-create', {'path': self.section, 'date': '2026-10-29', 'title': 'Повтор'})
