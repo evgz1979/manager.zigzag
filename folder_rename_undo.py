@@ -59,7 +59,7 @@ def check(db, source, destination, session=None):
                 if other != session and any(inside(pair[key], root) or inside(root, pair[key])
                         for pair in json.loads(mappings) for key in ("source", "destination") for root in (source, destination)):
                     raise ValueError("Сначала завершите переименование из журнала: " + other)
-    for name in ("orders", "folder_notes", "todo_catalog", "todo_missing_folders", "client_activity", "object_activity", "invoices"):
+    for name in ("orders", "folder_notes", "todo_catalog", "todo_missing_folders", "client_activity", "object_activity", "invoices", "reconciliations"):
         if table(db, name) and any(inside(row[0], destination) for row in db.execute(f"SELECT path FROM {name}")):
             raise ValueError("По новому пути уже есть сохранённые данные: " + name)
     for name, owner in (("folder_notes", "parent_order"), ("todo_missing_folders", "order_path")):
@@ -75,6 +75,10 @@ def check(db, source, destination, session=None):
 def rewrite(db, source, destination):
     """Called inside one transaction; preserve every field and pending export."""
     metadata_paths(db,source,destination,apply=True)
+    if table(db, 'reconciliations'):
+        for identity, path in list(db.execute('SELECT id,path FROM reconciliations')):
+            if inside(path, source):
+                db.execute('UPDATE reconciliations SET path=?,revision=revision+1 WHERE id=?', (remap(path, source, destination), identity))
     identities = []
     for row in list(db.execute("SELECT id,path FROM orders")):
         if inside(row[1], source):
@@ -138,7 +142,7 @@ def undo(session, perform=False):
             target = root/directory
             has_files = target.is_dir() and any(item.name not in removed for item in target.iterdir())
             has_data = any(inside(row[0],directory) and not any(inside(row[0],pair["destination"]) for pair in mappings)
-                for name in ("orders","folder_notes","metadata_records","client_activity","object_activity","invoices") if table(db,name)
+                for name in ("orders","folder_notes","metadata_records","client_activity","object_activity","invoices","reconciliations") if table(db,name)
                 for row in db.execute(f"SELECT path FROM {name}"))
             if has_files or has_data:
                 keep.append(directory)

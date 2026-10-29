@@ -13,6 +13,7 @@ NUMBER = re.compile(r"^\d{2,}(?=$|\D)")
 LABELS = {"root": "Корень документов", "client": "Клиент", "object": "Объект", "year": "Группа года",
           "work_root": "Производство",
           "moneys_root": "Финансовая информация",
+          "reconciliations_root": "Сверки", "reconciliation": "Сверка", "reconciliation_contents": "Документы сверки",
           "work_section": "Производственный раздел", "moneys_section": "Финансовый раздел",
           "supplier_root": "Заказы поставщикам · стекло и стеклопакеты",
           "catalog_group": "Группа клиентов",
@@ -30,6 +31,14 @@ def is_work_root(name):
 
 def is_moneys_root(name):
     return name.startswith("#") and name[1:].strip().casefold() == "moneys"
+
+
+def in_reconciliations(relative, *, legacy=False):
+    if not isinstance(relative, str):
+        return False
+    parts = Path(relative).parts
+    names = {'reconciliations', 'report', 'reports'} if legacy else {'reconciliations'}
+    return len(parts) >= 2 and is_moneys_root(parts[0]) and unicodedata.normalize('NFC', parts[1]).lstrip('#').strip().casefold() in names
 
 
 def is_print_section(relative):
@@ -142,6 +151,8 @@ def folder_role(root, relative):
         kind = "work_root"
     elif len(parts) == 1 and is_moneys_root(parts[0]):
         kind = "moneys_root"
+    elif in_reconciliations(relative):
+        kind = 'reconciliations_root' if len(parts) == 2 else 'reconciliation' if len(parts) == 3 and not parts[2].startswith('#') else 'reconciliation_contents'
     elif is_service_folder(relative):
         kind = "service"
     elif len(parts) == 1 and is_catalog_group(parts[0]):

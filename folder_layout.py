@@ -178,7 +178,12 @@ def undo(session, perform=False, *, coordinate_database=False, keep_directories=
         # Metadata outlives documents: a portable filesystem undo must never
         # remove the only folder of a newly registered or subsequently edited card.
         with sqlite3.connect(Path(registration["database"]).as_uri() + "?mode=ro", uri=True) as db:
-            if db.execute("SELECT 1 FROM orders WHERE path=?", (registration["path"],)).fetchone():
+            table = registration.get('table', 'orders')
+            if table not in {'orders', 'reconciliations'}:
+                raise ValueError('Неизвестный вид сохранённой карточки; файловый откат остановлен')
+            if db.execute(f"SELECT 1 FROM {table} WHERE path=?", (registration["path"],)).fetchone():
+                if table == 'reconciliations':
+                    raise ValueError('Сверка сохранена в SQLite. Файловый откат не удаляет её папку и рабочие данные')
                 raise ValueError("Заказ сохранён в SQLite. Файловый откат не удаляет его папку; используй «Убрать из списка» / «Убрать из производства» в менеджере")
     root = Path(plan["root"])
     with (session / ".lock").open("a") as lock:

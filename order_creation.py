@@ -7,6 +7,7 @@ from pathlib import Path
 import folder_layout as layout
 import local_metadata
 from event_folder_undo import assert_unlocked
+from folder_structure import in_reconciliations
 
 KIND = "order_creation"
 
@@ -44,7 +45,7 @@ def prepare(store, path, title, session):
         if db.execute("SELECT 1 FROM orders WHERE path=?", (path,)).fetchone():
             raise ValueError("По этому пути уже сохранён заказ. Открой прежнюю карточку; новая папка не создана")
         tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-        for table in ("orders", "folder_notes", "metadata_records", "metadata_publications", "invoices"):
+        for table in ("orders", "folder_notes", "metadata_records", "metadata_publications", "invoices", "reconciliations"):
             if table not in tables:
                 continue
             for saved in db.execute(f"SELECT * FROM {table} WHERE path=? OR substr(path,1,?)=?", (path, len(path) + 1, path + '/')):
@@ -82,11 +83,19 @@ def register(store, path):
         if layout.identity(target) != committed["identity"]:
             raise ValueError("Папка была заменена после создания; автоматическая регистрация остановлена")
         complete_service_folders(store, path, session, plan, journal)
-        store.require_order_folder(path)
+        if in_reconciliations(path):
+            import reconciliations
+            existing = db.execute('SELECT id FROM reconciliations WHERE path=?', (path,)).fetchone()
+            if existing and existing['id'] != data['order_id']:
+                raise ValueError('По этому пути уже сохранена другая сверка')
+            if not existing:
+                reconciliations.insert(db, path, data['title'], data['order_id'])
+        else:
+            store.require_order_folder(path)
         existing = db.execute("SELECT id FROM orders WHERE path=?", (path,)).fetchone()
         if existing and existing["id"] != data["order_id"]:
             raise ValueError("Путь уже связан с другим заказом; его карточка сохранена")
-        if not existing:
+        if not existing and not in_reconciliations(path):
             db.execute("""INSERT INTO orders (path,id,title,status,financial_status,note,amount,costs,paid,revision,updated,extra_blocks)
                 VALUES (?,?,?,'new','unspecified','',NULL,NULL,NULL,1,?,'{}')""",
                 (path, data["order_id"], data["title"], time.time()))

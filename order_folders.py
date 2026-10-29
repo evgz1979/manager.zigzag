@@ -7,7 +7,7 @@ from datetime import date
 from pathlib import Path
 
 import folder_layout as layout
-from folder_structure import folder_role, section_prefix, is_print_section, in_freza, YEAR, DATE, DATE_LIKE, NUMBER
+from folder_structure import folder_role, section_prefix, is_print_section, in_freza, in_reconciliations, YEAR, DATE, DATE_LIKE, NUMBER
 
 LOCK = threading.RLock()
 
@@ -74,7 +74,7 @@ def create(root, relative, order_date, title, *, store=None):
         raise FileNotFoundError("Папка объекта недоступна")
     role = folder_role(root, relative)["folderKind"]
     in_year = year_container(root,relative) if role=="year" else False
-    if role not in {"object", "supplier_root", "work_root", "work_section", "moneys_section"} and not in_year:
+    if role not in {"object", "supplier_root", "work_root", "work_section", "moneys_section", "reconciliations_root"} and not in_year:
         raise ValueError("Выберите объект клиента, # work или раздел внутри # work / # moneys")
     if not isinstance(order_date, str) or not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", order_date):
         raise ValueError("Укажите дату в формате ГГГГ-ММ-ДД")
@@ -109,11 +109,12 @@ def create(root, relative, order_date, title, *, store=None):
         path = destination.relative_to(root).as_posix()
         plan = layout.Plan(root, [Path(relative).parts[0]], **layout_scope(relative))
         if store:
-            plan.order_registration = {"database": str(store.database.resolve()), "path": path}
+            plan.order_registration = {"database": str(store.database.resolve()), "path": path,
+                                       "table": "reconciliations" if in_reconciliations(path) else "orders"}
         if not parent.exists():
             plan.mkdir(parent.relative_to(root).as_posix())
         plan.mkdir(path)
-        for service in (() if in_freza(relative) else ('# bills', '# cdr')):
+        for service in (() if in_freza(relative) or in_reconciliations(relative) else ('# bills', '# cdr')):
             plan.mkdir((Path(path) / service).as_posix())
         if not plan.operations:
             raise OrderFolderConflict("Папка или файл с таким именем уже существует. Измените дату или название")

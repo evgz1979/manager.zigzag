@@ -147,7 +147,7 @@ async function uploadFiles(files) {
 
 async function request(url, payload) {
   const response = await fetch(url, payload === undefined ? {} : {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+    method: "POST", headers: { "Content-Type": "application/json", ...(['/api/reconciliation-save', '/api/invoice-reconciliation'].includes(url) ? { 'X-Manager-Reconciliations': '1' } : {}) }, body: JSON.stringify(payload),
   });
   const result = await response.json();
   if (!response.ok) {
@@ -531,7 +531,7 @@ function renderSubfolders() {
   }
   $("subfolders").classList.toggle("with-event-relevance", directories.some((item) => item.eventRelevance));
   $("folderSection").hidden = !directories.length;
-  $("foldersTitle").textContent = folder.canCreateEventFolder ? "События" : isWorkOrderList() && !workRoot ? "Другие папки" : ["supplier_root", "work_section"].includes(folder.folderKind) ? "Заказы поставщикам" : folder.folderKind === "moneys_section" ? "Финансовые записи" : workRoot ? "Разделы производства" : folder.folderKind === "moneys_root" ? "Финансовые разделы" : folder.path ? "Подпапки" : "Папки";
+  $("foldersTitle").textContent = folder.folderKind === 'reconciliations_root' ? 'Сверки' : folder.reconciliation ? 'Документы и папки' : folder.canCreateEventFolder ? "События" : isWorkOrderList() && !workRoot ? "Другие папки" : ["supplier_root", "work_section"].includes(folder.folderKind) ? "Заказы поставщикам" : folder.folderKind === "moneys_section" ? "Финансовые записи" : workRoot ? "Разделы производства" : folder.folderKind === "moneys_root" ? "Финансовые разделы" : folder.path ? "Подпапки" : "Папки";
   $("directoryCount").textContent = directories.length;
   $("subfolders").innerHTML = directories.map((item, index) => {
     const open = subfolderButton(item);
@@ -635,6 +635,7 @@ async function saveEventRelevance(path, value) {
 
 function renderFolder(preserveForm = false) {
   const folder = state.folder;
+  const reconciliation = folder.reconciliation;
   renderMoneyOverview();
   document.dispatchEvent(new CustomEvent("manager-folder-rendered"));
   renderClientActivity();
@@ -643,7 +644,7 @@ function renderFolder(preserveForm = false) {
   const noteOnly = service || Boolean(folder.noteOnly);
   const supplierCard = Boolean(folder.order && Object.hasOwn(folder.order, "supplier_status"));
   const workCard = isWorkOrderPath(folder.path) || supplierCard;
-  const hasTodo = Boolean(folder.path) && (!noteOnly || Boolean(folder.eventFolder));
+  const hasTodo = Boolean(folder.path) && (Boolean(reconciliation) || !noteOnly || Boolean(folder.eventFolder));
   const showFinance = hasDescendantTodos(folder) && !workCard;
   $("orderFinanceOverview").hidden = !showFinance || !folder.order;
   $("purchasePanel").hidden = !showFinance;
@@ -667,24 +668,25 @@ function renderFolder(preserveForm = false) {
   renderSketches();
   renderDescendantTodos();
   $("orderDetails").hidden = !folder.path;
-  $("folderDetailsTitle").textContent = folder.frezaTask ? "Задание на фрезеровку" : noteOnly ? "Заметка" : "Карточка заказа";
+  $("folderDetailsTitle").textContent = reconciliation ? "Сверка" : folder.frezaTask ? "Задание на фрезеровку" : noteOnly ? "Заметка" : "Карточка заказа";
   $("statusLabel").hidden = noteOnly || workCard;
   $("orderStatusFields").hidden = noteOnly || workCard;
   $("supplierStatusLabel").hidden = !supplierCard;
   $("supplierStatusLabel").firstChild.textContent = folder.order?.can_group_supplier_orders ? "Статус заказа производства" : "Статус заказа поставщику";
-  $("orderTitleLabel").hidden = noteOnly || !folder.order;
-  $("orderTitleLabel").firstChild.textContent = folder.frezaTask ? "Название задания" : "Название заказа";
+  $("orderTitleLabel").hidden = !reconciliation && (noteOnly || !folder.order);
+  $("orderTitleLabel").firstChild.textContent = reconciliation ? "Название сверки" : folder.frezaTask ? "Название задания" : "Название заказа";
+  $("reconciliationClientLabel").hidden = !reconciliation;
   $("financialFields").hidden = noteOnly || workCard || !folder.order;
   $("statusForm").classList.toggle("with-finances", !$("financialFields").hidden);
   $("statusForm").classList.toggle("note-only", noteOnly);
-  $("orderNote").placeholder = folder.frezaTask ? "Материал, толщина, размеры, количество и другие детали задания…" : noteOnly ? "Заметка к этой папке" : "Что важно по этому заказу";
+  $("orderNote").placeholder = reconciliation ? "Заметка к сверке" : folder.frezaTask ? "Материал, толщина, размеры, количество и другие детали задания…" : noteOnly ? "Заметка к этой папке" : "Что важно по этому заказу";
   $("removeOrderButton").hidden = !folder.order;
   $("addOrderButton").textContent = isWorkOrderPath(folder.path) ? "+ Добавить в производство" : "+ Добавить в список заказов";
   $("removeOrderButton").textContent = isWorkOrderPath(folder.path) ? "Убрать из производства" : "Убрать из списка заказов";
   $("createObjectFolderButton").hidden = folder.canCreateObjectFolder !== true;
   $("groupObjectYearsButton").hidden = folder.canGroupOrdersByYear !== true;
   $("createOrderFolderButton").hidden = folder.canCreateOrderFolder !== true;
-  $("createOrderFolderButton").textContent = folder.frezaSection ? "+ Новое задание" : folder.folderKind === "moneys_section" ? "+ Создать запись" : ["supplier_root", "work_section"].includes(folder.folderKind) ? "+ Создать заказ поставщику" : "+ Создать заказ";
+  $("createOrderFolderButton").textContent = folder.folderKind === 'reconciliations_root' ? '+ Создать сверку' : folder.frezaSection ? "+ Новое задание" : folder.folderKind === "moneys_section" ? "+ Создать запись" : ["supplier_root", "work_section"].includes(folder.folderKind) ? "+ Создать заказ поставщику" : "+ Создать заказ";
   $("createEventFolderButton").hidden = folder.canCreateEventFolder !== true;
   $("renameFolderButton").hidden = folder.canRenameFolder !== true;
   $("deleteEventButton").hidden = folder.canDeleteEvent !== true;
@@ -696,7 +698,8 @@ function renderFolder(preserveForm = false) {
     $("purchaseNewText").value = "";
     renderPurchases();
     $("orderDetails").open = noteOnly || Boolean(folder.note || folder.order);
-    $("orderTitleInput").value = folder.order?.title || folder.draftCard?.title || folder.name;
+    $("orderTitleInput").value = reconciliation?.title || folder.order?.title || folder.draftCard?.title || folder.name;
+    $("reconciliationClient").value = reconciliation?.client || '';
     for (const [field, key] of [["orderAmount", "amount"], ["orderCosts", "costs"], ["orderPaid", "paid"]]) {
       const card = folder.order || folder.draftCard;
       $(field).value = card?.[key] == null ? "" : (card[key] / 100).toFixed(2);
@@ -761,8 +764,8 @@ function renderOrderHeading() {
   const color = folder?.workSupplierColor ?? order?.work_supplier_color;
   supplierLabel.style.setProperty("--supplier-hue", String(color?.hue ?? 0));
   supplierLabel.classList.toggle("supplier-neutral", Boolean(color?.neutral));
-  $("folderTitleText").textContent = folder?.frezaSection ? "Задания на фрезеровку" : folder?.view === "print" ? "Задания на печать" : folder?.path ? order?.title || folder.draftCard?.title || folder.name : "Клиенты и заказы";
-  const showFolderName = Boolean(order || folder?.folderKind === "order");
+  $("folderTitleText").textContent = folder?.frezaSection ? "Задания на фрезеровку" : folder?.view === "print" ? "Задания на печать" : folder?.path ? folder.reconciliation?.title || order?.title || folder.draftCard?.title || folder.name : "Клиенты и заказы";
+  const showFolderName = Boolean(folder?.reconciliation || order || folder?.folderKind === "order");
   $("orderFolderName").hidden = !showFolderName;
   $("orderFolderName").textContent = showFolderName ? "Папка: " + folder.name : "";
   const headingMeta = $("folderHeadingMeta"), besideActions = showFolderName && Boolean(folder.canCreateEventFolder);
@@ -793,7 +796,7 @@ function renderStatus() {
   $("statusSelect").dataset.status = $("statusSelect").value;
   $("financialStatusSelect").dataset.financialStatus = $("financialStatusSelect").value;
   $("saveStatusButton").textContent = state.dirty ? "Сохранить изменения" : "Сохранить";
-  const folderNote = state.folder.folderNote;
+  const folderNote = state.folder.folderNote || (state.folder.reconciliation ? { storage: 'database' } : null);
   $("todoSaveState").textContent = state.saving ? "Сохраняю…" : state.dirty ? "Есть несохранённые изменения" : folderNote?.storage === "database" ? "Сохранено в базе" : folderNote?.sync_error ? "Сохранено в базе. Выгрузка: " + folderNote.sync_error : folderNote?.sync_pending ? "Сохранено в базе · ожидает выгрузки в папку" : folderNote ? folderNote.file_exists ? "Сохранено в базе и в !.txt этой папки" : "Автоматическое сохранение в эту папку" : "Сохранено";
   renderPurchaseSaveState();
   renderCardDeadlines();
@@ -898,7 +901,7 @@ function renderTodos() {
   $("todoLegacyText").textContent = editable ? "" : (state.folder.order?.extra_blocks || state.folder.extra_blocks || {})["Задачи"] || "";
   $("todoAddForm").hidden = !editable;
   $("todoEmpty").hidden = !editable || Boolean(items.length);
-  $("todoEmpty").textContent = state.folder.folderNote ? "Добавьте, что нужно сделать в этой папке." : "Добавьте, что нужно сделать по заказу.";
+  $("todoEmpty").textContent = state.folder.reconciliation ? 'Добавь задачи по сверке.' : state.folder.folderNote ? "Добавьте, что нужно сделать в этой папке." : "Добавьте, что нужно сделать по заказу.";
   $("todoCount").textContent = editable ? items.filter((item) => item.done).length + " / " + items.length : "";
   $("todoList").innerHTML = editable ? items.map((item, index) => '<div class="todo-row' + (item.done ? ' done' : '') + '" data-todo-index="' + index + '">' +
     '<input class="todo-check" type="checkbox" aria-label="Выполнено: ' + escapeHtml(item.text) + '"' + (item.done ? ' checked' : '') + '>' +
@@ -1304,7 +1307,7 @@ function showPrintTask(task) {
 
 function renderNewOrderName() {
   const date = $("newOrderDate").value || "ГГГГ-ММ-ДД";
-  const title = $("newOrderTitle").value.trim() || (state.folder?.frezaSection ? "Название задания" : state.folder?.folderKind === "moneys_section" ? "Название записи" : "Название заказа");
+  const title = $("newOrderTitle").value.trim() || (state.folder?.folderKind === 'reconciliations_root' ? 'Название сверки' : state.folder?.frezaSection ? "Название задания" : state.folder?.folderKind === "moneys_section" ? "Название записи" : "Название заказа");
   $("newOrderFolderName").textContent = date + " - " + title;
 }
 
@@ -1390,13 +1393,20 @@ function openCreateOrderFolder() {
   if (state.folder?.canCreateOrderFolder !== true) return;
   state.newOrderParent = state.folder.path;
   const supplier = ["supplier_root", "work_section"].includes(state.folder.folderKind);
-  const finance = state.folder.folderKind === "moneys_section";
+  const reconciliation = state.folder.folderKind === 'reconciliations_root';
+  const finance = reconciliation || state.folder.folderKind === "moneys_section";
   $("newOrderDateLabel").textContent = finance ? "Дата записи" : "Дата заказа";
   $("newOrderTitleLabel").textContent = finance ? "Название записи" : "Название заказа";
   $("createOrderFolderTitle").textContent = finance ? "Создать финансовую запись" : supplier ? "Создать заказ поставщику" : "Создать заказ";
   $("submitCreateOrderFolder").textContent = finance ? "Создать запись" : "Создать заказ";
   $("newOrderParentLabel").textContent = finance ? "Новая папка в финансовом разделе:" : supplier ? "Новая папка в производственном разделе:" : state.folder.folderKind === "work_root" ? "Новый заказ в корне производства:" : "Новая папка в объекте:";
   $("newOrderTitle").placeholder = finance ? "Например, сверка с поставщиком" : supplier ? "Например, заказ поставщику" : "Например, замена вывески";
+  if (reconciliation) {
+    $("newOrderDateLabel").textContent = 'Дата сверки';
+    $("newOrderTitleLabel").textContent = 'Название сверки';
+    $("createOrderFolderTitle").textContent = 'Создать сверку';
+    $("submitCreateOrderFolder").textContent = 'Создать сверку';
+  }
   if (state.folder.frezaSection) {
     $("newOrderDateLabel").textContent = "Дата задания";
     $("newOrderTitleLabel").textContent = "Название задания";
@@ -1420,6 +1430,7 @@ function openCreateOrderFolder() {
 async function createOrderFolder() {
   if (state.creatingOrderFolder || !$("createOrderFolderForm").reportValidity()) return;
   const finance = state.folder?.folderKind === "moneys_section";
+  const reconciliation = state.folder?.folderKind === 'reconciliations_root';
   const freza = Boolean(state.folder?.frezaSection);
   state.creatingOrderFolder = true;
   const controls = ["submitCreateOrderFolder", "cancelCreateOrderFolder", "newOrderDate", "newOrderTitle"];
@@ -1437,13 +1448,13 @@ async function createOrderFolder() {
   } finally {
     state.creatingOrderFolder = false;
     controls.forEach((id) => { $(id).disabled = false; });
-    $("submitCreateOrderFolder").textContent = freza ? "Создать задание" : finance ? "Создать запись" : "Создать заказ";
+    $("submitCreateOrderFolder").textContent = reconciliation ? 'Создать сверку' : freza ? "Создать задание" : finance ? "Создать запись" : "Создать заказ";
   }
   $("createOrderFolderDialog").close();
   await loadTree();
   await navigate(created.path);
   await loadOrders();
-  notify(freza ? "Задание на фрезеровку создано" : finance ? "Финансовая запись создана" : isWorkOrderPath(created.path) ? "Заказ создан в производстве" : "Заказ создан и добавлен в список");
+  notify(reconciliation ? 'Сверка создана' : freza ? "Задание на фрезеровку создано" : finance ? "Финансовая запись создана" : isWorkOrderPath(created.path) ? "Заказ создан в производстве" : "Заказ создан и добавлен в список");
 }
 
 function renderNewEventName() {
@@ -1609,7 +1620,7 @@ async function saveCurrentStatus() {
   $("saveStatusButton").textContent = "Сохраняю…";
   const noteOnly = folder.service || folder.noteOnly;
   const folderNote = folder.order ? null : folder.folderNote;
-  state.saving = request(folderNote ? "/api/folder-note-save" : noteOnly ? "/api/note" : folder.order ? "/api/order-save" : "/api/status", folderNote
+  state.saving = folder.reconciliation ? request('/api/reconciliation-save', { path: folder.path, id: folder.reconciliation.id, revision: folder.reconciliation.revision, ...values }) : request(folderNote ? "/api/folder-note-save" : noteOnly ? "/api/note" : folder.order ? "/api/order-save" : "/api/status", folderNote
     ? { path: folder.path, revision: folderNote.revision, ...values }
     : noteOnly
     ? { path: folder.path, note }
@@ -1623,6 +1634,7 @@ async function saveCurrentStatus() {
     folder.note = note;
     folder.statusSource = folder.order || folder.folderNote ? "database" : "manual";
     if (folder.order) folder.order = saved;
+    if (folder.reconciliation) folder.reconciliation = saved;
     if (folderNote) { folder.folderNote = saved; if (saved.card) folder.draftCard = saved.card; }
     state.dirty = JSON.stringify(currentOrderValues()) !== JSON.stringify(values);
     renderExportState();
@@ -1638,6 +1650,8 @@ async function saveCurrentStatus() {
 const rubles = (value) => value == null ? "—" : new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB", maximumFractionDigits: 2 }).format(value / 100);
 
 function currentOrderValues() {
+  if (state.folder?.reconciliation) return { title: $("orderTitleInput").value, client: $("reconciliationClient").value,
+    note: $("orderNote").value, todo_items: state.folder.todo_items.map(item => ({ ...item })) };
   if (state.folder?.service || state.folder?.noteOnly) return { note: $("orderNote").value,
     ...(state.folder.folderNote && Array.isArray(state.folder.todo_items) ? { todo_items: state.folder.todo_items.map((item) => ({ ...item })) } : {}) };
   return { status: $("statusSelect").value, financial_status: $("financialStatusSelect").value, note: $("orderNote").value, title: $("orderTitleInput").value,
@@ -3970,7 +3984,7 @@ $("removeOrderForm").addEventListener("submit", (event) => {
     }
   });
 });
-for (const id of ["orderTitleInput", "orderAmount", "orderCosts", "orderPaid"]) {
+for (const id of ["orderTitleInput", "reconciliationClient", "orderAmount", "orderCosts", "orderPaid"]) {
   $(id).addEventListener("input", () => { state.dirty = true; renderStatus(); renderOrderCalculated(); });
 }
 setInterval(() => {
@@ -4193,7 +4207,7 @@ $("purchaseList").addEventListener("click", (event) => {
 $("purchaseList").addEventListener("keydown", (event) => {
   if (event.key === "Enter" && event.target.matches(".todo-text")) { event.preventDefault(); event.target.blur(); saveTodosSoon(); }
 });
-$("statusForm").addEventListener("submit", (event) => { event.preventDefault(); run(async () => { await saveCurrentStatus(); notify(state.folder?.folderNote ? "Заметка и задачи сохранены в базе" : state.folder?.service || state.folder?.noteOnly ? "Заметка сохранена" : state.folder?.order ? "Карточка сохранена в базе, выгрузка в папку поставлена в очередь" : "Статус и заметка сохранены"); }); });
+$("statusForm").addEventListener("submit", (event) => { event.preventDefault(); run(async () => { await saveCurrentStatus(); notify(state.folder?.reconciliation ? "Сверка сохранена в базе" : state.folder?.folderNote ? "Заметка и задачи сохранены в базе" : state.folder?.service || state.folder?.noteOnly ? "Заметка сохранена" : state.folder?.order ? "Карточка сохранена в базе, выгрузка в папку поставлена в очередь" : "Статус и заметка сохранены"); }); });
 $("newPrintTask").addEventListener("click", () => run(newPrintTask));
 $("publishPrintTask").addEventListener("click", () => run(async () => {
   await saveCurrentPrintTask(true);

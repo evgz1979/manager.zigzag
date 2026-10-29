@@ -14,7 +14,7 @@ import order_calendar
 import order_links
 import work_orders
 from order_document import money, MAX_MONEY
-from folder_structure import folder_role, is_service_folder, client_name, client_path, order_location
+from folder_structure import folder_role, is_service_folder, client_name, client_path, order_location, in_reconciliations
 from event_folder_undo import assert_unlocked, guard_database
 
 SNAPSHOT = ".order.json"  # Read-only compatibility with the previous export.
@@ -65,6 +65,8 @@ class OrderStore:
                 if self.database_only:
                     import local_metadata
                     local_metadata.schema(db)
+                    import reconciliations
+                    reconciliations.schema(db)
                     for table in ("orders","folder_notes","client_activity","object_activity","metadata_records"):
                         local_metadata.audit(db,table)
                     db.commit()
@@ -133,7 +135,7 @@ class OrderStore:
         return result
 
     def get(self, relative, *, include_unregistered=False):
-        if is_service_folder(relative) or not self.database.exists():
+        if is_service_folder(relative) or in_reconciliations(relative, legacy=True) or not self.database.exists():
             return None
         with self.connect() as db:
             assert_unlocked(db, relative)
@@ -146,6 +148,7 @@ class OrderStore:
         with self.connect() as db:
             return [self.record(row, db) for row in db.execute("SELECT * FROM orders ORDER BY updated DESC, path").fetchall()
                     if not any(part.startswith('.') for part in Path(row['path']).parts)
+                    and not in_reconciliations(row['path'], legacy=True)
                     and not is_service_folder(row["path"]) and (include_unregistered or row["registered"])]
 
     def pending_unregistrations(self):

@@ -56,7 +56,8 @@ import work_orders
 from work_order_list import WorkOrderList
 import supplier_purchases
 from file_comments import FileCommentConflict
-from folder_structure import folder_role, is_catalog_group, client_name, is_print_section
+from folder_structure import folder_role, is_catalog_group, client_name, is_print_section, in_reconciliations
+import reconciliations
 from folder_structure import client_path, in_freza, is_freza_task
 from client_activity import ClientActivity, ClientActivityConflict
 from client_activity import is_inactive
@@ -942,6 +943,20 @@ def order_sync_worker():
 def folder_status(path, directories):
     relative = relative_path(path)
     role = folder_role(DATA_ROOT, relative)
+    if role['folderKind'] == 'reconciliation':
+        item = reconciliations.Reconciliations(order_store()).open(relative)
+        return {**role, 'reconciliation': item, 'service': False, 'noteOnly': True, 'eventFolder': False,
+                'note': item['note'], 'todo_items': item['todo_items'], 'purchase_items': [], 'extra_blocks': {},
+                'status': 'unspecified', 'financial_status': 'unspecified', 'statusSource': 'database'}
+    reconciliation_warnings = []
+    if role['folderKind'] == 'reconciliations_root':
+        for child in directories:
+            if child.name.startswith(('.', '#')) or child.is_symlink():
+                continue
+            try:
+                reconciliations.Reconciliations(order_store()).open(relative_path(child))
+            except (ValueError, OSError) as error:
+                reconciliation_warnings.append(child.name + ': ' + str(error))
     service = is_service_folder(relative)
     owner = parent_order(DATA_ROOT, relative) if relative else None
     if DATABASE_ONLY:
@@ -952,7 +967,7 @@ def folder_status(path, directories):
         record = folder_note_store().read(relative)
         body = record["card"]
         note_only = not role["canRegisterOrder"] or bool(order) or body.get("registered") is False
-        return {**role,"service":service,"noteOnly":note_only,"eventFolder":bool(owner),"folderNote":record,"draftCard":body,
+        return {**role,"reconciliationWarnings":reconciliation_warnings,"service":service,"noteOnly":note_only,"eventFolder":bool(owner),"folderNote":record,"draftCard":body,
                 "note":record["note"],"todo_items":record["todo_items"],"purchase_items":order_document.read_purchases(body.get("extra_blocks",{})),
                 "extra_blocks":record["extra_blocks"],"status":body.get("status","new"),"financial_status":body.get("financial_status","unspecified"),"statusSource":"database"}
     if service and not owner:
@@ -1017,12 +1032,12 @@ def read_folder(relative="", show_inactive=False):
     hidden_children = {path for path in inactive if not is_inactive(relative, {path})}
     if not show_inactive:
         directories = [item for item in directories if not is_inactive(relative_path(item), hidden_children)]
-    files, warnings = [], []
+    files, warnings = [], list(status.get('reconciliationWarnings', []))
     print_view = is_print_section(relative)
     freza_section = in_freza(relative) and len(Path(relative).parts) == 2
     freza_task = is_freza_task(relative)
     files_scope = "folder" if freza_task else "events" if status["folderKind"] == "order" or status.get("order") else (
-        "subfolders" if not print_view and status["folderKind"] in {"client", "object", "catalog_group", "supplier_root", "work_root", "moneys_root", "work_section", "moneys_section"} else "folder")
+        "subfolders" if not print_view and status["folderKind"] in {"client", "object", "catalog_group", "supplier_root", "work_root", "moneys_root", "work_section", "moneys_section", "reconciliations_root", "reconciliation"} else "folder")
     hide_files = files_scope != "folder"
     folder_count = len(directories) if hide_files or print_view else 0
 
@@ -1160,7 +1175,7 @@ def read_folder(relative="", show_inactive=False):
             "newFileName": next_print_name(target) if print_view else "",
             "canCreateObjectFolder": status["folderKind"]=="client",
             "canGroupOrdersByYear": status["folderKind"]=="object",
-            "canCreateOrderFolder": not print_view and (status["folderKind"] in {"object", "supplier_root", "work_root", "work_section", "moneys_section"} or (status["folderKind"]=="year" and order_folders.year_container(DATA_ROOT,relative))),
+            "canCreateOrderFolder": not print_view and (status["folderKind"] in {"object", "supplier_root", "work_root", "work_section", "moneys_section", "reconciliations_root"} or (status["folderKind"]=="year" and order_folders.year_container(DATA_ROOT,relative))),
             "canCreateEventFolder": status["folderKind"] == "order" and not freza_task,
             "canRenameFolder": folder_rename.available(relative_path(target)),
             "canDeleteEvent": event_trash.available(relative_path(target)),
@@ -1446,11 +1461,17 @@ class ManagerHandler(BaseHTTPRequestHandler):
                     if not head:
                         self.wfile.write(body)
             elif parsed.path == "/api/invoices":
-                self.send_json({"items": invoice_store().list(relative), "trash": invoice_store().list(relative, trashed=True)}, head=head)
+                service = reconciliations.Reconciliations(order_store())
+                self.send_json({"items": service.with_links(invoice_store().list(relative)), "trash": service.with_links(invoice_store().list(relative, trashed=True))}, head=head)
+            elif parsed.path == '/api/reconciliations':
+                self.send_json({'items': reconciliations.Reconciliations(order_store()).catalog()}, head=head)
+            elif parsed.path == '/api/reconciliation':
+                self.send_json(reconciliations.Reconciliations(order_store()).get(relative), head=head)
             elif parsed.path == '/api/invoice-folder-candidates':
                 self.send_json(invoice_discovery.candidates(invoice_store(), relative), head=head)
             elif parsed.path == "/api/invoice":
-                self.send_json(invoice_store().get(relative, query.get("id", [""])[0]), head=head)
+                item = invoice_store().get(relative, query.get("id", [""])[0])
+                self.send_json(reconciliations.Reconciliations(order_store()).with_links([item])[0], head=head)
             elif parsed.path == '/api/invoice-document':
                 body, name, mime = invoice_documents.content(invoice_store(), relative, query.get('id', [''])[0], query.get('document_id', [''])[0])
                 self.send_invoice_document(body, name, mime, head=head, download=mime == 'application/octet-stream' or query.get('download', [''])[0] == '1')
@@ -1723,12 +1744,26 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 if self.headers.get_content_type() != 'application/json' or (origin and urllib.parse.urlsplit(origin).netloc != self.headers.get('Host')):
                     raise ValueError('Прикрепляй документы через форму в строке счёта')
             length = int(self.headers.get("Content-Length", "0"))
-            limit = invoices.EXTERNAL_REQUEST_LIMIT if route in {'/api/invoice-upload', '/api/invoice-document-upload'} else (1024 * 1024 if route in {"/api/file-comment", "/api/order-save", "/api/status"} else 256 * 1024)
+            limit = invoices.EXTERNAL_REQUEST_LIMIT if route in {'/api/invoice-upload', '/api/invoice-document-upload'} else (1024 * 1024 if route in {"/api/file-comment", "/api/order-save", "/api/status", "/api/reconciliation-save"} else 256 * 1024)
             if length < 0 or length > limit:
                 raise ValueError("Слишком большой запрос")
             payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
             if not isinstance(payload, dict):
                 raise ValueError("Некорректный запрос")
+            if route in {'/api/reconciliation-save', '/api/invoice-reconciliation'}:
+                origin = self.headers.get('Origin')
+                if (self.headers.get('X-Manager-Reconciliations') != '1' or self.headers.get_content_type() != 'application/json'
+                        or (origin and urllib.parse.urlsplit(origin).netloc != self.headers.get('Host'))):
+                    self.send_json({'error': 'Изменяй сверки через страницу менеджера'}, 403)
+                    return
+                service = reconciliations.Reconciliations(order_store())
+                self.send_json(service.save(payload) if route.endswith('-save') else service.assign(invoice_store(), payload))
+                return
+            reconciliation_path = payload.get('path', '') or ''
+            if in_reconciliations(reconciliation_path, legacy=True) and (
+                    (route.startswith('/api/order-') and route != '/api/order-folder-create') or
+                    (route in {'/api/folder-note-save', '/api/status', '/api/note'} and len(Path(reconciliation_path).parts) == 3)):
+                raise ValueError('Сверка не является заказом; открой её новую карточку')
             if route in {'/api/inbox-complete', '/api/inbox-remove', '/api/inbox-restore'}:
                 origin = self.headers.get('Origin')
                 if (self.headers.get('X-Manager-Inbox') != '1' or self.headers.get_content_type() != 'application/json'
@@ -2126,7 +2161,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": True})
         except FileNotFoundError as error:
             self.send_json({"error": str(error)}, 404)
-        except (invoices.InvoiceConflict, PrintConflict, OrderConflict, work_orders.SupplierFavoriteConflict, ClientActivityConflict, FileCommentConflict, file_trash.TrashConflict, order_folders.OrderFolderConflict, object_years.YearGroupConflict, folder_rename.FolderRenameConflict, FolderNoteConflict, event_folders.EventFolderConflict, EventRenamePending) as error:
+        except (reconciliations.ReconciliationConflict, invoices.InvoiceConflict, PrintConflict, OrderConflict, work_orders.SupplierFavoriteConflict, ClientActivityConflict, FileCommentConflict, file_trash.TrashConflict, order_folders.OrderFolderConflict, object_years.YearGroupConflict, folder_rename.FolderRenameConflict, FolderNoteConflict, event_folders.EventFolderConflict, EventRenamePending) as error:
             self.send_json({"error": str(error)}, 409)
         except (ValueError, UnicodeDecodeError) as error:
             self.send_json({"error": str(error)}, 400)
