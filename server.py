@@ -107,6 +107,7 @@ STATUS_LABELS = {
     "workshop": "В цех", "install": "Монтаж", "rework": "Переделка/доделка",
     "finishing": "Завершение/добивка", "related": "Связанный", "deferred": "Отложен/возможно",
     "done": "Готово", "done_but": "Готово, но…", "cancelled": "Отменён",
+    "personal_work": "Личное/в работе", "personal_done": "Личное/готово",
 }
 FINANCIAL_STATUS_LABELS = order_document.FINANCIAL_STATUS_LABELS
 STATUS_KEYWORDS = [
