@@ -130,6 +130,37 @@ h1, h2, h3, p { margin: 0; }
 .sidebar-footer span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .connection-dot { width: 6px; height: 6px; border-radius: 50%; background: #74a585; }
 .content-pane { min-width: 0; overflow: auto; padding: 0 34px 40px; scrollbar-width: thin; }
+.money-overview { margin-bottom: 28px; }
+.money-hint, .money-state { color: var(--muted); font-size: 12px; }
+.money-navigation { display: flex; gap: 5px; }
+.money-navigation button { white-space: nowrap; }
+.money-state:not(:empty) { margin-bottom: 10px; }
+.money-scroll { overflow-x: auto; scrollbar-width: thin; border: 1px solid var(--line); border-radius: 9px; }
+.money-months { display: grid; grid-template-columns: repeat(4, minmax(420px, 1fr)); }
+.money-month { display: flex; flex-direction: column; min-width: 0; }
+.money-month + .money-month { border-left: 1px solid var(--line); }
+.money-month h3 { padding: 11px 14px; background: #f7f8f5; font-size: 14px; font-weight: 600; text-transform: capitalize; border-bottom: 1px solid var(--line); }
+.money-month-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); flex: 1; }
+.money-direction { min-width: 0; padding: 8px 7px; }
+.money-direction + .money-direction { border-left: 1px solid var(--line); }
+.money-direction h4 { margin: 0 3px 5px; font-size: 11px; font-weight: 500; }
+.money-incoming h4, .money-incoming .money-item-amount, .money-total-incoming strong, .money-difference .positive { color: #2f7d46; }
+.money-outgoing h4, .money-outgoing .money-item-amount, .money-total-outgoing strong, .money-difference .negative { color: #ad4c4c; }
+.money-direction ul { list-style: none; margin: 0; padding: 0; }
+.money-item { display: grid; grid-template-columns: 51px minmax(0, 1fr) max-content; align-items: center; gap: 5px; width: 100%; padding: 3px; border: 0; border-radius: 3px; background: none; text-align: left; text-decoration: none; color: var(--text); font-size: 11px; line-height: 16px; }
+.money-item:hover { background: #f3f6f2; }
+.money-item-date { color: var(--muted); font-size: 10px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.money-item-amount { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+.money-item-caption { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.money-empty { padding: 3px; color: #98a09d; font-size: 11px; }
+.money-totals { border-top: 1px solid var(--line); font-size: 11px; }
+.money-total-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.money-total { display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 7px 10px; color: var(--muted); }
+.money-total + .money-total { border-left: 1px solid var(--line); }
+.money-total strong { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.money-difference { display: flex; justify-content: space-between; gap: 10px; padding: 7px 10px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
+.money-difference strong { font-variant-numeric: tabular-nums; color: var(--text); }
+.money-hint { margin-top: 9px; }
 .content-topbar { display: flex; justify-content: space-between; align-items: center; min-height: 64px; padding: 14px 0; gap: 16px; border-bottom: 1px solid var(--line); }
 .breadcrumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; min-width: 0; }
 .breadcrumbs button { border: 0; background: none; padding: 3px 4px; font-size: 11px; color: #8b9691; text-align: left; overflow-wrap: anywhere; }
@@ -137,6 +168,8 @@ h1, h2, h3, p { margin: 0; }
 .breadcrumb-divider { color: #c0c9c1; font-size: 11px; }
 .scan-state { font-size: 11px; color: var(--muted); white-space: nowrap; }
 .order-heading { display: flex; justify-content: space-between; align-items: center; gap: 25px; padding: 27px 0 23px; }
+.moneys-view > .order-heading { padding: 12px 0 8px; }
+.moneys-view .folder-summary { display: none; }
 .order-heading > div { min-width: 0; }
 .order-title-row { display: flex; align-items: flex-start; gap: 8px; }
 .order-title-row h1 { min-width: 0; }

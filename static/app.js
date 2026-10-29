@@ -40,6 +40,7 @@ const state = {
   calendarSupplierOrders: [],
   calendarEvents: [],
   calendarInvoicePlans: [],
+  calendarPlansLoaded: false, calendarPlansError: "",
   calendarMenu: null, calendarMoving: new Set(),
 };
 let searchTimer, toastTimer, todoSaveTimer, previewVersion = 0, treeSearchVersion = 0, printReadVersion = 0;
@@ -629,6 +630,7 @@ async function saveEventRelevance(path, value) {
 
 function renderFolder(preserveForm = false) {
   const folder = state.folder;
+  renderMoneyOverview();
   document.dispatchEvent(new CustomEvent("manager-folder-rendered"));
   renderClientActivity();
   const printView = folder.view === "print";
@@ -1687,6 +1689,7 @@ function mountOrderList() {
   $("orderSearch").placeholder = work ? "Найти заказ, поставщика или задачу…" : "Найти заказ, задачу или закупку…";
   const home = state.view === "orders", pane = document.querySelector(".content-pane");
   pane.classList.toggle("home-view", home);
+  pane.classList.toggle("moneys-view", !home && state.folder?.folderKind === "moneys_root");
   const heading = pane.querySelector(".order-heading");
   heading.append($("homeToolbarSlot"));
   heading.firstElementChild.append($("homeSyncSlot"));
@@ -1720,7 +1723,12 @@ async function loadOrders() {
   const version = ++state.ordersRequest;
   const objectPath = isFolderOrderList() ? state.folder.path : null;
   const work = isWorkOrderList();
-  const result = await request("/api/orders");
+  let result;
+  try { result = await request("/api/orders"); }
+  catch (error) {
+    if (version === state.ordersRequest) { state.calendarPlansError = error.message; renderMoneyOverview(); }
+    throw error;
+  }
   if (version !== state.ordersRequest) return;
   if (objectPath) {
     try {
@@ -1742,6 +1750,9 @@ async function loadOrders() {
   state.calendarSupplierOrders = result.calendar_supplier_orders || [];
   state.calendarEvents = result.calendar_events || [];
   state.calendarInvoicePlans = result.calendar_invoice_plans || [];
+  state.calendarPlansLoaded = true;
+  state.calendarPlansError = "";
+  renderMoneyOverview();
   state.deadlineWeekOptions = result.deadline_week_options || [];
   state.favoriteOrders = result.favorites || result.orders.filter((order) => order.is_favorite === true);
   state.unregistrations = result.unregistrations || [];
@@ -2558,6 +2569,12 @@ function compareOrders(a, b, key = state.orderSort, direction = state.orderDirec
   return compareOrderText(a.title, b.title) || compareOrderText(a.path, b.path) || compareOrderText(a.id, b.id);
 }
 
+function renderMoneyOverview() {
+  MoneyOverview.show(state.calendarInvoicePlans, state.view === "folder" && state.folder?.folderKind === "moneys_root", {
+    loaded: state.calendarPlansLoaded, error: state.calendarPlansError,
+  });
+}
+
 function renderHomeCalendar() {
   const orders = [...state.orders, ...state.calendarSupplierOrders].map((order) => order.work_supplier ? { ...order, client: order.work_supplier } : order);
   HomeCalendar.show(orders.sort((a, b) => compareOrders(a, b, "title", 1)), state.calendarEvents, state.calendarInvoicePlans);
@@ -3168,6 +3185,7 @@ async function navigate(path, { history = true } = {}) {
     if (history) window.history.pushState(null, "", data.path ? "?path=" + encodeURIComponent(data.path) : window.location.pathname);
     renderTree();
     renderFolder();
+    if (data.folderKind === "moneys_root" && state.calendarPlansLoaded) run(loadOrders);
     run(async () => {
       if (hasDescendantTodos(data) && !data.order) await request("/api/todos-refresh", { path: data.path });
       await loadDescendantTodos(data);
@@ -3932,6 +3950,13 @@ setInterval(() => {
   }
 }, 5000);
 $("homeButton").addEventListener("click", () => run(() => showOrders()));
+$("moneyOverview").addEventListener("click", (event) => {
+  const link = event.target.closest("[data-money-path]");
+  if (link && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0) {
+    event.preventDefault();
+    run(() => navigate(link.dataset.moneyPath));
+  }
+});
 $("openFolderButton").addEventListener("click", () => run(() => openNative(state.selected)));
 $("orderPageFavorite").addEventListener("click", () => run(() => toggleOrderFavorite(state.folder?.path)));
 $("orderCardDeadlineList").addEventListener("click", (event) => {
