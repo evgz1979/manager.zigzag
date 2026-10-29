@@ -19,6 +19,19 @@ PREVIOUS = "20261019T170000Z-abcdef12"
 
 
 class DeploymentTests(unittest.TestCase):
+    def test_deleted_inbox_tasks_block_rollback_to_original_receiver(self):
+        release = self.base / 'inbox-without-deletion'
+        release.mkdir()
+        (release / 'local_metadata.py').write_text('# SQLite storage')
+        (release / 'telegram_inbox.py').write_text('TELEGRAM_INBOX_VERSION = 1')
+        with sqlite3.connect(self.db) as db:
+            db.execute('CREATE TABLE metadata_settings (key TEXT PRIMARY KEY,value TEXT)')
+            db.execute("INSERT INTO metadata_settings VALUES ('telegram_inbox_delete','1')")
+        with self.assertRaisesRegex(RuntimeError, 'удалённые задачи'):
+            remote.check_event_rename_compatibility(self.db, release)
+        (release / 'telegram_inbox.py').write_text('TELEGRAM_INBOX_VERSION = 1\nTELEGRAM_INBOX_DELETE_VERSION = 1')
+        remote.check_event_rename_compatibility(self.db, release)
+
     def test_telegram_inbox_blocks_rollback_to_code_without_receiver(self):
         release = self.base / 'old-inbox'
         release.mkdir()

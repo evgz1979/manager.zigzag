@@ -58,6 +58,44 @@ class TelegramInboxTests(unittest.TestCase):
         inbox.ingest(self.store, "123456", "42", [later, earlier])
         self.assertEqual([item["text"] for item in inbox.items(self.store)], lines + ["Следующее сообщение"])
 
+    def test_delete_keeps_tombstone_and_history_and_replay_cannot_restore_task(self):
+        inbox.ingest(self.store, "123456", "42", [message()])
+        item, other = inbox.items(self.store)
+        completed = inbox.complete(self.store, {**item, "completed": True})
+        removed = inbox.set_deleted(self.store, completed, True)
+        self.assertEqual((removed["revision"], removed["deleted"], removed["completed"]), (3, True, True))
+        self.assertEqual(inbox.items(self.store), [other])
+        with self.assertRaises(FileCommentConflict):
+            inbox.set_deleted(self.store, completed, True)
+        with self.assertRaises(FileCommentConflict):
+            inbox.complete(self.store, {**removed, "completed": False})
+        restarted = OrderStore(self.store.root, self.base / "data", {})
+        inbox.ingest(restarted, "123456", "42", [message(12)])
+        self.assertEqual(inbox.items(restarted), [other])
+        with MetadataStore(self.store).connect() as db:
+            self.assertEqual(db.execute("SELECT value FROM metadata_settings WHERE key='telegram_inbox_delete'").fetchone()[0], '1')
+            history = [json.loads(row[0]) for row in db.execute("SELECT data FROM metadata_history WHERE entity='metadata_records' AND identity=?", (item["id"],))]
+        self.assertTrue(any(json.loads(row["data"]).get("completed") is True for row in history))
+        restored = inbox.set_deleted(restarted, removed, False)
+        self.assertEqual((restored["id"], restored["text"], restored["completed"], restored["revision"]),
+                         (item["id"], item["text"], True, 4))
+        self.assertEqual(inbox.items(restarted), [restored, other])
+
+    def test_unknown_delete_format_and_invalid_versions_remain_untouched(self):
+        inbox.ingest(self.store, "123456", "42", [message()])
+        item = inbox.items(self.store)[0]
+        for revision in (None, True, "1", 0):
+            with self.assertRaises(ValueError):
+                inbox.set_deleted(self.store, {**item, "revision": revision}, True)
+        with MetadataStore(self.store).connect() as db:
+            row = db.execute("SELECT data FROM metadata_records WHERE id=?", (item["id"],)).fetchone()
+            data = {**json.loads(row[0]), "deleted": "unknown"}
+            db.execute("UPDATE metadata_records SET data=? WHERE id=?", (json.dumps(data), item["id"]))
+        with self.assertRaises(ValueError):
+            inbox.set_deleted(self.store, item, True)
+        with MetadataStore(self.store).connect() as db:
+            self.assertEqual(json.loads(db.execute("SELECT data FROM metadata_records WHERE id=?", (item["id"],)).fetchone()[0]), data)
+
     def test_only_original_messages_from_configured_private_sender(self):
         foreign = message(11, chat=99)
         bot = message(12, **{"from": {"id": 42, "is_bot": True}})
@@ -115,6 +153,24 @@ class TelegramInboxHTTPTests(unittest.TestCase):
     http = fixtures.ManagerTests.http
     folder = fixtures.ManagerTests.folder
     file = fixtures.ManagerTests.file
+
+    def test_remove_and_undo_use_own_page_and_expected_revision(self):
+        store = fixtures.manager.order_store()
+        inbox.ingest(store, "123456", "42", [message()])
+        item = inbox.items(store)[0]
+        headers = {"Content-Type": "application/json", "X-Manager-Inbox": "1"}
+        for route in ("/api/inbox-remove", "/api/inbox-restore"):
+            self.assertEqual(self.http(route, "POST", json.dumps(item))[0], 403)
+            self.assertEqual(self.http(route, "POST", json.dumps(item), {**headers, "Origin": "https://example.com"})[0], 403)
+            self.assertEqual(self.http(route, "POST", json.dumps({"id": item["id"]}), headers)[0], 400)
+        status, _, body = self.http("/api/inbox-remove", "POST", json.dumps(item), headers)
+        self.assertEqual(status, 200)
+        removed = json.loads(body)
+        self.assertTrue(removed["deleted"])
+        self.assertNotIn(item["id"], [entry["id"] for entry in json.loads(self.http("/api/inbox")[2])["items"]])
+        self.assertEqual(self.http("/api/inbox-restore", "POST", json.dumps(item), headers)[0], 409)
+        self.assertEqual(self.http("/api/inbox-restore", "POST", json.dumps(removed), headers)[0], 200)
+        self.assertEqual(inbox.items(store)[0]["id"], item["id"])
 
     def test_list_and_partial_completion_with_origin_and_revision_checks(self):
         store = fixtures.manager.order_store()

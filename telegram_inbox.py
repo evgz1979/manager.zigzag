@@ -9,6 +9,7 @@ from local_metadata import MetadataStore, audit
 import telegram_calendar as telegram
 
 TELEGRAM_INBOX_VERSION = 1
+TELEGRAM_INBOX_DELETE_VERSION = 1
 KIND = "telegram_inbox_todo"
 POLL_LOCK = threading.Lock()
 STATUS = {"error": "", "checked_at": None}
@@ -19,6 +20,7 @@ def decode(row):
     if (not isinstance(data, dict) or type(data.get("version")) is not int or data["version"] != 1
             or not isinstance(data.get("text"), str) or not data["text"].strip()
             or type(data.get("completed")) is not bool
+            or ("deleted" in data and type(data["deleted"]) is not bool)
             or type(data.get("created_at")) is not int or data["created_at"] <= 0
             or type(data.get("message_id")) is not int or data["message_id"] <= 0
             or type(data.get("line")) is not int or data["line"] < 0):
@@ -30,14 +32,23 @@ def items(store):
     with MetadataStore(store).connect() as db:
         result = [decode(row) for row in db.execute(
             "SELECT * FROM metadata_records WHERE kind=?", (KIND,))]
-    return sorted(result, key=lambda item: (item["created_at"], item["message_id"], item["line"], item["id"]))
+    return sorted((item for item in result if not item.get("deleted", False)),
+                  key=lambda item: (item["created_at"], item["message_id"], item["line"], item["id"]))
 
 
 def complete(store, payload):
-    identity, revision, completed = (payload.get(key) for key in ("id", "revision", "completed"))
+    return change(store, payload, "completed", payload.get("completed"))
+
+
+def set_deleted(store, payload, deleted):
+    return change(store, payload, "deleted", deleted)
+
+
+def change(store, payload, field, value):
+    identity, revision = (payload.get(key) for key in ("id", "revision"))
     if (not isinstance(identity, str) or type(revision) is not int or revision < 1
-            or type(completed) is not bool):
-        raise ValueError("Передай задачу Inbox, её версию и отметку выполнения")
+            or type(value) is not bool or field not in {"completed", "deleted"}):
+        raise ValueError("Передай задачу Inbox, её версию и корректное изменение")
     with MetadataStore(store).connect() as db:
         db.commit()  # Finish schema initialization also in legacy compatibility mode.
         db.execute("BEGIN IMMEDIATE")
@@ -47,12 +58,16 @@ def complete(store, payload):
         current = decode(row)
         if row["revision"] != revision:
             raise FileCommentConflict("Задача Inbox изменилась в другом окне. Обнови список и повтори")
-        if current["completed"] != completed:
+        if field == "completed" and current.get("deleted", False):
+            raise FileCommentConflict("Задача уже удалена из Inbox. Обнови список")
+        if current.get(field, False) != value:
             data = json.loads(row["data"])
-            data["completed"] = completed
+            data[field] = value
             audit(db, "metadata_records")
             db.execute("UPDATE metadata_records SET data=?,revision=revision+1 WHERE kind=? AND id=?",
                        (json.dumps(data, ensure_ascii=False), KIND, identity))
+            if field == "deleted":
+                db.execute("INSERT OR REPLACE INTO metadata_settings VALUES ('telegram_inbox_delete','1')")
         return decode(db.execute("SELECT * FROM metadata_records WHERE kind=? AND id=?", (KIND, identity)).fetchone())
 
 

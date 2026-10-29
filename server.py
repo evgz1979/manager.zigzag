@@ -1718,13 +1718,15 @@ class ManagerHandler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
             if not isinstance(payload, dict):
                 raise ValueError("Некорректный запрос")
-            if route == '/api/inbox-complete':
+            if route in {'/api/inbox-complete', '/api/inbox-remove', '/api/inbox-restore'}:
                 origin = self.headers.get('Origin')
                 if (self.headers.get('X-Manager-Inbox') != '1' or self.headers.get_content_type() != 'application/json'
                         or (origin and urllib.parse.urlsplit(origin).netloc != self.headers.get('Host'))):
                     self.send_json({'error': 'Изменяй задачи через Inbox менеджера'}, 403)
                     return
-                self.send_json(telegram_inbox.complete(order_store(), payload))
+                result = (telegram_inbox.complete(order_store(), payload) if route == '/api/inbox-complete'
+                          else telegram_inbox.set_deleted(order_store(), payload, route == '/api/inbox-remove'))
+                self.send_json(result)
                 return
             if route == '/api/thumbnails':
                 folders = payload.get('folders', [])

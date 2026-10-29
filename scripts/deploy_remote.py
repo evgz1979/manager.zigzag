@@ -192,6 +192,11 @@ def check_event_rename_compatibility(database, release_dir):
         return
     with closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)) as db:
         if (db.execute("SELECT 1 FROM sqlite_master WHERE name='metadata_settings'").fetchone()
+                and db.execute("SELECT 1 FROM metadata_settings WHERE key='telegram_inbox_delete' AND value='1'").fetchone()):
+            source = release_dir / 'telegram_inbox.py'
+            if not source.is_file() or 'TELEGRAM_INBOX_DELETE_VERSION = 1' not in source.read_text(encoding='utf-8'):
+                raise RuntimeError('В Inbox есть удалённые задачи. Старый код покажет их снова; откат заблокирован')
+        if (db.execute("SELECT 1 FROM sqlite_master WHERE name='metadata_settings'").fetchone()
                 and db.execute("SELECT 1 FROM metadata_settings WHERE key='telegram_inbox' AND value='1'").fetchone()):
             source = release_dir / 'telegram_inbox.py'
             if not source.is_file() or 'TELEGRAM_INBOX_VERSION = 1' not in source.read_text(encoding='utf-8'):

@@ -660,12 +660,18 @@ h2 { font-size: 13px; font-weight: 600; }
 .inbox-state { margin-top: 10px; }
 .inbox-state.error { color: #b14c40; }
 .inbox-empty { padding: 20px 0 7px; }
-.inbox-list { max-height: 65dvh; overflow: auto; scrollbar-width: thin; }
-.inbox-item { display: flex; gap: 9px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13px; cursor: pointer; }
+.inbox-list { max-height: 65dvh; padding: 4px; margin: 0 -4px; overflow: auto; scrollbar-width: thin; }
+.inbox-item { display: flex; gap: 6px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
 .inbox-item:last-child { border-bottom: 0; }
+.inbox-task { display: flex; flex: 1; min-width: 0; gap: 9px; align-items: flex-start; cursor: pointer; }
 .inbox-item input { flex-shrink: 0; width: 14px; height: 14px; margin: 3px 0 0; accent-color: var(--accent); }
-.inbox-item span { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
-.inbox-item.completed span { color: var(--muted); text-decoration: line-through; }
+.inbox-text { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.inbox-item.completed .inbox-text { color: var(--muted); text-decoration: line-through; }
+.inbox-actions { display: flex; flex-shrink: 0; gap: 2px; }
+.inbox-action { display: grid; place-items: center; width: 23px; height: 23px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--muted); }
+.inbox-action svg { width: 14px; height: 14px; }
+.inbox-remove { font-size: 19px; line-height: 1; }
+.inbox-remove:hover:not(:disabled) { color: #b14c40; background: #fbefec; }
 .inbox-completed { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
 .inbox-completed summary { font-size: 12px; color: var(--muted); cursor: pointer; }
 @media (max-width: 1000px) { .with-inbox .orders-inbox-layout { grid-template-columns: minmax(0, 1fr); } }
