@@ -1680,12 +1680,12 @@ function mountOrderList() {
   const statusHeader = workspace.querySelector('[data-sort="status"]').closest("th");
   // Restore the shared table's column order before applying the production view.
   deadlineHeader.after(statusHeader);
-  [...workspace.querySelectorAll("thead th")].filter(th => th.id !== "orderRelatedHeading").forEach((th, index) => { th.hidden = work && [5, 6, 7, 12, 13, 14, 15, 16, 17].includes(index); });
+  workspace.querySelectorAll("thead th").forEach(th => { th.hidden = work && (th.classList.contains("order-purchases-column") || th.classList.contains("order-client-column") || th.classList.contains("order-object-column")); });
   $("orderRelatedHeading").hidden = !object;
   if (work) deadlineHeader.before(statusHeader);
   $("supplierStatusHeading").hidden = !work;
   workspace.querySelector('[data-sort="status"]').hidden = work;
-  workspace.querySelector("caption").textContent = work ? workTitle : "Заказы и финансовые показатели в рублях";
+  workspace.querySelector("caption").textContent = work ? workTitle : "Заказы";
   $("orderSearch").placeholder = work ? "Найти заказ, поставщика или задачу…" : "Найти заказ, задачу или закупку…";
   const home = state.view === "orders", pane = document.querySelector(".content-pane");
   pane.classList.toggle("home-view", home);
@@ -1700,6 +1700,9 @@ function mountOrderList() {
   const syncSlot = $(home ? "homeSyncSlot" : "listSyncSlot");
   if ($("ordersSyncState").parentElement !== syncSlot) syncSlot.append($("ordersSyncState"));
   $("homeCalendar").hidden = !home;
+  $("inboxPanel").hidden = !home;
+  workspace.classList.toggle("with-inbox", home);
+  if (home) window.ManagerInbox?.load();
   $("objectOrdersSection").hidden = !object;
   if (object) {
     if (workspace.parentElement !== $("objectOrdersSlot")) $("objectOrdersSlot").append(workspace);
@@ -3027,9 +3030,8 @@ function renderOrders({ force = false } = {}) {
     '<tr class="order-group-divider"><th colspan="' + (object ? 11 : 10) + '"><button type="button" class="order-group-toggle" data-order-group-toggle="' + group.key +
     '" data-order-group-scope="' + escapeHtml(groupScope) + '" aria-expanded="' + !group.collapsed +
     '"><span class="order-group-chevron" aria-hidden="true">▸</span><span>' + escapeHtml(group.label) +
-    '</span><span class="count-badge">' + group.orders.length + '</span></button></th><td class="order-deadline-column">' + renderDeadlineMonthLegend(deadlineOptions) + '</td><td colspan="8"></td></tr>' +
-    group.orders.map((order) => '<tr data-order-group-row="' + group.key + '"' + (group.collapsed ? ' hidden' : '') + '><td class="order-blue-plus-column">' + renderOrderMarkerButton(order, "bluePlus") + '</td><td class="order-dollar-column">' + renderOrderMarkerButton(order, "dollar") + '</td><td class="order-flag-column">' + renderOrderMarkerButton(order, "flag") + '</td><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td>' + (object ? '<td class="order-related-column">' + renderOrderRelatedButton(order) + '</td>' : '') + '<td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + renderOrderLocationLink(order.client, order.client_path) + '</td><td class="order-object-column">' + renderOrderLocationLink(order.object, order.object_path) + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен</span>' : '') + '<span class="order-row-path">' + escapeHtml(order.path) + '</span>' + (object ? renderCompactOrderLinks(order) : '') + '</td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td class="order-deadline-column">' + renderOrderDeadlines(order, { options: deadlineOptions }) + '</td><td>' + renderOrderProductionStatus(order) + '</td><td><span class="status-badge" data-financial-status="' + escapeHtml(order.financial_status) + '">' + escapeHtml(financialStatusLabels[order.financial_status] || "Не указан") + '</span></td>' +
-    ["amount", "costs", "profit", "paid", "debt"].map((field) => '<td class="order-money' + (order[field] < 0 ? " negative" : "") + '">' + rubles(order[field]) + '</td>').join("") +
+    '</span><span class="count-badge">' + group.orders.length + '</span></button></th><td class="order-deadline-column">' + renderDeadlineMonthLegend(deadlineOptions) + '</td><td colspan="2"></td></tr>' +
+    group.orders.map((order) => '<tr data-order-group-row="' + group.key + '"' + (group.collapsed ? ' hidden' : '') + '><td class="order-blue-plus-column">' + renderOrderMarkerButton(order, "bluePlus") + '</td><td class="order-dollar-column">' + renderOrderMarkerButton(order, "dollar") + '</td><td class="order-flag-column">' + renderOrderMarkerButton(order, "flag") + '</td><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td>' + (object ? '<td class="order-related-column">' + renderOrderRelatedButton(order) + '</td>' : '') + '<td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + renderOrderLocationLink(order.client, order.client_path) + '</td><td class="order-object-column">' + renderOrderLocationLink(order.object, order.object_path) + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен</span>' : '') + '<span class="order-row-path">' + escapeHtml(order.path) + '</span>' + (object ? renderCompactOrderLinks(order) : '') + '</td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td class="order-deadline-column">' + renderOrderDeadlines(order, { options: deadlineOptions }) + '</td><td>' + renderOrderProductionStatus(order) + '</td>' +
     '<td class="order-updated">' + (order.updated ? formatDate(order.updated) : '—') + (order.sync_pending ? '<span class="sync-pending" title="' + escapeHtml(order.sync_error || "Ожидает выгрузки в папку") + '">' + (order.sync_error ? "В очереди · автоповтор" : "Ожидает выгрузки") + '</span>' : '<span class="sync-complete">' + (order.storage === 'database' ? 'В базе' : 'Выгружено') + '</span>') + '</td></tr>').join("")).join("");
   $("ordersEmpty").hidden = Boolean(filtered.length);
   $("ordersEmptyTitle").textContent = orders.length ? "Нет заказов по этому запросу" : "Заказов пока нет";

@@ -649,6 +649,26 @@ h2 { font-size: 13px; font-weight: 600; }
   .calendar-weekdays > span { padding-right: 4px; }
 }
 .orders-table-scroll { overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
+.orders-inbox-layout, .orders-list-column { min-width: 0; }
+.with-inbox .orders-inbox-layout { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 22px; align-items: start; }
+.inbox-panel { min-width: 0; padding: 14px 16px; border: 1px solid var(--line); border-radius: 8px; }
+.inbox-heading { display: flex; align-items: center; gap: 9px; }
+.inbox-heading h2 { font-size: 16px; font-weight: 600; }
+.inbox-hint, .inbox-state, .inbox-empty { font-size: 12px; color: var(--muted); }
+.inbox-hint { margin-top: 5px; }
+.inbox-state:empty { display: none; }
+.inbox-state { margin-top: 10px; }
+.inbox-state.error { color: #b14c40; }
+.inbox-empty { padding: 20px 0 7px; }
+.inbox-list { max-height: 65dvh; overflow: auto; scrollbar-width: thin; }
+.inbox-item { display: flex; gap: 9px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13px; cursor: pointer; }
+.inbox-item:last-child { border-bottom: 0; }
+.inbox-item input { flex-shrink: 0; width: 14px; height: 14px; margin: 3px 0 0; accent-color: var(--accent); }
+.inbox-item span { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.inbox-item.completed span { color: var(--muted); text-decoration: line-through; }
+.inbox-completed { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.inbox-completed summary { font-size: 12px; color: var(--muted); cursor: pointer; }
+@media (max-width: 1000px) { .with-inbox .orders-inbox-layout { grid-template-columns: minmax(0, 1fr); } }
 .orders-table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; }
 .orders-table th { background: #f7f9f6; border-bottom: 1px solid var(--line); white-space: nowrap; }
 .orders-table th button { padding: 8px 10px; width: 100%; border: 0; background: none; font-size: 11px; text-align: inherit; color: var(--muted); }

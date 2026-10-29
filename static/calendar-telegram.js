@@ -141,7 +141,7 @@
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Не удалось отправить календарь");
-      notify("Текущая и следующая недели отправлены в Telegram");
+      notify("Общий календарь отправлен в Telegram");
     } catch (error) {
       notify(error instanceof TypeError ? "Нет подтверждения отправки. Проверь Telegram перед повтором" : error.message, true, {label: "Настроить бота", run: openSettings});
     } finally {

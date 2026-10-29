@@ -21,6 +21,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 import calendar_events
 import telegram_calendar
+import telegram_inbox
 import thumbnail_cache
 from orders import OrderStore, OrderConflict, CARD, SNAPSHOT, is_service_folder
 from order_links import OrderLinks
@@ -1403,6 +1404,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                     object_activity_store().inactive_paths()), head=head)
             elif parsed.path == "/api/calendar-telegram-settings":
                 self.send_json(telegram_calendar.status(DATA_DIR), head=head)
+            elif parsed.path == "/api/inbox":
+                self.send_json(telegram_inbox.snapshot(order_store(), DATA_DIR), head=head)
             elif parsed.path == "/api/object-orders":
                 self.send_json(listed_object_orders(relative, query.get("show_inactive", [""])[0] == "1"), head=head)
             elif parsed.path == "/api/work-orders":
@@ -1608,7 +1611,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
         acquired = False
         try:
             origin = self.headers.get('Origin')
-            if (self.headers.get('X-Manager-Calendar') != '1' or self.headers.get_content_type() != 'image/png'
+            paired = self.headers.get_content_type() == 'application/octet-stream'
+            if (self.headers.get('X-Manager-Calendar') != '1' or self.headers.get_content_type() not in {'image/png', 'application/octet-stream'}
                     or (origin and urllib.parse.urlsplit(origin).netloc != self.headers.get('Host'))):
                 self.send_json({'error': 'Отправляй календарь кнопкой «В Telegram»'}, 403)
                 return
@@ -1616,12 +1620,19 @@ class ManagerHandler(BaseHTTPRequestHandler):
             if self.headers.get('Transfer-Encoding') or len(lengths) != 1 or not re.fullmatch(r'[0-9]+', lengths[0]):
                 raise ValueError('Не указан размер снимка')
             length = int(lengths[0])
-            if not 33 <= length <= telegram_calendar.MAX_IMAGE_BYTES:
-                self.send_json({'error': 'Снимок должен быть в формате PNG, до 10 МБ'}, 413)
+            if not (66 if paired else 33) <= length <= telegram_calendar.MAX_IMAGE_BYTES * (2 if paired else 1):
+                self.send_json({'error': 'Каждый снимок должен быть в формате PNG, до 10 МБ'}, 413)
                 return
             query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
             if len(query.get('start', [])) != 1:
                 raise ValueError('Не указана текущая неделя календаря')
+            if paired:
+                sizes = self.headers.get_all('X-Manager-Calendar-Overview-Bytes') or []
+                if len(sizes) != 1 or not re.fullmatch(r'[0-9]+', sizes[0]) or len(query.get('today', [])) != 1:
+                    raise ValueError('Не указаны размер общего снимка и сегодняшняя дата')
+                overview_size = int(sizes[0])
+                if not (33 <= overview_size <= telegram_calendar.MAX_IMAGE_BYTES and 33 <= length - overview_size <= telegram_calendar.MAX_IMAGE_BYTES):
+                    raise ValueError('Некорректные размеры снимков календаря')
             acquired = telegram_calendar.SEND_LOCK.acquire(blocking=False)
             if not acquired:
                 self.send_json({'error': 'Календарь уже отправляется. Дождись завершения'}, 429)
@@ -1630,6 +1641,9 @@ class ManagerHandler(BaseHTTPRequestHandler):
             image = self.rfile.read(length)
             if len(image) != length:
                 raise ValueError('Снимок передан не полностью')
+            if paired:
+                # An already open page may still upload two images. Send only its overview.
+                image = image[:overview_size]
             self.send_json(telegram_calendar.send(image, query['start'][0], DATA_DIR))
         except telegram_calendar.TelegramError as error:
             self.send_json({'error': str(error)}, 502)
@@ -1704,6 +1718,14 @@ class ManagerHandler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
             if not isinstance(payload, dict):
                 raise ValueError("Некорректный запрос")
+            if route == '/api/inbox-complete':
+                origin = self.headers.get('Origin')
+                if (self.headers.get('X-Manager-Inbox') != '1' or self.headers.get_content_type() != 'application/json'
+                        or (origin and urllib.parse.urlsplit(origin).netloc != self.headers.get('Host'))):
+                    self.send_json({'error': 'Изменяй задачи через Inbox менеджера'}, 403)
+                    return
+                self.send_json(telegram_inbox.complete(order_store(), payload))
+                return
             if route == '/api/thumbnails':
                 folders = payload.get('folders', [])
                 if not isinstance(folders, list) or len(folders) > 120:
@@ -2129,6 +2151,10 @@ def main():
     thumbnail_worker = threading.Thread(target=thumbnail_cache.supervise,
                                         args=(DATA_ROOT, DATA_DIR, thumbnail_stop), daemon=True)
     thumbnail_worker.start()
+    inbox_stop = threading.Event()
+    inbox_worker = threading.Thread(target=telegram_inbox.worker,
+                                    args=(order_store(), DATA_DIR, inbox_stop), daemon=True)
+    inbox_worker.start()
     print(f"Менеджер заказов: http://127.0.0.1:{port}", flush=True)
     print(f"Адрес сервера: {SERVER_HOST}:{port}", flush=True)
     print(f"Папка данных: {DATA_ROOT}", flush=True)
@@ -2138,6 +2164,8 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
+        inbox_stop.set()
+        inbox_worker.join(timeout=1)
         thumbnail_stop.set()
         thumbnail_worker.join(timeout=7)
         server.server_close()

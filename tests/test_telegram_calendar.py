@@ -42,6 +42,7 @@ class TelegramCalendarTests(unittest.TestCase):
         self.assertIn('26.10.2026 — 08.11.2026'.encode(), request.data)
         self.assertNotIn(TOKEN, json.dumps(result))
         self.assertEqual(post.call_args.kwargs['timeout'], 40)
+        post.assert_called_once()
 
     def test_unknown_settings_wrong_week_and_invalid_image_do_not_send(self):
         with patch.object(telegram.urllib.request, 'urlopen') as post:
@@ -124,6 +125,28 @@ class TelegramCalendarHTTPTests(unittest.TestCase):
     folder = fixtures.ManagerTests.folder
     file = fixtures.ManagerTests.file
     http = fixtures.ManagerTests.http
+
+    def test_cached_pair_upload_sends_only_overview_and_holds_send_lock(self):
+        route = '/api/calendar-telegram?start=2026-10-26&today=2026-10-26'
+        headers = {'Content-Type':'application/octet-stream','X-Manager-Calendar':'1','X-Manager-Calendar-Overview-Bytes':str(len(PNG))}
+        discarded_day = b'ignored-day-image'.ljust(40, b' ')
+        upload = PNG + discarded_day
+        with patch.object(fixtures.manager.telegram_calendar, 'send', return_value={'ok':True}) as send:
+            self.assertEqual(self.http(route,'POST',upload,{k:v for k,v in headers.items() if k!='X-Manager-Calendar-Overview-Bytes'})[0],400)
+            self.assertEqual(self.http(route,'POST',upload,{**headers,'X-Manager-Calendar-Overview-Bytes':str(len(upload))})[0],400)
+            self.assertEqual(self.http('/api/calendar-telegram?start=2026-10-26','POST',upload,headers)[0],400)
+            send.assert_not_called()
+            with telegram.SEND_LOCK:
+                self.assertEqual(self.http(route,'POST',upload,headers)[0],429)
+            def check_lock(*args):
+                self.assertTrue(telegram.SEND_LOCK.locked())
+                return {'ok':True}
+            send.side_effect = check_lock
+            status, _, body = self.http(route,'POST',upload,headers)
+            self.assertEqual((status,json.loads(body)),(200,{'ok':True}))
+            send.assert_called_once_with(PNG,'2026-10-26',fixtures.manager.DATA_DIR)
+        self.assertFalse(telegram.SEND_LOCK.locked())
+        self.assertFalse(fixtures.manager.DATA_DIR.exists())
 
     def test_settings_api_does_not_expose_token_and_rejects_foreign_posts(self):
         headers = {'Content-Type':'application/json','X-Manager-Calendar':'1'}

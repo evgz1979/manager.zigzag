@@ -19,6 +19,18 @@ PREVIOUS = "20261019T170000Z-abcdef12"
 
 
 class DeploymentTests(unittest.TestCase):
+    def test_telegram_inbox_blocks_rollback_to_code_without_receiver(self):
+        release = self.base / 'old-inbox'
+        release.mkdir()
+        (release / 'local_metadata.py').write_text('# SQLite storage')
+        with sqlite3.connect(self.db) as db:
+            db.execute('CREATE TABLE metadata_settings (key TEXT PRIMARY KEY,value TEXT)')
+            db.execute("INSERT INTO metadata_settings VALUES ('telegram_inbox','1')")
+        with self.assertRaisesRegex(RuntimeError, 'Inbox Telegram'):
+            remote.check_event_rename_compatibility(self.db, release)
+        (release / 'telegram_inbox.py').write_text('TELEGRAM_INBOX_VERSION = 1')
+        remote.check_event_rename_compatibility(self.db, release)
+
     def test_old_code_cannot_lose_paid_marks_or_closing_document_links(self):
         release = self.base / 'old-invoice-documents'
         release.mkdir()
