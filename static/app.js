@@ -2728,11 +2728,11 @@ function openCalendarTodoPreview(anchor, pinned = false) {
 function hoverCalendarTodoPreview(anchor) {
   if (!anchor || calendarTodoPreview.pinned || $("calendarTodoPreview").contains(document.activeElement)) return;
   clearTimeout(calendarTodoPreview.timer);
-  if (!calendarTodoPreview.anchor || calendarTodoPreview.anchor === anchor) { openCalendarTodoPreview(anchor); return; }
+  if (calendarTodoPreview.anchor === anchor) { openCalendarTodoPreview(anchor); return; }
   if (calendarTodoPreview.pendingAnchor === anchor) return;
   cancelCalendarTodoPreviewSwitch();
   calendarTodoPreview.pendingAnchor = anchor;
-  calendarTodoPreview.switchTimer = setTimeout(() => openCalendarTodoPreview(anchor), 350);
+  calendarTodoPreview.switchTimer = setTimeout(() => openCalendarTodoPreview(anchor), calendarTodoPreview.anchor ? 350 : 500);
 }
 
 function scheduleCalendarTodoPreviewClose() {

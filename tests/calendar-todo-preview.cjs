@@ -60,6 +60,23 @@ function fixture() {
 {
   const f = fixture();
   f.event(f.weeks, 'pointerover', f.first);
+  f.tick(499);
+  assert.equal(f.popup.hidden, true, 'passing over an event does not open its popup');
+  f.event(f.weeks, 'pointerout', f.first, f.outside);
+  f.tick(1000);
+  assert.equal(f.popup.hidden, true, 'leaving before 500 ms cancels opening');
+  f.event(f.weeks, 'pointerover', f.first);
+  f.tick(250);
+  f.event(f.weeks, 'pointerover', f.first);
+  f.tick(249);
+  assert.equal(f.popup.hidden, true);
+  f.tick(1);
+  assert.equal(f.preview.anchor, f.first, 'steady hovering opens the popup after 500 ms');
+}
+{
+  const f = fixture();
+  f.event(f.weeks, 'pointerover', f.first);
+  f.tick(500);
   assert.equal(f.preview.anchor, f.first);
   f.event(f.weeks, 'pointerout', f.first, f.second);
   f.event(f.weeks, 'pointerover', f.second, f.first);
@@ -77,6 +94,7 @@ function fixture() {
 {
   const f = fixture();
   f.event(f.weeks, 'pointerover', f.first);
+  f.tick(500);
   f.event(f.weeks, 'pointerout', f.first, f.second);
   f.event(f.weeks, 'pointerover', f.second, f.first);
   f.tick(200); f.event(f.weeks, 'pointerover', f.child, f.second);
@@ -93,6 +111,7 @@ function fixture() {
 {
   const f = fixture();
   f.event(f.weeks, 'pointerover', f.first);
+  f.tick(500);
   f.event(f.weeks, 'pointerover', f.second);
   f.context.document.activeElement = f.body;
   f.event(f.popup, 'focusin'); f.tick(1000);
@@ -106,5 +125,20 @@ function fixture() {
   f.event(f.weeks, 'pointerover', f.second);
   f.context.closeCalendarTodoPreview(); f.tick(1000);
   assert.equal(f.popup.hidden, true, 'dismissal never reopens a queued popup');
+}
+{
+  const f = fixture();
+  f.event(f.weeks, 'pointerover', f.first);
+  f.tick(100);
+  f.event(f.weeks, 'focusin', f.second);
+  assert.equal(f.preview.anchor, f.second, 'keyboard focus opens immediately');
+  f.tick(1000);
+  assert.equal(f.preview.anchor, f.second);
+  f.context.closeCalendarTodoPreview();
+  f.event(f.weeks, 'pointerover', f.first);
+  f.context.openCalendarTodoPreview(f.second, true);
+  assert.equal(f.preview.anchor, f.second, 'explicit clicks open immediately');
+  f.tick(1000);
+  assert.equal(f.preview.anchor, f.second);
 }
 console.log('Calendar To-do hover regression checks passed');
