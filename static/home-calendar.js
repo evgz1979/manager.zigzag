@@ -86,11 +86,11 @@ const HomeCalendar = (() => {
     if (height && get("calendarViewport").style.height !== value) get("calendarViewport").style.height = value;
   }
 
-  function scrollToIndex(index, smooth = false) {
+  function scrollToIndex(index) {
     index = Math.max(0, Math.min(index, weekTops.length - VISIBLE_WEEKS));
     fitViewport(index);
-    get("calendarViewport").scrollTo({ top: Math.min(maxScroll(), weekTops[index] || 0), behavior: smooth ? "smooth" : "auto" });
-    if (!smooth) updateHeading();
+    get("calendarViewport").scrollTo({ top: Math.min(maxScroll(), weekTops[index] || 0), behavior: "auto" });
+    updateHeading();
   }
 
   function updateHeading() {
@@ -98,8 +98,8 @@ const HomeCalendar = (() => {
     const viewport = get("calendarViewport");
     if (!viewport.clientWidth) { layoutHidden = true; return; }
     if (!weekHeights.length) return;
-    // ResizeObserver restores the saved position after CSS changes week heights.
-    if (Math.abs(get("calendarWeeks").firstElementChild.getBoundingClientRect().height - weekHeights[0]) > .1) return;
+    // ResizeObserver restores the same week after content or window size changes.
+    if ([...get("calendarWeeks").children].some((row, i) => Math.abs(row.getBoundingClientRect().height - weekHeights[i]) > .1)) return;
     const index = weekIndex(viewport.scrollTop);
     fitViewport(index);
     scrollAnchor = { index, offset: viewport.scrollTop - (weekTops[index] || 0) };
@@ -337,7 +337,7 @@ const HomeCalendar = (() => {
     if (!get('calendarWeeks').children.length) return;
     const wasHidden = layoutHidden;
     layoutHidden = false;
-    const resized = wasHidden || (weekHeights.length && Math.abs(get('calendarWeeks').firstElementChild.getBoundingClientRect().height - weekHeights[0]) > .1);
+    const resized = wasHidden || (weekHeights.length && [...get('calendarWeeks').children].some((row, i) => Math.abs(row.getBoundingClientRect().height - weekHeights[i]) > .1));
     const index = resized ? scrollAnchor.index : weekIndex(viewport.scrollTop);
     const offset = resized ? scrollAnchor.offset : viewport.scrollTop - (weekTops[index] || 0);
     const previousHeights = weekHeights;
@@ -413,6 +413,7 @@ const HomeCalendar = (() => {
           row.dataset.week = dateKey(week);
           const orderCell = document.createElement("div"), content = document.createElement("div"), list = document.createElement("ul");
           orderCell.className = "calendar-day calendar-orders-cell";
+          orderCell.style.gridArea = "1 / 1";
           content.className = "calendar-week-content";
           list.className = "calendar-orders-list";
           list.setAttribute("aria-label", "Заказы на неделю: " + fullDate.format(week) + " — " + fullDate.format(shiftDays(week, 6)));
@@ -435,6 +436,7 @@ const HomeCalendar = (() => {
           row.append(orderCell);
           const weekCell = document.createElement("div"), weekLabel = document.createElement("span");
           weekCell.className = "calendar-day calendar-week-events-cell";
+          weekCell.style.gridArea = "1 / 2";
           weekLabel.className = "calendar-week-number";
           weekLabel.textContent = weekNumber(week);
           weekLabel.setAttribute("aria-label", "Неделя " + weekNumber(week) + ": " + fullDate.format(week) + " — " + fullDate.format(shiftDays(week, 6)));
@@ -443,6 +445,7 @@ const HomeCalendar = (() => {
           for (let day = 0; day < 7; day++) {
             const date = shiftDays(week, day), cell = document.createElement("div"), label = document.createElement("time");
             cell.className = "calendar-day" + (day > 4 ? " weekend" : "") + (date < range.from || date > range.through ? " calendar-outside" : "");
+            cell.style.gridArea = "1 / " + (day + 3);
             label.dateTime = dateKey(date);
             label.setAttribute("aria-label", fullDate.format(date));
             label.textContent = String(date.getUTCDate());
@@ -472,8 +475,8 @@ const HomeCalendar = (() => {
     initialized = true;
     const viewport = get("calendarViewport");
     get("calendarToday").addEventListener("click", () => { show(); scrollToWeek(range.today); });
-    get("calendarEarlier").addEventListener("click", () => { scrollToIndex(weekIndex(viewport.scrollTop) - 1, true); });
-    get("calendarLater").addEventListener("click", () => { scrollToIndex(weekIndex(viewport.scrollTop) + 1, true); });
+    get("calendarEarlier").addEventListener("click", () => { scrollToIndex(weekIndex(viewport.scrollTop) - 1); });
+    get("calendarLater").addEventListener("click", () => { scrollToIndex(weekIndex(viewport.scrollTop) + 1); });
     viewport.addEventListener("scroll", () => { if (!frame) frame = requestAnimationFrame(updateHeading); }, { passive: true });
     viewport.addEventListener("keydown", (event) => {
       if (event.key === "Home" || event.key === "End") {

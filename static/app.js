@@ -2686,6 +2686,8 @@ function renderCalendarTodoPreview() {
   if (!anchor) return;
   const order = findListOrder(anchor.dataset.calendarTodos);
   if (!anchor.isConnected || !order || !anchor.dataset.calendarTodos || state.view !== "orders") { closeCalendarTodoPreview(); return; }
+  const box = anchor.getBoundingClientRect(), viewport = $("calendarViewport").getBoundingClientRect();
+  if (box.bottom <= viewport.top || box.top >= viewport.bottom) { closeCalendarTodoPreview(); return; }
   $("calendarTodoPreviewTitle").textContent = order.title;
   $("calendarTodoPreviewCount").textContent = orderTodoSummary(order).count;
   const markup = renderOrderTodos(order), body = $("calendarTodoPreviewBody");
@@ -3952,6 +3954,7 @@ document.addEventListener('pointerdown', (event) => {
 });
 window.addEventListener('resize', positionCalendarTodoPreview);
 window.addEventListener('scroll', (event) => {
+  if (event.target === $("calendarViewport")) { renderCalendarTodoPreview(); return; }
   if (calendarTodoPreview.anchor && !$("calendarTodoPreview").contains(event.target)) closeCalendarTodoPreview();
 }, true);
 window.addEventListener('blur', () => closeCalendarTodoPreview());
