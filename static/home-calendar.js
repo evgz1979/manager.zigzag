@@ -13,6 +13,17 @@ const HomeCalendar = (() => {
     element.classList.toggle("calendar-trip", marked);
     if (marked) element.insertAdjacentHTML("afterbegin", '<svg class="calendar-trip-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 10 2-6h10l2 6M5 10h14a2 2 0 0 1 2 2v6H3v-6a2 2 0 0 1 2-2ZM5 18v3M19 18v3M7 14h.01M17 14h.01"/></svg>');
   }
+  function showTodoMark(element, marked, path) {
+    element.classList.toggle("calendar-watch-todos", marked);
+    if (marked) {
+      element.dataset.calendarTodos = path;
+      element.setAttribute("aria-keyshortcuts", "Alt+ArrowDown");
+      element.insertAdjacentHTML("afterbegin", '<svg class="calendar-todo-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5h11M9 12h11M9 19h11M3 4l1 1 2-2M3 11l1 1 2-2M3 18l1 1 2-2"/></svg>');
+    } else {
+      delete element.dataset.calendarTodos;
+      element.removeAttribute("aria-keyshortcuts");
+    }
+  }
   const dateKey = (date) => date.toISOString().slice(0, 10);
   const shiftDays = (date, days) => new Date(date.getTime() + days * DAY);
   const monday = (date) => shiftDays(date, -((date.getUTCDay() + 6) % 7));
@@ -117,7 +128,7 @@ const HomeCalendar = (() => {
     }
     for (const row of get("calendarWeeks").children) {
       const list = row.querySelector(".calendar-orders-list"), weekly = byWeek.get(row.dataset.week) || [];
-      const signature = JSON.stringify(weekly.map((order) => [order.id, order.path, order.title, order.client, order.object, order.is_blue_plus, order.is_dollar, order.is_flagged, order.is_favorite, order.work_supplier, order.work_supplier_color, order.deadline_weeks, order.calendar_events, order.calendar_week_events, order.calendar_inactive, order.calendar_completed, order.calendar_trip, order.calendar_colors]));
+      const signature = JSON.stringify(weekly.map((order) => [order.id, order.path, order.title, order.client, order.object, order.is_blue_plus, order.is_dollar, order.is_flagged, order.is_favorite, order.work_supplier, order.work_supplier_color, order.deadline_weeks, order.calendar_events, order.calendar_week_events, order.calendar_inactive, order.calendar_completed, order.calendar_trip, order.calendar_watch_todos, order.calendar_colors]));
       if (list.dataset.signature === signature) continue;
       list.dataset.signature = signature;
       const top = list.parentElement.scrollTop;
@@ -179,6 +190,7 @@ const HomeCalendar = (() => {
           slot.classList.toggle("calendar-week-event-slot", isWeek);
           slot.textContent = text;
           showTripMark(slot, Boolean(text) && Boolean(order.calendar_trip?.[isWeek ? "week" : "day"]?.includes(key)));
+          showTodoMark(slot, Boolean(text) && Boolean(order.calendar_watch_todos?.[isWeek ? "week" : "day"]?.includes(key)), order.path);
           slot.classList.toggle("calendar-inactive", Boolean(text) && Boolean(order.calendar_inactive?.[isWeek ? "week" : "day"]?.includes(key)));
           slot.classList.toggle("calendar-completed", Boolean(text) && Boolean(order.calendar_completed?.[isWeek ? "week" : "day"]?.includes(key)));
           const unselectedWeek = isWeek && Boolean(text) && Array.isArray(order.deadline_weeks) && !order.deadline_weeks.includes(key);
@@ -188,7 +200,7 @@ const HomeCalendar = (() => {
           else slot.removeAttribute("aria-haspopup");
           slot.disabled = entries === null || (isWeek ? shiftDays(week, 6) < range.from || week > range.through : date < range.from || date > range.through);
           const periodLabel = isWeek ? "Неделя " + weekNumber(week) + ": " + fullDate.format(week) + " — " + fullDate.format(shiftDays(week, 6)) : fullDate.format(date);
-          slot.setAttribute("aria-label", (slot.classList.contains("calendar-completed") ? "Выполнено · " : "") + (slot.classList.contains("calendar-trip") ? "Выезд · " : "") + (slot.classList.contains("calendar-inactive") ? "Неактуально · " : "") + (unselectedWeek ? "Отметка недели снята · " : "") + (text ? "Изменить событие: " + text : "Добавить событие") + " · " + title + " · " + periodLabel);
+          slot.setAttribute("aria-label", (slot.classList.contains("calendar-watch-todos") ? "Смотри ту-ду · " : "") + (slot.classList.contains("calendar-completed") ? "Выполнено · " : "") + (slot.classList.contains("calendar-trip") ? "Выезд · " : "") + (slot.classList.contains("calendar-inactive") ? "Неактуально · " : "") + (unselectedWeek ? "Отметка недели снята · " : "") + (text ? "Изменить событие: " + text : "Добавить событие") + " · " + title + " · " + periodLabel);
         }
         if (item !== before) list.insertBefore(item, before);
         before = item.nextElementSibling;
@@ -299,13 +311,14 @@ const HomeCalendar = (() => {
         caption.textContent = plan.path ? plan.title : plan.text || (operation === 'incoming' ? 'поступление' : 'затрата');
         link.replaceChildren(value, caption);
         showTripMark(link, plan.is_trip === true);
+        showTodoMark(link, Boolean(plan.path) && plan.is_watch_todos === true, plan.path);
         if (plan.path) {
           link.href = '?path=' + encodeURIComponent(plan.path);
           link.dataset.calendarOrder = plan.path;
         } else link.dataset.calendarPlanEdit = plan.id;
         const start = new Date(plan.date + 'T00:00:00Z');
         const periodLabel = plan.period === 'week' ? 'Неделя: ' + fullDate.format(start) + ' — ' + fullDate.format(shiftDays(start, 6)) : fullDate.format(start);
-        const description = [plan.is_completed === true ? 'Выполнено' : '', plan.is_trip === true ? 'Выезд' : '', plan.is_inactive === true ? 'Неактуально' : '', label, signedAmount ? signedAmount + ' ₽' : '', plan.text, plan.invoice_label, plan.title, plan.client, plan.object, periodLabel].filter(Boolean).join(' · ');
+        const description = [plan.is_watch_todos === true ? 'Смотри ту-ду' : '', plan.is_completed === true ? 'Выполнено' : '', plan.is_trip === true ? 'Выезд' : '', plan.is_inactive === true ? 'Неактуально' : '', label, signedAmount ? signedAmount + ' ₽' : '', plan.text, plan.invoice_label, plan.title, plan.client, plan.object, periodLabel].filter(Boolean).join(' · ');
         link.setAttribute('aria-label', description);
         link.title = plan.path ? description : plan.text || '';
         const target = operation === 'outgoing' ? targets.outgoing : targets.incoming, next = before.get(target);

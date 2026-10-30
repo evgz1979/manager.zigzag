@@ -21,6 +21,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 import calendar_events
 import telegram_calendar
+import calendar_todos
 import telegram_inbox
 import thumbnail_cache
 from orders import OrderStore, OrderConflict, CARD, SNAPSHOT, is_service_folder
@@ -848,7 +849,7 @@ def listed_orders():
     objects = object_activity_store()
     visible = objects.visible_orders(activity.visible_orders(store.list()))
     return {"orders": OrderTodos(store).attach([order for order in visible if not work_orders.in_work(order["path"]) and not work_orders.archived(order)]),
-            "calendar_supplier_orders": [order for order in visible if order["work_supplier"]],
+            "calendar_supplier_orders": OrderTodos(store).attach([order for order in visible if order["work_supplier"]]),
             "calendar_events": calendar_events.CalendarEvents(store).list(),
             "calendar_invoice_plans": invoice_store().calendar_plans([order for order in visible if not work_orders.in_work(order['path'])]),
             "favorites": [order for order in visible if order["is_favorite"] is True and not work_orders.archived(order)],
@@ -1676,9 +1677,16 @@ class ManagerHandler(BaseHTTPRequestHandler):
             if paired:
                 # An already open page may still upload two images. Send only its overview.
                 image = image[:overview_size]
-            self.send_json(telegram_calendar.send(image, query['start'][0], DATA_DIR))
+            start = query['start'][0]
+            telegram_calendar.validate_image(image)
+            # No new database, files or cloud scans just to send a calendar.
+            todo_text = calendar_todos.digest(listed_orders(), start) if order_store().database.exists() else ''
+            options = {'todo_text': todo_text} if todo_text else {}
+            self.send_json(telegram_calendar.send(image, start, DATA_DIR, **options))
         except telegram_calendar.TelegramError as error:
             self.send_json({'error': str(error)}, 502)
+        except sqlite3.Error:
+            self.send_json({'error': 'Не удалось прочитать To-do. Снимок не отправлен; попробуй позже'}, 503)
         except ValueError as error:
             self.send_json({'error': str(error)}, 400)
         except (BrokenPipeError, ConnectionResetError):
@@ -2002,6 +2010,12 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 return
             elif route == "/api/order-calendar-trip":
                 self.send_json(order_store().save_calendar_trip(payload))
+                return
+            elif route == "/api/order-calendar-watch-todos":
+                self.send_json(order_store().save_calendar_watch_todos(payload))
+                return
+            elif route == "/api/invoice-plan-calendar-watch-todos":
+                self.send_json(invoice_store().save_plan_calendar_watch_todos(payload))
                 return
             elif route == "/api/calendar-trip":
                 self.send_json(calendar_events.CalendarEvents(order_store()).set_trip(payload))

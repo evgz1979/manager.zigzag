@@ -2654,6 +2654,72 @@ function renderMoneyOverview() {
 function renderHomeCalendar() {
   const orders = [...state.orders, ...state.calendarSupplierOrders].map((order) => order.work_supplier ? { ...order, client: order.work_supplier } : order);
   HomeCalendar.show(orders.sort((a, b) => compareOrders(a, b, "title", 1)), state.calendarEvents, state.calendarInvoicePlans);
+  renderCalendarTodoPreview();
+}
+
+const calendarTodoPreview = { anchor: null, pinned: false, markup: null, timer: null, suppressed: null };
+
+function closeCalendarTodoPreview(restoreFocus = false) {
+  const anchor = calendarTodoPreview.anchor;
+  clearTimeout(calendarTodoPreview.timer);
+  calendarTodoPreview.anchor = null;
+  calendarTodoPreview.pinned = false;
+  $("calendarTodoPreview").hidden = true;
+  if (anchor) anchor.removeAttribute("aria-describedby");
+  if (restoreFocus && anchor?.isConnected) {
+    calendarTodoPreview.suppressed = anchor;
+    anchor.focus({ preventScroll: true });
+  }
+}
+
+function positionCalendarTodoPreview() {
+  const anchor = calendarTodoPreview.anchor;
+  if (!anchor) return;
+  const preview = $("calendarTodoPreview"), box = anchor.getBoundingClientRect(), bounds = preview.getBoundingClientRect();
+  preview.style.left = Math.max(8, Math.min(box.left, innerWidth - bounds.width - 8)) + "px";
+  const below = box.bottom + 6;
+  preview.style.top = Math.max(8, Math.min(below + bounds.height <= innerHeight - 8 ? below : box.top - bounds.height - 6, innerHeight - bounds.height - 8)) + "px";
+}
+
+function renderCalendarTodoPreview() {
+  const anchor = calendarTodoPreview.anchor;
+  if (!anchor) return;
+  const order = findListOrder(anchor.dataset.calendarTodos);
+  if (!anchor.isConnected || !order || !anchor.dataset.calendarTodos || state.view !== "orders") { closeCalendarTodoPreview(); return; }
+  $("calendarTodoPreviewTitle").textContent = order.title;
+  $("calendarTodoPreviewCount").textContent = orderTodoSummary(order).count;
+  const markup = renderOrderTodos(order), body = $("calendarTodoPreviewBody");
+  if (calendarTodoPreview.markup !== markup) {
+    const top = body.scrollTop, focused = body.contains(document.activeElement), path = document.activeElement?.dataset.order;
+    body.innerHTML = markup;
+    calendarTodoPreview.markup = markup;
+    if (focused) ([...body.querySelectorAll('[data-order]')].find((link) => link.dataset.order === path) || body).focus({ preventScroll: true });
+    body.scrollTop = top;
+  }
+  positionCalendarTodoPreview();
+}
+
+function openCalendarTodoPreview(anchor, pinned = false) {
+  if (!anchor?.dataset.calendarTodos || state.calendarMenu || (!pinned && calendarTodoPreview.suppressed === anchor)) return;
+  if (calendarTodoPreview.pinned && !pinned) return;
+  clearTimeout(calendarTodoPreview.timer);
+  if (calendarTodoPreview.anchor !== anchor) {
+    closeCalendarTodoPreview();
+    calendarTodoPreview.anchor = anchor;
+    calendarTodoPreview.markup = null;
+    $("calendarTodoPreviewBody").scrollTop = 0;
+  }
+  calendarTodoPreview.pinned = pinned || calendarTodoPreview.pinned;
+  $("calendarTodoPreview").hidden = false;
+  anchor.setAttribute("aria-describedby", "calendarTodoPreviewBody");
+  renderCalendarTodoPreview();
+}
+
+function scheduleCalendarTodoPreviewClose() {
+  clearTimeout(calendarTodoPreview.timer);
+  if (!calendarTodoPreview.pinned) calendarTodoPreview.timer = setTimeout(() => {
+    if (!$("calendarTodoPreview").contains(document.activeElement)) closeCalendarTodoPreview();
+  }, 180);
 }
 
 function renderCalendarEventControls() {
@@ -2696,6 +2762,7 @@ function applyCalendarInvoicePlan(saved) {
     is_inactive: saved.data._calendar_inactive || false,
     is_completed: saved.data._calendar_completed ?? false,
     is_trip: saved.data._calendar_trip ?? false,
+    is_watch_todos: saved.data._calendar_watch_todos ?? false,
   });
 }
 
@@ -2708,6 +2775,7 @@ function freeCalendarIdentity() {
 }
 
 function openCalendarEventMenu(slot, x, y) {
+  closeCalendarTodoPreview();
   const free = slot.dataset.calendarFree, plan = slot.dataset.invoicePlan, date = slot.dataset.calendarDate;
   const order = plan ? state.calendarInvoicePlans.find((event) => event.id === plan) : free ? state.calendarEvents.find((event) => event.id === free) : findListOrder(slot.dataset.calendarEvent);
   const period = slot.dataset.calendarPeriod || "day";
@@ -2726,9 +2794,10 @@ function openCalendarEventMenu(slot, x, y) {
   const inactive = plan ? order.is_inactive : free ? Boolean(order.is_inactive) : Boolean(order.calendar_inactive?.[period]?.includes(date));
   const completed = plan ? order.is_completed === true : free ? order.is_completed === 1 : Boolean(order.calendar_completed?.[period]?.includes(date));
   const trip = plan ? order.is_trip === true : free ? order.is_trip === 1 : Boolean(order.calendar_trip?.[period]?.includes(date));
+  const watch_todos = plan ? order.is_watch_todos === true : !free && Boolean(order.calendar_watch_todos?.[period]?.includes(date));
   const canColor = !plan && (Boolean(free) || !order.work_supplier && order.calendar_colors !== null);
   const color = free ? order.color : order.calendar_colors?.[period]?.[date];
-  state.calendarMenu = { free: Boolean(free), plan: Boolean(plan), path: order.path, id: order.id, revision: order.revision, date, period, inactive, completed, trip, color, canColor, slot };
+  state.calendarMenu = { free: Boolean(free), plan: Boolean(plan), path: order.path, id: order.id, revision: order.revision, date, period, inactive, completed, trip, watch_todos, color, canColor, slot };
   const menu = $("calendarEventMenu");
   $("calendarEventMenuName").textContent = text;
   $("calendarEventDayMoves").hidden = period === "week";
@@ -2736,6 +2805,9 @@ function openCalendarEventMenu(slot, x, y) {
   $("calendarEventInactive").setAttribute("aria-checked", String(inactive));
   $("calendarEventCompleted").setAttribute("aria-checked", String(completed));
   $("calendarEventTrip").setAttribute("aria-checked", String(trip));
+  $("calendarEventWatchTodos").hidden = Boolean(free) || !order.path;
+  $("calendarEventWatchTodos").disabled = plan ? typeof (order.is_watch_todos ?? false) !== "boolean" : order.calendar_watch_todos === null;
+  $("calendarEventWatchTodos").setAttribute("aria-checked", String(watch_todos));
   $("calendarEventDelete").hidden = plan ? Boolean(order.path) : period !== 'day';
   $("calendarEventColors").hidden = !canColor;
   menu.querySelectorAll("[data-calendar-color]").forEach((button) => button.setAttribute("aria-checked", String(button.dataset.calendarColor === (color || "green"))));
@@ -2784,13 +2856,14 @@ async function toggleCalendarEventFlag(flag) {
   state.calendarMoving.add(key);
   ++state.ordersRequest;
   try {
-    const route = (menu.plan ? "/api/invoice-plan-calendar-" : menu.free ? "/api/calendar-" : "/api/order-calendar-") + flag;
+    const route = (menu.plan ? "/api/invoice-plan-calendar-" : menu.free ? "/api/calendar-" : "/api/order-calendar-") + flag.replaceAll('_', '-');
     const saved = await request(route, { path: menu.path, id: menu.id, revision: menu.revision, date: menu.date, period: menu.period, ['is_' + flag]: !menu[flag] });
     if (menu.plan) applyCalendarInvoicePlan(saved);
     else if (menu.free) applyFreeCalendarEvent(saved);
     else applyOrderRecord(null, saved);
     if (flag === 'completed') notify(menu.completed ? 'Отметка «Выполнено» снята' : 'Отмечено «Выполнено»');
     if (flag === 'trip') notify(menu.trip ? 'Отметка «Выезд» снята' : 'Отмечено «Выезд»');
+    if (flag === 'watch_todos') notify(menu.watch_todos ? 'Отметка «Смотри ту-ду» снята' : 'Отмечено «Смотри ту-ду»');
   } catch (error) {
     notify(error.message, true);
     if (error.status === 409) { try { await loadOrders(); } catch (_) { /* Keep the last calendar. */ } }
@@ -2819,7 +2892,7 @@ async function restoreCalendarDeletion(entry, revision) {
   ++state.ordersRequest;
   try {
     const route = entry.plan ? '/api/calendar-payment-restore' : entry.free ? '/api/calendar-event-restore' : '/api/order-calendar-event-restore';
-    const saved = await request(route, { path: entry.path || '', id: entry.id, revision, date: entry.date, period: entry.period, text: entry.previous, is_inactive: entry.inactive, is_completed: entry.completed, is_trip: entry.trip, color: entry.color });
+    const saved = await request(route, { path: entry.path || '', id: entry.id, revision, date: entry.date, period: entry.period, text: entry.previous, is_inactive: entry.inactive, is_completed: entry.completed, is_trip: entry.trip, is_watch_todos: entry.watch_todos, color: entry.color });
     applyCalendarDeletion(entry, saved, false);
     notify('Удаление отменено');
   } finally {
@@ -2916,8 +2989,9 @@ function openCalendarEvent(slot) {
   const inactive = free ? Boolean(order?.is_inactive) : Boolean(order.calendar_inactive?.[period]?.includes(date));
   const completed = free ? order?.is_completed === 1 : Boolean(order.calendar_completed?.[period]?.includes(date));
   const trip = free ? order?.is_trip === 1 : Boolean(order.calendar_trip?.[period]?.includes(date));
+  const watch_todos = !free && Boolean(order.calendar_watch_todos?.[period]?.includes(date));
   const color = free ? order?.color : order.calendar_colors?.[period]?.[date];
-  state.calendarEvent = { free: Boolean(free), path: order?.path, id: order?.id || freeCalendarIdentity(), revision: order?.revision || 0, date, period, previous, inactive, completed, trip, color, saving: false, conflict: false };
+  state.calendarEvent = { free: Boolean(free), path: order?.path, id: order?.id || freeCalendarIdentity(), revision: order?.revision || 0, date, period, previous, inactive, completed, trip, watch_todos, color, saving: false, conflict: false };
   $("calendarEventTitle").textContent = period === "week" ? "Событие на неделю" : "Событие календаря";
   $("calendarEventOrder").textContent = free ? "Без привязки к заказу" : (order.work_supplier ? [order.title, order.work_supplier] : [order.title, order.client, order.object]).filter(Boolean).join(" · ");
   const start = new Date(date + "T00:00:00Z");
@@ -2990,6 +3064,7 @@ async function refreshCalendarEvent() {
       edit.inactive = Boolean(order.calendar_inactive?.[edit.period]?.includes(edit.date));
       edit.completed = Boolean(order.calendar_completed?.[edit.period]?.includes(edit.date));
       edit.trip = Boolean(order.calendar_trip?.[edit.period]?.includes(edit.date));
+      edit.watch_todos = Boolean(order.calendar_watch_todos?.[edit.period]?.includes(edit.date));
       edit.color = order.calendar_colors?.[edit.period]?.[edit.date];
       edit.conflict = false;
       applyOrderRecord(null, order);
@@ -3150,6 +3225,7 @@ function renderOrders({ force = false } = {}) {
 }
 
 async function showOrders({ history = true } = {}) {
+  closeCalendarTodoPreview();
   if ($("orderTodoDialog").open) $("orderTodoDialog").close();
   if ($("previewDialog").open) await closePreview();
   await saveCurrentPrintTask();
@@ -3199,6 +3275,7 @@ function openLocation() {
 }
 
 async function navigate(path, { history = true } = {}) {
+  closeCalendarTodoPreview();
   if ($("orderTodoDialog").open) $("orderTodoDialog").close();
   if ($("previewDialog").open) await closePreview();
   await saveCurrentPrintTask();
@@ -3757,6 +3834,15 @@ $("fileSearch").addEventListener("input", (event) => { state.fileQuery = event.t
 $("fileSort").addEventListener("change", (event) => { state.fileSort = event.target.value; state.limit = 120; renderFiles(); });
 $("orderSearch").addEventListener("input", (event) => { state.orderQuery = event.target.value; renderOrders(); });
 $("calendarWeeks").addEventListener("click", (event) => {
+  const todoIcon = event.target.closest('.calendar-todo-icon');
+  if (todoIcon) {
+    event.preventDefault();
+    const anchor = todoIcon.closest('[data-calendar-todos]');
+    openCalendarTodoPreview(anchor, true);
+    $("calendarTodoPreviewBody").focus({ preventScroll: true });
+    return;
+  }
+  closeCalendarTodoPreview();
   const payment = event.target.closest('[data-calendar-payment-add]');
   if (payment && !payment.disabled) {
     document.dispatchEvent(new CustomEvent('manager-plan-payment', { detail: { date: payment.dataset.calendarDate, period: payment.dataset.calendarPeriod, operation: payment.dataset.calendarPaymentAdd } }));
@@ -3783,6 +3869,13 @@ $("calendarWeeks").addEventListener("contextmenu", (event) => {
   openCalendarEventMenu(slot, event.clientX, event.clientY);
 });
 $("calendarWeeks").addEventListener("keydown", (event) => {
+  const todoAnchor = event.target.closest('[data-calendar-todos]');
+  if (todoAnchor && event.altKey && event.key === 'ArrowDown') {
+    event.preventDefault(); event.stopPropagation();
+    openCalendarTodoPreview(todoAnchor, true);
+    $("calendarTodoPreviewBody").focus({ preventScroll: true });
+    return;
+  }
   const slot = event.target.closest(".calendar-event-slot.has-event, .calendar-invoice-plan");
   if (!slot || slot.disabled || !(event.key === "ContextMenu" || (event.shiftKey && event.key === "F10"))) return;
   event.preventDefault();
@@ -3794,6 +3887,7 @@ $("calendarEventMenu").addEventListener("click", (event) => {
   if (event.target.closest("#calendarEventInactive")) { run(() => toggleCalendarEventFlag('inactive')); return; }
   if (event.target.closest("#calendarEventCompleted")) { run(() => toggleCalendarEventFlag('completed')); return; }
   if (event.target.closest("#calendarEventTrip")) { run(() => toggleCalendarEventFlag('trip')); return; }
+  if (event.target.closest("#calendarEventWatchTodos:not(:disabled)")) { run(() => toggleCalendarEventFlag('watch_todos')); return; }
   const color = event.target.closest("[data-calendar-color]");
   if (color) { run(() => colorCalendarEvent(color.dataset.calendarColor)); return; }
   const button = event.target.closest("[data-calendar-move]");
@@ -3804,7 +3898,7 @@ $("calendarEventMenu").addEventListener("keydown", (event) => {
   if (event.key === "Tab") { closeCalendarEventMenu(); return; }
   if (!["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
   event.preventDefault();
-  const buttons = [...$("calendarEventMenu").querySelectorAll("button")].filter((item) => item.getClientRects().length), current = buttons.indexOf(document.activeElement);
+  const buttons = [...$("calendarEventMenu").querySelectorAll("button:not(:disabled)")].filter((item) => item.getClientRects().length), current = buttons.indexOf(document.activeElement);
   const index = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (current + (["ArrowDown", "ArrowRight"].includes(event.key) ? 1 : -1) + buttons.length) % buttons.length;
   buttons[index].focus({ preventScroll: true });
 });
@@ -3812,6 +3906,55 @@ document.addEventListener("pointerdown", (event) => { if (state.calendarMenu && 
 window.addEventListener("resize", () => closeCalendarEventMenu(false));
 window.addEventListener("scroll", () => { if (state.calendarMenu) closeCalendarEventMenu(false); }, true);
 window.addEventListener("blur", () => closeCalendarEventMenu(false));
+$("calendarWeeks").addEventListener('pointerover', (event) => {
+  const anchor = event.target.closest('[data-calendar-todos]');
+  if (anchor) openCalendarTodoPreview(anchor);
+});
+$("calendarWeeks").addEventListener('pointerout', (event) => {
+  const anchor = event.target.closest('[data-calendar-todos]');
+  if (!anchor || anchor.contains(event.relatedTarget)) return;
+  calendarTodoPreview.suppressed = null;
+  if (!$("calendarTodoPreview").contains(event.relatedTarget)) scheduleCalendarTodoPreviewClose();
+});
+$("calendarWeeks").addEventListener('focusin', (event) => {
+  const anchor = event.target.closest('[data-calendar-todos]');
+  if (anchor) openCalendarTodoPreview(anchor);
+});
+$("calendarWeeks").addEventListener('focusout', (event) => {
+  if (event.target !== event.relatedTarget) calendarTodoPreview.suppressed = null;
+  if (!$("calendarTodoPreview").contains(event.relatedTarget)) scheduleCalendarTodoPreviewClose();
+});
+$("calendarTodoPreview").addEventListener('pointerenter', () => clearTimeout(calendarTodoPreview.timer));
+$("calendarTodoPreview").addEventListener('pointerleave', scheduleCalendarTodoPreviewClose);
+$("calendarTodoPreview").addEventListener('focusout', (event) => {
+  if (!$("calendarTodoPreview").contains(event.relatedTarget)) scheduleCalendarTodoPreviewClose();
+});
+$("closeCalendarTodoPreview").addEventListener('click', () => closeCalendarTodoPreview(true));
+$("openCalendarTodoOrder").addEventListener('click', () => {
+  const path = calendarTodoPreview.anchor?.dataset.calendarTodos;
+  closeCalendarTodoPreview();
+  if (path) run(() => navigate(path));
+});
+$("calendarTodoPreviewBody").addEventListener('click', (event) => {
+  const button = event.target.closest('[data-order]');
+  if (!button) return;
+  closeCalendarTodoPreview();
+  run(() => navigate(button.dataset.order));
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && calendarTodoPreview.anchor) {
+    event.preventDefault();
+    closeCalendarTodoPreview(true);
+  }
+});
+document.addEventListener('pointerdown', (event) => {
+  if (calendarTodoPreview.anchor && !calendarTodoPreview.anchor.contains(event.target) && !$("calendarTodoPreview").contains(event.target)) closeCalendarTodoPreview();
+});
+window.addEventListener('resize', positionCalendarTodoPreview);
+window.addEventListener('scroll', (event) => {
+  if (calendarTodoPreview.anchor && !$("calendarTodoPreview").contains(event.target)) closeCalendarTodoPreview();
+}, true);
+window.addEventListener('blur', () => closeCalendarTodoPreview());
 $("refreshCalendarEvent").addEventListener("click", () => run(refreshCalendarEvent));
 $("cancelCalendarEvent").addEventListener("click", closeCalendarEvent);
 $("deleteCalendarEvent").addEventListener('click', () => run(deleteCalendarEventFromDialog));

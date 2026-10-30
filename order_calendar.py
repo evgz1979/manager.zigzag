@@ -15,6 +15,8 @@ CALENDAR_COMPLETION_VERSION = 1
 COMPLETED_BLOCK = "Выполненные события календаря"
 CALENDAR_TRIP_VERSION = 1
 TRIP_BLOCK = "Выезды календаря"
+CALENDAR_WATCH_TODOS_VERSION = 1
+WATCH_TODOS_BLOCK = "Смотри ту-ду календаря"
 ORDER_CALENDAR_COLORS_VERSION = 1
 COLORS_BLOCK = "Цвета событий календаря"
 COLORS = {"gray", "red", "orange", "yellow", "green", "blue", "purple"}
@@ -122,6 +124,10 @@ def read_trip(blocks):
     return _read_flags(blocks, TRIP_BLOCK)
 
 
+def read_watch_todos(blocks):
+    return _read_flags(blocks, WATCH_TODOS_BLOCK)
+
+
 def _read_flags(blocks, block):
     if block not in blocks:
         return {"day": [], "week": []}
@@ -198,7 +204,35 @@ def mark_trip_contract(db):
 
 def mark_flag_contract(db, field):
     {"is_completed": mark_completion_contract, "is_inactive": mark_relevance_contract,
-     "is_trip": mark_trip_contract}[field](db)
+     "is_trip": mark_trip_contract, "is_watch_todos": mark_watch_todos_contract}[field](db)
+
+
+def mark_watch_todos_contract(db):
+    import local_metadata
+    local_metadata.schema(db)
+    db.execute("INSERT INTO metadata_settings VALUES ('calendar_watch_todos','1') ON CONFLICT(key) DO UPDATE SET value=excluded.value")
+
+
+def set_watch_todos(blocks, day, marked, period="day"):
+    block_name(period)
+    if period == "week":
+        blocks = unify_weekly_blocks(blocks)
+    day = validate_key(day, period)
+    if type(marked) is not bool:
+        raise ValueError('Укажи состояние отметки «Смотри ту-ду»')
+    flags, events = read_watch_todos(blocks), read(blocks, period)
+    if flags is None or events is None:
+        raise ValueError('Формат события или отметок «Смотри ту-ду» неизвестен. Данные сохранены без изменений')
+    if day not in events:
+        raise ValueError('Событие на этой дате отсутствует. Обнови календарь')
+    selected = set(flags[period])
+    if marked:
+        selected.add(day)
+    else:
+        selected.discard(day)
+    if len(selected) > MAX_EVENTS:
+        raise ValueError('Сохранено слишком много отметок «Смотри ту-ду»')
+    return {**blocks, WATCH_TODOS_BLOCK: json.dumps({"version": 1, **flags, period: sorted(selected)}, ensure_ascii=False)}
 
 
 def set_trip(blocks, day, trip, period="day"):
@@ -301,7 +335,8 @@ def _remove_entry(blocks, day, period, *, missing_ok=False):
     day = validate_key(day, period)
     events, flags, colors = read(blocks, period), read_inactive(blocks), read_colors(blocks)
     completed, trip = read_completed(blocks), read_trip(blocks)
-    if events is None or flags is None or colors is None or completed is None or trip is None:
+    watch_todos = read_watch_todos(blocks)
+    if events is None or flags is None or colors is None or completed is None or trip is None or watch_todos is None:
         raise ValueError('Формат события, актуальности или цветов неизвестен. Данные сохранены без изменений')
     if day not in events and not missing_ok:
         raise ValueError('Событие на этой дате уже отсутствует. Обнови календарь')
@@ -313,19 +348,21 @@ def _remove_entry(blocks, day, period, *, missing_ok=False):
         result[COMPLETED_BLOCK] = json.dumps({'version': 1, **completed, period: [key for key in completed[period] if key != day]}, ensure_ascii=False)
     if day in trip[period]:
         result[TRIP_BLOCK] = json.dumps({'version': 1, **trip, period: [key for key in trip[period] if key != day]}, ensure_ascii=False)
+    if day in watch_todos[period]:
+        result[WATCH_TODOS_BLOCK] = json.dumps({'version': 1, **watch_todos, period: [key for key in watch_todos[period] if key != day]}, ensure_ascii=False)
     if day in colors[period]:
         result = _write_colors(result, colors, period, {key: value for key, value in colors[period].items() if key != day})
     return result
 
 
-def restore(blocks, day, text, inactive, period="day", color=None, completed=False, trip=False):
+def restore(blocks, day, text, inactive, period="day", color=None, completed=False, trip=False, watch_todos=False):
     if period != 'day':
         raise ValueError('Восстановление удаления доступно только для событий на день')
     day, text = validate_key(day, period), validate_text(text)
-    if not text or type(inactive) is not bool or type(completed) is not bool or type(trip) is not bool:
+    if not text or type(inactive) is not bool or type(completed) is not bool or type(trip) is not bool or type(watch_todos) is not bool:
         raise ValueError('Не указаны текст и актуальность удалённого события')
     events = read(blocks)
-    if events is None or read_inactive(blocks) is None or read_colors(blocks) is None or read_completed(blocks) is None or read_trip(blocks) is None:
+    if events is None or read_inactive(blocks) is None or read_colors(blocks) is None or read_completed(blocks) is None or read_trip(blocks) is None or read_watch_todos(blocks) is None:
         raise ValueError('Формат событий неизвестен. Данные сохранены без изменений')
     if day in events:
         raise ValueError('На этой дате уже есть событие. Оно сохранено без изменений')
@@ -334,6 +371,8 @@ def restore(blocks, day, text, inactive, period="day", color=None, completed=Fal
         result = set_completed(result, day, completed)
     if trip or TRIP_BLOCK in blocks:
         result = set_trip(result, day, trip)
+    if watch_todos or WATCH_TODOS_BLOCK in blocks:
+        result = set_watch_todos(result, day, watch_todos)
     return set_color(result, day, color) if color is not None else result
 
 
@@ -360,8 +399,8 @@ def move(blocks, day, days, period="day"):
     if target in events:
         raise ValueError("На выбранную дату у этого заказа уже есть событие. Оба события оставлены на своих местах")
     flags, colors, completed = read_inactive(blocks), read_colors(blocks), read_completed(blocks)
-    trip = read_trip(blocks)
-    if flags is None or colors is None or completed is None or trip is None:
+    trip, watch_todos = read_trip(blocks), read_watch_todos(blocks)
+    if flags is None or colors is None or completed is None or trip is None or watch_todos is None:
         raise ValueError("Формат актуальности или цветов неизвестен. Событие сохранено на прежней дате")
     moved = {**events}
     moved[target] = moved.pop(day)
@@ -379,6 +418,11 @@ def move(blocks, day, days, period="day"):
         if day in trip[period]:
             selected.add(target)
         result[TRIP_BLOCK] = json.dumps({"version": 1, **trip, period: sorted(selected)}, ensure_ascii=False)
+    if WATCH_TODOS_BLOCK in blocks:
+        selected = set(watch_todos[period]) - {day, target}
+        if day in watch_todos[period]:
+            selected.add(target)
+        result[WATCH_TODOS_BLOCK] = json.dumps({"version": 1, **watch_todos, period: sorted(selected)}, ensure_ascii=False)
     if COLORS_BLOCK in blocks:
         entries = {**colors[period]}
         entries.pop(target, None)

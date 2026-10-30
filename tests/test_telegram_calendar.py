@@ -54,6 +54,33 @@ class TelegramCalendarTests(unittest.TestCase):
                 telegram.send(PNG, '2026-10-26', self.data, now=NOW)
             post.assert_not_called()
 
+    def test_digest_follows_single_png_in_order_with_unicode_limits_and_no_parse_mode(self):
+        text = 'Смотри ту-ду\n' + '😀 <задача> & *текст*\n' * 900
+        calls = []
+        def send_request(request, **kwargs):
+            calls.append(request)
+            return {'message_id': len(calls)}
+        with patch.object(telegram, 'api_request', side_effect=send_request), patch.object(telegram.time, 'sleep'):
+            result = telegram.send(PNG, '2026-10-26', self.data, now=NOW, todo_text=text)
+        self.assertTrue(calls[0].full_url.endswith('/sendDocument'))
+        self.assertEqual(sum(request.full_url.endswith('/sendDocument') for request in calls), 1)
+        messages = [json.loads(request.data) for request in calls[1:]]
+        self.assertTrue(all(request.full_url.endswith('/sendMessage') for request in calls[1:]))
+        self.assertEqual(''.join(item['text'] for item in messages), text)
+        self.assertTrue(all(len(item['text'].encode('utf-16-le')) // 2 <= 4000 and 'parse_mode' not in item and item['chat_id'] == '-123456' for item in messages))
+        self.assertEqual(result['todo_messages'], len(messages))
+
+    def test_png_failure_never_sends_digest_and_partial_text_failure_never_retries(self):
+        with patch.object(telegram, 'api_request', side_effect=telegram.TelegramError('Нет подтверждения')) as post, patch.object(telegram.time, 'sleep'):
+            with self.assertRaises(telegram.TelegramError):
+                telegram.send(PNG, '2026-10-26', self.data, now=NOW, todo_text='Задача')
+            post.assert_called_once()
+        with patch.object(telegram, 'api_request', side_effect=[{'message_id': 1}, {'message_id': 2}, telegram.TelegramError('Нет подтверждения')]) as post, patch.object(telegram.time, 'sleep'):
+            with self.assertRaisesRegex(telegram.TelegramError, 'PNG отправлен.*To-do: 1'):
+                telegram.send(PNG, '2026-10-26', self.data, now=NOW, todo_text='я' * 9000)
+            self.assertEqual(post.call_count, 3)
+            self.assertEqual(sum(call.args[0].full_url.endswith('/sendDocument') for call in post.call_args_list), 1)
+
     def test_errors_never_leak_token_or_retry_ambiguous_send(self):
         for error in (urllib.error.URLError(f'https://api.telegram.org/bot{TOKEN}'),
                       urllib.error.HTTPError(f'https://api.telegram.org/bot{TOKEN}', 403, TOKEN, {}, io.BytesIO())):

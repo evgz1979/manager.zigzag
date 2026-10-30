@@ -199,6 +199,7 @@
       <p id="calendarEventMenuName" class="calendar-event-menu-name"></p>
       <button id="calendarEventCompleted" type="button" role="menuitemcheckbox" aria-checked="false"><span class="calendar-menu-mark" aria-hidden="true">✓</span>Выполнено</button>
       <button id="calendarEventTrip" type="button" role="menuitemcheckbox" aria-checked="false"><span class="calendar-menu-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m5 10 2-6h10l2 6M5 10h14a2 2 0 0 1 2 2v6H3v-6a2 2 0 0 1 2-2ZM5 18v3M19 18v3M7 14h.01M17 14h.01"/></svg></span>Выезд</button>
+      <button id="calendarEventWatchTodos" type="button" role="menuitemcheckbox" aria-checked="false" hidden><span class="calendar-menu-mark calendar-menu-todo-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 5h11M9 12h11M9 19h11M3 4l1 1 2-2M3 11l1 1 2-2M3 18l1 1 2-2"/></svg></span>Смотри ту-ду</button>
       <button id="calendarEventInactive" type="button" role="menuitemcheckbox" aria-checked="false"><span class="calendar-menu-mark" aria-hidden="true">✓</span>Неактуально</button>
       <button id="calendarEventDelete" type="button" role="menuitem" hidden>Удалить</button><hr id="calendarEventMoveDivider">
       <div class="calendar-event-moves" role="none">
@@ -210,6 +211,11 @@
         </div>
       </div>
     </div>
+    <aside id="calendarTodoPreview" class="calendar-todo-preview" role="dialog" aria-labelledby="calendarTodoPreviewTitle" hidden>
+      <header><div><h2>Смотри ту-ду <span id="calendarTodoPreviewCount" class="count-badge"></span></h2><p id="calendarTodoPreviewTitle"></p></div><button id="closeCalendarTodoPreview" class="icon-button" type="button" aria-label="Закрыть To-do">✕</button></header>
+      <div id="calendarTodoPreviewBody" class="calendar-todo-preview-body" tabindex="0" aria-label="Актуальные задачи заказа и вложенных папок"></div>
+      <footer><span>Только актуальные задачи</span><button id="openCalendarTodoOrder" class="secondary-button" type="button">Открыть заказ</button></footer>
+    </aside>
     <dialog id="calendarEventDialog" class="confirm-dialog create-order-dialog calendar-event-dialog" aria-labelledby="calendarEventTitle">
       <form id="calendarEventForm"><h2 id="calendarEventTitle">Событие календаря</h2><p id="calendarEventOrder" class="calendar-event-order"></p><p id="calendarEventDate" class="calendar-event-date"></p><label>Событие<input id="calendarEventText" type="text" maxlength="1000" required autocomplete="off" placeholder="Например, замер или монтаж"></label><p id="calendarEventState" class="calendar-event-state" role="status"></p><button id="refreshCalendarEvent" class="secondary-button" type="button" hidden>Проверить изменения</button><div class="confirm-actions"><button id="deleteCalendarEvent" class="secondary-button calendar-delete" type="button" hidden>Удалить</button><button id="cancelCalendarEvent" class="secondary-button" type="button">Отмена</button><button id="saveCalendarEvent" type="submit">Сохранить</button></div></form>
     </dialog>

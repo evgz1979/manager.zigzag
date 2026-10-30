@@ -141,7 +141,7 @@
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Не удалось отправить календарь");
-      notify("Общий календарь отправлен в Telegram");
+      notify(result.todo_messages ? "Календарь и списки To-do отправлены в Telegram" : "Общий календарь отправлен в Telegram");
     } catch (error) {
       notify(error instanceof TypeError ? "Нет подтверждения отправки. Проверь Telegram перед повтором" : error.message, true, {label: "Настроить бота", run: openSettings});
     } finally {

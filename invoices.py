@@ -380,6 +380,7 @@ class InvoiceStore:
                                    'revision': row['revision'], 'is_inactive': data.get('_calendar_inactive', False),
                                    'is_completed': data.get('_calendar_completed', False),
                                    'is_trip': data.get('_calendar_trip', False),
+                                   'is_watch_todos': data.get('_calendar_watch_todos', False),
                                    'operation': data.get('operation', 'invoice'), 'amount': data.get('amount'),
                                    'text': data.get('text', ''), 'invoice_label': data.get('invoice_label', ''),
                                    'title': owner['title'] if owner else 'Без заказа', 'client': owner['client'] if owner else '', 'object': owner['object'] if owner else ''})
@@ -393,6 +394,11 @@ class InvoiceStore:
 
     def save_plan_calendar_trip(self, payload):
         return self._save_plan_calendar_flag(payload, 'is_trip', '_calendar_trip')
+
+    def save_plan_calendar_watch_todos(self, payload):
+        if not payload.get('path'):
+            raise ValueError('Смотри ту-ду доступно только у плана с заказом')
+        return self._save_plan_calendar_flag(payload, 'is_watch_todos', '_calendar_watch_todos')
 
     def _save_plan_calendar_flag(self, payload, field, key):
         import order_calendar

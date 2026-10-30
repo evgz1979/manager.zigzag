@@ -9,6 +9,7 @@ import re
 import struct
 import tempfile
 import threading
+import time
 import urllib.error
 import urllib.request
 from uuid import uuid4
@@ -185,7 +186,7 @@ def current_week(now=None):
     return today - timedelta(days=today.weekday())
 
 
-def send(image, start, data_dir, *, now=None):
+def send(image, start, data_dir, *, now=None, todo_text=''):
     validate_image(image)
     week = current_week(now)
     if start != week.isoformat():
@@ -208,4 +209,18 @@ def send(image, start, data_dir, *, now=None):
     result = api_request(request, timeout=40)
     if not isinstance(result, dict) or type(result.get("message_id")) is not int:
         raise TelegramError("Telegram не подтвердил отправку. Проверь чат перед повтором")
-    return {"ok": True, "start": week.isoformat(), "through": through.isoformat()}
+    response = {"ok": True, "start": week.isoformat(), "through": through.isoformat()}
+    if todo_text:
+        from calendar_todos import message_parts
+        sent = 0
+        try:
+            for text in message_parts(todo_text):
+                time.sleep(1.05)
+                message = bot_api(token, 'sendMessage', {'chat_id': chat, 'text': text, 'link_preview_options': {'is_disabled': True}})
+                if not isinstance(message, dict) or type(message.get('message_id')) is not int:
+                    raise TelegramError('Telegram не подтвердил сообщение')
+                sent += 1
+        except TelegramError:
+            raise TelegramError(f'PNG отправлен. Подтверждено сообщений To-do: {sent}; дальнейшая отправка остановлена. Проверь Telegram перед повтором') from None
+        response['todo_messages'] = sent
+    return response
