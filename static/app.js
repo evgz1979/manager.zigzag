@@ -2657,11 +2657,18 @@ function renderHomeCalendar() {
   renderCalendarTodoPreview();
 }
 
-const calendarTodoPreview = { anchor: null, pinned: false, markup: null, timer: null, suppressed: null };
+const calendarTodoPreview = { anchor: null, pinned: false, markup: null, timer: null, switchTimer: null, pendingAnchor: null, suppressed: null };
+
+function cancelCalendarTodoPreviewSwitch() {
+  clearTimeout(calendarTodoPreview.switchTimer);
+  calendarTodoPreview.switchTimer = null;
+  calendarTodoPreview.pendingAnchor = null;
+}
 
 function closeCalendarTodoPreview(restoreFocus = false) {
   const anchor = calendarTodoPreview.anchor;
   clearTimeout(calendarTodoPreview.timer);
+  cancelCalendarTodoPreviewSwitch();
   calendarTodoPreview.anchor = null;
   calendarTodoPreview.pinned = false;
   $("calendarTodoPreview").hidden = true;
@@ -2677,8 +2684,8 @@ function positionCalendarTodoPreview() {
   if (!anchor) return;
   const preview = $("calendarTodoPreview"), box = anchor.getBoundingClientRect(), bounds = preview.getBoundingClientRect();
   preview.style.left = Math.max(8, Math.min(box.left, innerWidth - bounds.width - 8)) + "px";
-  const below = box.bottom + 6;
-  preview.style.top = Math.max(8, Math.min(below + bounds.height <= innerHeight - 8 ? below : box.top - bounds.height - 6, innerHeight - bounds.height - 8)) + "px";
+  const below = box.bottom;
+  preview.style.top = Math.max(8, Math.min(below + bounds.height <= innerHeight - 8 ? below : box.top - bounds.height, innerHeight - bounds.height - 8)) + "px";
 }
 
 function renderCalendarTodoPreview() {
@@ -2704,6 +2711,7 @@ function renderCalendarTodoPreview() {
 function openCalendarTodoPreview(anchor, pinned = false) {
   if (!anchor?.dataset.calendarTodos || state.calendarMenu || (!pinned && calendarTodoPreview.suppressed === anchor)) return;
   if (calendarTodoPreview.pinned && !pinned) return;
+  cancelCalendarTodoPreviewSwitch();
   clearTimeout(calendarTodoPreview.timer);
   if (calendarTodoPreview.anchor !== anchor) {
     closeCalendarTodoPreview();
@@ -2717,11 +2725,21 @@ function openCalendarTodoPreview(anchor, pinned = false) {
   renderCalendarTodoPreview();
 }
 
+function hoverCalendarTodoPreview(anchor) {
+  if (!anchor || calendarTodoPreview.pinned || $("calendarTodoPreview").contains(document.activeElement)) return;
+  clearTimeout(calendarTodoPreview.timer);
+  if (!calendarTodoPreview.anchor || calendarTodoPreview.anchor === anchor) { openCalendarTodoPreview(anchor); return; }
+  if (calendarTodoPreview.pendingAnchor === anchor) return;
+  cancelCalendarTodoPreviewSwitch();
+  calendarTodoPreview.pendingAnchor = anchor;
+  calendarTodoPreview.switchTimer = setTimeout(() => openCalendarTodoPreview(anchor), 350);
+}
+
 function scheduleCalendarTodoPreviewClose() {
   clearTimeout(calendarTodoPreview.timer);
   if (!calendarTodoPreview.pinned) calendarTodoPreview.timer = setTimeout(() => {
     if (!$("calendarTodoPreview").contains(document.activeElement)) closeCalendarTodoPreview();
-  }, 180);
+  }, 500);
 }
 
 function renderCalendarEventControls() {
@@ -3910,11 +3928,12 @@ window.addEventListener("scroll", () => { if (state.calendarMenu) closeCalendarE
 window.addEventListener("blur", () => closeCalendarEventMenu(false));
 $("calendarWeeks").addEventListener('pointerover', (event) => {
   const anchor = event.target.closest('[data-calendar-todos]');
-  if (anchor) openCalendarTodoPreview(anchor);
+  if (anchor) hoverCalendarTodoPreview(anchor);
 });
 $("calendarWeeks").addEventListener('pointerout', (event) => {
   const anchor = event.target.closest('[data-calendar-todos]');
   if (!anchor || anchor.contains(event.relatedTarget)) return;
+  if (calendarTodoPreview.pendingAnchor === anchor) cancelCalendarTodoPreviewSwitch();
   calendarTodoPreview.suppressed = null;
   if (!$("calendarTodoPreview").contains(event.relatedTarget)) scheduleCalendarTodoPreviewClose();
 });
@@ -3926,7 +3945,14 @@ $("calendarWeeks").addEventListener('focusout', (event) => {
   if (event.target !== event.relatedTarget) calendarTodoPreview.suppressed = null;
   if (!$("calendarTodoPreview").contains(event.relatedTarget)) scheduleCalendarTodoPreviewClose();
 });
-$("calendarTodoPreview").addEventListener('pointerenter', () => clearTimeout(calendarTodoPreview.timer));
+$("calendarTodoPreview").addEventListener('pointerenter', () => {
+  clearTimeout(calendarTodoPreview.timer);
+  cancelCalendarTodoPreviewSwitch();
+});
+$("calendarTodoPreview").addEventListener('focusin', () => {
+  clearTimeout(calendarTodoPreview.timer);
+  cancelCalendarTodoPreviewSwitch();
+});
 $("calendarTodoPreview").addEventListener('pointerleave', scheduleCalendarTodoPreviewClose);
 $("calendarTodoPreview").addEventListener('focusout', (event) => {
   if (!$("calendarTodoPreview").contains(event.relatedTarget)) scheduleCalendarTodoPreviewClose();
