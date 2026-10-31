@@ -66,7 +66,8 @@ const HomeCalendar = (() => {
   const get = (id) => document.getElementById(id);
   const monthName = new Intl.DateTimeFormat("ru-RU", { month: "long", timeZone: "UTC" });
   const fullDate = new Intl.DateTimeFormat("ru-RU", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
-  const maxScroll = () => Math.max(0, get("calendarViewport").scrollHeight - get("calendarViewport").clientHeight);
+  const maxScroll = () => Math.max(0, Math.min(get("calendarViewport").scrollHeight - get("calendarViewport").clientHeight,
+    weekTops[Math.max(0, weekTops.length - VISIBLE_WEEKS)] || 0));
 
   function measureWeeks() {
     weekHeights = [...get("calendarWeeks").children].map((row) => row.getBoundingClientRect().height);
@@ -82,8 +83,14 @@ const HomeCalendar = (() => {
 
   function fitViewport(index) {
     const height = weekHeights.slice(index, index + VISIBLE_WEEKS).reduce((sum, value) => sum + value, 0);
+    const viewport = get("calendarViewport"), weeks = get("calendarWeeks");
+    // Keep the last pair reachable when the current pair is taller than it.
+    const lastHeight = weekHeights.slice(-VISIBLE_WEEKS).reduce((sum, value) => sum + value, 0);
+    const padding = Math.max(0, height - lastHeight) + "px";
+    if (height > viewport.clientHeight) weeks.style.paddingBottom = padding;
     const value = Math.round(height * 1000) / 1000 + "px";
-    if (height && get("calendarViewport").style.height !== value) get("calendarViewport").style.height = value;
+    if (height && viewport.style.height !== value) viewport.style.height = value;
+    weeks.style.paddingBottom = padding;
   }
 
   function scrollToIndex(index) {
@@ -100,11 +107,12 @@ const HomeCalendar = (() => {
     if (!weekHeights.length) return;
     // ResizeObserver restores the same week after content or window size changes.
     if ([...get("calendarWeeks").children].some((row, i) => Math.abs(row.getBoundingClientRect().height - weekHeights[i]) > .1)) return;
+    if (viewport.scrollTop > maxScroll() + 1) viewport.scrollTop = maxScroll();
     const index = weekIndex(viewport.scrollTop);
     fitViewport(index);
     scrollAnchor = { index, offset: viewport.scrollTop - (weekTops[index] || 0) };
     const first = shiftDays(range.start, index * 7), last = shiftDays(first, VISIBLE_WEEKS * 7 - 1);
-    viewport.setAttribute("aria-label", "Две недели календаря: " + fullDate.format(first) + " — " + fullDate.format(last) + " Home — начало, End — конец.");
+    viewport.setAttribute("aria-label", "Две недели календаря: " + fullDate.format(first) + " — " + fullDate.format(last) + " Прокручивай вверх и вниз; Home — начало, End — конец.");
     const sameMonth = first.getUTCMonth() === last.getUTCMonth() && first.getUTCFullYear() === last.getUTCFullYear();
     get("calendarTitle").textContent = sameMonth ? monthName.format(first) + " " + first.getUTCFullYear() :
       monthName.format(first) + (first.getUTCFullYear() !== last.getUTCFullYear() ? " " + first.getUTCFullYear() : "") + " — " + monthName.format(last) + " " + last.getUTCFullYear();

@@ -2,6 +2,36 @@
 (() => {
   let entries = [], loading = false, saving = false, generation = 0;
   const rows = new Map();
+  let folder = { path: "", count: 0, error: "" }, folderLoading = false, folderOpening = false;
+
+  function renderFolder() {
+    const button = $("inboxFolderButton");
+    $("inboxFolderCount").textContent = folder.count ?? "—";
+    button.disabled = folderOpening || !folder.path || !(folder.count > 0) || Boolean(folder.error);
+    button.title = folder.error || (!folder.path ? "Папка #inbox не найдена" : folder.count === 0 ? "В папке #inbox нет файлов" : "Открыть папку #inbox в Finder");
+    button.setAttribute("aria-label", "#inbox: " + (folder.count === null ? "число файлов недоступно" : "файлов " + folder.count) + ". " + button.title);
+  }
+
+  async function loadFolder() {
+    if (state.view !== "orders" || folderLoading || document.hidden) return;
+    folderLoading = true;
+    try {
+      folder = await request("/api/inbox-folder");
+    } catch (_) {
+      folder = { path: "", count: null, error: "Не удалось проверить папку #inbox. Повторим автоматически" };
+    } finally {
+      folderLoading = false;
+      renderFolder();
+    }
+  }
+
+  $("inboxFolderButton").addEventListener("click", () => run(async () => {
+    if ($("inboxFolderButton").disabled) return;
+    folderOpening = true;
+    renderFolder();
+    try { await openNative(folder.path); }
+    finally { folderOpening = false; renderFolder(); }
+  }));
 
   function renderList(container, items) {
     const ids = new Set(items.map(item => item.id));
@@ -173,8 +203,9 @@
     } catch (_) { throw new Error("Не удалось скопировать текст. Выдели его и скопируй вручную"); }
   }
 
-  window.ManagerInbox = { load };
-  setInterval(load, 5000);
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) load(); });
-  load();
+  function loadAll() { return Promise.all([load(), loadFolder()]); }
+  window.ManagerInbox = { load: loadAll };
+  setInterval(loadAll, 5000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) loadAll(); });
+  loadAll();
 })();

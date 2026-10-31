@@ -23,6 +23,7 @@ import calendar_events
 import telegram_calendar
 import calendar_todos
 import telegram_inbox
+import inbox_folder
 import thumbnail_cache
 from orders import OrderStore, OrderConflict, CARD, SNAPSHOT, is_service_folder
 from order_links import OrderLinks
@@ -1431,6 +1432,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(telegram_calendar.status(DATA_DIR), head=head)
             elif parsed.path == "/api/inbox":
                 self.send_json(telegram_inbox.snapshot(order_store(), DATA_DIR), head=head)
+            elif parsed.path == "/api/inbox-folder":
+                self.send_json(inbox_folder.snapshot(DATA_ROOT), head=head)
             elif parsed.path == "/api/object-orders":
                 self.send_json(listed_object_orders(relative, query.get("show_inactive", [""])[0] == "1"), head=head)
             elif parsed.path == "/api/work-orders":
