@@ -291,6 +291,13 @@ class OrderStore:
         return self._save_extra_block(payload, lambda blocks: document.write_purchase_done(
             blocks, payload.get("index"), payload.get("text"), supplier, payload.get("done")), update_time=False)
 
+    def save_purchase_text(self, payload, supplier):
+        relative = self.path(payload.get("path"))
+        if not client_path(relative):
+            raise ValueError("Выбери закупку обычного заказа")
+        return self._save_extra_block(payload, lambda blocks: document.write_purchase_text(
+            blocks, payload.get("index"), payload.get("text"), supplier, payload.get("new_text")), update_time=False)
+
     def save_calendar_event(self, payload):
         return self._save_extra_block(payload, lambda blocks: order_calendar.write(blocks, payload.get("date"), payload.get("text"), payload.get("period", "day")), update_time=False)
 

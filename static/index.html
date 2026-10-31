@@ -16,6 +16,7 @@
       <symbol id="icon-link" viewBox="0 0 24 24"><path d="m10 13 4-4M8 15l-1 1a3.5 3.5 0 0 1-5-5l5-5a3.5 3.5 0 0 1 5 0M16 9l1-1a3.5 3.5 0 0 1 5 5l-5 5a3.5 3.5 0 0 1-5 0"/></symbol>
       <symbol id="icon-search" viewBox="0 0 24 24"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></symbol>
       <symbol id="icon-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M15 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/></symbol>
+      <symbol id="icon-edit" viewBox="0 0 24 24"><path d="m15 4 5 5M4 20l5-1L21 7l-5-5L4 14Z"/></symbol>
       <symbol id="icon-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 6M4 12l2 6a7 7 0 0 0 12-1"/></symbol>
     </svg>
     <main class="workspace">
@@ -362,6 +363,16 @@
       <form id="deleteFilesForm"><h2 id="deleteFilesTitle">Переместить файлы в корзину?</h2><p id="deleteFilesCount"></p><ul id="deleteFilesList" class="file-operation-list"></ul><p>Файлы и их комментарии сохранятся в корзине менеджера. Их можно будет восстановить кнопкой «Корзина».</p><div class="confirm-actions"><button id="cancelDeleteFiles" class="secondary-button" type="button">Отмена</button><button id="confirmDeleteFiles" class="danger-button" type="submit">В корзину</button></div></form>
     </dialog>
     <dialog id="fileTrashDialog" class="confirm-dialog file-trash-dialog" aria-labelledby="fileTrashTitle"><h2 id="fileTrashTitle">Корзина менеджера</h2><div id="fileTrashList"></div><p id="fileTrashWarning" class="file-report-state error" role="status" hidden></p><p id="fileTrashDialogState" class="file-report-state" role="status"></p><div class="confirm-actions"><button id="closeFileTrash" class="secondary-button" type="button">Закрыть</button></div></dialog>
+    <dialog id="supplierPurchaseDialog" class="confirm-dialog create-order-dialog supplier-purchase-dialog" aria-labelledby="supplierPurchaseTitle">
+      <form id="supplierPurchaseForm">
+        <h2 id="supplierPurchaseTitle">Изменить закупку</h2>
+        <p id="supplierPurchaseSource" class="supplier-purchase-editor-source"></p>
+        <label>Текст закупки<input id="supplierPurchaseText" type="text" maxlength="1000" autocomplete="off" required></label>
+        <p id="supplierPurchaseCurrent" class="supplier-purchase-editor-current" hidden></p>
+        <p id="supplierPurchaseEditState" class="todo-save-state" role="status"></p>
+        <div class="confirm-actions"><button id="checkSupplierPurchase" class="secondary-button" type="button" hidden>Проверить изменения</button><button id="cancelSupplierPurchase" class="secondary-button" type="button">Отмена</button><button id="saveSupplierPurchase" class="primary-button" type="submit">Сохранить</button></div>
+      </form>
+    </dialog>
     <dialog id="calendarTelegramSettings" class="confirm-dialog create-order-dialog" aria-labelledby="calendarTelegramSettingsTitle">
       <h2 id="calendarTelegramSettingsTitle">Бот календаря Зигзаг</h2>
       <p>Создай отдельного бота в <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer">@BotFather</a> командой <strong>/newbot</strong>. Например, назови его «Зигзаг — календарь». Затем открой нового бота и нажми «Старт».</p>

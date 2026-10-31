@@ -197,6 +197,31 @@ def write_purchase_done(blocks, index, text, supplier, done):
     return {**blocks, PURCHASE_BLOCK: "".join(lines)}
 
 
+def write_purchase_text(blocks, index, text, supplier, new_text):
+    """Edit one purchase's text, preserving checkboxes, suppliers and raw layout."""
+    items = read_purchases(blocks)
+    if items is None:
+        raise ValueError("Неизвестные записи закупок сохранены без изменений")
+    if type(index) is not int or not 0 <= index < len(items):
+        raise ValueError("Укажи закупку для изменения")
+    item = items[index]
+    if not purchase_matches_supplier(item, supplier) or text != item["text"]:
+        raise ValueError("Закупка или выбор поставщика изменились. Обнови список")
+    value = validate_todos([{"text": new_text, "done": item["done"]}])[0]["text"]
+    if len(value.splitlines()) != 1:
+        raise ValueError("Укажите закупку одной строкой, до 1000 символов")
+    lines = blocks[PURCHASE_BLOCK].splitlines(keepends=True)
+    position = -1
+    for line_index, line in enumerate(lines):
+        if line.startswith("- ["):
+            position += 1
+            if position == index:
+                ending = line[len(line.rstrip("\r\n")):]
+                lines[line_index] = line[:6] + value + ending
+                break
+    return {**blocks, PURCHASE_BLOCK: "".join(lines)}
+
+
 def folder_note(record):
     return {"note": record.get("note", ""), "extra_blocks": record.get("extra_blocks", {})}
 

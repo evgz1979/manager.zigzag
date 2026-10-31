@@ -140,3 +140,10 @@ class SupplierPurchases:
         if is_inactive(relative, inactive):
             raise ValueError("Заказ скрыт отметкой неактивности. Обнови список закупок")
         return self.store.save_purchase_done(payload, name)
+
+    def edit(self, payload, *, inactive=()):
+        name = self.section(payload.get("supplier_path"))
+        relative = self.store.path(payload.get("path"))
+        if is_inactive(relative, inactive):
+            raise ValueError("Заказ скрыт отметкой неактивности. Обнови список закупок")
+        return self.store.save_purchase_text(payload, name)

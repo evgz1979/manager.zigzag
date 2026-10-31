@@ -1,9 +1,11 @@
-/* A supplier's checkbox edits the purchase in its original order. */
+/* Supplier edits update the purchase in its original order. */
 (() => {
   let folder = null, model = null, markup = null, generation = 0, saving = false, pendingKey = null, error = "", readError = "";
   const panel = $("supplierPurchasesSection"), list = $("supplierPurchasesList");
   const visible = () => state.view === "folder" && Boolean(state.folder?.purchaseSupplier);
   const itemKey = (order, item) => order.id + ":" + item.index;
+  const dialog = $("supplierPurchaseDialog");
+  let editor = null;
 
   function render() {
     panel.hidden = !visible() || (!error && !readError && model?.orders.length === 0);
@@ -12,6 +14,7 @@
     const pane = document.querySelector(".content-pane"), scroll = pane.scrollTop;
     const focused = document.activeElement?.dataset.supplierPurchaseDone;
     const focusedSource = document.activeElement?.dataset.supplierPurchaseSource;
+    const focusedEdit = document.activeElement?.dataset.supplierPurchaseEdit;
     const groups = model?.orders || [], all = groups.flatMap(order => order.items);
     const showDone = $("supplierPurchasesShowDone").checked;
     $("supplierPurchasesCount").textContent = all.filter(item => !item.done).length;
@@ -25,12 +28,14 @@
           '" data-purchase-index="' + item.index + '" aria-label="Закупка выполнена: ' + escapeHtml(item.text + ' · ' + name) + '"' + (item.done ? ' checked' : '') + (saving ? ' disabled' : '') +
           '><span title="' + escapeHtml(item.text) + '">' + escapeHtml(item.text) + '</span></label>' +
           '<a class="order-row-link supplier-purchase-source" data-supplier-purchase-path="' + escapeHtml(order.path) + '" data-supplier-purchase-source="' + escapeHtml(itemKey(order, item)) +
-          '" href="?path=' + encodeURIComponent(order.path) + '" title="' + escapeHtml(name + ' · ' + order.path) + '" aria-label="' + escapeHtml('Открыть заказ · ' + name + ' · ' + order.path) + '">' + escapeHtml(name) + '</a></div>').join("") + '</section>';
+          '" href="?path=' + encodeURIComponent(order.path) + '" title="' + escapeHtml(name + ' · ' + order.path) + '" aria-label="' + escapeHtml('Открыть заказ · ' + name + ' · ' + order.path) + '">' + escapeHtml(name) + '</a>' +
+          '<button class="supplier-purchase-edit" type="button" data-supplier-purchase-edit="' + escapeHtml(itemKey(order, item)) + '" data-purchase-index="' + item.index + '" title="Изменить закупку" aria-label="' + escapeHtml('Изменить закупку: ' + item.text + ' · ' + name) + '"' + (saving ? ' disabled' : '') + '>' + icon("edit") + '</button></div>').join("") + '</section>';
     }).join("") || (model ? '<p class="todo-empty">Все закупки выполнены. Их можно раскрыть выше.</p>' : '');
     if (markup !== next) { list.innerHTML = next; markup = next; }
-    $("supplierPurchasesState").textContent = error || readError || (saving ? "Сохраняю…" : model ? "Выполнение общее с исходным заказом и другими выбранными поставщиками." : "Загрузка закупок…");
+    $("supplierPurchasesState").textContent = error || readError || (saving ? "Сохраняю…" : model ? "Текст и выполнение общие с исходным заказом и другими выбранными поставщиками." : "Загрузка закупок…");
     if (focused) ([...list.querySelectorAll("[data-supplier-purchase-done]")].find(el => el.dataset.supplierPurchaseDone === focused) || $("supplierPurchasesShowDone")).focus({ preventScroll: true });
     if (focusedSource) ([...list.querySelectorAll("[data-supplier-purchase-source]")].find(el => el.dataset.supplierPurchaseSource === focusedSource) || $("supplierPurchasesShowDone")).focus({ preventScroll: true });
+    if (focusedEdit) focusEdit(focusedEdit);
     pane.scrollTop = scroll;
   }
 
@@ -56,7 +61,89 @@
     render();
   }
 
+  function focusEdit(key) {
+    ([...list.querySelectorAll("[data-supplier-purchase-edit]")].find(el => el.dataset.supplierPurchaseEdit === key) || $(panel.hidden ? "openFolderButton" : "supplierPurchasesShowDone")).focus({ preventScroll: true });
+  }
+
+  function editorControls() {
+    const busy = Boolean(editor?.busy);
+    $("supplierPurchaseText").readOnly = busy;
+    $("saveSupplierPurchase").disabled = busy || Boolean(editor?.conflict);
+    $("cancelSupplierPurchase").disabled = busy;
+    $("checkSupplierPurchase").disabled = busy;
+    $("checkSupplierPurchase").hidden = !editor?.conflict;
+  }
+
+  function openEditor(button) {
+    if (saving || !model || state.folder !== folder) return;
+    const order = model.orders.find(row => row.id === button.closest("[data-supplier-purchase-order]").dataset.supplierPurchaseOrder);
+    const item = order?.items.find(row => row.index === Number(button.dataset.purchaseIndex));
+    if (!item) return;
+    editor = { folder, order: { ...order }, item: { ...item }, key: itemKey(order, item), busy: false, conflict: false };
+    $("supplierPurchaseSource").textContent = [order.client, order.object, order.title].filter(Boolean).join(" · ");
+    $("supplierPurchaseText").value = item.text;
+    $("supplierPurchaseEditState").textContent = "";
+    $("supplierPurchaseCurrent").hidden = true;
+    editorControls();
+    dialog.showModal();
+    $("supplierPurchaseText").focus({ preventScroll: true });
+  }
+
+  async function saveText() {
+    const edit = editor;
+    if (!edit || edit.busy || edit.conflict) return;
+    if (state.folder !== edit.folder) { $("supplierPurchaseEditState").textContent = "Страница поставщика изменилась. Текст остался в поле; открой нужную закупку заново."; return; }
+    const value = $("supplierPurchaseText").value.trim();
+    if (!value) { $("supplierPurchaseEditState").textContent = "Введи текст закупки"; return; }
+    if (value === edit.item.text) { dialog.close(); return; }
+    edit.busy = true; saving = true; ++generation;
+    editorControls(); render();
+    $("supplierPurchaseEditState").textContent = "Сохраняю…";
+    try {
+      const saved = await request("/api/supplier-purchase-text", { supplier_path: edit.folder.path, path: edit.order.path, id: edit.order.id, revision: edit.order.revision, index: edit.item.index, text: edit.item.text, new_text: value });
+      applyOrderRecord(null, saved);
+      edit.busy = false;
+      dialog.close();
+      notify("Закупка сохранена");
+    } catch (problem) {
+      edit.conflict = true;
+      $("supplierPurchaseEditState").textContent = problem.message + " Твой текст остался в поле. Нажми «Проверить изменения» перед повторным сохранением.";
+    } finally {
+      edit.busy = false; saving = false;
+      editorControls();
+      await refresh();
+      if (dialog.open && editor === edit) $("supplierPurchaseText").focus({ preventScroll: true });
+    }
+  }
+
+  async function checkText() {
+    const edit = editor;
+    if (!edit || edit.busy) return;
+    edit.busy = true; ++generation; editorControls();
+    try {
+      if (state.folder !== edit.folder) throw new Error("Страница поставщика изменилась. Твой текст остался в поле; открой нужную закупку заново.");
+      const current = await request(apiUrl("/api/supplier-purchases", edit.folder.path));
+      if (state.folder !== edit.folder) throw new Error("Страница поставщика изменилась. Твой текст остался в поле.");
+      const order = current.orders.find(row => row.id === edit.order.id && row.path === edit.order.path);
+      const item = order?.items.find(row => row.index === edit.item.index);
+      model = current; render();
+      if (!item) throw new Error("Исходная закупка больше недоступна у поставщика. Твой текст остался в поле.");
+      $("supplierPurchaseCurrent").textContent = "Сейчас в заказе: " + item.text + (item.done ? " · выполнено" : " · не выполнено") + " · поставщики: " + (item.suppliers.join(", ") || "без поставщика");
+      $("supplierPurchaseCurrent").hidden = false;
+      if (item.text !== edit.item.text) throw new Error("Текст строки изменился или закупки переставлены. Твой ввод сохранён; отмени редактирование и выбери нужную строку в обновлённом списке.");
+      edit.order = { ...order }; edit.item = { ...item }; edit.conflict = false;
+      $("supplierPurchaseEditState").textContent = "Актуальная строка показана выше. Проверь текст и нажми «Сохранить», чтобы применить правку.";
+    } catch (problem) {
+      $("supplierPurchaseEditState").textContent = problem.message;
+    } finally {
+      edit.busy = false; editorControls();
+      if (dialog.open && editor === edit) $("supplierPurchaseText").focus({ preventScroll: true });
+    }
+  }
+
   list.addEventListener("click", event => {
+    const edit = event.target.closest("[data-supplier-purchase-edit]");
+    if (edit) { openEditor(edit); return; }
     const link = event.target.closest("[data-supplier-purchase-path]");
     if (link && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey && event.button === 0) {
       event.preventDefault(); run(() => navigate(link.dataset.supplierPurchasePath));
@@ -92,6 +179,14 @@
   });
   $("supplierPurchasesShowDone").addEventListener("change", render);
   $("refreshSupplierPurchases").addEventListener("click", () => { error = ""; readError = ""; run(refresh); });
+  $("supplierPurchaseForm").addEventListener("submit", event => { event.preventDefault(); run(saveText); });
+  $("cancelSupplierPurchase").addEventListener("click", () => { if (!editor?.busy) dialog.close(); });
+  $("checkSupplierPurchase").addEventListener("click", () => run(checkText));
+  dialog.addEventListener("cancel", event => { if (editor?.busy) event.preventDefault(); });
+  dialog.addEventListener("close", () => { const key = editor?.key; editor = null; if (state.folder === folder && visible() && key) focusEdit(key); });
+  dialog.addEventListener("keydown", event => {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") { event.preventDefault(); event.stopPropagation(); $("supplierPurchaseForm").requestSubmit(); }
+  });
   document.addEventListener("manager-folder-rendered", () => run(refresh));
   setInterval(() => { if (!document.hidden && visible() && !saving) run(refresh); }, 5000);
   run(refresh);

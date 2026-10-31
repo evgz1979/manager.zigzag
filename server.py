@@ -1936,6 +1936,15 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(supplier_purchases.SupplierPurchases(order_store()).save(payload, inactive=inactive_paths()))
                 schedule_order_sync()
                 return
+            elif route == "/api/supplier-purchase-text":
+                origin = self.headers.get("Origin")
+                if (self.headers.get_content_type() != "application/json"
+                        or (origin and urllib.parse.urlsplit(origin).netloc != self.headers.get("Host"))):
+                    self.send_json({"error": "Изменяй закупки через страницу поставщика"}, 403)
+                    return
+                self.send_json(supplier_purchases.SupplierPurchases(order_store()).edit(payload, inactive=inactive_paths()))
+                schedule_order_sync()
+                return
             elif route == "/api/order-favorite":
                 record = order_store().save_favorite(payload)
                 self.send_json(record)
