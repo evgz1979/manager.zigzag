@@ -38,6 +38,23 @@ const HomeCalendar = (() => {
   };
   const activeOrderDays = (order) => Object.keys(order.calendar_events || {}).filter((day) =>
     !order.calendar_inactive?.day?.includes(day) && !order.calendar_completed?.day?.includes(day));
+  function visibleOrderWeeks(order, today) {
+    if (!order.path || order.registered === false) return [];
+    const eventWeeks = order.calendar_compact === true ? [] : activeOrderDays(order).map((day) => dateKey(monday(new Date(day + "T00:00:00Z"))));
+    const weeks = [...new Set([...(order.deadline_weeks || []), ...eventWeeks])];
+    const currentWeek = dateKey(monday(today));
+    return weeks.filter((week) => {
+      if (order.calendar_compact === true || week >= currentWeek) return true;
+      const end = dateKey(shiftDays(new Date(week + "T00:00:00Z"), 7));
+      return [["week", order.calendar_week_events], ["day", order.calendar_events]].some(([period, entries]) => {
+        // Unknown event text must remain reachable rather than look like an empty week.
+        if (entries === null) return true;
+        return Object.entries(entries || {}).some(([key, text]) =>
+          (period === "week" ? key === week : key >= week && key < end) && text.trim() &&
+          !order.calendar_completed?.[period]?.includes(key));
+      });
+    });
+  }
   function calendarRange(now = new Date(), calendarOrders = [], freeEvents = [], plans = []) {
     const today = moscowDate(now);
     let start = monday(today), end = shiftDays(start, VISIBLE_WEEKS * 7 - 1);
@@ -127,9 +144,7 @@ const HomeCalendar = (() => {
   function renderWeekOrders() {
     const byWeek = new Map();
     for (const order of orders) {
-      if (!order.path || order.registered === false) continue;
-      const eventWeeks = order.calendar_compact === true ? [] : activeOrderDays(order).map((day) => dateKey(monday(new Date(day + "T00:00:00Z"))));
-      for (const week of new Set([...(order.deadline_weeks || []), ...eventWeeks])) {
+      for (const week of visibleOrderWeeks(order, range.today)) {
         if (!byWeek.has(week)) byWeek.set(week, []);
         byWeek.get(week).push(order);
       }

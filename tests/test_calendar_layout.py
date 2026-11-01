@@ -19,7 +19,7 @@ manager = fixtures.manager
 
 class CalendarLayoutJavaScriptTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which("node"), "Node.js is required for calendar checks")
-    def test_small_orders_extend_range_only_by_selected_weeks(self):
+    def test_small_order_range_and_past_week_row_visibility(self):
         subprocess.run(["node", str(Path(__file__).with_name("calendar-layout.cjs"))], check=True, capture_output=True, text=True)
 
 
