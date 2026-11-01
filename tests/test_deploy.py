@@ -19,6 +19,18 @@ PREVIOUS = "20261019T170000Z-abcdef12"
 
 
 class DeploymentTests(unittest.TestCase):
+    def test_manual_calendar_layout_blocks_rollback_to_old_placement(self):
+        release = self.base / 'old-calendar-layout'
+        release.mkdir()
+        (release / 'local_metadata.py').write_text('# SQLite storage')
+        with sqlite3.connect(self.db) as db:
+            db.execute('CREATE TABLE metadata_settings (key TEXT PRIMARY KEY,value TEXT)')
+            db.execute("INSERT INTO metadata_settings VALUES ('calendar_layout','1')")
+        with self.assertRaisesRegex(RuntimeError, 'мелкие заказы'):
+            remote.check_event_rename_compatibility(self.db, release)
+        (release / 'calendar_layout.py').write_text('CALENDAR_LAYOUT_VERSION = 1')
+        remote.check_event_rename_compatibility(self.db, release)
+
     def test_dynamic_purchase_suppliers_block_rollback_to_fixed_list(self):
         release = self.base / 'old-purchase-suppliers'
         release.mkdir()

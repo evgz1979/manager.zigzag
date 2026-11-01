@@ -2008,6 +2008,9 @@ function renderOrderDeadlines(order, { options = state.deadlineWeekOptions, card
   const range = orderDeadlineRange(order.deadline_weeks);
   let previous;
   return '<div class="order-deadline-line' + (card ? ' order-card-deadline-line' : '') + '"><div class="order-deadline-buttons"><div class="order-deadline-weeks" role="group" aria-label="Сроки · ' + escapeHtml(order.title) + '">' +
+    '<button type="button" class="deadline-compact-toggle" data-order-calendar-compact="' + escapeHtml(order.path) + '" data-order-id="' + escapeHtml(order.id) + '" data-revision="' + order.revision +
+    '" aria-pressed="' + (order.calendar_compact === true) + '" aria-label="' + escapeHtml("Мелкий заказ в календаре · " + order.title) + '" title="Мелкий заказ: показывать синим внизу недели"' +
+    (disabled || unknown || order.calendar_compact === null || order.registered === false || orderRowSaving(order.path) ? ' disabled' : '') + '>' + (order.calendar_compact === true ? '★' : '☆') + '</button>' +
     options.map((option, index) => {
       const week = deadlineWeekInfo(option.start);
       const past = currentWeek && week.start < currentWeek;
@@ -2051,7 +2054,11 @@ function renderCardDeadlines() {
   }
   const options = [...visible].sort().map((start) => ({ start }));
   const markup = renderDeadlineMonthLegend(options) + renderOrderDeadlines(order, { options, card: true, disabled });
-  if ($("orderCardDeadlineList").innerHTML !== markup) $("orderCardDeadlineList").innerHTML = markup;
+  if ($("orderCardDeadlineList").innerHTML !== markup) {
+    const focused = document.activeElement?.hasAttribute("data-order-calendar-compact");
+    $("orderCardDeadlineList").innerHTML = markup;
+    if (focused) $("orderCardDeadlineList").querySelector("[data-order-calendar-compact]")?.focus({ preventScroll: true });
+  }
   $("orderCardDeadlineEarlier").disabled = disabled || !options.length || !shiftDeadlineWeek(options[0].start, -1);
   $("orderCardDeadlineLater").disabled = disabled || !options.length || !shiftDeadlineWeek(options.at(-1).start, 1);
   $("orderCardDeadlineState").textContent = folder.deadlineError || (unknown ? "Неизвестный формат сроков сохранён без изменений" :
@@ -2206,6 +2213,41 @@ async function toggleOrderDeadline(button) {
   const selected = button.getAttribute("aria-pressed") !== "true";
   if (state.folder?.path === path) await flushDeadlineComments();
   return changeOrderDeadline({ path, id: button.dataset.orderId, revision: Number(button.dataset.revision), week, selected }, button);
+}
+
+async function toggleCalendarCompact(button) {
+  const path = button.dataset.orderCalendarCompact, folder = state.folder?.path === path ? state.folder : null;
+  if (orderRowSaving(path) || folder?.deadlineConflict) return;
+  if (folder) await flushDeadlineComments(folder);
+  if (folder && state.folder !== folder) return;
+  const order = folder?.order || findListOrder(path);
+  if (!order || order.registered === false || order.calendar_compact === null) return;
+  const enabled = button.getAttribute("aria-pressed") !== "true";
+  state.deadlineSaving.add(path); ++state.ordersRequest;
+  let saving;
+  try {
+    if (state.saving) await state.saving;
+    if (folder && state.folder !== folder) return;
+    saving = request("/api/order-calendar-compact", { path, id: order.id, revision: folder?.order?.revision ?? Number(button.dataset.revision), calendar_compact: enabled })
+      .then(saved => applyOrderRecord(folder, saved));
+    if (folder) state.saving = saving;
+    button.disabled = true;
+    await saving;
+    notify(enabled ? "Мелкий заказ показан внизу недели" : "Заказ возвращён в строки календаря");
+  } catch (error) {
+    if (folder) { folder.deadlineConflict = error.status === 409; folder.deadlineError = error.message; }
+    try { await loadOrders(); } catch (_) { /* Keep the current editor. */ }
+    throw error;
+  } finally {
+    if (saving && state.saving === saving) state.saving = null;
+    state.deadlineSaving.delete(path);
+    if (folder && state.folder === folder) { renderStatus(); renderCardDeadlines(); }
+    if (hasOrderList()) renderOrders({ force: true });
+    if (document.activeElement === button || document.activeElement === document.body) {
+      const root = folder && state.folder === folder ? $("orderCardDeadlineList") : $("ordersTableBody");
+      [...root.querySelectorAll("[data-order-calendar-compact]")].find(el => el.dataset.orderCalendarCompact === path)?.focus({ preventScroll: true });
+    }
+  }
 }
 
 async function changeOrderDeadline({ path, id, revision, week, selected }, button) {
@@ -2784,6 +2826,7 @@ function applyCalendarInvoicePlan(saved) {
     is_completed: saved.data._calendar_completed ?? false,
     is_trip: saved.data._calendar_trip ?? false,
     is_watch_todos: saved.data._calendar_watch_todos ?? false,
+    is_carryover: saved.data._calendar_carryover ?? false,
   });
 }
 
@@ -2818,7 +2861,8 @@ function openCalendarEventMenu(slot, x, y) {
   const watch_todos = plan ? order.is_watch_todos === true : !free && Boolean(order.calendar_watch_todos?.[period]?.includes(date));
   const canColor = !plan && (Boolean(free) || !order.work_supplier && order.calendar_colors !== null);
   const color = free ? order.color : order.calendar_colors?.[period]?.[date];
-  state.calendarMenu = { free: Boolean(free), plan: Boolean(plan), path: order.path, id: order.id, revision: order.revision, date, period, inactive, completed, trip, watch_todos, color, canColor, slot };
+  const carryover = Boolean(plan) && order.is_carryover === true;
+  state.calendarMenu = { free: Boolean(free), plan: Boolean(plan), path: order.path, id: order.id, revision: order.revision, date, period, inactive, completed, trip, watch_todos, carryover, color, canColor, slot };
   const menu = $("calendarEventMenu");
   $("calendarEventMenuName").textContent = text;
   $("calendarEventDayMoves").hidden = period === "week";
@@ -2829,6 +2873,9 @@ function openCalendarEventMenu(slot, x, y) {
   $("calendarEventWatchTodos").hidden = Boolean(free) || !order.path;
   $("calendarEventWatchTodos").disabled = plan ? typeof (order.is_watch_todos ?? false) !== "boolean" : order.calendar_watch_todos === null;
   $("calendarEventWatchTodos").setAttribute("aria-checked", String(watch_todos));
+  $("calendarEventCarryover").hidden = !plan || !["incoming", "outgoing"].includes(order.operation);
+  $("calendarEventCarryover").disabled = typeof (order.is_carryover ?? false) !== "boolean";
+  $("calendarEventCarryover").setAttribute("aria-checked", String(carryover));
   $("calendarEventDelete").hidden = plan ? Boolean(order.path) : period !== 'day';
   $("calendarEventColors").hidden = !canColor;
   menu.querySelectorAll("[data-calendar-color]").forEach((button) => button.setAttribute("aria-checked", String(button.dataset.calendarColor === (color || "green"))));
@@ -2885,6 +2932,7 @@ async function toggleCalendarEventFlag(flag) {
     if (flag === 'completed') notify(menu.completed ? 'Отметка «Выполнено» снята' : 'Отмечено «Выполнено»');
     if (flag === 'trip') notify(menu.trip ? 'Отметка «Выезд» снята' : 'Отмечено «Выезд»');
     if (flag === 'watch_todos') notify(menu.watch_todos ? 'Отметка «Смотри ту-ду» снята' : 'Отмечено «Смотри ту-ду»');
+    if (flag === 'carryover') notify(menu.carryover ? 'Платёж возвращён к своей дате' : 'Платёж помещён в перенос слева');
   } catch (error) {
     notify(error.message, true);
     if (error.status === 409) { try { await loadOrders(); } catch (_) { /* Keep the last calendar. */ } }
@@ -2901,7 +2949,7 @@ function applyCalendarDeletion(entry, saved, deleted) {
     state.calendarInvoicePlans = state.calendarInvoicePlans.filter((plan) => plan.id !== saved.id);
     if (!deleted) state.calendarInvoicePlans.push({ ...entry.originalPlan, revision: saved.revision,
       date: saved.data.date, period: saved.data.period || 'day', operation: saved.data.operation,
-      amount: saved.data.amount, text: saved.data.text || '', is_inactive: saved.data._calendar_inactive || false, is_completed: saved.data._calendar_completed ?? false, is_trip: saved.data._calendar_trip ?? false });
+      amount: saved.data.amount, text: saved.data.text || '', is_inactive: saved.data._calendar_inactive || false, is_completed: saved.data._calendar_completed ?? false, is_trip: saved.data._calendar_trip ?? false, is_watch_todos: saved.data._calendar_watch_todos ?? false, is_carryover: saved.data._calendar_carryover ?? false });
   } else if (entry.free) applyFreeCalendarEvent(saved);
   else applyOrderRecord(null, saved);
 }
@@ -3179,6 +3227,7 @@ function renderOrders({ force = false } = {}) {
   const listScroll = $("ordersWorkspace").querySelector(".orders-table-scroll"), scrollLeft = listScroll.scrollLeft;
   const pane = document.querySelector(".content-pane"), scrollTop = pane.scrollTop;
   const focusedDeadline = document.activeElement?.dataset.orderDeadline, focusedWeek = document.activeElement?.dataset.deadlineWeek;
+  const focusedCompact = document.activeElement?.dataset.orderCalendarCompact;
   const orders = orderListRows().filter((order) => state.view !== "orders" || orderShownOnMain(order)), object = isObjectOrderList(), work = isWorkOrderList();
   const deadlineOptions = orderListDeadlineOptions(orders);
   renderWorkArchive();
@@ -3240,6 +3289,7 @@ function renderOrders({ force = false } = {}) {
     [...(row?.querySelectorAll('[data-related-card-id]') || [])].find(link => link.dataset.relatedCardId === focusedRelatedLink.id)?.focus({ preventScroll: true });
   }
   focusOrderDeadline(focusedDeadline, focusedWeek);
+  if (focusedCompact) [...$("ordersTableBody").querySelectorAll("[data-order-calendar-compact]")].find(el => el.dataset.orderCalendarCompact === focusedCompact)?.focus({ preventScroll: true });
   focusOrderGroup(focusedGroup);
   if (work && (focusedOrder || focusedTodos)) [...$("ordersTableBody").querySelectorAll("[data-order], [data-order-todos]")].find((button) => focusedOrder ? button.dataset.order === focusedOrder : button.dataset.orderTodos === focusedTodos)?.focus({ preventScroll: true });
   if (work || object) { listScroll.scrollLeft = scrollLeft; pane.scrollTop = scrollTop; }
@@ -3909,6 +3959,7 @@ $("calendarEventMenu").addEventListener("click", (event) => {
   if (event.target.closest("#calendarEventCompleted")) { run(() => toggleCalendarEventFlag('completed')); return; }
   if (event.target.closest("#calendarEventTrip")) { run(() => toggleCalendarEventFlag('trip')); return; }
   if (event.target.closest("#calendarEventWatchTodos:not(:disabled)")) { run(() => toggleCalendarEventFlag('watch_todos')); return; }
+  if (event.target.closest("#calendarEventCarryover:not(:disabled)")) { run(() => toggleCalendarEventFlag('carryover')); return; }
   const color = event.target.closest("[data-calendar-color]");
   if (color) { run(() => colorCalendarEvent(color.dataset.calendarColor)); return; }
   const button = event.target.closest("[data-calendar-move]");
@@ -3994,6 +4045,8 @@ $("ordersTableBody").addEventListener("change", (event) => {
   if (select) run(() => changeOrderProductionStatus(select));
 });
 $("ordersTableBody").addEventListener("click", (event) => {
+  const compact = event.target.closest("[data-order-calendar-compact]");
+  if (compact) { run(() => toggleCalendarCompact(compact)); return; }
   const relatedButton = event.target.closest("[data-order-related]");
   if (relatedButton) { run(() => openOrderLinks(relatedButton.dataset.orderRelated)); return; }
   const groupButton = event.target.closest("[data-order-group-toggle]");
@@ -4209,6 +4262,8 @@ $("moneyOverview").addEventListener("click", (event) => {
 $("openFolderButton").addEventListener("click", () => run(() => openNative(state.selected)));
 $("orderPageFavorite").addEventListener("click", () => run(() => toggleOrderFavorite(state.folder?.path)));
 $("orderCardDeadlineList").addEventListener("click", (event) => {
+  const compact = event.target.closest("[data-order-calendar-compact]");
+  if (compact) { run(() => toggleCalendarCompact(compact)); return; }
   const button = event.target.closest("[data-order-deadline]");
   if (button) run(() => toggleOrderDeadline(button));
 });

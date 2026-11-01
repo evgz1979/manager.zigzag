@@ -192,6 +192,11 @@ def check_event_rename_compatibility(database, release_dir):
         return
     with closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)) as db:
         if (db.execute("SELECT 1 FROM sqlite_master WHERE name='metadata_settings'").fetchone()
+                and db.execute("SELECT 1 FROM metadata_settings WHERE key='calendar_layout' AND value='1'").fetchone()):
+            source = release_dir / 'calendar_layout.py'
+            if not source.is_file() or 'CALENDAR_LAYOUT_VERSION = 1' not in source.read_text(encoding='utf-8'):
+                raise RuntimeError('В календаре есть переносы платежей и мелкие заказы. Старый код не поддерживает размещение; откат заблокирован')
+        if (db.execute("SELECT 1 FROM sqlite_master WHERE name='metadata_settings'").fetchone()
                 and db.execute("SELECT 1 FROM metadata_settings WHERE key='reconciliations' AND value='1'").fetchone()):
             source = release_dir / 'reconciliations.py'
             if not source.is_file() or 'RECONCILIATIONS_VERSION = 1' not in source.read_text(encoding='utf-8'):

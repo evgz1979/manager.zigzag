@@ -9,6 +9,8 @@ def digest(snapshot, start):
     by_path = {order['path']: order for order in orders}
     events = []
     for order in orders:
+        if order.get('calendar_compact') is True:
+            continue
         marks = order.get('calendar_watch_todos') or {}
         days = order.get('calendar_events') or {}
         active_weeks = set(order.get('deadline_weeks') or [])

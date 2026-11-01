@@ -381,6 +381,7 @@ class InvoiceStore:
                                    'is_completed': data.get('_calendar_completed', False),
                                    'is_trip': data.get('_calendar_trip', False),
                                    'is_watch_todos': data.get('_calendar_watch_todos', False),
+                                   'is_carryover': data.get('_calendar_carryover', False),
                                    'operation': data.get('operation', 'invoice'), 'amount': data.get('amount'),
                                    'text': data.get('text', ''), 'invoice_label': data.get('invoice_label', ''),
                                    'title': owner['title'] if owner else 'Без заказа', 'client': owner['client'] if owner else '', 'object': owner['object'] if owner else ''})
@@ -394,6 +395,9 @@ class InvoiceStore:
 
     def save_plan_calendar_trip(self, payload):
         return self._save_plan_calendar_flag(payload, 'is_trip', '_calendar_trip')
+
+    def save_plan_calendar_carryover(self, payload):
+        return self._save_plan_calendar_flag(payload, 'is_carryover', '_calendar_carryover')
 
     def save_plan_calendar_watch_todos(self, payload):
         if not payload.get('path'):
@@ -415,6 +419,10 @@ class InvoiceStore:
             data = json.loads(row['data'])
             if not known_plan(data) or type(data.get(key, False)) is not bool:
                 raise ValueError('Неизвестный формат отметки плана сохранён без изменений')
+            if field == 'is_carryover' and data.get('operation') not in ('incoming', 'outgoing'):
+                raise ValueError('В перенос можно поместить только доход или расход')
+            if field == 'is_carryover' and data.get('_trash'):
+                raise InvoiceConflict('Платёж в корзине. Восстанови его перед изменением размещения')
             db.execute('INSERT INTO invoice_history VALUES (?,?,?,?)', (row['id'], row['revision'], row['data'], time.time()))
             data[key] = value
             db.execute('UPDATE invoices SET data=?,revision=revision+1,updated=? WHERE id=?',

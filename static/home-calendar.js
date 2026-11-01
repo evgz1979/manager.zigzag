@@ -52,7 +52,7 @@ const HomeCalendar = (() => {
     for (const order of calendarOrders) {
       if (!order.path || order.registered === false) continue;
       for (const week of order.deadline_weeks || []) include(week, "week");
-      for (const date of activeOrderDays(order)) include(date);
+      if (order.calendar_compact !== true) for (const date of activeOrderDays(order)) include(date);
     }
     for (const event of [...freeEvents, ...plans]) {
       if (!event.deleted && ["day", "week"].includes(event.period || "day")) include(event.date, event.period);
@@ -128,15 +128,18 @@ const HomeCalendar = (() => {
     const byWeek = new Map();
     for (const order of orders) {
       if (!order.path || order.registered === false) continue;
-      const eventWeeks = activeOrderDays(order).map((day) => dateKey(monday(new Date(day + "T00:00:00Z"))));
+      const eventWeeks = order.calendar_compact === true ? [] : activeOrderDays(order).map((day) => dateKey(monday(new Date(day + "T00:00:00Z"))));
       for (const week of new Set([...(order.deadline_weeks || []), ...eventWeeks])) {
         if (!byWeek.has(week)) byWeek.set(week, []);
         byWeek.get(week).push(order);
       }
     }
     for (const row of get("calendarWeeks").children) {
-      const list = row.querySelector(".calendar-orders-list"), weekly = byWeek.get(row.dataset.week) || [];
-      const signature = JSON.stringify(weekly.map((order) => [order.id, order.path, order.title, order.client, order.object, order.is_blue_plus, order.is_dollar, order.is_flagged, order.is_favorite, order.work_supplier, order.work_supplier_color, order.deadline_weeks, order.calendar_events, order.calendar_week_events, order.calendar_inactive, order.calendar_completed, order.calendar_trip, order.calendar_watch_todos, order.calendar_colors]));
+      const list = row.querySelector(".calendar-orders-list"), eligible = byWeek.get(row.dataset.week) || [];
+      const compact = eligible.filter(order => order.calendar_compact === true);
+      renderCompactOrders(row.querySelector(".calendar-compact-orders"), compact);
+      const weekly = eligible.filter(order => order.calendar_compact !== true);
+      const signature = compact.length + ":" + JSON.stringify(weekly.map((order) => [order.id, order.path, order.title, order.client, order.object, order.is_blue_plus, order.is_dollar, order.is_flagged, order.is_favorite, order.work_supplier, order.work_supplier_color, order.deadline_weeks, order.calendar_events, order.calendar_week_events, order.calendar_inactive, order.calendar_completed, order.calendar_trip, order.calendar_watch_todos, order.calendar_colors]));
       if (list.dataset.signature === signature) continue;
       list.dataset.signature = signature;
       const top = list.parentElement.scrollTop;
@@ -215,7 +218,7 @@ const HomeCalendar = (() => {
         retained.add(item);
       }
       for (const item of [...list.children]) if (!retained.has(item)) item.remove();
-      if (!weekly.length) {
+      if (!weekly.length && !compact.length) {
         const empty = document.createElement("li");
         empty.className = "calendar-orders-empty";
         empty.textContent = "Нет заказов";
@@ -226,6 +229,27 @@ const HomeCalendar = (() => {
         (focused.isConnected ? focused : list.querySelector("a") || get("calendarViewport")).focus({ preventScroll: true });
       }
     }
+  }
+
+  function renderCompactOrders(container, compact) {
+    const existing = new Map([...container.children].map(link => [link.dataset.calendarOrder, link]));
+    const retained = new Set();
+    let before = container.firstElementChild;
+    for (const order of compact) {
+      let link = existing.get(order.path);
+      if (!link) { link = document.createElement("a"); link.className = "calendar-order-link calendar-compact-order"; }
+      link.href = "?path=" + encodeURIComponent(order.path);
+      link.dataset.calendarOrder = order.path;
+      const title = order.title || order.path;
+      const label = order.work_supplier ? order.work_supplier + " · " + title : title + (order.client ? " · " + order.client : "");
+      link.textContent = label;
+      link.setAttribute("aria-label", "Мелкий заказ · " + label + (order.object ? " · " + order.object : ""));
+      if (link !== before) container.insertBefore(link, before);
+      before = link.nextElementSibling; retained.add(link);
+    }
+    const focused = container.contains(document.activeElement);
+    for (const link of [...container.children]) if (!retained.has(link)) link.remove();
+    if (focused && document.activeElement === document.body) get("calendarViewport").focus({ preventScroll: true });
   }
 
   function renderFreeEvents() {
@@ -282,7 +306,8 @@ const HomeCalendar = (() => {
   function renderInvoicePlans() {
     const byDate = new Map();
     for (const plan of invoicePlans) {
-      const key = (plan.period || 'day') + ':' + plan.date;
+      const key = plan.is_carryover === true && ['incoming', 'outgoing'].includes(plan.operation) ?
+        'carryover:' + dateKey(monday(new Date(plan.date + 'T00:00:00Z'))) : (plan.period || 'day') + ':' + plan.date;
       if (!byDate.has(key)) byDate.set(key, []);
       byDate.get(key).push(plan);
     }
@@ -326,7 +351,7 @@ const HomeCalendar = (() => {
         } else link.dataset.calendarPlanEdit = plan.id;
         const start = new Date(plan.date + 'T00:00:00Z');
         const periodLabel = plan.period === 'week' ? 'Неделя: ' + fullDate.format(start) + ' — ' + fullDate.format(shiftDays(start, 6)) : fullDate.format(start);
-        const description = [plan.is_watch_todos === true ? 'Смотри ту-ду' : '', plan.is_completed === true ? 'Выполнено' : '', plan.is_trip === true ? 'Выезд' : '', plan.is_inactive === true ? 'Неактуально' : '', label, signedAmount ? signedAmount + ' ₽' : '', plan.text, plan.invoice_label, plan.title, plan.client, plan.object, periodLabel].filter(Boolean).join(' · ');
+        const description = [plan.is_carryover === true ? 'Перенос слева' : '', plan.is_watch_todos === true ? 'Смотри ту-ду' : '', plan.is_completed === true ? 'Выполнено' : '', plan.is_trip === true ? 'Выезд' : '', plan.is_inactive === true ? 'Неактуально' : '', label, signedAmount ? signedAmount + ' ₽' : '', plan.text, plan.invoice_label, plan.title, plan.client, plan.object, periodLabel].filter(Boolean).join(' · ');
         link.setAttribute('aria-label', description);
         link.title = plan.path ? description : plan.text || '';
         const target = operation === 'outgoing' ? targets.outgoing : targets.incoming, next = before.get(target);
@@ -398,6 +423,20 @@ const HomeCalendar = (() => {
     return plans;
   }
 
+  function carryoverHeader(week) {
+    const area = document.createElement("div"), payments = document.createElement("div");
+    area.className = "calendar-invoice-plans calendar-carryover-plans";
+    area.dataset.period = "carryover"; area.dataset.date = dateKey(week);
+    area.setAttribute("role", "group");
+    area.setAttribute("aria-label", "Переносы доходов и расходов · неделя с " + fullDate.format(week));
+    payments.className = "calendar-payment-columns";
+    for (const operation of ["incoming", "outgoing"]) {
+      const column = document.createElement("div"); column.className = "calendar-plan-column";
+      column.dataset.planColumn = operation; payments.append(column);
+    }
+    area.append(payments); return area;
+  }
+
   function show(nextOrders, nextEvents, nextInvoicePlans) {
     if (Array.isArray(nextOrders)) orders = nextOrders;
     if (Array.isArray(nextEvents)) events = nextEvents;
@@ -422,12 +461,15 @@ const HomeCalendar = (() => {
           const orderCell = document.createElement("div"), content = document.createElement("div"), list = document.createElement("ul");
           orderCell.className = "calendar-day calendar-orders-cell";
           orderCell.style.gridArea = "1 / 1";
+          orderCell.append(carryoverHeader(week));
           content.className = "calendar-week-content";
           list.className = "calendar-orders-list";
           list.setAttribute("aria-label", "Заказы на неделю: " + fullDate.format(week) + " — " + fullDate.format(shiftDays(week, 6)));
-          const free = document.createElement("div"), spacer = document.createElement("span");
+          const free = document.createElement("div"), spacer = document.createElement("div");
           free.className = "calendar-free-events";
-          spacer.setAttribute("aria-hidden", "true");
+          spacer.className = "calendar-compact-orders";
+          spacer.setAttribute("role", "group");
+          spacer.setAttribute("aria-label", "Мелкие заказы · неделя с " + fullDate.format(week));
           free.append(spacer);
           for (let column = 0; column < 8; column++) {
             const cell = document.createElement("div"), add = document.createElement("button");

@@ -11,6 +11,7 @@ from pathlib import Path
 import order_document as document
 import order_deadlines
 import order_calendar
+import calendar_layout
 import order_links
 import work_orders
 from order_document import money, MAX_MONEY
@@ -120,6 +121,7 @@ class OrderStore:
         result["primary_related_orders"] = order_links.primary_items(db, result["path"], result["primary_related_order_ids"])
         result["can_link_orders"] = bool(order_links.scope(result["path"]))
         result["deadline_weeks"] = order_deadlines.read(result["extra_blocks"])
+        result["calendar_compact"] = calendar_layout.read_compact(result["extra_blocks"])
         result["calendar_events"] = order_calendar.read(result["extra_blocks"])
         result["calendar_inactive"] = order_calendar.read_inactive(result["extra_blocks"])
         result["calendar_completed"] = order_calendar.read_completed(result["extra_blocks"])
@@ -186,6 +188,8 @@ class OrderStore:
                 WHERE orders.registered=0""", (relative, str(uuid.uuid4()), initial.get("title", Path(relative).name),
                 status, financial_status, note, initial.get("amount"), initial.get("costs"), initial.get("paid"), time.time(),
                 json.dumps(order_calendar.normalize_weekly_blocks(initial.get("extra_blocks", {})), ensure_ascii=False)))
+            if calendar_layout.COMPACT_BLOCK in initial.get("extra_blocks", {}):
+                calendar_layout.mark_contract(db)
             if self.database_only and status == 'related':
                 order_links.mark_status_contract(db)
         return self.get(relative)
@@ -270,6 +274,9 @@ class OrderStore:
     def save_deadline_comment(self, payload):
         return self._save_extra_block(payload, lambda blocks: order_deadlines.write_comment(blocks, payload.get("week"), payload.get("comment")), update_time=False)
 
+    def save_calendar_compact(self, payload):
+        return self._save_extra_block(payload, lambda blocks: calendar_layout.write_compact(blocks, payload.get("calendar_compact")), update_time=False)
+
     def save_flag(self, payload):
         return self._save_extra_block(payload, lambda blocks: document.write_flag(blocks, payload.get("is_flagged")), update_time=False)
 
@@ -343,6 +350,8 @@ class OrderStore:
             if row is None:
                 raise OrderConflict("Заказ изменён в другой вкладке. Проверь актуальные данные и повтори изменение.")
             blocks = write(json.loads(row["extra_blocks"]))
+            if calendar_layout.COMPACT_BLOCK in blocks:
+                calendar_layout.mark_contract(db)
             if self.database_only and order_calendar.INACTIVE_BLOCK in blocks:
                 order_calendar.mark_relevance_contract(db)
             if self.database_only and order_calendar.COMPLETED_BLOCK in blocks:
@@ -514,9 +523,11 @@ class OrderStore:
                     blocks = order_calendar.normalize_weekly_blocks(body.get("extra_blocks", previous["extra_blocks"]))
                     # Another linked order may have removed a relation while this
                     # card was unregistered; the old note snapshot must not revive it.
-                    for block in (order_links.BLOCK, order_links.PRIMARY_BLOCK):
+                    for block in (order_links.BLOCK, order_links.PRIMARY_BLOCK, calendar_layout.COMPACT_BLOCK):
                         if block in previous["extra_blocks"]:
                             blocks[block] = previous["extra_blocks"][block]
+                    if calendar_layout.COMPACT_BLOCK in blocks:
+                        calendar_layout.mark_contract(db)
                     db.execute("UPDATE orders SET registered=1,note=?,extra_blocks=?,revision=revision+1,updated=? WHERE path=?",
                         (body.get("note",previous["note"]),json.dumps(blocks,ensure_ascii=False),time.time(),relative))
             return self.get(relative)
@@ -590,6 +601,8 @@ class OrderStore:
                 revision=MAX(orders.revision+1,excluded.revision),updated=excluded.updated,
                 extra_blocks=excluded.extra_blocks,sync_error='' WHERE orders.registered=0""", (relative, identity, title, status, snapshot.get("financial_status", "unspecified"), note,
                 *values, revision, time.time(), json.dumps(order_calendar.normalize_weekly_blocks(snapshot.get("extra_blocks", {})), ensure_ascii=False)))
+            if calendar_layout.COMPACT_BLOCK in snapshot.get("extra_blocks", {}):
+                calendar_layout.mark_contract(db)
             if self.database_only and status == 'related':
                 order_links.mark_status_contract(db)
 

@@ -203,8 +203,10 @@ def mark_trip_contract(db):
 
 
 def mark_flag_contract(db, field):
+    import calendar_layout
     {"is_completed": mark_completion_contract, "is_inactive": mark_relevance_contract,
-     "is_trip": mark_trip_contract, "is_watch_todos": mark_watch_todos_contract}[field](db)
+     "is_trip": mark_trip_contract, "is_watch_todos": mark_watch_todos_contract,
+     "is_carryover": calendar_layout.mark_contract}[field](db)
 
 
 def mark_watch_todos_contract(db):

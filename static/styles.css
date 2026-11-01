@@ -727,6 +727,18 @@ h2 { font-size: 13px; font-weight: 600; }
 .order-card-deadline-navigation button { padding: 4px 7px; font-size: 10px; }
 .order-card-deadline-state { margin: 8px 0 0; color: var(--muted); font-size: 10px; }
 .deadline-week { width: 24px; height: 22px; padding: 0; border-radius: 4px; font-size: 10px; background: hsl(var(--deadline-month-hue) 45% 96%); border-color: hsl(var(--deadline-month-hue) 28% 82%); color: hsl(var(--deadline-month-hue) 32% 35%); }
+.deadline-compact-toggle { width: 24px; height: 22px; padding: 0; border-radius: 4px; font-size: 15px; line-height: 20px; color: #dde1e4; background: transparent; border-color: #f0f2f3; }
+.deadline-compact-toggle[aria-pressed="false"]:hover:not(:disabled) { color: #cfd4d8; background: #fafbfc; border-color: #e7eaed; }
+.deadline-compact-toggle[aria-pressed="true"] { color: #1764b4; background: #deebfb; border-color: #73a1d4; }
+.deadline-compact-toggle[aria-pressed="true"]:hover:not(:disabled) { background: #d2e3f9; }
+.deadline-compact-toggle:disabled { opacity: .45; }
+.calendar-compact-orders { min-width: 0; display: flex; flex-direction: column; align-items: stretch; align-self: start; }
+.calendar-compact-order { color: #3478be; font-weight: 400; flex: 0 0 12px; }
+.calendar-compact-order:hover, .calendar-compact-order:focus-visible { background: #e8f1fb; }
+.calendar-carryover-plans { position: relative; top: auto; left: auto; right: auto; text-align: left; display: grid; grid-template-columns: 1fr; }
+.calendar-carryover-plans .calendar-payment-columns { margin: 0; grid-template-columns: minmax(0, 1fr); }
+.calendar-carryover-plans .calendar-plan-amount { font-size: 11px; }
+.calendar-carryover-plans .calendar-plan-caption { font-size: 9px; }
 .deadline-week.travel { position: relative; }
 .deadline-week.travel::before { content: ""; position: absolute; top: -6px; left: -1px; right: -1px; height: 2px; background: #e5be36; pointer-events: none; }
 .deadline-week.travel-continues::before { right: -4px; }

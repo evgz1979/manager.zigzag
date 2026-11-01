@@ -1984,6 +1984,10 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(record)
                 schedule_order_sync()
                 return
+            elif route == "/api/order-calendar-compact":
+                self.send_json(order_store().save_calendar_compact(payload))
+                schedule_order_sync()
+                return
             elif route == "/api/order-deadline-comment":
                 record = order_store().save_deadline_comment(payload)
                 self.send_json(record)
@@ -2040,6 +2044,9 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 return
             elif route == "/api/invoice-plan-calendar-inactive":
                 self.send_json(invoice_store().save_plan_calendar_inactive(payload))
+                return
+            elif route == "/api/invoice-plan-calendar-carryover":
+                self.send_json(invoice_store().save_plan_calendar_carryover(payload))
                 return
             elif route == "/api/order-calendar-event":
                 record = order_store().save_calendar_event(payload)
