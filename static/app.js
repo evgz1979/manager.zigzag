@@ -2009,8 +2009,8 @@ function renderOrderDeadlines(order, { options = state.deadlineWeekOptions, card
   let previous;
   return '<div class="order-deadline-line' + (card ? ' order-card-deadline-line' : '') + '"><div class="order-deadline-buttons"><div class="order-deadline-weeks" role="group" aria-label="Сроки · ' + escapeHtml(order.title) + '">' +
     '<button type="button" class="deadline-compact-toggle" data-order-calendar-compact="' + escapeHtml(order.path) + '" data-order-id="' + escapeHtml(order.id) + '" data-revision="' + order.revision +
-    '" aria-pressed="' + (order.calendar_compact === true) + '" aria-label="' + escapeHtml("Мелкий заказ в календаре · " + order.title) + '" title="Мелкий заказ: показывать синим внизу недели"' +
-    (disabled || unknown || order.calendar_compact === null || order.registered === false || orderRowSaving(order.path) ? ' disabled' : '') + '>' + (order.calendar_compact === true ? '★' : '☆') + '</button>' +
+    '" aria-pressed="' + (order.calendar_compact === true) + '" aria-label="' + escapeHtml("Мелкий заказ в календаре · " + order.title) + '" title="Мелкий заказ — без отдельной строки"' +
+    (disabled || unknown || order.calendar_compact === null || order.registered === false || orderRowSaving(order.path) ? ' disabled' : '') + '><span class="deadline-compact-dot" aria-hidden="true"></span></button>' +
     options.map((option, index) => {
       const week = deadlineWeekInfo(option.start);
       const past = currentWeek && week.start < currentWeek;

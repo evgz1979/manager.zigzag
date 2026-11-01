@@ -727,7 +727,8 @@ h2 { font-size: 13px; font-weight: 600; }
 .order-card-deadline-navigation button { padding: 4px 7px; font-size: 10px; }
 .order-card-deadline-state { margin: 8px 0 0; color: var(--muted); font-size: 10px; }
 .deadline-week { width: 24px; height: 22px; padding: 0; border-radius: 4px; font-size: 10px; background: hsl(var(--deadline-month-hue) 45% 96%); border-color: hsl(var(--deadline-month-hue) 28% 82%); color: hsl(var(--deadline-month-hue) 32% 35%); }
-.deadline-compact-toggle { width: 24px; height: 22px; padding: 0; border-radius: 4px; font-size: 15px; line-height: 20px; color: #dde1e4; background: transparent; border-color: #f0f2f3; }
+.deadline-compact-toggle { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 22px; padding: 0; border-radius: 4px; font-size: 15px; line-height: 20px; color: #dde1e4; background: transparent; border-color: #f0f2f3; }
+.deadline-compact-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
 .deadline-compact-toggle[aria-pressed="false"]:hover:not(:disabled) { color: #cfd4d8; background: #fafbfc; border-color: #e7eaed; }
 .deadline-compact-toggle[aria-pressed="true"] { color: #1764b4; background: #deebfb; border-color: #73a1d4; }
 .deadline-compact-toggle[aria-pressed="true"]:hover:not(:disabled) { background: #d2e3f9; }
