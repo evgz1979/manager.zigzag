@@ -51,7 +51,7 @@ const HomeCalendar = (() => {
         if (entries === null) return true;
         return Object.entries(entries || {}).some(([key, text]) =>
           (period === "week" ? key === week : key >= week && key < end) && text.trim() &&
-          !order.calendar_completed?.[period]?.includes(key));
+          !order.calendar_completed?.[period]?.includes(key) && !order.calendar_inactive?.[period]?.includes(key));
       });
     });
   }

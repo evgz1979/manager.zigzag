@@ -21,7 +21,7 @@ range = context.calendar.calendarRange(now, [{ ...order, deadline_weeks: ["2027-
 assert.equal(range.end.toISOString().slice(0, 10), "2027-01-10");
 
 // A selected week retains its rows throughout Sunday in Moscow. From Monday,
-// only rows with an unfinished weekly or daily event remain in that week.
+// only rows with an active unfinished weekly or daily event remain in that week.
 const week = "2026-10-26", next = "2026-11-02";
 const base = { path: "client/order", deadline_weeks: [week, next], calendar_events: {}, calendar_week_events: {}, calendar_completed: { day: [], week: [] } };
 const weeksAt = (record, at) => Array.from(context.calendar.visibleOrderWeeks(record, context.calendar.moscowDate(new Date(at))));
@@ -37,6 +37,22 @@ assert.deepEqual(weeksAt({ ...base, calendar_events: { "2026-10-27": "  " } }, m
 // Suppliers use the same rule, while small-order links have no event row.
 assert.deepEqual(weeksAt({ ...finished, work_supplier: "glass" }, monday), [next]);
 assert.deepEqual(weeksAt({ ...finished, calendar_compact: true }, monday), [week, next]);
+// Completed and irrelevant events together must not retain a past row.
+// Exercise the same mixed weekly/daily data as supplier orders in production.
+const closed = { ...base,
+  calendar_events: { "2026-10-27": "Delivered", "2026-10-28": "Old reminder" },
+  calendar_week_events: { [week]: "Old payment reminder" },
+  calendar_completed: { day: ["2026-10-27"], week: [] },
+  calendar_inactive: { day: ["2026-10-28"], week: [week] },
+};
+for (const supplier of [undefined, "glass", "antares"]) {
+  const row = { ...closed, work_supplier: supplier };
+  assert.deepEqual(weeksAt(row, sunday), [week, next]);
+  assert.deepEqual(weeksAt(row, monday), [next]);
+  assert.deepEqual(weeksAt({ ...row, calendar_events: { ...row.calendar_events, "2026-10-31": "Still needed" } }, monday), [week, next]);
+  assert.deepEqual(weeksAt({ ...row, calendar_inactive: { day: ["2026-10-28"], week: [] } }, monday), [week, next]);
+  assert.deepEqual(weeksAt({ ...row, calendar_inactive: null }, monday), [week, next]);
+}
 // Unknown text or completion formats must not silently hide potentially open work.
 assert.deepEqual(weeksAt({ ...finished, calendar_completed: null }, monday), [week, next]);
 assert.deepEqual(weeksAt({ ...finished, calendar_events: null }, monday), [week, next]);
