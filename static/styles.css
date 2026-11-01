@@ -23,6 +23,7 @@ svg { width: 20px; height: 20px; flex-shrink: 0; fill: none; stroke: currentColo
 h1, h2, h3, p { margin: 0; }
 .workspace { display: grid; grid-template-columns: 296px minmax(0, 1fr); height: 100dvh; min-height: 480px; }
 .sidebar { display: flex; flex-direction: column; min-width: 0; background: var(--sidebar); border-right: 1px solid var(--line); overflow: hidden; }
+.mobile-header, .sidebar-backdrop, .sidebar-close { display: none; }
 .brand { display: flex; align-items: center; justify-content: space-between; padding: 25px 18px 23px; gap: 10px; }
 .brand-button { display: flex; align-items: center; gap: 12px; border: 0; background: none; padding: 0; text-align: left; font-size: 21px; font-weight: 650; letter-spacing: -.5px; }
 .brand-button:hover:not(:disabled) { background: none; }
@@ -1155,3 +1156,46 @@ h2 { font-size: 13px; font-weight: 600; }
 .calendar-supplier-order .calendar-event-slot.has-event,
 .calendar-supplier-order .calendar-event-slot.has-event:hover:not(:disabled),
 .calendar-supplier-order .calendar-event-slot.has-event:focus-visible { background: transparent; }
+
+/* On phones the folder tree opens over the page and keeps its existing DOM. */
+@media (max-width: 1000px) {
+  .workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); min-height: 0; overflow: hidden; }
+  .mobile-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px max(13px, env(safe-area-inset-right)) 8px max(13px, env(safe-area-inset-left)); border-bottom: 1px solid var(--line); background: #fff; }
+  .mobile-header > span { color: var(--accent); font-weight: 600; }
+  .mobile-header > button { min-height: 40px; padding: 8px 12px; font-size: 14px; }
+  .content-pane { min-height: 0; padding: 0 max(13px, env(safe-area-inset-right)) calc(25px + env(safe-area-inset-bottom)) max(13px, env(safe-area-inset-left)); }
+  .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 201; width: min(340px, calc(100vw - 48px)); height: 100dvh; padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom) env(safe-area-inset-left); visibility: hidden; transform: translateX(-100%); box-shadow: 8px 0 30px #25333426; }
+  .sidebar-open .sidebar { visibility: visible; transform: none; }
+  .sidebar-open .sidebar-backdrop { display: block; position: fixed; inset: 0; z-index: 200; background: #182b3659; touch-action: none; }
+  .sidebar-close { display: grid; position: absolute; top: calc(18px + env(safe-area-inset-top)); right: 8px; width: 40px; height: 40px; font-size: 28px; }
+  .sidebar .brand { flex-shrink: 0; padding: 18px 52px 18px 16px; }
+  .sidebar .brand-mark { display: none; }
+  .sidebar .brand-button { font-size: 20px; }
+  .sidebar .brand-button small { font-size: 11px; }
+  .sidebar .auxiliary-buttons { grid-template-columns: repeat(2, minmax(0, 1fr)); flex-shrink: 0; padding: 0 12px 14px; }
+  .sidebar .auxiliary-button { min-height: 40px; }
+  .sidebar .favorite-orders, .sidebar .tree-search, .sidebar .sidebar-visibility-links { margin-left: 12px; margin-right: 12px; }
+  .sidebar .favorite-orders { max-height: min(180px, 22dvh); }
+  .sidebar .folder-tree { min-height: 70px; overscroll-behavior: contain; }
+  .sidebar .tree-row { min-height: 40px; font-size: 13px; padding-left: calc(3px + var(--depth) * 12px); }
+  .sidebar .tree-toggle { width: 26px; height: 32px; }
+  .sidebar .sidebar-footer { flex-shrink: 0; padding: 10px 16px; }
+  .order-heading { flex-wrap: wrap; gap: 12px; }
+  .order-heading > div { flex-basis: 100%; }
+  .folder-heading-actions { justify-content: flex-start; }
+  .folder-heading-actions > button { max-width: 100%; white-space: normal; }
+  .content-topbar { align-items: flex-start; gap: 8px; }
+  .scan-state { white-space: normal; }
+  .status-form, .status-form.note-only { grid-template-columns: minmax(0, 1fr); }
+  .status-form > button { grid-column: auto; justify-self: start; }
+  .status-form label, .order-note-block { min-width: 0; }
+  .content-pane input:not([type="checkbox"]):not([type="radio"]), .content-pane textarea, .content-pane select, .sidebar input { font-size: 16px; }
+}
+@media (max-width: 640px) {
+  .event-relevance { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .event-relevance button { min-width: 0; min-height: 36px; white-space: normal; }
+}
+@media (max-width: 1000px) and (max-height: 600px) {
+  .sidebar { display: block; overflow-y: auto; overscroll-behavior: contain; }
+  .sidebar .folder-tree { overflow: visible; }
+}

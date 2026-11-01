@@ -3337,6 +3337,7 @@ async function showOrders({ history = true } = {}) {
   if (history) window.history.pushState(null, "", "?view=orders");
   renderTree();
   renderOrders();
+  document.dispatchEvent(new Event("manager:navigated"));
   await loadOrders();
 }
 
@@ -3408,6 +3409,7 @@ async function navigate(path, { history = true } = {}) {
     if (history) window.history.pushState(null, "", data.path ? "?path=" + encodeURIComponent(data.path) : window.location.pathname);
     renderTree();
     renderFolder();
+    document.dispatchEvent(new Event("manager:navigated"));
     if (data.folderKind === "moneys_root" && state.calendarPlansLoaded) run(loadOrders);
     run(async () => {
       if (hasDescendantTodos(data) && !data.order) await request("/api/todos-refresh", { path: data.path });

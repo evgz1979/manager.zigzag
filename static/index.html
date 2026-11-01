@@ -18,9 +18,13 @@
       <symbol id="icon-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M15 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/></symbol>
       <symbol id="icon-edit" viewBox="0 0 24 24"><path d="m15 4 5 5M4 20l5-1L21 7l-5-5L4 14Z"/></symbol>
       <symbol id="icon-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 6M4 12l2 6a7 7 0 0 0 12-1"/></symbol>
+      <symbol id="icon-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
     </svg>
     <main class="workspace">
-      <aside class="sidebar" aria-label="Папки">
+      <header class="mobile-header"><button id="sidebarToggle" class="secondary-button" type="button" aria-controls="sidebar" aria-expanded="false"><svg aria-hidden="true"><use href="#icon-menu"/></svg>Меню</button><span>Зигзаг</span></header>
+      <div id="sidebarBackdrop" class="sidebar-backdrop" aria-hidden="true"></div>
+      <aside id="sidebar" class="sidebar" aria-label="Папки">
+        <button id="sidebarClose" class="sidebar-close icon-button" type="button" aria-label="Закрыть меню">×</button>
         <header class="brand"><button id="homeButton" class="brand-button" title="Все заказы" aria-label="Все заказы · Зигзаг"><span class="brand-mark">З</span><span>Зигзаг<small>Менеджер заказов</small></span></button><button id="refreshButton" class="icon-button" title="Обновить" aria-label="Обновить"><svg><use href="#icon-refresh"/></svg></button></header>
         <div id="auxiliaryButtons" class="auxiliary-buttons" aria-label="Общие папки"></div>
         <nav id="favoriteOrders" class="favorite-orders" aria-label="Избранные заказы" hidden></nav>
@@ -399,6 +403,7 @@
     <script src="/spreadsheet-preview.js"></script>
     <script src="/home-calendar.js"></script>
     <script src="/money-overview.js"></script>
+    <script src="/navigation.js"></script>
     <script src="/app.js"></script>
     <script src="/inbox.js"></script>
     <script src="/calendar-telegram.js"></script>
