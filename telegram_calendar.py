@@ -186,19 +186,21 @@ def current_week(now=None):
     return today - timedelta(days=today.weekday())
 
 
-def send(image, start, data_dir, *, now=None, todo_text=''):
+def send(image, start, data_dir, *, now=None, todo_text='', through=None):
     validate_image(image)
     week = current_week(now)
-    if start != week.isoformat():
+    end = week + timedelta(days=13)
+    if (start != week.isoformat() and not (through == end.isoformat() and start == (week - timedelta(days=7)).isoformat())) or (through is not None and through != end.isoformat()):
         raise ValueError("Текущая неделя изменилась. Обнови календарь и повтори отправку")
     token, chat = settings(data_dir)
-    through = week + timedelta(days=13)
-    caption = f"Календарь Зигзаг · {week:%d.%m.%Y} — {through:%d.%m.%Y}"
+    first = datetime.fromisoformat(start).date()
+    through = end
+    caption = f"Календарь Зигзаг · {first:%d.%m.%Y} — {through:%d.%m.%Y}"
     boundary = "manager-" + uuid4().hex
     chunks = []
     for name, value in (("chat_id", chat), ("caption", caption)):
         chunks.append((f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n').encode())
-    filename = f"zigzag-calendar-{week.isoformat()}.png"
+    filename = f"zigzag-calendar-{start}.png"
     chunks.extend([
         (f'--{boundary}\r\nContent-Disposition: form-data; name="document"; filename="{filename}"\r\nContent-Type: image/png\r\n\r\n').encode(),
         image, f"\r\n--{boundary}--\r\n".encode(),
@@ -209,7 +211,7 @@ def send(image, start, data_dir, *, now=None, todo_text=''):
     result = api_request(request, timeout=40)
     if not isinstance(result, dict) or type(result.get("message_id")) is not int:
         raise TelegramError("Telegram не подтвердил отправку. Проверь чат перед повтором")
-    response = {"ok": True, "start": week.isoformat(), "through": through.isoformat()}
+    response = {"ok": True, "start": start, "through": through.isoformat()}
     if todo_text:
         from calendar_todos import message_parts
         sent = 0

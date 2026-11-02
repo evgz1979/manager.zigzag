@@ -4,7 +4,7 @@ const vm = require("node:vm");
 const path = require("node:path");
 const context = vm.createContext({ Intl, Date });
 const source = fs.readFileSync(path.join(__dirname, "../static/home-calendar.js"), "utf8");
-vm.runInContext(source.replace("return { show, calendarRange, createSnapshot };", "return { show, calendarRange, createSnapshot, visibleOrderWeeks, moscowDate };") + "\nthis.calendar = HomeCalendar;", context);
+vm.runInContext(source.replace("return { show, calendarRange, createSnapshot, snapshotRange };", "return { show, calendarRange, createSnapshot, snapshotRange, visibleOrderWeeks, moscowDate };") + "\nthis.calendar = HomeCalendar;", context);
 const now = new Date("2026-11-01T12:00:00Z");
 const order = {
   path: "client/order", registered: true, deadline_weeks: ["2026-11-02"],

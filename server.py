@@ -21,6 +21,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 import calendar_events
 import telegram_calendar
+import calendar_delivery
 import calendar_todos
 import telegram_inbox
 import inbox_folder
@@ -860,6 +861,16 @@ def listed_orders():
             "storage":metadata_store().status() if DATABASE_ONLY else {"database_only":False}}
 
 
+def send_calendar_command():
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    snapshot = listed_orders()
+    start, through = calendar_delivery.period(snapshot, now)
+    image = calendar_delivery.render(snapshot, APP_DIR, DATA_DIR, now)
+    return telegram_calendar.send(image, start, DATA_DIR, through=through,
+                                  todo_text=calendar_todos.digest(snapshot, start, through))
+
+
 def listed_object_orders(relative, show_inactive=False):
     return object_orders.ObjectOrders(order_store()).read(relative, inactive=inactive_paths(), show_inactive=show_inactive)
 
@@ -1681,10 +1692,15 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 # An already open page may still upload two images. Send only its overview.
                 image = image[:overview_size]
             start = query['start'][0]
+            through = query.get('through')
+            if through is not None and len(through) != 1:
+                raise ValueError('Некорректный период календаря')
             telegram_calendar.validate_image(image)
             # No new database, files or cloud scans just to send a calendar.
-            todo_text = calendar_todos.digest(listed_orders(), start) if order_store().database.exists() else ''
+            todo_text = calendar_todos.digest(listed_orders(), start, through[0] if through else None) if order_store().database.exists() else ''
             options = {'todo_text': todo_text} if todo_text else {}
+            if through:
+                options['through'] = through[0]
             self.send_json(telegram_calendar.send(image, start, DATA_DIR, **options))
         except telegram_calendar.TelegramError as error:
             self.send_json({'error': str(error)}, 502)
@@ -2234,7 +2250,7 @@ def main():
     thumbnail_worker.start()
     inbox_stop = threading.Event()
     inbox_worker = threading.Thread(target=telegram_inbox.worker,
-                                    args=(order_store(), DATA_DIR, inbox_stop), daemon=True)
+                                    args=(order_store(), DATA_DIR, inbox_stop, send_calendar_command), daemon=True)
     inbox_worker.start()
     print(f"Менеджер заказов: http://127.0.0.1:{port}", flush=True)
     print(f"Адрес сервера: {SERVER_HOST}:{port}", flush=True)

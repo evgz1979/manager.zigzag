@@ -19,6 +19,18 @@ PREVIOUS = "20261019T170000Z-abcdef12"
 
 
 class DeploymentTests(unittest.TestCase):
+    def test_calendar_commands_block_rollback_to_code_that_could_lose_pending_requests(self):
+        release = self.base / 'commands-release'
+        release.mkdir()
+        (release / 'local_metadata.py').write_text('')
+        with sqlite3.connect(self.db) as db:
+            db.execute('CREATE TABLE metadata_settings (key TEXT PRIMARY KEY, value TEXT)')
+            db.execute("INSERT INTO metadata_settings VALUES ('telegram_calendar_commands','1')")
+        with self.assertRaisesRegex(RuntimeError, 'команды календаря'):
+            remote.check_event_rename_compatibility(self.db, release)
+        (release / 'telegram_calendar_commands.py').write_text('TELEGRAM_CALENDAR_COMMANDS_VERSION = 1')
+        remote.check_event_rename_compatibility(self.db, release)
+
     def test_manual_calendar_layout_blocks_rollback_to_old_placement(self):
         release = self.base / 'old-calendar-layout'
         release.mkdir()

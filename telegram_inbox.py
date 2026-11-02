@@ -7,6 +7,7 @@ from uuid import NAMESPACE_URL, uuid5
 from file_comments import FileCommentConflict
 from local_metadata import MetadataStore, audit
 import telegram_calendar as telegram
+import telegram_calendar_commands as calendar_commands
 
 TELEGRAM_INBOX_VERSION = 1
 TELEGRAM_INBOX_DELETE_VERSION = 1
@@ -105,7 +106,12 @@ def ingest(store, bot, chat, updates):
                         and str(sender.get("id")) == chat and sender.get("is_bot") is False
                         and type(message.get("message_id")) is int and message["message_id"] > 0
                         and type(message.get("date")) is int and message["date"] > 0
-                        and isinstance(text, str) and not text.lstrip().startswith("/")):
+                        and isinstance(text, str)):
+                    if message.get('text', '').strip() == '/calendar':
+                        calendar_commands.enqueue(db, bot, chat, message)
+                    if text.lstrip().startswith('/'):
+                        offset = update['update_id'] + 1
+                        continue
                     for line, text_line in enumerate(text.splitlines()):
                         text_line = text_line.strip()
                         if not text_line:
@@ -149,11 +155,13 @@ def snapshot(store, data_dir):
     return {"items": items(store), **telegram.status(data_dir), **STATUS}
 
 
-def worker(store, data_dir, stop):
+def worker(store, data_dir, stop, calendar_sender=None):
     while not stop.is_set():
         try:
             if telegram.status(data_dir)["configured"]:
                 poll(store, data_dir)
+                if calendar_sender:
+                    calendar_commands.process(store, data_dir, calendar_sender)
             else:
                 STATUS.update(error="", checked_at=None)
         except telegram.TelegramError as error:

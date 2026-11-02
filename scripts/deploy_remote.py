@@ -163,7 +163,7 @@ def health(port, release=None):
 
 
 def prepare_renderers(settings, release_dir):
-    command = [settings["python"], "-c", "import server, image_reports, icloud_access, invoices, thumbnail_cache; server.pdf_renderer(); image_reports.renderer(server.APP_DIR, server.DATA_DIR); icloud_access.renderer(); invoices.renderer(server.APP_DIR, server.DATA_DIR); thumbnail_cache.renderer(server.DATA_DIR)"]
+    command = [settings["python"], "-c", "import server, image_reports, icloud_access, invoices, thumbnail_cache, calendar_delivery; server.pdf_renderer(); image_reports.renderer(server.APP_DIR, server.DATA_DIR); icloud_access.renderer(); invoices.renderer(server.APP_DIR, server.DATA_DIR); thumbnail_cache.renderer(server.DATA_DIR); calendar_delivery.renderer(server.APP_DIR, server.DATA_DIR)"]
     result = subprocess.run(command, cwd=release_dir, capture_output=True, text=True, timeout=180)
     if result.returncode:
         raise RuntimeError("Не удалось подготовить помощники PDF и iCloud до переключения сервера:\n" + result.stderr[-6000:])
@@ -191,6 +191,11 @@ def check_event_rename_compatibility(database, release_dir):
     if not database.exists():
         return
     with closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)) as db:
+        if (db.execute("SELECT 1 FROM sqlite_master WHERE name='metadata_settings'").fetchone()
+                and db.execute("SELECT 1 FROM metadata_settings WHERE key='telegram_calendar_commands' AND value='1'").fetchone()):
+            source = release_dir / 'telegram_calendar_commands.py'
+            if not source.is_file() or 'TELEGRAM_CALENDAR_COMMANDS_VERSION = 1' not in source.read_text(encoding='utf-8'):
+                raise RuntimeError('В базе есть команды календаря Telegram. Старый код не поддерживает их очередь; откат заблокирован')
         if (db.execute("SELECT 1 FROM sqlite_master WHERE name='metadata_settings'").fetchone()
                 and db.execute("SELECT 1 FROM metadata_settings WHERE key='calendar_layout' AND value='1'").fetchone()):
             source = release_dir / 'calendar_layout.py'

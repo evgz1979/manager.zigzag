@@ -452,11 +452,11 @@ const HomeCalendar = (() => {
     area.append(payments); return area;
   }
 
-  function show(nextOrders, nextEvents, nextInvoicePlans) {
+  function show(nextOrders, nextEvents, nextInvoicePlans, now = new Date()) {
     if (Array.isArray(nextOrders)) orders = nextOrders;
     if (Array.isArray(nextEvents)) events = nextEvents;
     if (Array.isArray(nextInvoicePlans)) invoicePlans = nextInvoicePlans;
-    const nextRange = calendarRange(new Date(), orders, events, invoicePlans);
+    const nextRange = calendarRange(now, orders, events, invoicePlans);
     if (builtFor !== dateKey(nextRange.today) || !range || +range.start !== +nextRange.start || +range.end !== +nextRange.end) {
       const viewport = get("calendarViewport"), index = weekIndex(viewport.scrollTop);
       const visibleWeek = range ? shiftDays(range.start, index * 7) : nextRange.today;
@@ -553,8 +553,15 @@ const HomeCalendar = (() => {
     const observer = new ResizeObserver(sizeInvoicePlanHeaders);
     observer.observe(get("calendarWeeks"));
   }
+  function snapshotRange(now = new Date(), calendarOrders = orders, freeEvents = events, plans = invoicePlans) {
+    const today = moscowDate(now), current = monday(today), previous = dateKey(shiftDays(current, -7));
+    const hasPrevious = calendarOrders.some(order => visibleOrderWeeks(order, today).includes(previous)) ||
+      [...freeEvents, ...plans].some(event => !event.deleted && event.date >= previous && event.date < dateKey(current));
+    const start = hasPrevious ? shiftDays(current, -7) : current, end = shiftDays(current, 13);
+    return { start, end, count: hasPrevious ? 3 : 2 };
+  }
   function createSnapshot(now = new Date()) {
-    const start = monday(moscowDate(now)), end = shiftDays(start, VISIBLE_WEEKS * 7 - 1);
+    const { start, end, count } = snapshotRange(now);
     const snapshot = document.createElement("section");
     snapshot.className = "home-calendar calendar-snapshot";
     snapshot.setAttribute("aria-hidden", "true");
@@ -562,14 +569,14 @@ const HomeCalendar = (() => {
     const title = document.createElement("h2");
     title.textContent = "Зигзаг · " + fullDate.format(start) + " — " + fullDate.format(end);
     snapshot.append(title, get("homeCalendar").querySelector(".calendar-weekdays").cloneNode(true));
-    for (let index = 0; index < VISIBLE_WEEKS; index++) {
+    for (let index = 0; index < count; index++) {
       const key = dateKey(shiftDays(start, index * 7));
       const row = [...get("calendarWeeks").children].find((item) => item.dataset.week === key);
-      if (!row) throw new Error("Обнови календарь перед отправкой текущей и следующей недели");
+      if (!row) throw new Error("Обнови календарь перед отправкой нужных недель");
       snapshot.append(row.cloneNode(true));
     }
     for (const element of snapshot.querySelectorAll("[id]")) element.removeAttribute("id");
-    return { element: snapshot, start: dateKey(start) };
+    return { element: snapshot, start: dateKey(start), through: dateKey(end) };
   }
-  return { show, calendarRange, createSnapshot };
+  return { show, calendarRange, createSnapshot, snapshotRange };
 })();

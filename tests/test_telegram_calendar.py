@@ -153,6 +153,15 @@ class TelegramCalendarHTTPTests(unittest.TestCase):
     file = fixtures.ManagerTests.file
     http = fixtures.ManagerTests.http
 
+    def test_extended_period_is_forwarded_and_duplicate_end_is_rejected(self):
+        headers = {'Content-Type':'image/png', 'X-Manager-Calendar':'1'}
+        route = '/api/calendar-telegram?start=2026-10-19&through=2026-11-08'
+        with patch.object(fixtures.manager.telegram_calendar, 'send', return_value={'ok':True}) as send:
+            self.assertEqual(self.http(route,'POST',PNG,headers)[0],200)
+            send.assert_called_once_with(PNG,'2026-10-19',fixtures.manager.DATA_DIR,through='2026-11-08')
+            self.assertEqual(self.http(route+'&through=2026-11-08','POST',PNG,headers)[0],400)
+            send.assert_called_once()
+
     def test_cached_pair_upload_sends_only_overview_and_holds_send_lock(self):
         route = '/api/calendar-telegram?start=2026-10-26&today=2026-10-26'
         headers = {'Content-Type':'application/octet-stream','X-Manager-Calendar':'1','X-Manager-Calendar-Overview-Bytes':str(len(PNG))}

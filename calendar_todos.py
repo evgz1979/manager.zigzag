@@ -1,10 +1,11 @@
 """Read-only To-do digest for the same two weeks shown in the calendar PNG."""
 from datetime import date, timedelta
+from calendar_delivery import order_visible
 
 
-def digest(snapshot, start):
+def digest(snapshot, start, through=None):
     first = date.fromisoformat(start)
-    last = first + timedelta(days=13)
+    last = date.fromisoformat(through) if through else first + timedelta(days=13)
     orders = snapshot.get('orders', []) + snapshot.get('calendar_supplier_orders', [])
     by_path = {order['path']: order for order in orders}
     events = []
@@ -22,7 +23,7 @@ def digest(snapshot, start):
             for day in marks.get(period, []):
                 value = date.fromisoformat(day)
                 week = (value - timedelta(days=value.weekday())).isoformat()
-                if first <= value <= last and week in active_weeks and entries.get(day):
+                if first <= value <= last and week in active_weeks and entries.get(day) and order_visible(order, week):
                     flags = [label for field, label in [('calendar_completed', 'Выполнено'), ('calendar_trip', 'Выезд'), ('calendar_inactive', 'Неактуально')]
                              if day in (order.get(field) or {}).get(period, [])]
                     if period == 'week' and week not in (order.get('deadline_weeks') or []):
