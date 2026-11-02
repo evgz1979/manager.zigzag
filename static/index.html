@@ -141,6 +141,11 @@
         </section>
         <section id="sketchSection" class="folder-section" aria-label="Эскизы" hidden><div class="section-heading"><h2>Эскизы</h2><span id="sketchCount"></span></div><div id="sketchTiles" class="subfolders with-event-relevance sketch-grid"></div></section>
         <section id="objectOrdersSection" class="folder-section" aria-label="Заказы объекта" hidden><div class="section-heading"><h2>Заказы объекта</h2><span id="objectOrdersSummary"></span></div><div id="objectOrdersSlot"></div></section>
+        <section id="reconciliationList" class="folder-section" aria-label="Список сверок" hidden>
+          <div class="section-heading"><h2>Сверки</h2><span id="reconciliationListCount"></span></div>
+          <table class="reconciliation-table reconciliation-list-table"><thead><tr><th scope="col">Название</th><th scope="col">Клиент</th><th scope="col">Заметка</th></tr></thead><tbody id="reconciliationListRows"></tbody></table>
+          <p id="reconciliationListState" class="todo-empty" role="status"></p>
+        </section>
         <section id="folderSection" class="folder-section" aria-label="Подпапки"><div class="section-heading"><h2 id="foldersTitle">Папки</h2><span id="directoryCount"></span></div><label id="frezaTaskSearchLabel" class="search-field freza-task-search" hidden><svg><use href="#icon-search"/></svg><input id="frezaTaskSearch" type="search" placeholder="Найти задание…" aria-label="Поиск заданий на фрезеровку"></label><div id="subfolders" class="subfolders"></div></section>
         <details id="frezaLegacyFolders" class="folder-section" hidden><summary>Прежние подпапки <span id="frezaLegacyCount" class="count-badge"></span></summary><div id="frezaLegacyList" class="subfolders"></div></details>
         <section id="workOrdersSection" class="folder-section work-orders-section" aria-label="Заказы производства" hidden><div class="section-heading"><h2 id="workOrdersTitle">Заказы производства</h2><span id="workOrderDirectoryCount"></span></div><div id="workOrdersSlot"></div><div id="workOrderFolders" class="subfolders"></div></section>

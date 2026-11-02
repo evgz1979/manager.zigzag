@@ -505,6 +505,12 @@ function renderSubfolders() {
     $("subfolders").innerHTML = tasks.map((item) => '<button type="button" class="subfolder freza-task" data-path="' + escapeHtml(item.path) + '"><span class="freza-task-picture"><img data-thumbnail-folder="' + escapeHtml(item.path) + '" src="' + escapeHtml(apiUrl("/api/thumbnail-cover", item.path)) + '" alt="" loading="lazy" decoding="async"><span class="thumbnail-fallback">' + icon("file") + '</span></span><span>' + escapeHtml(item.name) + '</span>' + icon("chevron") + '</button>').join("") || '<p class="todo-empty">' + (query ? 'Задания не найдены' : 'Создай первое задание и добавь файлы') + '</p>';
     return;
   }
+  if (folder.folderKind === 'reconciliations_root') {
+    $("folderSection").hidden = true;
+    $("workOrdersSection").hidden = true;
+    $("printLegacyFolders").hidden = true;
+    return;
+  }
   const workRoot = folder.folderKind === "work_root";
   let directories = workRoot ? visibleDirectories.filter((item) => item.name.startsWith("#")) : visibleDirectories;
   let supplierDividerAfter = 0;

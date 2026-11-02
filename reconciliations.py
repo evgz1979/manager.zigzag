@@ -158,7 +158,7 @@ class Reconciliations:
 
     def catalog(self):
         with self.connect() as db:
-            return [{key: item[key] for key in ('id', 'path', 'title', 'client', 'revision')}
+            return [{key: item[key] for key in ('id', 'path', 'title', 'client', 'note', 'revision')}
                     for item in (record(row) for row in db.execute('SELECT * FROM reconciliations ORDER BY path'))]
 
     def with_links(self, items):

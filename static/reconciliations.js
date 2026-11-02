@@ -1,9 +1,30 @@
 /* Сверки используют свои карточки; счета остаются у исходных заказов. */
 const ReconciliationUI = (() => {
-  let assignment = null, refreshVersion = 0, tableMarkup = null, tablePath = null;
+  let assignment = null, refreshVersion = 0, tableMarkup = null, tablePath = null, listMarkup = null, listPath = null;
   const links = new Map();
   const money = value => Number.isSafeInteger(value) ? rubles(value) : '—';
   const date = value => /^\d{4}-\d{2}-\d{2}$/.test(value || '') ? value.split('-').reverse().join('.') : '—';
+
+  function renderList(folder, records) {
+    const byPath = new Map(records.map(item => [item.path.normalize('NFC'), item]));
+    const rows = folder.directories.filter(item => !item.name.startsWith('#'));
+    const markup = rows.map(item => {
+      const record = byPath.get(item.path.normalize('NFC'));
+      return '<tr><td><a href="?path=' + encodeURIComponent(item.path) + '" data-reconciliation-path="' + escapeHtml(item.path) + '">' +
+        escapeHtml(record?.title || item.name) + '</a></td><td>' + escapeHtml(record?.client || '—') +
+        '</td><td><span class="reconciliation-list-note">' + escapeHtml(record?.note || '—') + '</span></td></tr>';
+    }).join('');
+    if (markup !== listMarkup || listPath !== folder.path) {
+      const focused = document.activeElement?.dataset.reconciliationPath;
+      const pane = document.querySelector('.content-pane'), scroll = pane.scrollTop;
+      $('reconciliationListRows').innerHTML = markup;
+      listMarkup = markup; listPath = folder.path;
+      if (focused && document.activeElement === document.body) [...$('reconciliationListRows').querySelectorAll('[data-reconciliation-path]')].find(el => el.dataset.reconciliationPath === focused)?.focus({ preventScroll: true });
+      pane.scrollTop = scroll;
+    }
+    $('reconciliationListCount').textContent = rows.length;
+    $('reconciliationListState').textContent = rows.length ? '' : 'Создай первую сверку кнопкой «Создать сверку».';
+  }
 
   function button(invoice) {
     if (invoice.reconciliation) links.set(invoice.id, invoice.reconciliation);
@@ -36,7 +57,23 @@ const ReconciliationUI = (() => {
 
   async function refresh() {
     const folder = state.view === 'folder' ? state.folder : null;
+    const list = folder?.folderKind === 'reconciliations_root';
+    $('reconciliationList').hidden = !list;
     $('reconciliationInvoices').hidden = !folder?.reconciliation;
+    if (list) {
+      tablePath = null;
+      if (listPath !== folder.path) renderList(folder, []);
+      const version = ++refreshVersion;
+      try {
+        const catalog = await request('/api/reconciliations');
+        if (version !== refreshVersion || state.folder !== folder || state.view !== 'folder') return;
+        renderList(folder, catalog.items);
+      } catch (error) {
+        if (version === refreshVersion && state.folder === folder) $('reconciliationListState').textContent = error.message;
+      }
+      return;
+    }
+    listPath = null;
     if (!folder?.reconciliation) { tablePath = null; ++refreshVersion; return; }
     if (tablePath !== folder.path) renderTable(folder.reconciliation);
     const version = ++refreshVersion;
@@ -123,6 +160,12 @@ const ReconciliationUI = (() => {
   $('cancelInvoiceReconciliation').addEventListener('click', close);
   $('invoiceReconciliationDialog').addEventListener('cancel', event => { event.preventDefault(); close(); });
   $('refreshReconciliation').addEventListener('click', refresh);
+  $('reconciliationListRows').addEventListener('click', event => {
+    const link = event.target.closest('[data-reconciliation-path]');
+    if (link && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+      event.preventDefault(); run(() => navigate(link.dataset.reconciliationPath));
+    }
+  });
   $('reconciliationInvoiceRows').addEventListener('click', event => {
     const source = event.target.closest('[data-reconciliation-order]');
     if (source && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
