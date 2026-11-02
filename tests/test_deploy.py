@@ -1,4 +1,5 @@
 import hashlib
+import configparser
 from contextlib import closing
 import importlib.util
 import io
@@ -19,6 +20,19 @@ PREVIOUS = "20261019T170000Z-abcdef12"
 
 
 class DeploymentTests(unittest.TestCase):
+    def test_enabled_remote_password_gate_blocks_incompatible_rollback(self):
+        config = configparser.ConfigParser()
+        config.read_string('[remote_access]\nenabled=true\n')
+        release = self.base / 'remote-password-release'
+        release.mkdir()
+        with self.assertRaisesRegex(RuntimeError, 'внешний вход'):
+            remote.check_remote_access_compatibility(config, release)
+        (release / 'remote_access.py').write_text('REMOTE_ACCESS_VERSION = 1')
+        (release / 'server.py').write_text('remote_access.start(ManagerHandler, CONFIG_FILE)')
+        remote.check_remote_access_compatibility(config, release)
+        config['remote_access']['enabled'] = 'false'
+        remote.check_remote_access_compatibility(config, self.base / 'missing-release')
+
     def test_calendar_commands_block_rollback_to_code_that_could_lose_pending_requests(self):
         release = self.base / 'commands-release'
         release.mkdir()

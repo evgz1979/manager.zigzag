@@ -187,6 +187,15 @@ def start(domain, agent, port, release, documents):
     raise RuntimeError("Сервис не прошёл проверку запуска; см. ~/Library/Logs/ZigzagManager/server-error.log")
 
 
+def check_remote_access_compatibility(config, release_dir):
+    if config.getboolean('remote_access', 'enabled', fallback=False):
+        source = release_dir / 'remote_access.py'
+        entry = release_dir / 'server.py'
+        if (not source.is_file() or 'REMOTE_ACCESS_VERSION = 1' not in source.read_text(encoding='utf-8')
+                or not entry.is_file() or 'remote_access.start(' not in entry.read_text(encoding='utf-8')):
+            raise RuntimeError('Настроен внешний вход с паролем. Старый код не поддерживает его; откат заблокирован')
+
+
 def check_event_rename_compatibility(database, release_dir):
     if not database.exists():
         return
@@ -375,6 +384,7 @@ def deploy(settings, action, release):
                 raise RuntimeError("Настройки M4 изменены; деплой не перезаписывает manager.ini")
         else:
             atomic_write(config_path, (f"[storage]\nroot = {documents}\n\n[server]\nhost = {settings['host']}\nport = {port}\n").encode())
+        check_remote_access_compatibility(config, release_dir)
         agent = Path.home() / "Library/LaunchAgents" / (LABEL + ".plist")
         agent.parent.mkdir(parents=True, exist_ok=True)
         old_agent = agent.read_bytes() if agent.exists() else None

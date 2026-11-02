@@ -26,6 +26,7 @@ import calendar_todos
 import telegram_inbox
 import inbox_folder
 import thumbnail_cache
+import remote_access
 from orders import OrderStore, OrderConflict, CARD, SNAPSHOT, is_service_folder
 from order_links import OrderLinks
 import order_document
@@ -2244,6 +2245,12 @@ def main():
         threading.Thread(target=recovery_backup.worker,
                          args=(order_store().database, DATA_ROOT, APP_DIR), daemon=True).start()
     server = ThreadingHTTPServer((SERVER_HOST, port), ManagerHandler)
+    remote_server = None
+    try:
+        remote_server = remote_access.start(ManagerHandler, CONFIG_FILE)
+    except (OSError, ValueError, configparser.Error):
+        # The separate listener fails closed; the existing LAN address stays up.
+        print('Внешний вход не запущен: проверь настройки remote_access', flush=True)
     thumbnail_stop = threading.Event()
     thumbnail_worker = threading.Thread(target=thumbnail_cache.supervise,
                                         args=(DATA_ROOT, DATA_DIR, thumbnail_stop), daemon=True)
@@ -2261,6 +2268,9 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
+        if remote_server is not None:
+            remote_server.shutdown()
+            remote_server.server_close()
         inbox_stop.set()
         inbox_worker.join(timeout=1)
         thumbnail_stop.set()
