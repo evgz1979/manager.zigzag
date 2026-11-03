@@ -17,6 +17,8 @@ MAX_IMAGES = 200
 IMAGES_PER_PAGE = 4
 
 
+# Получает собранный Swift-помощник для текущего исходника.
+# При недопустимом состоянии возбуждает ValueError.
 def renderer(app_dir, data_dir):
     with BUILD_LOCK:
         try:
@@ -25,6 +27,8 @@ def renderer(app_dir, data_dir):
             raise ValueError("Не удалось запустить формирование PDF") from error
 
 
+# Создаёт PDF-отчёт выбранных изображений и сохранённых комментариев.
+# Запускает внешний процесс; параметры и ограничения заданы в теле функции.
 def create(folder, items, app_dir, data_dir):
     """Items must already have validated absolute image paths and current comments."""
     cache = Path(data_dir) / "reports"

@@ -1,4 +1,4 @@
-"""Portable comments alongside files; originals are never modified."""
+"""Legacy portable comment format and file binding; current comments live in SQLite."""
 import hashlib
 import json
 import threading
@@ -10,10 +10,14 @@ LOCK = threading.RLock()
 MAX_COMMENT = 100_000
 
 
+# Обозначает конфликт изменения в этом модуле.
+# Вызывающий обработчик использует тип исключения для отказа без подмены данных.
 class FileCommentConflict(ValueError):
     pass
 
 
+# Связывает запрос комментария с точными папкой и именем файла.
+# Возвращает `hashlib.sha256(json.dumps([unicodedata.normalize('NFC', part) for part in identity], ensure_ascii=False).encode()).hexdigest()`.
 def binding(file):
     """Bind browser requests to this folder and filename, independently of list order."""
     file = Path(file)
@@ -22,6 +26,8 @@ def binding(file):
                                     ensure_ascii=False).encode()).hexdigest()
 
 
+# Вычисляет пути прежнего файла комментария и его истории.
+# При недопустимом состоянии возбуждает ValueError.
 def paths(file):
     file = Path(file)
     name = unicodedata.normalize("NFC", file.name)
@@ -33,6 +39,8 @@ def paths(file):
     return name, key, folder, target
 
 
+# Читает прежний скрытый комментарий и его файловую версию.
+# При недопустимом состоянии возбуждает ValueError.
 def read(file):
     name, _, _, target = paths(file)
     if target.is_symlink() or (target.exists() and not target.is_file()):
@@ -45,6 +53,8 @@ def read(file):
     return parse(raw,name)
 
 
+# Разбирает исходное содержимое, сохраняя неизвестные поля или блоки.
+# При недопустимом состоянии возбуждает ValueError.
 def parse(raw,name):
     text = raw.decode("utf-8-sig").replace("\r\n", "\n")
     header, separator, body = text.partition("\n\n[Комментарий]\n")
@@ -59,6 +69,8 @@ def parse(raw,name):
     return {"comment": "\n".join(line[2:] for line in note_lines), "revision": hashlib.sha256(raw).hexdigest()}
 
 
+# Записывает прежний скрытый файл комментария с проверкой привязки и версии.
+# При недопустимом состоянии возбуждает ValueError, FileCommentConflict.
 def save(file, comment, revision):
     if not isinstance(comment, str) or len(comment) > MAX_COMMENT or "\x00" in comment:
         raise ValueError("Комментарий должен быть текстом до 100 000 символов")

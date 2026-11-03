@@ -29,6 +29,8 @@ EXTENSIONS = frozenset({
 })
 
 
+# Преобразует путь в относительный ключ корня документов.
+# При недопустимом состоянии возбуждает ValueError.
 def relative(value):
     if not isinstance(value, str) or not value or '\x00' in value:
         raise ValueError('Укажи путь файла')
@@ -38,16 +40,22 @@ def relative(value):
     return unicodedata.normalize('NFC', path.as_posix())
 
 
+# Проверяет, поддерживается ли формат файла генератором превью.
+# Возвращает `path.suffix.lower() in EXTENSIONS and (path.suffix.lower() != '.cdr' or sketches.sketch_name(path.name))`.
 def supported(path):
     path = Path(path)
     return path.suffix.lower() in EXTENSIONS and (path.suffix.lower() != '.cdr' or sketches.sketch_name(path.name))
 
 
+# Вычисляет отпечаток метаданных объекта для проверки свежести.
+# Возвращает `hashlib.sha256(value.encode()).hexdigest()`.
 def signature(info):
     value = f'{FORMAT}:{info.st_dev}:{info.st_ino}:{info.st_size}:{info.st_mtime_ns}'
     return hashlib.sha256(value.encode()).hexdigest()
 
 
+# Проверяет исходный объект перед чтением или переносом.
+# При недопустимом состоянии возбуждает ValueError.
 def source(root, path):
     """Check every path component without following links, including inside root."""
     target = Path(root)
@@ -61,7 +69,11 @@ def source(root, path):
     return target, info
 
 
+# Объединяет операции модуля: отдельная sqlite превью и контролируемый фоновый процесс генерации.
+# Основные операции: __init__, connect, observe, items, image; остальные описаны у методов.
 class ThumbnailCache:
+    # Сохраняет зависимости и начальные параметры экземпляра.
+    # Работает с таблицами thumbnails, worker_status.
     def __init__(self, root, data_dir):
         self.root = Path(root).resolve()
         self.data_dir = Path(data_dir).resolve()
@@ -84,6 +96,8 @@ class ThumbnailCache:
                 CREATE TABLE IF NOT EXISTS worker_status (key TEXT PRIMARY KEY, value TEXT NOT NULL);
             ''')
 
+    # Открывает соединение SQLite и управляет его временем жизни.
+    # Передаёт ресурс через yield; освобождение выполняется при выходе из контекста.
     @contextmanager
     def connect(self):
         db = sqlite3.connect(self.database, timeout=5)
@@ -94,6 +108,8 @@ class ThumbnailCache:
         finally:
             db.close()
 
+    # Регистрирует наблюдённые версии файлов в локальной очереди миниатюр.
+    # Работает с таблицами thumbnails.
     def observe(self, entries, *, requested=False):
         now = time.time()
         with self.connect() as db:
@@ -113,6 +129,8 @@ class ThumbnailCache:
                         priority=MAX(priority, excluded.priority)''',
                            (path, key, info.st_mtime, now, now if requested else 0))
 
+    # Читает сохранённые элементы очереди или каталога модуля.
+    # Работает с таблицами thumbnails.
     def items(self, paths):
         if not isinstance(paths, list) or len(paths) > 120:
             raise ValueError('Запроси не больше 120 превью')
@@ -126,6 +144,8 @@ class ThumbnailCache:
         found = {row['path']: dict(row) for row in rows}
         return [found.get(path, {'path': path, 'state': 'pending', 'signature': ''}) for path in paths]
 
+    # Читает готовую миниатюру для точной версии исходного файла.
+    # Работает с таблицами thumbnails.
     def image(self, path, key=''):
         with self.connect() as db:
             row = db.execute("SELECT signature,state,image,mime FROM thumbnails WHERE path=?", (relative(path),)).fetchone()
@@ -133,6 +153,8 @@ class ThumbnailCache:
             return bytes(row['image']), row['mime'], row['signature']
         return None
 
+    # Выбирает подходящую готовую обложку из сохранённого каталога превью.
+    # Работает с таблицами thumbnails.
     def cover(self, folder):
         prefix = relative(folder) + '/'
         with self.connect() as db:
@@ -144,6 +166,8 @@ class ThumbnailCache:
                     return dict(row)
         return {'path': '', 'signature': '', 'state': 'pending'}
 
+    # Выбирает следующее задание фоновой генерации миниатюр.
+    # Работает с таблицами thumbnails.
     def next_item(self):
         with self.connect() as db:
             row = db.execute("""SELECT path,signature,attempts FROM thumbnails
@@ -151,6 +175,8 @@ class ThumbnailCache:
                 ORDER BY priority DESC, attempts ASC, modified DESC LIMIT 1""", (time.time(),)).fetchone()
         return dict(row) if row else None
 
+    # Фиксирует результат обработки задания миниатюры.
+    # Работает с таблицами thumbnails.
     def finish(self, item, image=None, mime='image/jpeg', error=''):
         now = time.time()
         with self.connect() as db:
@@ -160,6 +186,8 @@ class ThumbnailCache:
                         now + min(3600, 60 * 2 ** min(item['attempts'], 6)) if error else 0,
                         now, item['path'], item['signature']))
 
+    # Возвращает состояние обработки и сохранённые ошибки.
+    # Работает с таблицами worker_status, thumbnails.
     def status(self, **values):
         with self.connect() as db:
             for key, value in values.items():
@@ -169,11 +197,15 @@ class ThumbnailCache:
                 'SELECT state,COUNT(*) AS count FROM thumbnails GROUP BY state')}
         return result
 
+    # Обходит разрешённые имена/метаданные для обновления фонового индекса.
+    # Работает с таблицами thumbnails.
     def scan(self, stop):
         started = time.time()
         errors = []
         self.status(scan_started=started, scan_error='')
 
+        # Сохраняет диагностический результат неудачного фонового обхода.
+        # Передаёт работу `errors.append`.
         def failed(error):
             if len(errors) < 10:
                 errors.append(str(error))
@@ -205,10 +237,14 @@ class ThumbnailCache:
         self.status(last_scan=time.time(), scan_error='; '.join(errors))
 
 
+# Получает собранный Swift-помощник для текущего исходника.
+# Возвращает `native_renderers.build(Path(__file__).with_name('thumbnail_preview.swift'), data_dir, 'thumbnail-renderer', 90)`.
 def renderer(data_dir):
     return native_renderers.build(Path(__file__).with_name('thumbnail_preview.swift'), data_dir, 'thumbnail-renderer', 90)
 
 
+# Вызывает ограниченный процесс генерации одной миниатюры.
+# Запускает внешний процесс; параметры и ограничения заданы в теле функции.
 def run_renderer(command, stop):
     with tempfile.TemporaryFile() as errors:
         process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=errors)
@@ -229,6 +265,8 @@ def run_renderer(command, stop):
             process.wait()
 
 
+# Генерирует превью поддерживаемого файла и сохраняет результат обработки.
+# При недопустимом состоянии возбуждает ValueError.
 def generate(cache, item, binary, stop):
     target, info = source(cache.root, item['path'])
     if signature(info) != item['signature']:
@@ -256,6 +294,8 @@ def generate(cache, item, binary, stop):
         cache.finish(item, raw)
 
 
+# Выполняет фоновый цикл обработки с контролем остановки или паузами.
+# Координирует фоновые потоки через локальные события или блокировки.
 def worker(cache, parent):
     # A lock spans the worker lifetime, including overlapping service restarts.
     with cache.database.with_suffix('.lock').open('a') as lock:
@@ -267,11 +307,15 @@ def worker(cache, parent):
         for number in (signal.SIGTERM, signal.SIGINT):
             signal.signal(number, lambda *_: stop.set())
 
+        # Завершает дочерний процесс после исчезновения родительского сервера.
+        # Передаёт работу `stop.wait`, `os.getppid`, `stop.set`.
         def watch_parent():
             while not stop.wait(1):
                 if os.getppid() != parent:
                     stop.set()
 
+        # Периодически обновляет наблюдаемый каталог в фоновом процессе.
+        # Передаёт работу `stop.is_set`, `cache.scan`, `cache.status().get`.
         def scan_loop():
             while not stop.is_set():
                 try:
@@ -302,6 +346,8 @@ def worker(cache, parent):
             cache.status(running=False, heartbeat=time.time())
 
 
+# Поддерживает один отдельный процесс миниатюр в течение жизни сервера.
+# Запускает внешний процесс; параметры и ограничения заданы в теле функции.
 def supervise(root, data_dir, stop):
     """Keep one separate low-priority process alive for this server lifetime."""
     while not stop.is_set():

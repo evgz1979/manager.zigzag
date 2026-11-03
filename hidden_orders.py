@@ -14,15 +14,21 @@ REASONS = {
 }
 
 
+# Приводит путь к каноническому виду для сопоставления записей.
+# Возвращает `unicodedata.normalize('NFC', path)`.
 def canonical(path):
     return unicodedata.normalize("NFC", path)
 
 
+# Проверяет принадлежность пути производственной области.
+# Возвращает `bool(parts and (is_work_root(parts[0]) or is_supplier_root(parts[0])))`.
 def production_path(path):
     parts = Path(path).parts
     return bool(parts and (is_work_root(parts[0]) or is_supplier_root(parts[0])))
 
 
+# Добавляет известные незарегистрированные папки без нового обхода.
+# Работает с таблицами sqlite_master, metadata_records, folder_notes.
 def catalog_orders(store, records):
     """Include known unregistered folders, without discovering or registering any."""
     if not store.database.exists():
@@ -66,6 +72,8 @@ def catalog_orders(store, records):
     return result, warnings
 
 
+# Готовит список скрытых заказов с применением сохранённых фильтров.
+# Возвращает `{'orders': result, 'reason_labels': REASONS, 'warnings': warnings}`.
 def listed(store, inactive_clients, inactive_objects):
     records = [row for row in store.list(include_unregistered=True) if not production_path(row["path"])]
     folders, warnings = catalog_orders(store, records)

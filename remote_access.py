@@ -26,6 +26,8 @@ LOGIN_PATH = '/_auth/login'
 DEFAULT_CREDENTIALS = Path.home() / '.local/share/manager-remote-access/password.json'
 
 
+# Создаёт документ хеша пароля с солью и случайным ключом подписи.
+# При недопустимом состоянии возбуждает ValueError.
 def password_document(password):
     if not isinstance(password, str) or not 12 <= len(password) <= 1024 or '\x00' in password:
         raise ValueError('Используй пароль от 12 до 1024 символов')
@@ -35,6 +37,8 @@ def password_document(password):
             'salt': salt.hex(), 'digest': digest.hex(), 'signing_key': secrets.token_hex(32)}
 
 
+# Первоначально сохраняет закрытый профиль пароля без замены существующего.
+# При недопустимом состоянии возбуждает ValueError.
 def save_password(path, password):
     """Initial creation only. Never replace an existing/unknown credential file."""
     document = password_document(password)
@@ -50,6 +54,8 @@ def save_password(path, password):
         os.fsync(stream.fileno())
 
 
+# Читает и проверяет настройки функции без раскрытия секретов вызывающему коду.
+# При недопустимом состоянии возбуждает ValueError.
 def settings(config_file):
     config = configparser.ConfigParser(interpolation=None)
     config.read(config_file, encoding='utf-8')
@@ -67,7 +73,11 @@ def settings(config_file):
     return {'public_host': host, 'port': port, 'credentials_file': credentials}
 
 
+# Проверяет профиль пароля, подписывает сессии и ограничивает попытки.
+# Основные операции: __init__, document, key, token, valid; остальные описаны у методов.
 class PasswordGate:
+    # Сохраняет зависимости и начальные параметры экземпляра.
+    # Состояние и зависимости сохраняются в полях self для последующих операций.
     def __init__(self, path, public_host, clock=time.time):
         self.path = Path(path)
         self.public_host = public_host
@@ -76,6 +86,8 @@ class PasswordGate:
         self.attempts = deque()
         self.verifying = threading.BoundedSemaphore(1)
 
+    # Читает и проверяет закрытый документ пароля и подписи сессий.
+    # При недопустимом состоянии возбуждает ValueError.
     def document(self):
         # Open without following links and check the opened inode, not a prior stat.
         fd = os.open(self.path, os.O_RDONLY | os.O_NOFOLLOW)
@@ -92,15 +104,21 @@ class PasswordGate:
             raise ValueError('Неизвестные настройки внешнего входа')
         return value
 
+    # Вычисляет нормализованный ключ для обращения к данным.
+    # Возвращает `hmac.digest(bytes.fromhex(document['signing_key']), bytes.fromhex(document['digest']), 'sha256')`.
     def key(self, document):
         # Changing either the password or signing key invalidates every session.
         return hmac.digest(bytes.fromhex(document['signing_key']), bytes.fromhex(document['digest']), 'sha256')
 
+    # Создаёт подписанный либо вычисляемый проверочный токен текущего контекста.
+    # Возвращает `value + '.' + hmac.new(self.key(document), value.encode(), hashlib.sha256).hexdigest()`.
     def token(self, document, kind, lifetime):
         now = int(self.clock())
         value = f'1.{kind}.{now}.{now + lifetime}.{secrets.token_hex(16)}'
         return value + '.' + hmac.new(self.key(document), value.encode(), hashlib.sha256).hexdigest()
 
+    # Проверяет срок и подпись переданного проверочного значения.
+    # Возвращает `False`; либо `hmac.compare_digest(expected, signature)`.
     def valid(self, document, token, kind):
         if not isinstance(token, str) or len(token) > 220:
             return False
@@ -115,6 +133,8 @@ class PasswordGate:
         expected = hmac.new(self.key(document), value.encode(), hashlib.sha256).hexdigest()
         return hmac.compare_digest(expected, signature)
 
+    # Возвращает задержку глобального ограничения попыток входа.
+    # Возвращает `max(1, math.ceil(60 - (now - self.attempts[0])))`; либо `0`.
     def retry_after(self):
         # Global, bounded limiter: proxy/client IP headers cannot bypass it.
         with self.lock:
@@ -127,6 +147,8 @@ class PasswordGate:
         return 0
 
 
+# Извлекает ожидаемую cookie из HTTP-заголовка запроса.
+# Возвращает `matches[0] if len(matches) == 1 else ''`.
 def cookie(handler, name):
     matches = []
     for header in handler.headers.get_all('Cookie', []):
@@ -137,6 +159,8 @@ def cookie(handler, name):
     return matches[0] if len(matches) == 1 else ''
 
 
+# Ограничивает адрес возврата после входа локальным путём приложения.
+# Возвращает `'/'`; либо `urllib.parse.quote(value, safe='/%?&#=:+,;@!$()*-._~')`.
 def safe_next(value):
     if (not isinstance(value, str) or len(value) > 3072 or not value.startswith('/') or value.startswith('//')
             or '\\' in value or any(ord(char) < 32 or ord(char) == 127 for char in value)
@@ -145,19 +169,27 @@ def safe_next(value):
     return urllib.parse.quote(value, safe='/%?&#=:+,;@!$()*-._~')
 
 
+# Формирует cookie с обязательными атрибутами защищённого входа.
+# Возвращает `result if lifetime is None else result + f'; Max-Age={lifetime}'`.
 def cookie_header(name, value, lifetime=None):
     result = f'{name}={value}; Path=/; Secure; HttpOnly; SameSite=Lax'
     return result if lifetime is None else result + f'; Max-Age={lifetime}'
 
 
+# Ограничивает параллельные соединения отдельного защищённого слушателя.
+# Основные операции: __init__, process_request, process_request_thread.
 class RemoteHTTPServer(ThreadingHTTPServer):
     """Bound concurrent requests so anonymous clients cannot create unlimited threads."""
     daemon_threads = True
 
+    # Сохраняет зависимости и начальные параметры экземпляра.
+    # Состояние и зависимости сохраняются в полях self для последующих операций.
     def __init__(self, *args, **kwargs):
         self.slots = threading.BoundedSemaphore(64)
         super().__init__(*args, **kwargs)
 
+    # Ограничивает количество одновременно обслуживаемых HTTP-запросов.
+    # Передаёт работу `self.slots.acquire`, `self.shutdown_request`, `super().process_request`.
     def process_request(self, request, client_address):
         if not self.slots.acquire(blocking=False):
             self.shutdown_request(request)
@@ -168,6 +200,8 @@ class RemoteHTTPServer(ThreadingHTTPServer):
             self.slots.release()
             raise
 
+    # Освобождает занятый слот после завершения обработки запроса.
+    # Передаёт работу `super().process_request_thread`, `super`, `self.slots.release`.
     def process_request_thread(self, request, client_address):
         try:
             super().process_request_thread(request, client_address)
@@ -175,14 +209,22 @@ class RemoteHTTPServer(ThreadingHTTPServer):
             self.slots.release()
 
 
+# Создаёт отдельный класс обработчика защищённого слушателя.
+# Возвращает `RemoteHandler`.
 def handler_class(base_handler):
+    # Закрывает все унаследованные маршруты проверками отдельного внешнего входа.
+    # Основные операции: setup, end_headers, reply, context, same_origin; остальные описаны у методов.
     class RemoteHandler(base_handler):
         # This class is used only by the separate 127.0.0.1 listener. Never infer
         # local trust from Host, X-Forwarded-For, CF-Connecting-IP or client IP.
+        # Настраивает ограничения соединения перед обработкой защищённого запроса.
+        # Передаёт работу `super().setup`, `super`, `self.connection.settimeout`.
         def setup(self):
             super().setup()
             self.connection.settimeout(20)
 
+        # Добавляет обязательные заголовки перед завершением HTTP-ответа.
+        # Передаёт работу `self.send_header`, `super().end_headers`, `super`.
         def end_headers(self):
             self.send_header('Cache-Control', 'no-store')
             self.send_header('CDN-Cache-Control', 'no-store')
@@ -192,6 +234,8 @@ def handler_class(base_handler):
             self.send_header('Strict-Transport-Security', 'max-age=31536000')
             super().end_headers()
 
+        # Отправляет локальный ответ защищённого обработчика с нужным статусом.
+        # Передаёт работу `self.send_response`, `self.send_header`, `self.end_headers`.
         def reply(self, status, body=b'', content_type='text/html; charset=utf-8', headers=()):
             self.close_connection = True
             self.send_response(status)
@@ -203,6 +247,8 @@ def handler_class(base_handler):
             if self.command != 'HEAD':
                 self.wfile.write(body)
 
+        # Проверяет Host и состояние профиля для текущего запроса.
+        # Возвращает `None`; либо `(gate, document)`.
         def context(self):
             gate = self.server.password_gate
             hosts = self.headers.get_all('Host', [])
@@ -216,14 +262,20 @@ def handler_class(base_handler):
                 return None
             return gate, document
 
+        # Проверяет строгий HTTPS Origin внешней записи.
+        # Возвращает `len(origins) == 1 and origins[0] in {'https://' + host, 'https://' + host + ':443'}`.
         def same_origin(self):
             origins = self.headers.get_all('Origin', [])
             host = self.server.password_gate.public_host
             return len(origins) == 1 and origins[0] in {'https://' + host, 'https://' + host + ':443'}
 
+        # Проверяет подписанную cookie сессии и её срок действия.
+        # Возвращает `gate.valid(document, cookie(self, SESSION_COOKIE), 'session')`.
         def authenticated(self, gate, document):
             return gate.valid(document, cookie(self, SESSION_COOKIE), 'session')
 
+        # Отправляет отказ или предложение входа без выдачи закрытых данных.
+        # Передаёт работу `urllib.parse.urlsplit(self.path).path.startswith`, `urllib.parse.urlsplit`, `self.path.startswith`.
         def denied(self):
             if urllib.parse.urlsplit(self.path).path.startswith('/api/') or self.path.startswith('/_auth/session') or self.command == 'POST':
                 self.reply(401, json.dumps({'error': 'Нужен вход в менеджер', 'login_required': True}).encode(),
@@ -231,6 +283,8 @@ def handler_class(base_handler):
             else:
                 self.reply(303, headers=[('Location', LOGIN_PATH + '?' + urllib.parse.urlencode({'next': safe_next(self.path)}))])
 
+        # Формирует страницу входа и короткую привязку CSRF.
+        # Передаёт работу `urllib.parse.parse_qs`, `urllib.parse.urlsplit`, `safe_next`.
         def login_page(self, gate, document, error='', status=200, retry=0):
             query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
             destination = safe_next(query.get('next', ['/'])[0])
@@ -246,6 +300,8 @@ def handler_class(base_handler):
                 headers.append(('Retry-After', str(retry)))
             self.reply(status, body, headers=headers)
 
+        # Проверяет вход перед выдачей страницы, API или файла.
+        # Передаёт работу `self.context`, `urllib.parse.urlsplit`, `self.authenticated`.
         def get_remote(self):
             context = self.context()
             if not context:
@@ -269,12 +325,18 @@ def handler_class(base_handler):
             else:
                 super().handle_get(head=self.command == 'HEAD')
 
+        # Обслуживает GET через проверки и маршрутизацию текущего обработчика.
+        # Передаёт работу `self.get_remote`.
         def do_GET(self):
             self.get_remote()
 
+        # Обслуживает HEAD с теми же ограничениями доступа, что GET.
+        # Передаёт работу `self.get_remote`.
         def do_HEAD(self):
             self.get_remote()
 
+        # Передаёт проверенный файл или статический ресурс в HTTP-ответе.
+        # Передаёт работу `target.is_file`, `target.read_bytes().replace`, `target.read_bytes`.
         def send_file(self, target, head=False, download=False, allow_range=False, private=False):
             if not private and not download and not allow_range and target.suffix == '.html' and target.is_file():
                 body = target.read_bytes().replace(b'</head>', b'<script src="/remote-access.js"></script></head>', 1)
@@ -282,6 +344,8 @@ def handler_class(base_handler):
             else:
                 super().send_file(target, head=head, download=download, allow_range=allow_range, private=private)
 
+        # Проверяет и маршрутизирует запрос изменения данных текущего обработчика.
+        # При недопустимом состоянии возбуждает ValueError.
         def do_POST(self):
             context = self.context()
             if not context:
@@ -346,6 +410,8 @@ def handler_class(base_handler):
     return RemoteHandler
 
 
+# Проверяет профиль и запускает отдельный loopback-слушатель внешнего входа.
+# Координирует фоновые потоки через локальные события или блокировки.
 def start(base_handler, config_file):
     value = settings(config_file)
     if value is None:

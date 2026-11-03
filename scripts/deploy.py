@@ -19,6 +19,8 @@ from uuid import uuid4
 APP = Path(__file__).resolve().parents[1]
 
 
+# Собирает только исходники приложения без обхода рабочих документов и data.
+# Возвращает `{p.relative_to(APP).as_posix(): p.read_bytes() for p in sorted(files)}`.
 def source_files():
     files = [p for p in APP.iterdir() if p.suffix in {".py", ".swift"}]
     files += [APP / name for name in ("README.md", "AGENTS.md", "PROJECT_NOTES", "deploy.ini")]
@@ -31,6 +33,8 @@ def source_files():
     return {p.relative_to(APP).as_posix(): p.read_bytes() for p in sorted(files)}
 
 
+# Получает согласованный SQLite-снимок без зависимости от WAL/SHM.
+# При недопустимом состоянии возбуждает RuntimeError.
 def snapshot_bytes(path):
     # Пакет содержит самостоятельный снимок без зависимости от WAL/SHM.
     with tempfile.TemporaryDirectory() as temporary:
@@ -45,6 +49,8 @@ def snapshot_bytes(path):
         return target.read_bytes()
 
 
+# Разбирает параметры запуска и выполняет основной сценарий программы.
+# Запускает внешний процесс; параметры и ограничения заданы в теле функции.
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--status", action="store_true")

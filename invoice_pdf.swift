@@ -2,6 +2,8 @@ import AppKit
 import CoreText
 import PDFKit
 
+// Завершает помощник с диагностикой в stderr и ненулевым кодом.
+// Вызывающий Python получает отказ вместо частичного успешного результата.
 func fail(_ message: String) -> Never {
     FileHandle.standardError.write(Data((message + "\n").utf8)); exit(1)
 }
@@ -10,23 +12,35 @@ guard args.count == 3, let bytes = try? Data(contentsOf: URL(fileURLWithPath: ar
       let data = (try? JSONSerialization.jsonObject(with: bytes)) as? [String: Any],
       let seller = data["seller"] as? [String: String], let items = data["items"] as? [[String: Any]],
       let total = data["total"] as? Int else { fail("Не удалось прочитать счёт") }
+// Извлекает строковое поле входного документа счёта.
+// Отсутствующее или нестроковое значение становится пустой строкой.
 func s(_ key: String) -> String { data[key] as? String ?? "" }
+// Форматирует денежное значение для PDF или карточки телефона.
+// Использует сохранённое числовое значение; расчёты базы этим не изменяются.
 func money(_ cents: Int) -> String {
     let formatter = NumberFormatter(); formatter.numberStyle = .decimal
     formatter.groupingSeparator = " "; formatter.decimalSeparator = ","
     formatter.minimumFractionDigits = 2; formatter.maximumFractionDigits = 2
     return formatter.string(from: NSDecimalNumber(value: cents).dividing(by: 100)) ?? ""
 }
+// Переставляет компоненты даты счёта для печатного отображения.
+// Использует формат входной строки с разделителем дефис.
 func date(_ value: String) -> String { value.split(separator: "-").reversed().joined(separator: ".") }
 let contract = s("kind") == "contract"
 let pageW: CGFloat = 595.28, pageH: CGFloat = 841.89, margin: CGFloat = 30, contentW: CGFloat = 535.28
+// Хранит измеренную текстовую область для последующей отрисовки PDF.
+// Координаты, размер и атрибуты определяются во время предварительной раскладки.
 struct Text {
     let string: NSAttributedString
     let x: CGFloat, top: CGFloat, width: CGFloat, height: CGFloat
 }
+// Хранит параметры линии или затенённой полосы PDF счёта.
+// Отрисовывается после расчёта итоговой высоты документа.
 struct Rule { let x: CGFloat, top: CGFloat, width: CGFloat, shade: Bool }
 var texts: [Text] = [], rules: [Rule] = [], bottom: CGFloat = 0
 var base: CGFloat = 10
+// Строит атрибутированный текст с нужным шрифтом и выравниванием.
+// Возвращает NSAttributedString для измерения и отрисовки PDF.
 func attributed(_ text: String, _ size: CGFloat, _ bold: Bool, _ right: Bool) -> NSAttributedString {
     let p = NSMutableParagraphStyle(); p.alignment = right ? .right : .left
     p.lineBreakMode = .byWordWrapping; p.lineSpacing = 1.8
@@ -34,6 +48,8 @@ func attributed(_ text: String, _ size: CGFloat, _ bold: Bool, _ right: Bool) ->
             .foregroundColor: NSColor.black, .paragraphStyle: p])
 }
 @discardableResult
+// Измеряет текст и добавляет область в план PDF-документа.
+// При отрисовке используется ранее вычисленная геометрия и выбранный шрифт.
 func text(_ value: String, _ x: CGFloat, _ top: CGFloat, _ width: CGFloat,
           _ size: CGFloat? = nil, bold: Bool = false, right: Bool = false) -> CGFloat {
     if value.isEmpty { return 0 }
@@ -44,7 +60,11 @@ func text(_ value: String, _ x: CGFloat, _ top: CGFloat, _ width: CGFloat,
     texts.append(Text(string: a, x: x, top: top, width: width, height: h))
     return h
 }
+// Добавляет горизонтальную линию в план PDF-документа.
+// Геометрия использует текущие поля страницы и ширину содержимого.
 func rule(_ top: CGFloat) { rules.append(Rule(x: margin, top: top, width: contentW, shade: false)) }
+// Рассчитывает размещение реквизитов, позиций и итогов PDF.
+// Обновляет накопленные области текста и линий для выбранного размера шрифта.
 func layout(_ font: CGFloat) {
     base = font; texts = []; rules = []
     var y = margin

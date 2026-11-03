@@ -9,10 +9,14 @@
 
 static pid_t child = -1;
 
+// Передаёт сигнал завершения дочернему процессу сервера Python.
+// Сигнал отправляется только при сохранённом положительном PID ребёнка.
 static void forward_signal(int number) { // Передаёт завершение серверу.
     if (child > 0) kill(child, number);
 }
 
+// Проверяет доступ приложения macOS к заданному каталогу через opendir.
+// Успех закрывает дескриптор; отказ возвращает код 77 с диагностикой.
 static int authorize(const char *path) { // Запрашивает разрешение macOS на каталог.
     DIR *directory = opendir(path);
     if (directory == NULL) {
@@ -23,6 +27,8 @@ static int authorize(const char *path) { // Запрашивает разреш�
     return 0;
 }
 
+// Проверяет доступ к каталогам либо запускает сервер Python из launchd.
+// Передаёт сигналы ребёнку и возвращает его код завершения.
 int main(int argc, char **argv) { // Проверяет доступ или запускает сервер.
     if (argc != 4) return 64;
     if (strcmp(argv[1], "--authorize") == 0) {

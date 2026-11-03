@@ -4,6 +4,8 @@ importScripts("/vendor/sheetjs/xlsx.full.min.js");
 let workbook;
 const MAX_ROWS = 10000, MAX_COLUMNS = 256;
 
+// Формирует ограниченную порцию строк таблицы для браузерного окна.
+// Использует `Error`, `XLSX.utils.decode_range`, `Math.min`.
 function page(sheetIndex, offset) {
   const sheet = workbook.Sheets[workbook.SheetNames[sheetIndex]];
   if (!sheet) throw new Error("Лист не найден");
@@ -18,6 +20,8 @@ function page(sheetIndex, offset) {
   const end = Math.min(endRow, start + pageSize - 1);
   const cells = [], heights = [], widths = [], merges = [];
   let formulasWithoutResult = false;
+  // Извлекает форматированное значение ячейки или части даты.
+  // Использует `XLSX.utils.encode_cell`, `XLSX.SSF.is_date`, `XLSX.SSF.format`.
   function value(row, column) {
     const cell = sheet[XLSX.utils.encode_cell({ r: row, c: column })];
     if (!cell) return { text: "", numeric: false };

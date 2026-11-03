@@ -18,10 +18,14 @@ from order_todos import REFRESH_LOCK
 import orders
 
 
+# Обозначает конфликт изменения в этом модуле.
+# Вызывающий обработчик использует тип исключения для отказа без подмены данных.
 class YearGroupConflict(ValueError):
     pass
 
 
+# Готовит проверяемое предложение операции без её выполнения.
+# При недопустимом состоянии возбуждает ValueError.
 def _preview(store, relative, db):
     if not isinstance(relative,str) or not Path(relative).parts or any(p.startswith('.') for p in Path(relative).parts):
         raise ValueError("Выбери объект клиента")
@@ -79,11 +83,15 @@ def _preview(store, relative, db):
             "skipped":skipped,"conflicts":list(dict.fromkeys(conflicts)),"before":token}
 
 
+# Готовит проверяемое предложение операции без её выполнения.
+# Возвращает `_preview(store, relative, db)`.
 def preview(store,relative):
     with LOCK, store.connect() as db:
         return _preview(store,relative,db)
 
 
+# Группирует проверенные записи или папки в предусмотренные категории.
+# Работает с таблицами folder_renames.
 def group(store,payload):
     if payload.get('confirmed') is not True:
         raise ValueError("Подтверди показанный список переносов")

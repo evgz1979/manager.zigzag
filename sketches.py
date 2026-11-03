@@ -19,10 +19,14 @@ MAX_PREVIEW = 8 * 1024 * 1024
 PNG = b"\x89PNG\r\n\x1a\n"
 
 
+# Распознаёт непосредственную служебную папку эскизов CorelDRAW.
+# Возвращает `name.startswith('#') and name[1:].strip().casefold() == 'cdr'`.
 def cdr_folder(name):
     return name.startswith("#") and name[1:].strip().casefold() == "cdr"
 
 
+# Отбирает поддерживаемый CDR, исключая резервные имена.
+# Формирует возвращаемое значение из проверенного локального состояния.
 def sketch_name(name):
     normalized = unicodedata.normalize("NFC", name).casefold()
     backup = re.match(r"^(?:резервная[ _-]+копия|автосохранение|автоматическая[ _-]+копия|backup(?:[ _-]+of)?|auto[ _-]?backup|autosave)(?:[ _.-]|$)", normalized)
@@ -30,6 +34,8 @@ def sketch_name(name):
             and not backup and not re.search(r"(?:[ _.-](?:backup|bak|autosave))\.cdr$", normalized))
 
 
+# Проверяет путь папки эскиза внутри заказа.
+# При недопустимом состоянии возбуждает ValueError.
 def folder_path(relative):
     path = Path(relative)
     if (path.is_absolute() or len(path.parts) < 3 or any(part.startswith(".") for part in path.parts)
@@ -38,6 +44,8 @@ def folder_path(relative):
     return path.parent.as_posix()
 
 
+# Читает данные текущего формата и сохраняет различие пустого и неизвестного.
+# Возвращает `None`; либо `result`.
 def read(blocks):
     result = {}
     for line in blocks.get(BLOCK, "").splitlines():
@@ -58,6 +66,8 @@ def read(blocks):
     return result
 
 
+# Формирует новое представление данных для сохранения.
+# При недопустимом состоянии возбуждает ValueError.
 def write(blocks, filename, value):
     if not isinstance(value, str) or value not in LABELS:
         raise ValueError("Выберите актуальность эскиза")
@@ -69,6 +79,8 @@ def write(blocks, filename, value):
     return {**blocks, BLOCK: body}
 
 
+# Формирует представление состояния и ошибок для интерфейса.
+# Формирует возвращаемое значение из проверенного локального состояния.
 def info(record, filename, error=""):
     states = read(record["extra_blocks"]) if record else None
     return {"value": states.get(unicodedata.normalize("NFC", filename), "none") if states is not None else None,
@@ -78,6 +90,8 @@ def info(record, filename, error=""):
             "error": error or (f"Проверьте раздел [{BLOCK}] в !.txt папки #cdr" if record and states is None else "")}
 
 
+# Формирует представление состояния и ошибок для интерфейса.
+# Возвращает `result`.
 def group_info(record):
     result = info(record, "")
     result.pop("value")
@@ -85,6 +99,8 @@ def group_info(record):
     return result
 
 
+# Извлекает встроенную миниатюру Corel без распаковки путей на диск.
+# При недопустимом состоянии возбуждает ValueError.
 def embedded_preview(target, *, allow_bmp=False):
     """Read saved Corel thumbnails; never extract archive paths to disk."""
     try:
@@ -126,11 +142,15 @@ def embedded_preview(target, *, allow_bmp=False):
     raise ValueError("В CDR нет доступного встроенного превью" if allow_bmp else "В CDR нет доступного встроенного PNG-превью")
 
 
+# Вычисляет отпечаток метаданных объекта для проверки свежести.
+# Возвращает `hashlib.sha256(f'{target}:{stat.st_dev}:{stat.st_ino}:{stat.st_size}:{stat.st_mtime_ns}:{stat.st_ctime_ns}'.encode()).hexdigest()`.
 def fingerprint(target):
     stat = target.stat()
     return hashlib.sha256(f"{target}:{stat.st_dev}:{stat.st_ino}:{stat.st_size}:{stat.st_mtime_ns}:{stat.st_ctime_ns}".encode()).hexdigest()
 
 
+# Готовит проверяемое предложение операции без её выполнения.
+# Запускает внешний процесс; параметры и ограничения заданы в теле функции.
 def preview(target, data_dir, *, read_bytes=None, allow_bmp=False):
     digest = fingerprint(target)
     cache = Path(data_dir) / "sketch-previews"
@@ -162,6 +182,8 @@ def preview(target, data_dir, *, read_bytes=None, allow_bmp=False):
     return cached
 
 
+# Находит установленное приложение CorelDRAW для открытия оригинала.
+# При недопустимом состоянии возбуждает ValueError.
 def corel_app():
     candidates = []
     for root in (Path("/Applications"), Path.home() / "Applications"):
@@ -179,6 +201,8 @@ def corel_app():
     return max(candidates)[1]
 
 
+# Открывает проверенный исходный CDR в CorelDRAW на серверном Mac.
+# Запускает внешний процесс; параметры и ограничения заданы в теле функции.
 def open_corel(target):
     try:
         subprocess.run(["/usr/bin/open", "-a", corel_app(), str(target)], check=True, capture_output=True, timeout=15)

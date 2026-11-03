@@ -19,14 +19,20 @@ NUMBER = re.compile(r"^([0-9]+)(?=$|[\s\-–—])")
 CANONICAL = re.compile(r"^([0-9]{2,}) - (\S(?:.*\S)?)$")
 
 
+# Обозначает конфликт изменения в этом модуле.
+# Вызывающий обработчик использует тип исключения для отказа без подмены данных.
 class EventFolderConflict(ValueError):
     pass
 
 
+# Извлекает допустимый порядковый номер события из имени папки.
+# Возвращает `None if dated(name) else NUMBER.match(name)`.
 def event_number(name):
     return None if dated(name) else NUMBER.match(name)
 
 
+# Определяет родительскую папку или заказ по допустимому пути.
+# При недопустимом состоянии возбуждает ValueError, FileNotFoundError.
 def parent(root, relative):
     if isinstance(relative, str) and is_freza_task(relative):
         raise ValueError("В задании на фрезеровку события не нужны. Добавляй файлы прямо в задание")
@@ -40,6 +46,8 @@ def parent(root, relative):
     return target
 
 
+# Проверяет имя создаваемого или переименовываемого объекта.
+# При недопустимом состоянии возбуждает ValueError.
 def title_name(number, title):
     if not isinstance(title, str) or any(c in '/\\:' or ord(c) < 32 or ord(c) == 127 for c in title):
         raise ValueError("Название события должно быть в одну строку, без /, \\ и :")
@@ -52,6 +60,8 @@ def title_name(number, title):
     return name
 
 
+# Собирает текущее наблюдаемое состояние для проверки или показа.
+# Возвращает `{'parent': layout.identity(target), 'children': children}`.
 def snapshot(target):
     children = []
     for item in target.iterdir():
@@ -62,6 +72,8 @@ def snapshot(target):
     return {"parent": layout.identity(target), "children": children}
 
 
+# Готовит проверяемое предложение операции без её выполнения.
+# Формирует возвращаемое значение из проверенного локального состояния.
 def preview(root, relative, notes=None):
     root = Path(root).resolve()
     target = parent(root, relative)
@@ -102,6 +114,8 @@ def preview(root, relative, notes=None):
             "next_number": f"{maximum + 1:02d}", "suggestions": suggestions, "before": before}
 
 
+# Проверяет текущую запись и ожидаемую версию перед изменением.
+# При недопустимом состоянии возбуждает EventFolderConflict.
 def current(root, payload, notes=None):
     result = preview(root, payload.get("path"), notes)
     if result["revision"] != payload.get("revision"):
@@ -109,6 +123,8 @@ def current(root, payload, notes=None):
     return result
 
 
+# Создаёт новый объект после проверки области и входных данных.
+# При недопустимом состоянии возбуждает EventFolderConflict.
 def create(root, payload, notes=None):
     root = Path(root).resolve()
     with LOCK:
@@ -134,6 +150,8 @@ def create(root, payload, notes=None):
         return {"path": relative, "name": name, "journal": session.relative_to(root).as_posix()}
 
 
+# Переименовывает объект без перезаписи существующего назначения.
+# Работает с таблицами orders, folder_notes, event_renames.
 def rename(notes, payload):
     if payload.get("confirmed") is not True:
         raise ValueError("Подтвердите переименование по показанному списку")

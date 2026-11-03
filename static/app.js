@@ -1,3 +1,5 @@
+// Находит элемент интерфейса по устойчивому DOM-идентификатору.
+// Обращается к DOM текущего документа или переданного контейнера.
 const $ = (id) => document.getElementById(id);
 const statusLabels = { new: "Новый", measure: "Замеры", process: "Расчеты", awaiting_client: "Жду от клиента", awaiting_payment: "На оплате", related: "Связанный", waiting: "Жду", offer_later: "Предложить позже", workshop: "В цех", install: "Монтаж", rework: "Переделка/доделка", finishing: "Завершение/добивка", deferred: "Отложен/возможно", done: "Готово", done_but: "Готово, но…", cancelled: "Отменён", unspecified: "Не указан", personal_work: "Личное/в работе", personal_done: "Личное/готово" };
 const supplierStatusLabels = { work: "В работе", cancelled: "Отменён", archived: "В архив" };
@@ -46,23 +48,47 @@ const state = {
   calendarMenu: null, calendarMoving: new Set(),
 };
 let searchTimer, toastTimer, todoSaveTimer, previewVersion = 0, treeSearchVersion = 0, printReadVersion = 0;
+// Строит SVG-значок из локального набора символов.
+// Результат вычисляется из переданных аргументов и текущего состояния компонента.
 const icon = (name) => '<svg aria-hidden="true"><use href="#icon-' + name + '"/></svg>';
+// Экранирует текст перед вставкой в HTML-разметку или атрибут.
+// Заменяет &, <, >, кавычки и апостроф на безопасные HTML-сущности.
 const escapeHtml = (value) => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+// Нормализует строку для поиска и сравнения без учёта регистра.
+// Использует `String(value).normalize("NFC").toLocaleLowerCase`, `String(value).normalize`, `String`.
 const normalize = (value) => String(value).normalize("NFC").toLocaleLowerCase("ru");
+// Определяет производственную область по относительному пути заказа.
+// Использует `/^#\s*work$/i.test`, `String(path || "").split`, `String`.
 const isWorkOrderPath = (path) => /^#\s*work$/i.test(String(path || "").split("/")[0]);
+// Собирает URL запроса с безопасным кодированием параметров.
+// Использует `URLSearchParams`.
 const apiUrl = (route, path = "", extra = {}) => route + "?" + new URLSearchParams({ path, ...extra });
+// Собирает URL запроса с безопасным кодированием параметров.
+// Использует `/api/tree`.
 const treeUrl = (path = "", extra = {}) => apiUrl("/api/tree", path, { show_inactive: state.showInactive ? "1" : "0", ...extra });
+// Собирает URL запроса с безопасным кодированием параметров.
+// Использует `/api/folder`.
 const folderUrl = (path) => apiUrl("/api/folder", path, { show_inactive: state.showInactive ? "1" : "0" });
+// Форматирует размер файла для интерфейса.
+// Использует `Math.round`, `(bytes / 1024 ** 2).toFixed`, `(bytes / 1024 ** 3).toFixed`.
 const formatSize = (bytes) => {
   if (bytes < 1024) return bytes + " Б";
   if (bytes < 1024 ** 2) return Math.round(bytes / 1024) + " КБ";
   if (bytes < 1024 ** 3) return (bytes / 1024 ** 2).toFixed(1) + " МБ";
   return (bytes / 1024 ** 3).toFixed(1) + " ГБ";
 };
+// Форматирует сохранённую дату для показа пользователю.
+// Использует `new Date(seconds * 1000).toLocaleDateString`, `Date`.
 const formatDate = (seconds) => new Date(seconds * 1000).toLocaleDateString("ru", { day: "numeric", month: "short", year: "numeric" });
+// Выбирает русскую подпись количества заданий печати.
+// Использует `new Intl.PluralRules("ru").select`, `Intl.PluralRules`.
 const printCountLabel = (count) => count + " " + ({ one: "задание", few: "задания", many: "заданий", other: "задания" }[new Intl.PluralRules("ru").select(count)]);
+// Вычисляет относительный путь родительской папки.
+// Использует `path.split("/").slice(0, -1).join`, `path.split("/").slice`, `path.split`.
 const folderParent = (path) => path.split("/").slice(0, -1).join("/");
 
+// Обновляет прогресс и результаты текущей последовательной загрузки файлов.
+// Использует `$`, `Boolean`, `formatSize`.
 function renderUpload() {
   const job = state.upload;
   $("uploadPanel").hidden = !job;
@@ -84,6 +110,8 @@ function renderUpload() {
   if ($("uploadResults").innerHTML !== markup) $("uploadResults").innerHTML = markup;
 }
 
+// Передаёт один файл с привязкой к открытой папке и обновлением прогресса.
+// Использует `/api/file-upload`.
 function sendUpload(file, job) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -106,6 +134,8 @@ function sendUpload(file, job) {
   });
 }
 
+// Перечитывает содержимое папки после успешных загрузок.
+// Дожидается серверного ответа; ошибку передаёт вызывающему обработчику.
 async function refreshUploadedFiles(job) {
   const folder = state.folder;
   if (state.view!=="folder" || folder?.path!==job.path || folder.upload?.token!==job.token) return;
@@ -117,6 +147,8 @@ async function refreshUploadedFiles(job) {
   $("folderSummary").textContent = folder.fileCount + " файлов · " + folder.folderCount + " папок · " + formatSize(folder.totalSize);
 }
 
+// Последовательно загружает выбранные файлы с сохранением отдельных результатов.
+// Использует `notify`, `$`, `renderUpload`.
 async function uploadFiles(files) {
   if (state.upload?.busy) { notify("Дождись завершения текущей загрузки",true); return; }
   const folder = state.folder;
@@ -146,6 +178,8 @@ async function uploadFiles(files) {
   }
 }
 
+// Отправляет запрос серверу и преобразует HTTP-ошибку в исключение интерфейса.
+// Использует `/api/reconciliation-save`, `/api/invoice-reconciliation`.
 async function request(url, payload) {
   const response = await fetch(url, payload === undefined ? {} : {
     method: "POST", headers: { "Content-Type": "application/json", ...(['/api/reconciliation-save', '/api/invoice-reconciliation'].includes(url) ? { 'X-Manager-Reconciliations': '1' } : {}) }, body: JSON.stringify(payload),
@@ -159,6 +193,8 @@ async function request(url, payload) {
   return result;
 }
 
+// Показывает сообщение пользователю и предусмотренное действие отмены.
+// Подключает обработчики событий к существующим элементам компонента.
 function notify(message, error = false, action = null) {
   clearTimeout(toastTimer);
   $("toast").textContent = message;
@@ -177,6 +213,8 @@ function notify(message, error = false, action = null) {
   if (!action) toastTimer = setTimeout(() => { $("toast").hidden = true; }, error ? 7000 : 3000);
 }
 
+// Запоминает узлы дерева для последующих раскрытий и навигации.
+// Использует `state.nodes.set`, `registerNodes`.
 function registerNodes(nodes) {
   for (const node of nodes) {
     state.nodes.set(node.path, node);
@@ -184,6 +222,8 @@ function registerNodes(nodes) {
   }
 }
 
+// Строит разметку ветвей дерева из полученных узлов.
+// Использует `nodes.map`.
 function treeMarkup(nodes, depth = 0, searching = false) {
   return nodes.map((node, index) => {
     const open = searching ? Boolean(node.children?.length) : state.expanded.has(node.path);
@@ -201,6 +241,8 @@ function treeMarkup(nodes, depth = 0, searching = false) {
   }).join("");
 }
 
+// Показывает избранные заказы в панели навигации.
+// Обращается к DOM текущего документа или переданного контейнера.
 function renderFavoriteOrders() {
   const container = $("favoriteOrders");
   const favorites = state.favoriteOrders.filter((order) => order.is_favorite === true && order.supplier_status !== "archived").sort((a,b) =>
@@ -219,11 +261,15 @@ function renderFavoriteOrders() {
   container.hidden = !favorites.length;
 }
 
+// Обновляет DOM дерева для текущего состояния навигации.
+// Обращается к DOM текущего документа или переданного контейнера.
 function renderTree() {
   const focused = document.activeElement?.closest(".tree-row")?.dataset.path;
   const focusedGroup = document.activeElement?.closest("[data-catalog-group]")?.dataset.catalogGroup;
   const data = state.searchTree || { children: state.tree, groups: state.groups };
   const searching = Boolean(state.searchTree);
+  // Формирует HTML текущего компонента из переданных данных.
+  // Использует `treeMarkup`.
   const markup = (nodes) => nodes.length ? treeMarkup(nodes, 0, searching) : '<p class="tree-empty">Папки не найдены</p>';
   $("folderTree").innerHTML = '<section class="catalog-tree-section"><div class="tree-heading catalog-tree-heading"><span>Клиенты</span><span id="clientCount">' + data.children.length + '</span></div><div role="tree" aria-label="Основное дерево клиентов">' + markup(data.children) + '</div></section>' +
     data.groups.map((group) => '<section class="catalog-tree-section"><div class="tree-heading catalog-tree-heading"><button type="button" data-catalog-group="' + escapeHtml(group.path) + '" title="Открыть группу ' + escapeHtml(group.name) + '"' + (state.selected === group.path ? ' aria-current="page"' : '') + '>' + escapeHtml(group.name) + '</button><span>' + (group.error ? "—" : group.children.length) + '</span></div><div role="tree" aria-label="Группа ' + escapeHtml(group.name) + '">' + (group.error ? '<p class="tree-empty" role="status">' + escapeHtml(group.error) + '</p>' : markup(group.children)) + '</div></section>').join("");
@@ -242,6 +288,8 @@ function renderTree() {
   renderFavoriteOrders();
 }
 
+// Возвращает клавиатурный фокус в нужный узел дерева.
+// Обращается к DOM текущего документа или переданного контейнера.
 function focusTree(path) {
   const row = [...$("folderTree").querySelectorAll(".tree-row")].find((item) => item.dataset.path === path);
   if (row) {
@@ -251,6 +299,8 @@ function focusTree(path) {
   }
 }
 
+// Загружает непосредственных потомков раскрываемого узла.
+// Дожидается серверного ответа; ошибку передаёт вызывающему обработчику.
 async function loadChildren(path) {
   if (!state.children.has(path)) {
     const data = await request(treeUrl(path));
@@ -260,6 +310,8 @@ async function loadChildren(path) {
   return state.children.get(path);
 }
 
+// Раскрывает или сворачивает ветвь дерева папок.
+// Использует `state.expanded.has`, `state.expanded.delete`, `loadChildren`.
 async function toggleFolder(path, forceOpen = false) {
   if (state.treeQuery) return;
   if (state.expanded.has(path) && !forceOpen) {
@@ -271,6 +323,8 @@ async function toggleFolder(path, forceOpen = false) {
   renderTree();
 }
 
+// Последовательно раскрывает дерево до выбранной папки.
+// Обращается к DOM текущего документа или переданного контейнера.
 async function revealPath(path, navigation) {
   if (!path || state.treeQuery || state.auxiliary.some((item) => path === item.path || path.startsWith(item.path + "/"))) return;
   const parts = path.split("/");
@@ -287,6 +341,8 @@ async function revealPath(path, navigation) {
   }
 }
 
+// Загружает дерево текущего корня с учётом поиска и области.
+// Дожидается серверного ответа; ошибку передаёт вызывающему обработчику.
 async function loadTree() {
   const data = await request(treeUrl());
   state.tree = data.children;
@@ -304,6 +360,8 @@ async function loadTree() {
   renderTree();
 }
 
+// Перечитывает деревья клиентов после изменения индекса активности.
+// Дожидается серверного ответа; ошибку передаёт вызывающему обработчику.
 async function reloadClientTrees() {
   ++treeSearchVersion;
   clearTimeout(searchTimer);
@@ -319,18 +377,26 @@ async function reloadClientTrees() {
   }
 }
 
+// Выбирает состояние активности папки текущей роли.
+// Результат вычисляется из переданных аргументов и текущего состояния компонента.
 function folderActivity(folder) {
   return folder?.objectActivity || folder?.clientActivity;
 }
 
+// Выбирает API активности клиента или объекта.
+// Использует `/api/object-activity`, `/api/client-activity`.
 function activityRoute(folder) {
   return folder?.objectActivity ? "/api/object-activity" : "/api/client-activity";
 }
 
+// Применяет подтверждённую активность к локальному состоянию интерфейса.
+// Результат вычисляется из переданных аргументов и текущего состояния компонента.
 function updateFolderActivity(folder, activity) {
   folder[folder.objectActivity ? "objectActivity" : "clientActivity"] = activity;
 }
 
+// Показывает состояние активности клиента или объекта и действия пользователя.
+// Использует `folderActivity`, `$`, `Boolean`.
 function renderClientActivity() {
   const folder = state.folder, activity = folderActivity(folder);
   $("folderFooter").hidden = !activity;
@@ -348,6 +414,8 @@ function renderClientActivity() {
   $("clientActivityAcceptFile").disabled = state.clientActivitySaving;
 }
 
+// Сохраняет выбранную активность с версией текущей записи.
+// Дожидается серверного ответа; ошибку передаёт вызывающему обработчику.
 async function saveClientActivity(inactive, acceptFile = false) {
   const folder = state.folder;
   if (!folderActivity(folder) || state.clientActivitySaving) return;
@@ -371,6 +439,8 @@ async function saveClientActivity(inactive, acceptFile = false) {
   }
 }
 
+// Показывает непосредственные CDR и их актуальность в карточке заказа.
+// Использует `/api/thumbnail`.
 function renderSketches() {
   const folder = state.folder, files = folder.sketches || [];
   const focused = document.activeElement?.closest("[data-sketch-status]");
@@ -392,6 +462,8 @@ function renderSketches() {
   if (focusPath) [...$("sketchTiles").querySelectorAll("[data-sketch-status]")].find((button) => button.dataset.sketchFile === focusPath && button.dataset.sketchStatus === focusValue)?.focus();
 }
 
+// Применяет полученную группу актуальности эскизов к локальному состоянию.
+// Использует `item.name.normalize`, `JSON.stringify`.
 function applySketchGroup(folder, path, record) {
   let changed = false;
   for (const item of folder.sketches || []) {
@@ -403,6 +475,8 @@ function applySketchGroup(folder, path, record) {
   return changed;
 }
 
+// Перечитывает сохранённую актуальность эскизов из базы.
+// Использует `/api/sketch-relevance`.
 async function refreshSketchRelevance(folder) {
   if (!(folder.sketches || []).length || state.folder !== folder) return;
   const records = await request(apiUrl("/api/sketch-relevance", folder.path));
@@ -414,6 +488,8 @@ async function refreshSketchRelevance(folder) {
   if (changed) renderSketches();
 }
 
+// Сохраняет актуальность конкретного эскиза с проверочной привязкой.
+// Использует `/api/sketch-relevance`.
 async function saveSketchRelevance(path, value) {
   const folder = state.folder, item = folder?.sketches?.find((file) => file.path === path);
   if (!item || folder.sketchSavingFolders?.has(item.folder) || item.relevance.value === value) return;
@@ -438,6 +514,8 @@ async function saveSketchRelevance(path, value) {
   }
 }
 
+// Запрашивает открытие исходного CDR на серверном Mac.
+// Использует `/api/sketch-open`.
 async function openSketch(path, key) {
   const folder = state.folder, item = folder?.sketches?.find((file) => file.path === path && file.key === key);
   if (!item || item.opening) return;
@@ -452,6 +530,8 @@ async function openSketch(path, key) {
   }
 }
 
+// Строит кнопку подпапки с ролью и доступными действиями.
+// Использует `Number.isSafeInteger`, `Number`, `escapeHtml`.
 function subfolderButton(item) {
   const color = item.supplierColor;
   const count = Number.isSafeInteger(item.supplierPurchaseCount) ? item.supplierPurchaseCount : null;
@@ -470,6 +550,8 @@ function subfolderButton(item) {
     (favorite.is_favorite ? "★" : "☆") + '</span></button></div>';
 }
 
+// Показывает подпапки текущей папки согласно их ролям.
+// Использует `/api/thumbnail-cover`.
 function renderSubfolders() {
   const folder = state.folder;
   $("subfolders").classList.toggle("work-section-buttons", folder.folderKind === "work_root");
@@ -558,10 +640,14 @@ function renderSubfolders() {
   if (workRoot) document.querySelector(".content-pane").scrollTop = scroll;
 }
 
+// Возвращает фокус на звезду выбранного раздела поставщика.
+// Обращается к DOM текущего документа или переданного контейнера.
 function focusSupplierStar(path) {
   [...$("subfolders").querySelectorAll("[data-supplier-favorite]")].find((button) => button.dataset.supplierFavorite === path)?.focus({ preventScroll: true });
 }
 
+// Перечитывает сохранённые звёзды и порядок разделов производства.
+// Использует `/api/work-supplier-favorites`.
 async function refreshSupplierFavorites(folder) {
   if (folder?.folderKind !== "work_root" || state.folder !== folder) return;
   const records = await request(apiUrl("/api/work-supplier-favorites", folder.path));
@@ -579,6 +665,8 @@ async function refreshSupplierFavorites(folder) {
   if (changed) renderSubfolders();
 }
 
+// Сохраняет изменение избранного раздела поставщика.
+// Использует `/api/work-supplier-favorite`.
 async function toggleSupplierFavorite(path) {
   const folder = state.folder, item = folder?.directories.find((entry) => entry.path === path);
   if (folder?.folderKind !== "work_root" || !item?.supplierFavorite?.editable || state.supplierFavoriteSaving.has(path)) return;
@@ -605,6 +693,8 @@ async function toggleSupplierFavorite(path) {
   }
 }
 
+// Перечитывает актуальность событий из SQLite без повторного чтения файлов.
+// Использует `/api/event-relevance`.
 async function refreshEventRelevance(folder) {
   if (!folder.canCreateEventFolder || state.folder !== folder) return;
   const records = await request(apiUrl("/api/event-relevance", folder.path));
@@ -619,6 +709,8 @@ async function refreshEventRelevance(folder) {
   if (changed) renderSubfolders();
 }
 
+// Сохраняет актуальность выбранной папки события.
+// Использует `/api/event-relevance`.
 async function saveEventRelevance(path, value) {
   const folder = state.folder, item = folder?.directories.find((directory) => directory.path === path);
   if (!item?.eventRelevance || item.relevanceSaving || item.eventRelevance.value === value) return;
@@ -640,6 +732,8 @@ async function saveEventRelevance(path, value) {
   }
 }
 
+// Собирает представление открытой папки и доступные её роли блоки интерфейса.
+// Использует `renderMoneyOverview`, `document.dispatchEvent`, `CustomEvent`.
 function renderFolder(preserveForm = false) {
   const folder = state.folder;
   const reconciliation = folder.reconciliation;
@@ -753,6 +847,8 @@ function renderFolder(preserveForm = false) {
   if (isFolderOrderList()) renderOrders();
 }
 
+// Подгоняет высоту поля заметки под его текущее содержимое.
+// Использует `$`, `Math.min`, `Math.max`.
 function resizeOrderNote() {
   const note = $("orderNote");
   if (!$("orderDetails").open) return;
@@ -760,6 +856,8 @@ function resizeOrderNote() {
   note.style.height = Math.min(480, Math.max(note.value.trim() ? 160 : 54, note.scrollHeight + 2)) + "px";
 }
 
+// Показывает заголовок карточки заказа и его независимые отметки.
+// Использует `$`, `supplierLabel.setAttribute`, `supplierLabel.style.setProperty`.
 function renderOrderHeading() {
   const folder = state.folder;
   const order = folder?.order;
@@ -794,6 +892,8 @@ function renderOrderHeading() {
   button.firstElementChild.textContent = order.is_favorite ? "★" : "☆";
 }
 
+// Заполняет редактор сохранённого состояния текущей карточки.
+// Использует `Boolean`, `Object.hasOwn`, `isWorkOrderPath`.
 function renderStatus() {
   const supplierCard = Boolean(state.folder.order && Object.hasOwn(state.folder.order, "supplier_status"));
   const hideStatuses = state.folder.service || state.folder.noteOnly || (isWorkOrderPath(state.folder.path) && !supplierCard);
@@ -809,11 +909,15 @@ function renderStatus() {
   renderCardDeadlines();
 }
 
+// Показывает состояние сохранения закупок и доступность повторной проверки.
+// Использует `$`.
 function renderPurchaseSaveState() {
   const order = state.folder?.order;
   $("purchaseSaveState").textContent = state.saving ? "Сохраняю…" : state.dirty ? "Есть несохранённые изменения" : order?.storage === "database" ? "Сохранено в базе" : order?.sync_error ? "Сохранено в базе · выгрузка: " + order.sync_error : order?.sync_pending ? "Сохранено в базе · ожидает выгрузки в папку" : order ? "Выгружено в !.txt" : "Автоматическое сохранение в !.txt заказа";
 }
 
+// Строит переключатели назначений поставщиков одной закупки.
+// Использует `(state.purchaseSuppliers || []).map`, `(item.suppliers || []).filter`.
 function purchaseSupplierButtons(item) {
   const available = (state.purchaseSuppliers || []).map(row => row.name);
   const names = [...available, ...(item.suppliers || []).filter(name => !available.includes(name))];
@@ -825,6 +929,8 @@ function purchaseSupplierButtons(item) {
   }).join("") || '<span class="purchase-suppliers-empty">' + (state.purchaseSuppliers === null ? 'Загрузка поставщиков…' : 'Отметь поставщиков звёздочкой в # work') + '</span>';
 }
 
+// Обновляет назначения строки закупки в существующем редакторе.
+// Обращается к DOM текущего документа или переданного контейнера.
 function updatePurchaseSupplierButtons() {
   const focused = document.activeElement, name = focused?.dataset.purchaseSupplier;
   const index = focused?.closest("[data-purchase-index]")?.dataset.purchaseIndex;
@@ -842,6 +948,8 @@ function updatePurchaseSupplierButtons() {
   document.querySelector(".content-pane").scrollTop = scroll;
 }
 
+// Загружает доступные избранные разделы поставщиков.
+// Использует `/api/purchase-suppliers`.
 async function refreshPurchaseSuppliers() {
   const folder = state.folder;
   if (state.view !== "folder" || !folder || (folder.folderKind !== "work_root" && isWorkOrderPath(folder.path))) return;
@@ -868,6 +976,8 @@ async function refreshPurchaseSuppliers() {
 
 document.addEventListener("manager-folder-rendered", () => { refreshPurchaseSuppliers().catch(() => {}); });
 
+// Показывает редактор исходных закупок текущего заказа.
+// Использует `Array.isArray`, `$`, `Boolean`.
 function renderPurchases() {
   const folder = state.folder, items = folder.purchase_items;
   const editable = Array.isArray(items);
@@ -884,11 +994,15 @@ function renderPurchases() {
   renderPurchaseSaveState();
 }
 
+// Применяет фоновое изменение закупок с проверкой локального черновика.
+// Использует `$`, `unchanged`, `JSON.stringify`.
 function applyRemotePurchaseUpdate(folder, order) {
   const previous = folder.order;
   if (state.folder !== folder || state.dirty || state.saving || order.id !== previous?.id || order.revision <= previous.revision ||
       document.activeElement?.closest("#purchasePanel") || $("purchaseNewText").value) return false;
   // A partial purchase update may advance the card only when all other saved fields agree.
+  // Сравнивает данные редактора с сохранённым исходным состоянием.
+  // Использует `JSON.stringify`.
   const unchanged = record => {
     const blocks = { ...record.extra_blocks };
     delete blocks["Закупки и затраты"];
@@ -901,6 +1015,8 @@ function applyRemotePurchaseUpdate(folder, order) {
   return true;
 }
 
+// Показывает собственные задачи текущей карточки.
+// Использует `Array.isArray`, `$`, `Boolean`.
 function renderTodos() {
   const items = state.folder.todo_items;
   const editable = Array.isArray(items);
@@ -916,10 +1032,14 @@ function renderTodos() {
     '<button class="todo-delete" type="button" aria-label="Удалить задачу: ' + escapeHtml(item.text) + '">×</button></div>').join("") : "";
 }
 
+// Проверяет наличие вложенных задач для показа сводки.
+// Использует `Boolean`.
 function hasDescendantTodos(folder) {
   return Boolean(folder?.order || (folder?.folderKind === "order" && !folder.noteOnly));
 }
 
+// Показывает задачи вложенных папок с переходом к исходному месту.
+// Использует `$`, `hasDescendantTodos`, `groups.some`.
 function renderDescendantTodos() {
   const folder = state.folder;
   $("descendantTodos").hidden = !hasDescendantTodos(folder);
@@ -942,6 +1062,8 @@ function renderDescendantTodos() {
   $("descendantTodoState").textContent = folder.descendantTodoError || (summary ? orderTodoSummary(summary).warning : "");
 }
 
+// Перечитывает SQLite-сводку вложенных задач текущего заказа.
+// Использует `/api/order-todos`.
 async function loadDescendantTodos(folder) {
   if (!hasDescendantTodos(folder) || folder.descendantTodoLoading) return;
   folder.descendantTodoLoading = true;
@@ -958,6 +1080,8 @@ async function loadDescendantTodos(folder) {
   }
 }
 
+// Планирует отложенное сохранение изменённых задач.
+// Управляет отложенным обновлением через таймер или кадр браузера.
 function saveTodosSoon(delay = 0) {
   clearTimeout(todoSaveTimer);
   state.dirty = true;
@@ -966,6 +1090,8 @@ function saveTodosSoon(delay = 0) {
   todoSaveTimer = setTimeout(() => { if (state.folder === folder) run(saveCurrentStatus); }, delay);
 }
 
+// Отбирает файлы по текущей группе и строке поиска.
+// Использует `normalize`, `state.fileQuery.trim`, `state.folder.files.filter`.
 function filteredFiles() {
   if (!state.folder) return [];
   const needle = normalize(state.fileQuery.trim());
@@ -977,6 +1103,8 @@ function filteredFiles() {
   return files;
 }
 
+// Строит карточку файла с превью и сохранённым комментарием.
+// Использует `/api/thumbnail`, `/api/freza-preview`, `/api/preview`.
 function fileCard(file) {
   const url = apiUrl(file.thumbnail_key ? "/api/thumbnail" : file.preview === "cdr" ? "/api/freza-preview" : "/api/preview", file.path, file.thumbnail_key ? { v: file.thumbnail_key } : {});
   const media = file.thumbnail_key || ["image", "cdr"].includes(file.preview)
@@ -987,6 +1115,8 @@ function fileCard(file) {
     '</div><span class="file-name">' + escapeHtml(file.name) + '</span>' + (file.comment?.trim() ? '<span class="file-comment-caption">' + escapeHtml(file.comment) + '</span>' : '') + '</button></article>';
 }
 
+// Обновляет подпись комментария у соответствующей карточки файла.
+// Обращается к DOM текущего документа или переданного контейнера.
 function updateFileCommentCaption(path, text, key) {
   const file = state.folder?.files.find((item) => item.path === path);
   if (!file || !key || file.comment_key !== key) return;
@@ -1003,6 +1133,8 @@ function updateFileCommentCaption(path, text, key) {
   caption.textContent = text;
 }
 
+// Показывает отфильтрованные файлы и состояние их загрузки.
+// Обращается к DOM текущего документа или переданного контейнера.
 function renderFiles() {
   const files = filteredFiles();
   const available = new Set(state.folder.files.map((file) => file.path));
@@ -1041,6 +1173,8 @@ function renderFiles() {
 }
 
 let thumbnailsRefreshing = false;
+// Обновляет доступность миниатюр для уже показанных файлов.
+// Использует `/api/thumbnails`, `/api/thumbnail`.
 async function refreshThumbnails() {
   if (thumbnailsRefreshing || document.hidden || state.view === "orders") return;
   const images = [...document.querySelectorAll("img[data-thumbnail-path], img[data-thumbnail-folder]")];
@@ -1075,6 +1209,8 @@ async function refreshThumbnails() {
 }
 setInterval(() => refreshThumbnails().catch(() => {}), 5000);
 
+// Обновляет действия над выбранным набором файлов.
+// Использует `state.folder.files.filter`, `selected.filter`, `filteredFiles`.
 function renderFileActions() {
   const selected = state.folder.files.filter((file) => state.selectedFiles.has(file.path));
   const images = selected.filter((file) => file.type === "images");
@@ -1095,6 +1231,8 @@ function renderFileActions() {
   if (report?.result && !state.folder.files.some((file) => file.path === report.result.path)) $("openImageReport").hidden = true;
 }
 
+// Запрашивает предусмотренное подтверждение удаления выбранной цели.
+// Использует `/api/files-trash-preview`.
 async function confirmFileRemoval() {
   if (state.fileRemoving || state.imageReport?.busy) return;
   const folder = state.folder;
@@ -1110,6 +1248,8 @@ async function confirmFileRemoval() {
   $("deleteFilesDialog").showModal();
 }
 
+// Перемещает подтверждённые файлы в корзину менеджера.
+// Использует `/api/files-trash`.
 async function removeSelectedFiles() {
   const removal = state.fileRemoval;
   if (!removal || state.fileRemoving) return;
@@ -1136,6 +1276,8 @@ async function removeSelectedFiles() {
   }
 }
 
+// Загружает сеансы корзины файлов и событий.
+// Использует `/api/event-trash-list`, `/api/files-trash-list`.
 async function loadFileTrash() {
   const data = await request(state.trashEventsOnly ? "/api/event-trash-list" : "/api/files-trash-list", {});
   const events = (data.events || []).map((session) => '<section class="file-trash-session"><strong>Событие · ' +
@@ -1148,6 +1290,8 @@ async function loadFileTrash() {
   $("fileTrashWarning").textContent = data.warning || "";
 }
 
+// Открывает окно корзины и загружает доступное восстановление.
+// Использует `$`, `loadFileTrash`, `$("fileTrashDialog").showModal`.
 async function openFileTrash(eventsOnly = false) {
   state.trashEventsOnly = eventsOnly;
   $("fileTrashTitle").textContent = eventsOnly ? "Корзина событий" : "Корзина менеджера";
@@ -1156,6 +1300,8 @@ async function openFileTrash(eventsOnly = false) {
   if (!$("fileTrashDialog").open) $("fileTrashDialog").showModal();
 }
 
+// Запрашивает предусмотренное подтверждение удаления выбранной цели.
+// Использует `/api/event-trash-preview`.
 async function confirmEventRemoval() {
   const folder = state.folder;
   if (!folder?.canDeleteEvent || state.eventRemoving) return;
@@ -1170,6 +1316,8 @@ async function confirmEventRemoval() {
   $("cancelDeleteEvent").focus();
 }
 
+// Перемещает подтверждённую папку события в корзину.
+// Использует `/api/event-trash`.
 async function removeEvent() {
   const removal = state.eventRemoval;
   if (!removal || state.eventRemoving) return;
@@ -1199,6 +1347,8 @@ async function removeEvent() {
   notify("Событие перемещено в корзину. Восстановление — «Корзина событий»");
 }
 
+// Запускает восстановление выбранного сеанса корзины.
+// Использует `/api/event-trash-restore`.
 async function restoreEventSession(session) {
   if (state.trashRestoring) return;
   state.trashRestoring = true;
@@ -1223,6 +1373,8 @@ async function restoreEventSession(session) {
   }
 }
 
+// Запускает восстановление выбранного сеанса корзины.
+// Использует `/api/files-trash-restore`.
 async function restoreFileSession(session) {
   if (state.trashRestoring) return;
   state.trashRestoring = true;
@@ -1244,6 +1396,8 @@ async function restoreFileSession(session) {
   }
 }
 
+// Запрашивает PDF-отчёт по выбранным изображениям и комментариям.
+// Использует `/api/image-report`.
 async function createImageReport() {
   const folder = state.folder;
   if (!folder || state.imageReport?.busy) return;
@@ -1265,12 +1419,16 @@ async function createImageReport() {
   }
 }
 
+// Выбирает поддерживаемые задания печати из открытой папки.
+// Использует `normalize`, `state.printQuery.trim`.
 function printFiles() {
   const needle = normalize(state.printQuery.trim());
   return state.folder.files.filter((file) => !needle || normalize(file.name + " " + (file.title || "") + " " + (file.description || "") + " " + file.folder).includes(needle))
     .sort((a, b) => b.modified - a.modified || b.name.localeCompare(a.name, "ru", { numeric: true }));
 }
 
+// Показывает список черновиков и выпущенных заданий печати.
+// Использует `$`, `printFiles`.
 function renderPrintList() {
   $("printTaskCount").textContent = state.folder.fileCount;
   const files = printFiles();
@@ -1282,6 +1440,8 @@ function renderPrintList() {
     '<p class="tree-empty">' + (state.folder.fileCount ? "Задания не найдены" : "Заданий пока нет") + "</p>";
 }
 
+// Обновляет состояние сохранения открытого задания печати.
+// Использует `$`, `$("printSaveState").classList.toggle`, `Boolean`.
 function renderPrintSaveState() {
   const task = state.printTask;
   if (!task) return;
@@ -1301,6 +1461,8 @@ function renderPrintSaveState() {
   } catch { $("openPrintLink").hidden = true; }
 }
 
+// Заполняет редактор выбранного задания печати.
+// Использует `$`, `renderPrintList`, `renderPrintSaveState`.
 function showPrintTask(task) {
   state.printTask = { ...task, dirty: false };
   $("printTitle").value = task.title;
@@ -1312,12 +1474,16 @@ function showPrintTask(task) {
   renderPrintSaveState();
 }
 
+// Обновляет предлагаемое имя создаваемой папки по полям формы.
+// Использует `$`, `$("newOrderTitle").value.trim`.
 function renderNewOrderName() {
   const date = $("newOrderDate").value || "ГГГГ-ММ-ДД";
   const title = $("newOrderTitle").value.trim() || (state.folder?.folderKind === 'reconciliations_root' ? 'Название сверки' : state.folder?.frezaSection ? "Название задания" : state.folder?.folderKind === "moneys_section" ? "Название записи" : "Название заказа");
   $("newOrderFolderName").textContent = date + " - " + title;
 }
 
+// Открывает форму создания объекта в выбранном клиенте.
+// Использует `$`, `$("createObjectFolderDialog").showModal`, `$("newObjectTitle").focus`.
 function openCreateObject() {
   if (!state.folder?.canCreateObjectFolder) return;
   state.newObjectParent=state.folder.path;
@@ -1328,6 +1494,8 @@ function openCreateObject() {
   $("newObjectTitle").focus();
 }
 
+// Создаёт объект по подтверждённым полям формы.
+// Использует `/api/object-folder-create`.
 async function createObject() {
   if (state.creatingObject || !$("createObjectFolderForm").reportValidity()) return;
   state.creatingObject=true;
@@ -1352,6 +1520,8 @@ async function createObject() {
   notify("Объект создан");
 }
 
+// Открывает предварительный план группировки заказов объекта по годам.
+// Использует `/api/object-years`.
 async function openObjectYears() {
   if (!state.folder?.canGroupOrdersByYear) return;
   await saveCurrentStatus();
@@ -1369,6 +1539,8 @@ async function openObjectYears() {
   $("objectYearsDialog").showModal();
 }
 
+// Выполняет подтверждённую группировку заказов по годам.
+// Использует `/api/object-years`.
 async function groupObjectYears() {
   if (!state.objectYears || state.groupingYears) return;
   state.groupingYears=true;
@@ -1388,6 +1560,8 @@ async function groupObjectYears() {
     $("cancelObjectYears").disabled=false;
   }
   $("objectYearsDialog").close();
+  // Обновляет путь элемента интерфейса после подтверждённого переноса папок.
+  // Использует `state.objectYears.mappings.find`, `path.slice`.
   const moved=path=>{ const pair=state.objectYears.mappings.find(pair=>path===pair.source || path.startsWith(pair.source+'/'));return pair ? pair.destination+path.slice(pair.source.length) : path; };
   state.expanded=new Set([...state.expanded].map(moved));
   await reloadClientTrees();
@@ -1396,6 +1570,8 @@ async function groupObjectYears() {
   notify(result.moved ? "Заказы распределены по годам" : "Годовая папка создана");
 }
 
+// Открывает форму создания нового заказа в объекте.
+// Использует `["supplier_root", "work_section"].includes`, `$`, `Object.fromEntries`.
 function openCreateOrderFolder() {
   if (state.folder?.canCreateOrderFolder !== true) return;
   state.newOrderParent = state.folder.path;
@@ -1434,6 +1610,8 @@ function openCreateOrderFolder() {
   $("newOrderTitle").focus();
 }
 
+// Создаёт папку заказа и применяет ответ устойчивой операции.
+// Использует `/api/order-folder-create`.
 async function createOrderFolder() {
   if (state.creatingOrderFolder || !$("createOrderFolderForm").reportValidity()) return;
   const finance = state.folder?.folderKind === "moneys_section";
@@ -1464,10 +1642,14 @@ async function createOrderFolder() {
   notify(reconciliation ? 'Сверка создана' : freza ? "Задание на фрезеровку создано" : finance ? "Финансовая запись создана" : isWorkOrderPath(created.path) ? "Заказ создан в производстве" : "Заказ создан и добавлен в список");
 }
 
+// Обновляет предлагаемое имя создаваемой папки по полям формы.
+// Использует `$`, `$("newEventTitle").value.trim`.
 function renderNewEventName() {
   $("newEventFolderName").textContent = (state.eventPlan?.next_number || "00") + " - " + ($("newEventTitle").value.trim() || "Название события");
 }
 
+// Показывает проверенное предложение имени и пути события.
+// Использует `$`, `suggestions.map`.
 function renderEventProposal(previous = new Map()) {
   const suggestions = state.eventPlan.suggestions;
   $("eventRenameSection").hidden = !suggestions.length;
@@ -1481,6 +1663,8 @@ function renderEventProposal(previous = new Map()) {
   renderNewEventName();
 }
 
+// Открывает форму создания или переименования события.
+// Использует `/api/event-folders`.
 async function openCreateEventFolder() {
   if (state.folder?.canCreateEventFolder !== true) return;
   const path = state.folder.path;
@@ -1495,6 +1679,8 @@ async function openCreateEventFolder() {
   $("newEventTitle").focus();
 }
 
+// Выполняет выбранную операцию формы события по текущей версии.
+// Использует `/api/event-folder-create`, `/api/event-folders-rename`, `/api/event-folders`.
 async function eventAction(action) {
   if (state.eventBusy) return;
   const form = action === "create" ? $("createEventFolderForm") : $("renameEventFoldersForm");
@@ -1533,6 +1719,8 @@ async function eventAction(action) {
   }
 }
 
+// Перепроверяет предложение события без замены пользовательского ввода.
+// Использует `/api/event-folders`.
 async function refreshEventProposal() {
   if (state.eventBusy) return;
   const previous = new Map([...$("eventRenameList").querySelectorAll("input")].map((input) => [input.dataset.eventSource, input.value]));
@@ -1541,6 +1729,8 @@ async function refreshEventProposal() {
   renderEventProposal(previous);
 }
 
+// Открывает выбранное задание печати в общем редакторе.
+// Использует `/api/print-task`.
 async function openPrintTask(path) {
   await saveCurrentPrintTask();
   const version = ++printReadVersion;
@@ -1563,6 +1753,8 @@ async function openPrintTask(path) {
   }
 }
 
+// Создаёт новый черновик задания печати выбранного типа.
+// Использует `saveCurrentPrintTask`, `showPrintTask`, `URL`.
 async function newPrintTask() {
   await saveCurrentPrintTask();
   ++printReadVersion;
@@ -1573,6 +1765,8 @@ async function newPrintTask() {
   $("printTitle").focus();
 }
 
+// Сохраняет или выпускает открытое задание печати.
+// Использует `/api/print-create`, `/api/print-save`.
 async function saveCurrentPrintTask(force = false) {
   if (state.printSaving) {
     await state.printSaving;
@@ -1612,6 +1806,8 @@ async function saveCurrentPrintTask(force = false) {
   }
 }
 
+// Сохраняет открытый редактор карточки с проверкой версии.
+// Использует `/api/reconciliation-save`, `/api/folder-note-save`, `/api/note`.
 async function saveCurrentStatus() {
   await flushDeadlineComments();
   if (state.saving) {
@@ -1654,8 +1850,12 @@ async function saveCurrentStatus() {
   }
 }
 
+// Форматирует денежное значение для соответствующего компонента.
+// Использует `Intl.NumberFormat`.
 const rubles = (value) => value == null ? "—" : new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB", maximumFractionDigits: 2 }).format(value / 100);
 
+// Собирает значения текущего редактора заказа для сравнения или сохранения.
+// Использует `$`, `state.folder.todo_items.map`, `Array.isArray`.
 function currentOrderValues() {
   if (state.folder?.reconciliation) return { title: $("orderTitleInput").value, client: $("reconciliationClient").value,
     note: $("orderNote").value, todo_items: state.folder.todo_items.map(item => ({ ...item })) };
@@ -1668,7 +1868,11 @@ function currentOrderValues() {
     amount: $("orderAmount").value, costs: $("orderCosts").value, paid: $("orderPaid").value };
 }
 
+// Пересчитывает отображаемые прибыль и остаток из полей редактора.
+// Использует `read`, `$`, `rubles`.
 function renderOrderCalculated() {
+  // Читает текущее значение поля локального редактора.
+  // Использует `$(id).value.replace(/[\s\u00a0]/g, "").replace`, `$(id).value.replace`, `$`.
   const read = (id) => {
     const text = $(id).value.replace(/[\s\u00a0]/g, "").replace(",", ".");
     return text && /^\d+(\.\d{1,2})?$/.test(text) ? Math.round(Number(text) * 100) : null;
@@ -1678,42 +1882,60 @@ function renderOrderCalculated() {
   $("orderDebt").textContent = rubles(amount != null && paid != null ? amount - paid : null);
 }
 
+// Показывает состояние импорта и очереди выпущенных документов.
+// Использует `$`, `renderPurchaseSaveState`.
 function renderExportState() {
   const order = state.folder?.order;
   $("orderExportState").textContent = !order ? "" : order.storage === "database" ? "Сохранено в базе" : order.sync_error ? "Сохранено в базе · выгрузка в очереди: " + order.sync_error : order.sync_pending ? "Сохранено в базе · ожидает выгрузки в папку" : "Выгружено в !.txt";
   renderPurchaseSaveState();
 }
 
+// Проверяет роль и наличие текущего списка заказов.
+// Результат вычисляется из переданных аргументов и текущего состояния компонента.
 function isObjectOrderList() {
   return state.view === "folder" && state.folder?.folderKind === "object";
 }
 
+// Проверяет роль и наличие текущего списка заказов.
+// Результат вычисляется из переданных аргументов и текущего состояния компонента.
 function isWorkOrderList() {
   return state.view === "folder" && state.folder?.workOrderList === true;
 }
 
+// Проверяет роль и наличие текущего списка заказов.
+// Использует `isObjectOrderList`, `isWorkOrderList`.
 function isFolderOrderList() {
   return isObjectOrderList() || isWorkOrderList();
 }
 
+// Проверяет роль и наличие текущего списка заказов.
+// Использует `isFolderOrderList`.
 function hasOrderList() {
   return state.view === "orders" || isFolderOrderList();
 }
 
+// Возвращает строки текущего общего, объектного или производственного списка.
+// Использует `(isFolderOrderList() ? state.objectOrders : state.orders).filter`, `isFolderOrderList`.
 function orderListRows() {
   return (isFolderOrderList() ? state.objectOrders : state.orders).filter(order => order.supplier_status !== "archived");
 }
 
+// Находит текущую строку заказа по устойчивой идентичности.
+// Использует `orderListRows().find`, `orderListRows`, `state.orders.find`.
 function findListOrder(path) {
   return orderListRows().find((order) => order.path === path) || state.orders.find((order) => order.path === path) || state.calendarSupplierOrders.find((order) => order.path === path);
 }
 
 const orderGroupStoragePrefix = "zigzag.order-groups.v1:";
 
+// Вычисляет ключ сохранённого сворачивания групп текущего списка.
+// Использует `isFolderOrderList`, `isWorkOrderList`, `state.folder.path.normalize`.
 function orderGroupScope() {
   return isFolderOrderList() ? (isWorkOrderList() ? "work:" : "object:") + state.folder.path.normalize("NFC") : "main";
 }
 
+// Читает сохранённое состояние сворачивания группы.
+// Использует `JSON.stringify`, `state.collapsedOrderGroups.has`, `localStorage.getItem`.
 function orderGroupCollapsed(scope, group) {
   const key = orderGroupStoragePrefix + JSON.stringify([scope, group]);
   if (!state.collapsedOrderGroups.has(key)) {
@@ -1724,6 +1946,8 @@ function orderGroupCollapsed(scope, group) {
   return state.collapsedOrderGroups.get(key);
 }
 
+// Применяет сворачивание к строкам уже построенной группы.
+// Обращается к DOM текущего документа или переданного контейнера.
 function applyOrderGroupVisibility(button) {
   const collapsed = orderGroupCollapsed(button.dataset.orderGroupScope, button.dataset.orderGroupToggle);
   button.setAttribute("aria-expanded", String(!collapsed));
@@ -1732,6 +1956,8 @@ function applyOrderGroupVisibility(button) {
   });
 }
 
+// Меняет сворачивание группы и сохраняет выбор интерфейса.
+// Сохраняет локальную настройку интерфейса через localStorage.
 function toggleOrderGroup(button) {
   const scope = button.dataset.orderGroupScope, group = button.dataset.orderGroupToggle;
   const key = orderGroupStoragePrefix + JSON.stringify([scope, group]);
@@ -1742,11 +1968,15 @@ function toggleOrderGroup(button) {
   applyOrderGroupVisibility(button);
 }
 
+// Возвращает фокус на заголовок выбранной группы списка.
+// Обращается к DOM текущего документа или переданного контейнера.
 function focusOrderGroup(group) {
   if (!hasOrderList() || !group) return;
   [...$("ordersTableBody").querySelectorAll("[data-order-group-toggle]")].find((button) => button.dataset.orderGroupToggle === group)?.focus({ preventScroll: true });
 }
 
+// Перемещает общий DOM списка в место текущего представления.
+// Обращается к DOM текущего документа или переданного контейнера.
 function mountOrderList() {
   const object = isObjectOrderList(), workspace = $("ordersWorkspace");
   const work = isWorkOrderList(), scoped = object || work;
@@ -1802,6 +2032,8 @@ function mountOrderList() {
   }
 }
 
+// Перечитывает серверную сводку и обновляет текущие представления заказов.
+// Использует `/api/orders`, `/api/work-orders`, `/api/object-orders`.
 async function loadOrders() {
   const version = ++state.ordersRequest;
   const objectPath = isFolderOrderList() ? state.folder.path : null;
@@ -1850,10 +2082,14 @@ async function loadOrders() {
   }
 }
 
+// Собирает текст или сводные данные задач строки заказа.
+// Использует `(order.todo_groups || []).map`.
 function orderTodoText(order) {
   return (order.todo_groups || []).map((group) => [group.label, ...(group.items || []).map((item) => item.text)].join(" ")).join(" ");
 }
 
+// Собирает текст или сводные данные задач строки заказа.
+// Использует `groups.reduce`.
 function orderTodoSummary(order) {
   const groups = order.todo_groups || [];
   const count = groups.reduce((total, group) => total + (group.items || []).length, 0);
@@ -1862,26 +2098,36 @@ function orderTodoSummary(order) {
   return { groups, count, warning };
 }
 
+// Строит кнопку количества актуальных задач заказа.
+// Использует `orderTodoSummary`, `escapeHtml`, `icon`.
 function renderOrderTodoButton(order) {
   const { groups, count, warning } = orderTodoSummary(order);
   const label = "To-do: " + count + " · " + order.title;
   return '<button type="button" class="order-todo-button' + (!groups.length ? ' empty' : '') + '" data-order-todos="' + escapeHtml(order.path) + '" aria-haspopup="dialog" aria-controls="orderTodoDialog" aria-label="' + escapeHtml(label) + '" title="' + escapeHtml(warning || "Открыть актуальные задачи") + '"><span>' + count + '</span>' + icon("chevron") + '</button>';
 }
 
+// Собирает сводку или текст закупок строки заказа.
+// Использует `(order.purchase_items || []).filter`.
 function orderPurchaseSummary(order) {
   const items = order.purchase_items === null ? null : (order.purchase_items || []).filter((item) => !item.done);
   return { items, count: items?.length || 0 };
 }
 
+// Собирает сводку или текст закупок строки заказа.
+// Использует `(orderPurchaseSummary(order).items || []).map`, `orderPurchaseSummary`.
 function orderPurchaseText(order) {
   return (orderPurchaseSummary(order).items || []).map((item) => [item.text, ...(item.suppliers || [])].join(" ")).join(" ");
 }
 
+// Строит кнопку закупок текущего заказа в списке.
+// Использует `orderPurchaseSummary`, `escapeHtml`, `icon`.
 function renderOrderPurchaseButton(order) {
   const { items, count } = orderPurchaseSummary(order);
   return '<button type="button" class="order-todo-button' + (items?.length === 0 ? ' empty' : '') + '" data-order-purchases="' + escapeHtml(order.path) + '" aria-haspopup="dialog" aria-controls="orderTodoDialog" aria-label="' + escapeHtml("Закупки: " + count + " · " + order.title) + '" title="Открыть актуальные закупки"><span>' + count + '</span>' + icon("chevron") + '</button>';
 }
 
+// Показывает сводку закупок в открытом окне заказа.
+// Использует `orderPurchaseSummary`, `items.map`.
 function renderOrderPurchases(order) {
   const { items } = orderPurchaseSummary(order);
   const contents = items === null ? '<p class="order-todo-empty">Прежние записи закупок — просмотрите в заказе.</p>' : !items.length ? '<p class="order-todo-empty">Актуальных закупок нет.</p>' :
@@ -1891,6 +2137,8 @@ function renderOrderPurchases(order) {
   return '<div class="order-todos" aria-label="Актуальные закупки заказа">' + contents + sync + '</div>';
 }
 
+// Строит группу задач с переходом к исходной папке.
+// Использует `escapeHtml`, `group.items.map`.
 function renderOrderTodoGroup(group) {
   return '<section class="order-todo-group">' +
     '<button class="order-todo-folder" data-order="' + escapeHtml(group.path) + '" title="' + escapeHtml(group.path) + '">' + escapeHtml(group.label) + '</button>' +
@@ -1899,6 +2147,8 @@ function renderOrderTodoGroup(group) {
       (group.sync_pending ? '<small class="order-todo-state">' + escapeHtml(group.sync_error ? "Сохранено в базе · выгрузка: " + group.sync_error : "Сохранено в базе · ожидает выгрузки") + '</small>' : "") + '</section>';
 }
 
+// Показывает собственные и вложенные задачи выбранного заказа.
+// Использует `orderTodoSummary`, `groups.map(renderOrderTodoGroup).join`, `groups.map`.
 function renderOrderTodos(order) {
   const { groups, warning } = orderTodoSummary(order);
   return '<div class="order-todos" aria-label="To-do заказа и вложенных папок">' +
@@ -1906,6 +2156,8 @@ function renderOrderTodos(order) {
     (warning ? '<small class="order-todo-state">' + escapeHtml(warning) + '</small>' : '') + '</div>';
 }
 
+// Обновляет открытое окно задач с текущим состоянием заказа.
+// Использует `$`, `findListOrder`, `$("orderTodoDialog").close`.
 function renderOrderTodoDialog() {
   if (!$("orderTodoDialog").open) return;
   const order = findListOrder(state.orderTodoPath);
@@ -1929,6 +2181,8 @@ function renderOrderTodoDialog() {
   }
 }
 
+// Открывает сводку задач или закупок выбранной строки.
+// Использует `findListOrder`, `$("orderTodoBody").replaceChildren`, `$`.
 function openOrderTodos(path, kind = "todos") {
   if (!findListOrder(path)) return;
   state.orderTodoPath = path;
@@ -1940,10 +2194,14 @@ function openOrderTodos(path, kind = "todos") {
   $("orderTodoBody").scrollTop = 0;
 }
 
+// Проверяет наличие незавершённой записи для строки заказа.
+// Использует `state.markerSaving.has`, `state.favoriteSaving.has`, `state.orderStatusSaving.has`.
 function orderRowSaving(path) {
   return state.markerSaving.has(path) || state.favoriteSaving.has(path) || state.orderStatusSaving.has(path) || state.deadlineSaving.has(path) || state.calendarMoving.has(path) || (state.calendarEvent?.path === path && state.calendarEvent.saving);
 }
 
+// Вычисляет отображаемый диапазон выбранных недель заказа.
+// Использует `[...weeks].sort`, `Date`, `sorted.at`.
 function orderDeadlineRange(weeks) {
   if (!weeks?.length) return "";
   const sorted = [...weeks].sort();
@@ -1959,6 +2217,8 @@ const deadlineMonthHues = [335, 270, 15, 185, 135, 90, 55, 30, 10, 160, 280, 215
 // Manual Travel calendar: ISO weeks 51/2026 through 4/2027, inclusive.
 const deadlineTravelPeriod = { start: "2026-12-14", end: "2027-01-25", label: "Travel · Таиланд" };
 
+// Сдвигает ключ понедельника на заданное число недель.
+// Использует `Date`, `date.setUTCDate`, `date.getUTCDate`.
 function shiftDeadlineWeek(start, offset) {
   const date = new Date(start + "T00:00:00Z");
   date.setUTCDate(date.getUTCDate() + offset * 7);
@@ -1968,6 +2228,8 @@ function shiftDeadlineWeek(start, offset) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && value >= "0001-01-01" && end.getUTCFullYear() <= 9999 ? value : null;
 }
 
+// Готовит номер, даты и месяц выбранной недели срока.
+// Использует `Date`, `thursday.setUTCDate`, `thursday.getUTCDate`.
 function deadlineWeekInfo(start) {
   // Thursday identifies the month containing most days of this ISO week.
   const thursday = new Date(start + "T00:00:00Z");
@@ -1981,6 +2243,8 @@ function deadlineWeekInfo(start) {
     current: start === state.deadlineWeekOptions[0]?.start };
 }
 
+// Строит легенду месяцев для цветов недель срока.
+// Использует `Map`, `options.map`.
 function renderDeadlineMonthLegend(options) {
   const months = [...new Map(options.map((week) => { const info = deadlineWeekInfo(week.start); return [info.monthYear, info]; })).values()];
   const years = new Set(months.map((month) => month.year));
@@ -1989,6 +2253,8 @@ function renderDeadlineMonthLegend(options) {
     deadlineMonthNames[month.month] + (years.size > 1 ? ' ' + month.year : '') + '</span>').join("") + '</div>';
 }
 
+// Выбирает ограниченный набор недель для строки списка.
+// Использует `Set`, `state.deadlineWeekOptions.map`, `starts.add`.
 function orderListDeadlineOptions(orders) {
   const currentWeek = state.deadlineWeekOptions[0]?.start;
   const starts = new Set(state.deadlineWeekOptions.map((week) => week.start));
@@ -2000,6 +2266,8 @@ function orderListDeadlineOptions(orders) {
   return [...starts].sort().map((start) => ({ start }));
 }
 
+// Строит кнопки недель и диапазон срока в строке заказа.
+// Использует `Set`, `[...selected].filter`.
 function renderOrderDeadlines(order, { options = state.deadlineWeekOptions, card = false, disabled = false } = {}) {
   const unknown = order.deadline_weeks === null;
   const selected = new Set(order.deadline_weeks || []);
@@ -2040,13 +2308,19 @@ function renderOrderDeadlines(order, { options = state.deadlineWeekOptions, card
       '<small class="order-deadline-outside" title="Начало выбранных недель: ' + outside.join(', ') + '">Вне окна: ' + outside.length + '</small>' : '');
 }
 
+// Вычисляет даты начала и конца недели по её ключу.
+// Использует `Date`, `end.setUTCDate`, `end.getUTCDate`.
 function deadlineWeekDates(week) {
   const end = new Date(week + "T00:00:00Z");
   end.setUTCDate(end.getUTCDate() + 6);
+  // Форматирует сохранённую дату для показа пользователю.
+  // Использует `value.slice`.
   const dateLabel = (value) => value.slice(8, 10) + "." + value.slice(5, 7) + "." + value.slice(0, 4);
   return dateLabel(week) + " — " + dateLabel(end.toISOString().slice(0, 10));
 }
 
+// Показывает недели срока в карточке с раскрытием прошлых периодов.
+// Обращается к DOM текущего документа или переданного контейнера.
 function renderCardDeadlines() {
   const folder = state.folder, order = folder?.order, panel = $("orderCardDeadlines");
   panel.hidden = !order || (isWorkOrderPath(folder.path) && !order.work_supplier);
@@ -2073,6 +2347,8 @@ function renderCardDeadlines() {
   renderDeadlineComments(folder);
 }
 
+// Показывает редакторы общих недельных событий заказа.
+// Обращается к DOM текущего документа или переданного контейнера.
 function renderDeadlineComments(folder) {
   const order = folder.order, comments = order.calendar_week_events || {}, unknown = order.calendar_week_events === null;
   const drafts = folder.deadlineCommentDrafts ||= new Map();
@@ -2122,10 +2398,14 @@ function renderDeadlineComments(folder) {
   $("retryDeadlineComments").disabled = Boolean(folder.deadlineCommentFlush);
 }
 
+// Проверяет наличие несохранённых недельных текстов карточки.
+// Использует `Boolean`, `[...(folder?.deadlineCommentDrafts?.values() || [])].some`.
 function hasPendingDeadlineComments(folder = state.folder) {
   return Boolean(folder?.deadlineCommentFlush) || [...(folder?.deadlineCommentDrafts?.values() || [])].some((draft) => draft.dirty || draft.saving);
 }
 
+// Принимает ввод недельного события в локальный черновик.
+// Управляет отложенным обновлением через таймер или кадр браузера.
 function deadlineCommentInput(event) {
   const input = event.target.closest("[data-deadline-comment]"), folder = state.folder;
   const draft = folder?.deadlineCommentDrafts?.get(input?.dataset.deadlineComment);
@@ -2138,6 +2418,8 @@ function deadlineCommentInput(event) {
   if (!event.isComposing) folder.deadlineCommentTimer = setTimeout(() => run(() => flushDeadlineComments(folder)), 700);
 }
 
+// Применяет подтверждённую запись заказа к локальным представлениям.
+// Использует `orders.find`, `Object.assign`.
 function applyOrderRecord(folder, saved) {
   ++state.ordersRequest;
   for (const orders of [state.orders, state.favoriteOrders, state.objectOrders, state.calendarSupplierOrders]) {
@@ -2147,6 +2429,8 @@ function applyOrderRecord(folder, saved) {
   if (folder) folder.order = saved;
 }
 
+// Последовательно сохраняет ожидающие недельные тексты по версиям.
+// Использует `/api/order-deadline-comment`.
 function flushDeadlineComments(folder = state.folder) {
   if (!folder?.order) return Promise.resolve();
   clearTimeout(folder.deadlineCommentTimer);
@@ -2195,6 +2479,8 @@ function flushDeadlineComments(folder = state.folder) {
   return folder.deadlineCommentFlush;
 }
 
+// Раскрывает дополнительные недели срока в карточке.
+// Использует `[...folder.deadlineVisibleWeeks].sort`, `weeks.at`, `shiftDeadlineWeek`.
 function expandCardDeadlineWeeks(direction) {
   const folder = state.folder;
   if (!folder?.deadlineVisibleWeeks?.size) return;
@@ -2206,6 +2492,8 @@ function expandCardDeadlineWeeks(direction) {
   renderCardDeadlines();
 }
 
+// Возвращает фокус на кнопку недели выбранного заказа.
+// Обращается к DOM текущего документа или переданного контейнера.
 function focusOrderDeadline(path, week) {
   if (!hasOrderList() || !path || !week) return false;
   const button = [...$("ordersTableBody").querySelectorAll("[data-order-deadline]")].find((item) =>
@@ -2214,6 +2502,8 @@ function focusOrderDeadline(path, week) {
   return Boolean(button);
 }
 
+// Сохраняет изменение одной недели срока заказа.
+// Использует `button.getAttribute`, `flushDeadlineComments`, `changeOrderDeadline`.
 async function toggleOrderDeadline(button) {
   const path = button.dataset.orderDeadline, week = button.dataset.deadlineWeek;
   const selected = button.getAttribute("aria-pressed") !== "true";
@@ -2221,6 +2511,8 @@ async function toggleOrderDeadline(button) {
   return changeOrderDeadline({ path, id: button.dataset.orderId, revision: Number(button.dataset.revision), week, selected }, button);
 }
 
+// Сохраняет включение или выключение мелкого заказа календаря.
+// Использует `/api/order-calendar-compact`.
 async function toggleCalendarCompact(button) {
   const path = button.dataset.orderCalendarCompact, folder = state.folder?.path === path ? state.folder : null;
   if (orderRowSaving(path) || folder?.deadlineConflict) return;
@@ -2256,6 +2548,8 @@ async function toggleCalendarCompact(button) {
   }
 }
 
+// Сохраняет изменение одной недели срока заказа.
+// Использует `/api/order-deadline-week`.
 async function changeOrderDeadline({ path, id, revision, week, selected }, button) {
   const folder = state.folder?.path === path ? state.folder : null;
   if (orderRowSaving(path) || (folder?.order || findListOrder(path))?.registered === false || folder?.deadlineConflict) return;
@@ -2308,6 +2602,8 @@ const orderMarkers = {
   dollar: { field: "is_dollar", data: "orderDollar", suffix: "dollar", label: "зелёный доллар", unknown: "зелёного доллара", symbol: "$" },
 };
 
+// Строит кнопку независимой отметки заказа.
+// Использует `escapeHtml`, `Boolean`, `orderRowSaving`.
 function renderOrderMarkerButton(order, kind) {
   const marker = orderMarkers[kind], value = order[marker.field], unknown = value === null;
   const label = (value ? "Снять " : "Поставить ") + marker.label + " · " + order.title;
@@ -2317,12 +2613,16 @@ function renderOrderMarkerButton(order, kind) {
     '"' + (unknown || order.registered === false || orderRowSaving(order.path) ? ' disabled' : '') + '>' + (marker.symbol ? '<span aria-hidden="true">' + marker.symbol + '</span>' : icon(marker.icon)) + '</button>';
 }
 
+// Возвращает фокус на выбранную отметку после обновления строки.
+// Обращается к DOM текущего документа или переданного контейнера.
 function focusOrderMarker(path, kind) {
   if (!hasOrderList() || !path) return;
   const marker = orderMarkers[kind];
   [...$("ordersTableBody").querySelectorAll("[data-order-" + marker.suffix + "]")].find((button) => button.dataset[marker.data] === path)?.focus({ preventScroll: true });
 }
 
+// Сохраняет изменение одной независимой отметки заказа.
+// Использует `/api/order-`.
 async function toggleOrderMarker(button, kind) {
   const marker = orderMarkers[kind], path = button.dataset[marker.data], order = findListOrder(path);
   if (!order || order.registered === false || order[marker.field] === null || orderRowSaving(path)) return;
@@ -2348,12 +2648,16 @@ async function toggleOrderMarker(button, kind) {
   }
 }
 
+// Строит кнопку избранного текущего заказа.
+// Использует `escapeHtml`, `Boolean`, `orderRowSaving`.
 function renderOrderFavoriteButton(order) {
   const unknown = order.is_favorite === null;
   const label = (order.is_favorite ? "Убрать из избранного" : "Добавить в избранное") + " · " + order.title;
   return '<button type="button" class="order-favorite-button" data-order-favorite="' + escapeHtml(order.path) + '" aria-pressed="' + Boolean(order.is_favorite) + '" aria-label="' + escapeHtml(label) + '" title="' + escapeHtml(unknown ? "Неизвестный раздел «Избранное» в !.txt сохранён без изменений" : label) + '"' + (unknown || order.registered === false || orderRowSaving(order.path) ? ' disabled' : '') + '><span aria-hidden="true">' + (order.is_favorite ? '★' : '☆') + '</span></button>';
 }
 
+// Строит цепочку связанных заказов выбранного объекта.
+// Использует `Boolean`, `escapeHtml`, `orderRowSaving`.
 function renderOrderRelatedButton(order) {
   const unknown = order.related_order_ids === null || order.primary_related_order_ids === null;
   const count = order.related_order_ids?.length || 0;
@@ -2364,6 +2668,8 @@ function renderOrderRelatedButton(order) {
     (unknown || order.registered === false || !order.can_link_orders || orderRowSaving(order.path) ? ' disabled' : '') + '>' + icon("link") + '</button>';
 }
 
+// Показывает компактные ссылки главного на его подчинённые заказы.
+// Использует `items.map`.
 function renderCompactOrderLinks(order) {
   const items = order?.primary_related_orders;
   if (!items?.length) return '';
@@ -2372,6 +2678,8 @@ function renderCompactOrderLinks(order) {
       '<span class="unavailable">' + escapeHtml(item.title) + '</span>') + '</li>').join('') + '</ul>';
 }
 
+// Показывает компактные ссылки главного на его подчинённые заказы.
+// Обращается к DOM текущего документа или переданного контейнера.
 function renderOrderCardLinks(order = state.folder?.order) {
   const container = $("orderCardLinks");
   if (order && order.id === state.folder?.order?.id) {
@@ -2388,6 +2696,8 @@ function renderOrderCardLinks(order = state.folder?.order) {
   }
 }
 
+// Показывает состав и доступные действия группы связанных заказов.
+// Обращается к DOM текущего документа или переданного контейнера.
 function renderOrderLinks() {
   const edit = state.orderLinks;
   if (!edit) return;
@@ -2405,6 +2715,8 @@ function renderOrderLinks() {
   const active = document.activeElement?.dataset.relatedTarget ||
     ([document.body, $("orderLinksDialog")].includes(document.activeElement) ? edit.focusTarget : null);
   const scroll = $("orderLinksOptions").scrollTop;
+  // Строит отображаемую секцию доступных связанных заказов.
+  // Использует `(items || []).filter`, `visible.map`.
   const section = (items, linked) => {
     const visible = (items || []).filter(item => !query || normalize(item.title + " " + (item.path || "")).includes(query));
     if (!visible.length) return '';
@@ -2421,6 +2733,8 @@ function renderOrderLinks() {
   if (active) [...$("orderLinksOptions").querySelectorAll('[data-related-target]')].find(button => button.dataset.relatedTarget === active)?.focus({ preventScroll: true });
 }
 
+// Перечитывает подтверждённую группу связей из базы.
+// Использует `/api/order-links`.
 async function refreshOrderLinks() {
   const edit = state.orderLinks;
   if (!edit || edit.loading || edit.saving) return;
@@ -2443,6 +2757,8 @@ async function refreshOrderLinks() {
   }
 }
 
+// Открывает окно связей выбранного заказа объекта.
+// Использует `isObjectOrderList`, `findListOrder`, `orderRowSaving`.
 async function openOrderLinks(path) {
   if (!isObjectOrderList()) return;
   const order = findListOrder(path);
@@ -2455,6 +2771,8 @@ async function openOrderLinks(path) {
   await refreshOrderLinks();
 }
 
+// Закрывает окно связей и возвращает фокус инициатору.
+// Обращается к DOM текущего документа или переданного контейнера.
 function closeOrderLinks() {
   const edit = state.orderLinks;
   if (!edit || edit.saving) return;
@@ -2463,6 +2781,8 @@ function closeOrderLinks() {
   [...$("ordersTableBody").querySelectorAll('[data-order-related]')].find(button => button.dataset.orderRelated === edit.path)?.focus({ preventScroll: true });
 }
 
+// Добавляет или снимает выбранную связь в общей группе.
+// Использует `[...edit.data.items, ...edit.data.candidates].find`, `saveOrderLinksChange`, `edit.data.linked_ids.includes`.
 async function toggleOrderLink(identity) {
   const edit = state.orderLinks;
   if (!edit?.data || edit.loading || edit.saving || edit.conflict || edit.data.linked_ids === null) return;
@@ -2474,12 +2794,16 @@ async function toggleOrderLink(identity) {
     target_id: identity, target_revision: target.revision, linked: !edit.data.linked_ids.includes(identity) });
 }
 
+// Выбирает главного для прежней ненаправленной группы.
+// Использует `saveOrderLinksChange`.
 async function initializeOrderLinks() {
   const edit = state.orderLinks, order = edit?.data?.order;
   if (!order || !edit.data.needs_primary || edit.loading || edit.saving || edit.conflict || edit.data.group_error) return;
   await saveOrderLinksChange({ path: order.path, id: order.id, revision: order.revision, initialize: true, versions: edit.data.versions });
 }
 
+// Сохраняет изменение группы связей с проверкой UUID и версии.
+// Использует `/api/order-links`.
 async function saveOrderLinksChange(payload) {
   const edit = state.orderLinks;
   if (!edit || edit.loading || edit.saving || edit.conflict || edit.data?.group_error) return;
@@ -2501,6 +2825,8 @@ async function saveOrderLinksChange(payload) {
   }
 }
 
+// Возвращает фокус на звезду избранного заказа.
+// Обращается к DOM текущего документа или переданного контейнера.
 function focusOrderFavorite(path) {
   if (!hasOrderList() || !path) return;
   $("ordersTableBody").querySelectorAll("[data-order-favorite]").forEach((button) => {
@@ -2508,6 +2834,8 @@ function focusOrderFavorite(path) {
   });
 }
 
+// Сохраняет изменение избранного заказа по текущей версии.
+// Использует `/api/order-favorite`.
 async function toggleOrderFavorite(path) {
   const folder = state.folder?.path === path ? state.folder : null;
   if (folder) await flushDeadlineComments(folder);
@@ -2555,10 +2883,14 @@ async function toggleOrderFavorite(path) {
   }
 }
 
+// Проверяет включение заказа в текущую главную таблицу.
+// Использует `["cancelled", "done"].includes`.
 function orderShownOnMain(order) {
   return order.registered !== false && !["cancelled", "done"].includes(order.status);
 }
 
+// Возвращает согласованные группы производственных статусов.
+// Использует `orderStatusGroups.map`.
 function productionStatusGroups() {
   return orderStatusGroups.map((group) => {
     const statuses = group.statuses.length ? group.statuses : Object.keys(statusLabels).filter((status) => !orderStatusGroups.some((group) => group.statuses.includes(status)));
@@ -2566,6 +2898,8 @@ function productionStatusGroups() {
   });
 }
 
+// Распределяет строки текущего списка по группам статусов.
+// Использует `isObjectOrderList`, `productionStatusGroups().map`, `productionStatusGroups`.
 function orderListGroups() {
   const object = isObjectOrderList();
   const groups = productionStatusGroups().map((group) => object ? { ...group, statuses: group.statuses.filter((status) => orderShownOnMain({ status })) } : group);
@@ -2576,6 +2910,8 @@ function orderListGroups() {
   return groups;
 }
 
+// Строит варианты производственного статуса для редактора.
+// Использует `productionStatusGroups().map`, `productionStatusGroups`.
 function renderProductionStatusOptions(selected) {
   return productionStatusGroups().map((group, index) => {
     return '<optgroup label="— ' + (index + 1) + '-я группа —">' + group.statuses.map((status) =>
@@ -2584,6 +2920,8 @@ function renderProductionStatusOptions(selected) {
   }).join("");
 }
 
+// Строит переключатель производственного статуса строки.
+// Использует `escapeHtml`, `Object.hasOwn`, `orderRowSaving`.
 function renderOrderProductionStatus(order) {
   if (order.registered === false) return '<span class="status-badge" data-status="' + escapeHtml(order.status) + '">' + escapeHtml(statusLabels[order.status] || order.status || "—") + '</span>';
   const known = Object.hasOwn(statusLabels, order.status);
@@ -2595,6 +2933,8 @@ function renderOrderProductionStatus(order) {
     renderProductionStatusOptions(order.status) + '</select>';
 }
 
+// Строит самостоятельный статус заказа поставщика.
+// Использует `Object.hasOwn`, `escapeHtml`, `orderRowSaving`.
 function renderSupplierOrderStatus(order) {
   if (!Object.hasOwn(order, "supplier_status")) return "—";
   const status = order.supplier_status, known = Object.hasOwn(supplierStatusLabels, status);
@@ -2606,6 +2946,8 @@ function renderSupplierOrderStatus(order) {
       '<option value="' + key + '"' + (status === key ? ' selected' : '') + '>' + label + '</option>').join("") + '</select>';
 }
 
+// Сохраняет изменение производственного статуса одной строки.
+// Использует `/api/order-supplier-status`, `/api/order-status`.
 async function changeOrderProductionStatus(select) {
   const path = select.dataset.orderStatus, status = select.value, revision = Number(select.dataset.revision);
   const supplier = select.dataset.supplierStatus === "true";
@@ -2647,27 +2989,37 @@ async function changeOrderProductionStatus(select) {
   }
 }
 
+// Показывает первую строку комментария заказа в таблице.
+// Использует `String(order.note || "").split(/\r\n?|\n/, 1)[0].trim`, `String(order.note || "").split`, `String`.
 function renderOrderComment(order) {
   const firstLine = String(order.note || "").split(/\r\n?|\n/, 1)[0].trim();
   return '<span class="order-row-comment' + (!firstLine ? ' empty' : '') + '" title="' + escapeHtml(firstLine) + '">' + escapeHtml(firstLine || "—") + '</span>';
 }
 
+// Строит переход к клиенту или объекту заказа.
+// Использует `escapeHtml`, `encodeURIComponent`.
 function renderOrderLocationLink(label, path) {
   return path ? '<a class="order-location-link" data-order-location="' + escapeHtml(path) + '" href="?path=' +
     encodeURIComponent(path) + '">' + escapeHtml(label || "—") + '</a>' : escapeHtml(label || "—");
 }
 
 const compareOrderText = OrderSorting.text;
+// Сравнивает значения заказов по выбранному порядку сортировки.
+// Использует `OrderSorting.compare`.
 function compareOrders(a, b, key = state.orderSort, direction = state.orderDirection) {
   return OrderSorting.compare(a, b, key, direction, { status: statusLabels, financial_status: financialStatusLabels });
 }
 
+// Обновляет помесячную сводку из текущих планов платежей.
+// Использует `MoneyOverview.show`.
 function renderMoneyOverview() {
   MoneyOverview.show(state.calendarInvoicePlans, state.view === "folder" && state.folder?.folderKind === "moneys_root", {
     loaded: state.calendarPlansLoaded, error: state.calendarPlansError,
   });
 }
 
+// Обновляет календарь из текущей SQLite-сводки главной.
+// Использует `[...state.orders, ...state.calendarSupplierOrders].map`, `HomeCalendar.show`, `orders.sort`.
 function renderHomeCalendar() {
   const orders = [...state.orders, ...state.calendarSupplierOrders].map((order) => order.work_supplier ? { ...order, client: order.work_supplier } : order);
   HomeCalendar.show(orders.sort((a, b) => compareOrders(a, b, "title", 1)), state.calendarEvents, state.calendarInvoicePlans);
@@ -2676,12 +3028,16 @@ function renderHomeCalendar() {
 
 const calendarTodoPreview = { anchor: null, pinned: false, markup: null, timer: null, switchTimer: null, pendingAnchor: null, suppressed: null };
 
+// Отменяет ожидающее переключение окна задач на соседнее событие.
+// Управляет отложенным обновлением через таймер или кадр браузера.
 function cancelCalendarTodoPreviewSwitch() {
   clearTimeout(calendarTodoPreview.switchTimer);
   calendarTodoPreview.switchTimer = null;
   calendarTodoPreview.pendingAnchor = null;
 }
 
+// Закрывает окно задач календаря и отменяет отложенные действия.
+// Управляет отложенным обновлением через таймер или кадр браузера.
 function closeCalendarTodoPreview(restoreFocus = false) {
   const anchor = calendarTodoPreview.anchor;
   clearTimeout(calendarTodoPreview.timer);
@@ -2696,6 +3052,8 @@ function closeCalendarTodoPreview(restoreFocus = false) {
   }
 }
 
+// Размещает окно задач вплотную к границе исходного события.
+// Использует `$`, `anchor.getBoundingClientRect`, `preview.getBoundingClientRect`.
 function positionCalendarTodoPreview() {
   const anchor = calendarTodoPreview.anchor;
   if (!anchor) return;
@@ -2705,6 +3063,8 @@ function positionCalendarTodoPreview() {
   preview.style.top = Math.max(8, Math.min(below + bounds.height <= innerHeight - 8 ? below : box.top - bounds.height, innerHeight - bounds.height - 8)) + "px";
 }
 
+// Показывает актуальные задачи заказа исходного события.
+// Обращается к DOM текущего документа или переданного контейнера.
 function renderCalendarTodoPreview() {
   const anchor = calendarTodoPreview.anchor;
   if (!anchor) return;
@@ -2725,6 +3085,8 @@ function renderCalendarTodoPreview() {
   positionCalendarTodoPreview();
 }
 
+// Открывает или закрепляет окно задач выбранного события.
+// Управляет отложенным обновлением через таймер или кадр браузера.
 function openCalendarTodoPreview(anchor, pinned = false) {
   if (!anchor?.dataset.calendarTodos || state.calendarMenu || (!pinned && calendarTodoPreview.suppressed === anchor)) return;
   if (calendarTodoPreview.pinned && !pinned) return;
@@ -2742,6 +3104,8 @@ function openCalendarTodoPreview(anchor, pinned = false) {
   renderCalendarTodoPreview();
 }
 
+// Планирует открытие или смену окна после устойчивого наведения.
+// Управляет отложенным обновлением через таймер или кадр браузера.
 function hoverCalendarTodoPreview(anchor) {
   if (!anchor || calendarTodoPreview.pinned || $("calendarTodoPreview").contains(document.activeElement)) return;
   clearTimeout(calendarTodoPreview.timer);
@@ -2752,6 +3116,8 @@ function hoverCalendarTodoPreview(anchor) {
   calendarTodoPreview.switchTimer = setTimeout(() => openCalendarTodoPreview(anchor), calendarTodoPreview.anchor ? 350 : 500);
 }
 
+// Планирует закрытие окна задач после ухода мыши.
+// Управляет отложенным обновлением через таймер или кадр браузера.
 function scheduleCalendarTodoPreviewClose() {
   clearTimeout(calendarTodoPreview.timer);
   if (!calendarTodoPreview.pinned) calendarTodoPreview.timer = setTimeout(() => {
@@ -2759,6 +3125,8 @@ function scheduleCalendarTodoPreviewClose() {
   }, 500);
 }
 
+// Обновляет независимые отметки и доступные действия редактора события.
+// Использует `$`, `Boolean`.
 function renderCalendarEventControls() {
   const edit = state.calendarEvent;
   if (!edit) return;
@@ -2771,6 +3139,8 @@ function renderCalendarEventControls() {
   $("deleteCalendarEvent").disabled = Boolean(edit.saving || edit.conflict);
 }
 
+// Закрывает контекстное меню события и очищает его состояние.
+// Использует `$`, `(menu.slot.isConnected ? menu.slot : $("calendarViewport")).focus`.
 function closeCalendarEventMenu(restoreFocus = true) {
   const menu = state.calendarMenu;
   state.calendarMenu = null;
@@ -2778,10 +3148,14 @@ function closeCalendarEventMenu(restoreFocus = true) {
   if (restoreFocus && menu) (menu.slot.isConnected ? menu.slot : $("calendarViewport")).focus({ preventScroll: true });
 }
 
+// Выбирает дневные или недельные записи текущего заказа.
+// Результат вычисляется из переданных аргументов и текущего состояния компонента.
 function calendarEventEntries(order, period) {
   return period === "week" ? order.calendar_week_events : order.calendar_events;
 }
 
+// Применяет подтверждённое свободное событие к локальной сводке.
+// Использует `state.calendarEvents.find`, `state.calendarEvents.filter`, `state.calendarEvents.push`.
 function applyFreeCalendarEvent(saved) {
   ++state.ordersRequest;
   const current = state.calendarEvents.find((event) => event.id === saved.id);
@@ -2791,6 +3165,8 @@ function applyFreeCalendarEvent(saved) {
   state.calendarEvents.sort((a, b) => a.created - b.created || a.id.localeCompare(b.id));
 }
 
+// Применяет подтверждённый план платежа к локальной сводке.
+// Использует `state.calendarInvoicePlans.find`, `Object.assign`.
 function applyCalendarInvoicePlan(saved) {
   ++state.ordersRequest;
   const current = state.calendarInvoicePlans.find((plan) => plan.id === saved.id);
@@ -2804,6 +3180,8 @@ function applyCalendarInvoicePlan(saved) {
   });
 }
 
+// Собирает UUID и версию свободного события для частичного запроса.
+// Использует `crypto.getRandomValues`, `Uint8Array`, `[...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join`.
 function freeCalendarIdentity() {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   bytes[6] = (bytes[6] & 15) | 64;
@@ -2812,6 +3190,8 @@ function freeCalendarIdentity() {
   return [hex.slice(0,8), hex.slice(8,12), hex.slice(12,16), hex.slice(16,20), hex.slice(20)].join("-");
 }
 
+// Открывает контекстное меню с действиями для точного вида события.
+// Обращается к DOM текущего документа или переданного контейнера.
 function openCalendarEventMenu(slot, x, y) {
   closeCalendarTodoPreview();
   const free = slot.dataset.calendarFree, plan = slot.dataset.invoicePlan, date = slot.dataset.calendarDate;
@@ -2860,6 +3240,8 @@ function openCalendarEventMenu(slot, x, y) {
   [...menu.querySelectorAll("button")].find((button) => button.getClientRects().length).focus({ preventScroll: true });
 }
 
+// Сохраняет перенос события или плана на день/неделю.
+// Использует `/api/invoice-plan-calendar-move`, `/api/calendar-move`, `/api/order-calendar-move`.
 async function moveCalendarEvent(days) {
   const menu = state.calendarMenu;
   if (!menu) return;
@@ -2889,6 +3271,8 @@ async function moveCalendarEvent(days) {
   }
 }
 
+// Сохраняет одну независимую отметку выбранного события.
+// Использует `/api/invoice-plan-calendar-`, `/api/calendar-`, `/api/order-calendar-`.
 async function toggleCalendarEventFlag(flag) {
   const menu = state.calendarMenu;
   if (!menu) return;
@@ -2917,6 +3301,8 @@ async function toggleCalendarEventFlag(flag) {
   }
 }
 
+// Применяет подтверждённое удаление к локальному состоянию календаря.
+// Использует `state.calendarInvoicePlans.filter`, `state.calendarInvoicePlans.push`, `applyFreeCalendarEvent`.
 function applyCalendarDeletion(entry, saved, deleted) {
   if (entry.plan) {
     ++state.ordersRequest;
@@ -2928,6 +3314,8 @@ function applyCalendarDeletion(entry, saved, deleted) {
   else applyOrderRecord(null, saved);
 }
 
+// Запрашивает восстановление удалённой записи со всеми отметками.
+// Использует `/api/calendar-payment-restore`, `/api/calendar-event-restore`, `/api/order-calendar-event-restore`.
 async function restoreCalendarDeletion(entry, revision) {
   const key = entry.plan || entry.free ? entry.id : entry.path;
   if (state.calendarMoving.has(key)) throw new Error('Дождись сохранения события');
@@ -2944,6 +3332,8 @@ async function restoreCalendarDeletion(entry, revision) {
   }
 }
 
+// Удаляет выбранную запись через API её конкретного вида.
+// Использует `/api/calendar-payment-remove`, `/api/calendar-event-remove`, `/api/order-calendar-event-remove`.
 async function removeCalendarRecord(entry) {
   if (entry.plan) {
     const plan = state.calendarInvoicePlans.find((record) => record.id === entry.id);
@@ -2959,7 +3349,8 @@ async function removeCalendarRecord(entry) {
     const saved = await request(route, { path: entry.path || '', id: entry.id, revision: entry.revision, date: entry.date, period: entry.period, confirmed: true });
     applyCalendarDeletion(entry, saved, true);
     notify(entry.plan ? 'Финансовая запись удалена' : 'Событие удалено', false,
-      { label: 'Отменить', run: () => restoreCalendarDeletion(entry, saved.revision) });
+      { label: 'Отменить', /* Выполняет сохранённое действие отмены или подтверждённую операцию компонента.
+       * Использует `restoreCalendarDeletion`. */ run: () => restoreCalendarDeletion(entry, saved.revision) });
     return saved;
   } finally {
     state.calendarMoving.delete(key);
@@ -2967,6 +3358,8 @@ async function removeCalendarRecord(entry) {
   }
 }
 
+// Удаляет точное событие из открытого меню или редактора.
+// Использует `findListOrder`, `state.calendarEvents.find`, `calendarEventEntries`.
 async function deleteCalendarEventFromMenu() {
   const menu = state.calendarMenu;
   if (!menu) return;
@@ -2980,6 +3373,8 @@ async function deleteCalendarEventFromMenu() {
   }
 }
 
+// Удаляет точное событие из открытого меню или редактора.
+// Использует `renderCalendarEventControls`, `removeCalendarRecord`, `closeCalendarEvent`.
 async function deleteCalendarEventFromDialog() {
   const edit = state.calendarEvent;
   if (!edit || edit.saving || edit.conflict || edit.period !== 'day' || !edit.previous) return;
@@ -2998,6 +3393,8 @@ async function deleteCalendarEventFromDialog() {
   }
 }
 
+// Сохраняет индивидуальный цвет выбранного события.
+// Использует `/api/calendar-color`, `/api/order-calendar-color`.
 async function colorCalendarEvent(color) {
   const menu = state.calendarMenu;
   if (!menu?.canColor) return;
@@ -3019,6 +3416,8 @@ async function colorCalendarEvent(color) {
   }
 }
 
+// Открывает текстовый редактор выбранного события или план платежа.
+// Использует `closeCalendarEventMenu`, `state.calendarEvents.find`, `findListOrder`.
 function openCalendarEvent(slot) {
   closeCalendarEventMenu(false);
   const free = slot.dataset.calendarFree, date = slot.dataset.calendarDate;
@@ -3048,12 +3447,16 @@ function openCalendarEvent(slot) {
   $("calendarEventText").focus();
 }
 
+// Закрывает редактор календаря и очищает связанное состояние.
+// Использует `$("calendarEventDialog").close`, `$`.
 function closeCalendarEvent() {
   if (state.calendarEvent?.saving) return;
   state.calendarEvent = null;
   $("calendarEventDialog").close();
 }
 
+// Сохраняет текст события с UUID, периодом и ожидаемой версией.
+// Использует `/api/calendar-event`, `/api/order-calendar-event`.
 async function saveCalendarEvent() {
   const edit = state.calendarEvent;
   if (!edit || edit.saving || edit.conflict) return;
@@ -3080,6 +3483,8 @@ async function saveCalendarEvent() {
   }
 }
 
+// Перечитывает источник события при конфликте, сохраняя черновик формы.
+// Использует `/api/calendar-event`, `/api/order`.
 async function refreshCalendarEvent() {
   const edit = state.calendarEvent;
   if (!edit || edit.saving) return;
@@ -3123,6 +3528,8 @@ async function refreshCalendarEvent() {
   }
 }
 
+// Обновляет сводку производственных заказов текущего раздела.
+// Использует `orderGroupScope`, `state.workOrderGroups.map`.
 function renderWorkOrders(orders, options) {
   const scope = orderGroupScope();
   return state.workOrderGroups.map((group) => {
@@ -3142,6 +3549,8 @@ function renderWorkOrders(orders, options) {
   }).join("");
 }
 
+// Показывает архивные заказы поставщиков с возможностью возврата.
+// Обращается к DOM текущего документа или переданного контейнера.
 function renderWorkArchive() {
   const section = $("workArchiveSection");
   section.hidden = !isWorkOrderList();
@@ -3157,6 +3566,8 @@ function renderWorkArchive() {
   if (focused) ([...section.querySelectorAll("[data-work-archive-restore]")].find(button => button.dataset.workArchiveRestore === focused) || $("workArchiveHeading")).focus({ preventScroll: true });
 }
 
+// Снимает архивирование выбранного заказа поставщика.
+// Использует `/api/order-supplier-status`.
 async function restoreWorkArchive(button) {
   const path = button.dataset.workArchiveRestore;
   const order = state.workArchivedOrders.find(row => row.path === path);
@@ -3185,6 +3596,8 @@ async function restoreWorkArchive(button) {
   try { await loadOrders(); } catch (_) { /* The confirmed restore is already visible locally. */ }
 }
 
+// Перестраивает строки текущего списка из локальных данных.
+// Обращается к DOM текущего документа или переданного контейнера.
 function renderOrders({ force = false } = {}) {
   // Replacing a focused native select would close its menu during background polling.
   if (!force && (state.orderStatusSaving.size || state.deadlineSaving.size || state.markerSaving.size || state.calendarMoving.size || state.calendarEvent?.saving || document.activeElement?.dataset.orderStatus)) return;
@@ -3269,6 +3682,8 @@ function renderOrders({ force = false } = {}) {
   if (work || object) { listScroll.scrollLeft = scrollLeft; pane.scrollTop = scrollTop; }
 }
 
+// Открывает главную страницу и загружает её сводку.
+// Обращается к DOM текущего документа или переданного контейнера.
 async function showOrders({ history = true } = {}) {
   closeCalendarTodoPreview();
   if ($("orderTodoDialog").open) $("orderTodoDialog").close();
@@ -3315,11 +3730,15 @@ async function showOrders({ history = true } = {}) {
   await loadOrders();
 }
 
+// Открывает сохранённое местоположение заказа в дереве.
+// Использует `URLSearchParams`, `params.has`, `navigate`.
 function openLocation() {
   const params = new URLSearchParams(location.search);
   return params.has("path") ? navigate(params.get("path"), { history: false }) : showOrders({ history: false });
 }
 
+// Загружает выбранную папку и применяет соответствующий интерфейс.
+// Использует `/api/order`, `/api/todos-refresh`.
 async function navigate(path, { history = true } = {}) {
   closeCalendarTodoPreview();
   if ($("orderTodoDialog").open) $("orderTodoDialog").close();
@@ -3405,6 +3824,8 @@ async function navigate(path, { history = true } = {}) {
   }
 }
 
+// Запрашивает доступный перечень вложений выбранного заказа.
+// Дожидается серверного ответа; ошибку передаёт вызывающему обработчику.
 async function loadOrderFiles(path, navigation) {
   $("loadOrderFilesButton").hidden = true;
   $("scanState").textContent = "Загрузка файлов…";
@@ -3427,15 +3848,21 @@ async function loadOrderFiles(path, navigation) {
   }
 }
 
+// Просит сервер открыть проверенную папку или документ на Mac.
+// Использует `/api/open`.
 async function openNative(path, reveal = false) {
   await request("/api/open", { path, reveal });
 }
 
+// Показывает предварительный результат формы переименования.
+// Использует `folderParent`, `$`, `$("renameFolderName").value.trim().normalize`.
 function renderFolderRename() {
   const parent = folderParent(state.folderRename.path);
   $("renameFolderDestination").textContent = (parent ? parent + "/" : "") + $("renameFolderName").value.trim().normalize("NFC");
 }
 
+// Открывает форму переименования выбранной папки.
+// Использует `/api/folder-rename`.
 async function openFolderRename() {
   if (!state.folder?.canRenameFolder) return;
   await saveCurrentPrintTask();
@@ -3450,6 +3877,8 @@ async function openFolderRename() {
   $("renameFolderName").select();
 }
 
+// Выполняет подтверждённое переименование и применяет новые пути.
+// Использует `/api/folder-rename`.
 async function submitFolderRename() {
   if (!state.folderRename || state.folderRenaming) return;
   state.folderRenaming = true;
@@ -3469,6 +3898,8 @@ async function submitFolderRename() {
     controls.forEach((id) => { $(id).disabled = false; });
   }
   $("renameFolderDialog").close();
+  // Обновляет путь элемента интерфейса после подтверждённого переноса папок.
+  // Использует `path.startsWith`, `path.slice`.
   const moved = (path) => path === result.source || path.startsWith(result.source + "/") ? result.path + path.slice(result.source.length) : path;
   state.expanded = new Set([...state.expanded].map(moved));
   window.history.replaceState(null, "", "?path=" + encodeURIComponent(result.path));
@@ -3478,6 +3909,8 @@ async function submitFolderRename() {
   notify("Папка переименована");
 }
 
+// Открывает подходящий просмотрщик выбранного файла.
+// Использует `/api/file`, `/api/freza-preview`, `/api/preview`.
 async function showPreview(path) {
   await saveFileComment();
   const file = state.folder.files.find((item) => item.path === path);
@@ -3553,6 +3986,8 @@ async function showPreview(path) {
   if (version === previewVersion) $("previewBody").appendChild(media);
 }
 
+// Открывает общий PDF-просмотр для сохранённого счёта или вложения.
+// Использует `/api/invoice-pdf`, `/api/invoice-pdf-info`.
 async function showInvoicePreview(record) {
   await saveFileComment();
   SpreadsheetPreview.close();
@@ -3582,6 +4017,8 @@ async function showInvoicePreview(record) {
   }
 }
 
+// Заполняет редактор комментария точного файла.
+// Использует `Boolean`, `$`, `$("fileCommentState").classList.toggle`.
 function renderFileComment() {
   const comment = state.fileComment;
   const saving = Boolean(state.fileCommentSaving);
@@ -3595,6 +4032,8 @@ function renderFileComment() {
   $("fileCommentState").textContent = comment?.error || (comment?.loading ? "Загрузка комментария…" : saving ? "Сохраняю…" : comment?.dirty ? "Есть несохранённые изменения" : comment?.comment ? "Комментарий сохранён" : "Комментария пока нет");
 }
 
+// Читает комментарий файла и сохраняет его проверочную версию.
+// Использует `/api/invoice`, `/api/file-comment`.
 async function loadFileComment(path, version) {
   const invoice = state.preview?.invoice;
   const file = state.folder?.files.find((item) => item.path === path);
@@ -3619,6 +4058,8 @@ async function loadFileComment(path, version) {
   if (state.fileComment === comment) renderFileComment();
 }
 
+// Сохраняет текст комментария по привязке файла и версии.
+// Использует `/api/invoice-comment`, `/api/file-comment`.
 async function saveFileComment() {
   if (state.fileCommentSaving) {
     await state.fileCommentSaving;
@@ -3651,11 +4092,15 @@ async function saveFileComment() {
   if (comment.dirty) return saveFileComment();
 }
 
+// Закрывает просмотрщик и освобождает его локальные ресурсы.
+// Использует `saveFileComment`, `$("previewDialog").close`, `$`.
 async function closePreview() {
   await saveFileComment();
   $("previewDialog").close();
 }
 
+// Загружает сведения о PDF и показывает выбранные страницы.
+// Использует `/api/invoice-pdf-page`, `/api/pdf-page`.
 function showPdfPages(file, pages, version) {
   const viewer = document.createElement("div");
   viewer.className = "pdf-viewer";
@@ -3681,6 +4126,8 @@ function showPdfPages(file, pages, version) {
   canvas.append(image);
   viewer.append(toolbar, canvas);
   let current = 0;
+  // Переключает отображаемую страницу текущего документа.
+  // Использует `/api/invoice-pdf-page`, `/api/pdf-page`.
   function changePage(page) {
     current = Math.min(pages - 1, Math.max(0, page));
     input.value = String(current + 1);
@@ -3700,6 +4147,8 @@ function showPdfPages(file, pages, version) {
   changePage(0);
 }
 
+// Показывает ошибку или недоступность превью без замены исходника.
+// Подключает обработчики событий к существующим элементам компонента.
 function previewUnavailable(message) {
   const wrapper = document.createElement("div");
   wrapper.className = "preview-empty";
@@ -3717,6 +4166,8 @@ function previewUnavailable(message) {
   $("previewBody").replaceChildren(wrapper);
 }
 
+// Переключает полнооконный просмотр с сохранением редактора комментария.
+// Использует `$("previewDialog").classList.toggle`, `$`, `$("previewExpand").setAttribute`.
 function setPreviewExpanded(expanded) {
   $("previewDialog").classList.toggle("preview-expanded", expanded);
   $("previewExpand").textContent = expanded ? "Свернуть" : "Развернуть";
@@ -3724,6 +4175,8 @@ function setPreviewExpanded(expanded) {
   $("previewExpand").title = expanded ? "Вернуть комментарии" : "Документ на всё окно";
 }
 
+// Переходит к предыдущему или следующему файлу текущего набора.
+// Использует `filteredFiles`, `files.findIndex`, `run`.
 function stepPreview(direction) {
   if (!state.preview || state.preview.invoice) return;
   const files = filteredFiles();
@@ -3731,6 +4184,8 @@ function stepPreview(direction) {
   if (files[index + direction]) run(() => showPreview(files[index + direction].path));
 }
 
+// Выполняет сохранённое действие отмены или подтверждённую операцию компонента.
+// Использует `Promise.resolve().then(action).catch`, `Promise.resolve().then`, `Promise.resolve`.
 function run(action) {
   Promise.resolve().then(action).catch((error) => notify(error.message || "Не удалось выполнить действие", true));
 }
@@ -4138,6 +4593,8 @@ $("addOrderButton").addEventListener("click", () => run(async () => {
     await loadOrders();
   } finally { $("addOrderButton").disabled = false; }
 }));
+// Открывает предусмотренное подтверждение снятия регистрации заказа.
+// Использует `state.orders.find`, `notify`, `$`.
 function askRemoveOrder(path) {
   const order = state.folder?.path === path ? state.folder.order : state.orders.find((item) => item.path === path);
   if (!order) { notify("Обновите список заказов перед снятием регистрации", true); return; }

@@ -8,6 +8,8 @@
   const content = document.querySelector(".content-pane");
   let open = false;
 
+  // Открывает или закрывает узкое меню, управляя фокусом и блокировкой фона.
+  // Обращается к DOM текущего документа или переданного контейнера.
   function setOpen(value) {
     open = narrow.matches && value;
     const hadSidebarFocus = sidebar.contains(document.activeElement);

@@ -1,6 +1,8 @@
 /* Shared browser and M4 calendar image rendering. */
 const CalendarSnapshot = (() => {
   let renderer;
+  // Лениво загружает локальную библиотеку HTML-снимка.
+  // Использует `Promise.resolve`, `Promise`.
   function loadRenderer() {
     if (window.html2canvas) return Promise.resolve(window.html2canvas);
     if (!renderer) renderer = new Promise((resolve, reject) => {
@@ -13,6 +15,8 @@ const CalendarSnapshot = (() => {
     return renderer;
   }
 
+  // Создаёт общий PNG из отдельного DOM-снимка календаря.
+  // Обращается к DOM текущего документа или переданного контейнера.
   async function capture(now = new Date()) {
     const render = await loadRenderer();
     await document.fonts.ready;
@@ -38,7 +42,11 @@ const CalendarSnapshot = (() => {
       const canvas = await render(element, {
         backgroundColor: "#fff", scale, logging: false, width, height,
         windowWidth: Math.max(window.innerWidth, width + 32),
+        // Исключает управляющие элементы из изображения календаря.
+        // Результат вычисляется из переданных аргументов и текущего состояния компонента.
         ignoreElements: (node) => node.parentElement === document.body && node !== element,
+        // Применяет нужные размеры и оформление к копии DOM для снимка.
+        // Результат вычисляется из переданных аргументов и текущего состояния компонента.
         onclone: (_document, copy) => { copy.style.position = "static"; copy.style.left = "0"; },
       });
       const image = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));

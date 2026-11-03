@@ -15,6 +15,8 @@ import work_orders
 CATALOG_KIND = "purchase_supplier_catalog"
 
 
+# Запоминает явное успешное перечисление # work для опроса из SQLite.
+# Работает с таблицами metadata_records.
 def remember_sections(db, root, paths):
     """Remember an explicit, successful #work listing; polling stays SQLite-only."""
     from local_metadata import audit
@@ -36,11 +38,15 @@ def remember_sections(db, root, paths):
                    (str(uuid.uuid4()), CATALOG_KIND, root, json.dumps(data, ensure_ascii=False), time.time()))
 
 
+# Проверяет формат сохранённого каталога поставщиков.
+# Формирует возвращаемое значение из проверенного локального состояния.
 def valid_catalog(data):
     return (isinstance(data, dict) and type(data.get("version")) is int and data["version"] == 1
             and isinstance(data.get("paths"), list) and all(isinstance(path, str) for path in data["paths"]))
 
 
+# Читает текущие избранные разделы без отмены прежних назначений.
+# Работает с таблицами sqlite_master, metadata_records.
 def available_suppliers(db):
     """Current starred sections; old assignments do not depend on today's stars."""
     if not db.execute("SELECT 1 FROM sqlite_master WHERE name='metadata_records'").fetchone():
@@ -66,6 +72,8 @@ def available_suppliers(db):
     return result
 
 
+# Сериализует выбранные назначения закупки существующим поставщикам.
+# Работает с таблицами metadata_settings.
 def write_assignments(db, blocks, items):
     previous = document.read_purchases(blocks)
     if previous is None:
@@ -83,6 +91,8 @@ def write_assignments(db, blocks, items):
     return document.write_purchases(blocks, items)
 
 
+# Определяет подпись реального раздела поставщика по пути.
+# Возвращает `''`; либо `'glass'`.
 def supplier_name(relative):
     if not isinstance(relative, str) or not relative or Path(relative).is_absolute() or Path(relative).as_posix() != relative:
         return ""
@@ -98,10 +108,16 @@ def supplier_name(relative):
     return name if name == "etc" or document.valid_purchase_supplier(name) else ""
 
 
+# Собирает закупки у поставщика и частично изменяет строки исходных заказов.
+# Основные операции: __init__, section, source_orders, catalog, read; остальные описаны у методов.
 class SupplierPurchases:
+    # Сохраняет зависимости и начальные параметры экземпляра.
+    # Состояние и зависимости сохраняются в полях self для последующих операций.
     def __init__(self, store):
         self.store = store
 
+    # Проверяет текущий раздел поставщика и правила его сводки.
+    # При недопустимом состоянии возбуждает ValueError.
     def section(self, relative):
         name = supplier_name(relative)
         if not name:
@@ -109,9 +125,13 @@ class SupplierPurchases:
         guard_database(self.store.database, relative)
         return name
 
+    # Читает исходные заказы, из которых собираются закупки поставщика.
+    # Возвращает `(order for order in self.store.list() if client_path(order['path']) and (not is_inactive(order['path'], inactive)))`.
     def source_orders(self, inactive):
         return (order for order in self.store.list() if client_path(order["path"]) and not is_inactive(order["path"], inactive))
 
+    # Собирает доступный каталог сущностей из сохранённых индексов.
+    # Возвращает `{'suppliers': options, 'counts': counts}`.
     def catalog(self, *, inactive=()):
         with self.store.connect() as db:
             options = available_suppliers(db)
@@ -123,6 +143,8 @@ class SupplierPurchases:
                         counts[name] = counts.get(name, 0) + 1
         return {"suppliers": options, "counts": counts}
 
+    # Читает SQLite-сводку исходных закупок выбранного поставщика или etc.
+    # Возвращает `{'path': relative, 'supplier': name, 'orders': groups}`.
     def read(self, relative, *, inactive=()):
         name = self.section(relative)
         groups = []
@@ -134,6 +156,8 @@ class SupplierPurchases:
         groups.sort(key=lambda row: tuple(unicodedata.normalize("NFC", row[key]).casefold() for key in ("client", "object", "title", "path")))
         return {"path": relative, "supplier": name, "orders": groups}
 
+    # Меняет выполнение точной исходной закупки с проверкой её назначения.
+    # При недопустимом состоянии возбуждает ValueError.
     def save(self, payload, *, inactive=()):
         name = self.section(payload.get("supplier_path"))
         relative = self.store.path(payload.get("path"))
@@ -141,6 +165,8 @@ class SupplierPurchases:
             raise ValueError("Заказ скрыт отметкой неактивности. Обнови список закупок")
         return self.store.save_purchase_done(payload, name)
 
+    # Частично меняет текст исходной закупки после проверки её идентичности.
+    # При недопустимом состоянии возбуждает ValueError.
     def edit(self, payload, *, inactive=()):
         name = self.section(payload.get("supplier_path"))
         relative = self.store.path(payload.get("path"))

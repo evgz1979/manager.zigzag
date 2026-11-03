@@ -2,11 +2,17 @@
 (() => {
   let folder = null, model = null, markup = null, generation = 0, saving = false, pendingKey = null, error = "", readError = "";
   const panel = $("supplierPurchasesSection"), list = $("supplierPurchasesList");
+  // Проверяет, относится ли открытая папка к области текущего компонента.
+  // Использует `Boolean`.
   const visible = () => state.view === "folder" && Boolean(state.folder?.purchaseSupplier);
+  // Вычисляет устойчивый ключ строки исходной закупки.
+  // Результат вычисляется из переданных аргументов и текущего состояния компонента.
   const itemKey = (order, item) => order.id + ":" + item.index;
   const dialog = $("supplierPurchaseDialog");
   let editor = null;
 
+  // Обновляет DOM компонента из текущих данных в модуле закупок у поставщика.
+  // Обращается к DOM текущего документа или переданного контейнера.
   function render() {
     panel.hidden = !visible() || (!error && !readError && model?.orders.length === 0);
     $("orderOverview").classList.toggle("with-supplier-purchases", !panel.hidden);
@@ -39,6 +45,8 @@
     pane.scrollTop = scroll;
   }
 
+  // Перечитывает данные открытого компонента по установленным правилам в модуле закупок у поставщика.
+  // Использует `/api/supplier-purchases`.
   async function refresh() {
     if (!visible()) { ++generation; folder = null; model = null; markup = null; panel.hidden = true; $("orderOverview").classList.remove("with-supplier-purchases"); return; }
     const current = state.folder;
@@ -61,10 +69,14 @@
     render();
   }
 
+  // Возвращает фокус на кнопку правки исходной закупки.
+  // Обращается к DOM текущего документа или переданного контейнера.
   function focusEdit(key) {
     ([...list.querySelectorAll("[data-supplier-purchase-edit]")].find(el => el.dataset.supplierPurchaseEdit === key) || $(panel.hidden ? "openFolderButton" : "supplierPurchasesShowDone")).focus({ preventScroll: true });
   }
 
+  // Обновляет доступность сохранения редактора закупки.
+  // Использует `Boolean`, `$`.
   function editorControls() {
     const busy = Boolean(editor?.busy);
     $("supplierPurchaseText").readOnly = busy;
@@ -74,6 +86,8 @@
     $("checkSupplierPurchase").hidden = !editor?.conflict;
   }
 
+  // Открывает правку точной исходной строки закупки у поставщика.
+  // Использует `model.orders.find`, `itemKey`, `$`.
   function openEditor(button) {
     if (saving || !model || state.folder !== folder) return;
     const order = model.orders.find(row => row.id === button.closest("[data-supplier-purchase-order]").dataset.supplierPurchaseOrder);
@@ -89,6 +103,8 @@
     $("supplierPurchaseText").focus({ preventScroll: true });
   }
 
+  // Сохраняет текст исходной закупки с её версией и проверочной строкой.
+  // Использует `/api/supplier-purchase-text`.
   async function saveText() {
     const edit = editor;
     if (!edit || edit.busy || edit.conflict) return;
@@ -116,6 +132,8 @@
     }
   }
 
+  // Перечитывает источник закупки при конфликте, сохраняя введённый черновик.
+  // Использует `/api/supplier-purchases`.
   async function checkText() {
     const edit = editor;
     if (!edit || edit.busy) return;

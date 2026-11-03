@@ -1,0 +1,7118 @@
+{
+  "version": 1,
+  "date": "2026-11-03",
+  "groups": {
+    "python": [
+      {
+        "path": "calendar_delivery.py",
+        "sha256": "9b75bcbc0a249373c56d59caad51f4a088c263d0bd9eadd1e14608389d953271",
+        "symbols": [
+          {
+            "name": "order_visible",
+            "line": 13,
+            "type": "function"
+          },
+          {
+            "name": "period",
+            "line": 32,
+            "type": "function"
+          },
+          {
+            "name": "renderer",
+            "line": 55,
+            "type": "function"
+          },
+          {
+            "name": "html",
+            "line": 61,
+            "type": "function"
+          },
+          {
+            "name": "render",
+            "line": 94,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "calendar_events.py",
+        "sha256": "e1f3b41c3a68046f79cd00f3afc0745c2c50924c9707ec6248eb4b5b0454140d",
+        "symbols": [
+          {
+            "name": "schema",
+            "line": 16,
+            "type": "function"
+          },
+          {
+            "name": "CalendarEvents",
+            "line": 43,
+            "type": "class"
+          },
+          {
+            "name": "CalendarEvents.__init__",
+            "line": 46,
+            "type": "function"
+          },
+          {
+            "name": "CalendarEvents.connect",
+            "line": 52,
+            "type": "function"
+          },
+          {
+            "name": "CalendarEvents.identity",
+            "line": 60,
+            "type": "function"
+          },
+          {
+            "name": "CalendarEvents.record",
+            "line": 74,
+            "type": "function"
+          },
+          {
+            "name": "CalendarEvents.validate",
+            "line": 80,
+            "type": "function"
+          },
+          {
+            "name": "CalendarEvents.list",
+            "line": 90,
+            "type": "function"
+          },
+          {
+            "name": "CalendarEvents.get",
+            "line": 97,
+            "type": "function"
+          },
+          {
+            "name": "CalendarEvents.save",
+            "line": 107,
+            "type": "function"
+          },
+          {
+            "name": "CalendarEvents.set_deleted",
+            "line": 140,
+            "type": "function"
+          },
+          {
+            "name": "CalendarEvents.move",
+            "line": 158,
+            "type": "function"
+          },
+          {
+            "name": "CalendarEvents.color",
+            "line": 180,
+            "type": "function"
+          },
+          {
+            "name": "CalendarEvents.set_inactive",
+            "line": 197,
+            "type": "function"
+          },
+          {
+            "name": "CalendarEvents.set_completed",
+            "line": 202,
+            "type": "function"
+          },
+          {
+            "name": "CalendarEvents.set_trip",
+            "line": 207,
+            "type": "function"
+          },
+          {
+            "name": "CalendarEvents._set_flag",
+            "line": 212,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "calendar_layout.py",
+        "sha256": "57e9c6698fd1765244af4d7b4357fb034d9ed40a6582f25284ea30b9b3df227a",
+        "symbols": [
+          {
+            "name": "read_compact",
+            "line": 10,
+            "type": "function"
+          },
+          {
+            "name": "write_compact",
+            "line": 26,
+            "type": "function"
+          },
+          {
+            "name": "mark_contract",
+            "line": 36,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "calendar_todos.py",
+        "sha256": "e403bede4c573f7d1162a3b584dbfbe396a9d5e405a781cc4c9520125797d8a8",
+        "symbols": [
+          {
+            "name": "digest",
+            "line": 8,
+            "type": "function"
+          },
+          {
+            "name": "message_parts",
+            "line": 78,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "client_activity.py",
+        "sha256": "9f2726067859561294e44faf31f1bd8562a579a4eb869a46a75c2f3a75cdf6c8",
+        "symbols": [
+          {
+            "name": "ClientActivityConflict",
+            "line": 18,
+            "type": "class"
+          },
+          {
+            "name": "value",
+            "line": 24,
+            "type": "function"
+          },
+          {
+            "name": "known",
+            "line": 30,
+            "type": "function"
+          },
+          {
+            "name": "ClientActivity",
+            "line": 36,
+            "type": "class"
+          },
+          {
+            "name": "ClientActivity.__init__",
+            "line": 43,
+            "type": "function"
+          },
+          {
+            "name": "ClientActivity.connect",
+            "line": 50,
+            "type": "function"
+          },
+          {
+            "name": "ClientActivity.schema",
+            "line": 56,
+            "type": "function"
+          },
+          {
+            "name": "ClientActivity.record",
+            "line": 63,
+            "type": "function"
+          },
+          {
+            "name": "ClientActivity.matches",
+            "line": 74,
+            "type": "function"
+          },
+          {
+            "name": "ClientActivity.target",
+            "line": 79,
+            "type": "function"
+          },
+          {
+            "name": "ClientActivity.get",
+            "line": 94,
+            "type": "function"
+          },
+          {
+            "name": "ClientActivity.read",
+            "line": 104,
+            "type": "function"
+          },
+          {
+            "name": "ClientActivity.save",
+            "line": 133,
+            "type": "function"
+          },
+          {
+            "name": "ClientActivity.accept_file",
+            "line": 156,
+            "type": "function"
+          },
+          {
+            "name": "ClientActivity.inactive_paths",
+            "line": 177,
+            "type": "function"
+          },
+          {
+            "name": "ClientActivity.visible_orders",
+            "line": 187,
+            "type": "function"
+          },
+          {
+            "name": "ClientActivity.refresh",
+            "line": 193,
+            "type": "function"
+          },
+          {
+            "name": "ClientActivity.refresh.folders",
+            "line": 197,
+            "type": "function"
+          },
+          {
+            "name": "ClientActivity.error",
+            "line": 215,
+            "type": "function"
+          },
+          {
+            "name": "ClientActivity.sync",
+            "line": 222,
+            "type": "function"
+          },
+          {
+            "name": "is_inactive",
+            "line": 255,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "event_folder_undo.py",
+        "sha256": "df86bead8d584af6be0725f6cfac306313db9ae59418170caf0db79f92acb1df",
+        "symbols": [
+          {
+            "name": "EventRenamePending",
+            "line": 13,
+            "type": "class"
+          },
+          {
+            "name": "inside",
+            "line": 19,
+            "type": "function"
+          },
+          {
+            "name": "assert_unlocked",
+            "line": 25,
+            "type": "function"
+          },
+          {
+            "name": "guard_database",
+            "line": 37,
+            "type": "function"
+          },
+          {
+            "name": "metadata_paths",
+            "line": 47,
+            "type": "function"
+          },
+          {
+            "name": "schema",
+            "line": 73,
+            "type": "function"
+          },
+          {
+            "name": "undo",
+            "line": 82,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "event_folders.py",
+        "sha256": "d76ddf4b5a44037470672fc7737c3d162b6a872aab0cae272e07e0f465da145a",
+        "symbols": [
+          {
+            "name": "EventFolderConflict",
+            "line": 24,
+            "type": "class"
+          },
+          {
+            "name": "event_number",
+            "line": 30,
+            "type": "function"
+          },
+          {
+            "name": "parent",
+            "line": 36,
+            "type": "function"
+          },
+          {
+            "name": "title_name",
+            "line": 51,
+            "type": "function"
+          },
+          {
+            "name": "snapshot",
+            "line": 65,
+            "type": "function"
+          },
+          {
+            "name": "preview",
+            "line": 77,
+            "type": "function"
+          },
+          {
+            "name": "current",
+            "line": 119,
+            "type": "function"
+          },
+          {
+            "name": "create",
+            "line": 128,
+            "type": "function"
+          },
+          {
+            "name": "rename",
+            "line": 155,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "event_relevance.py",
+        "sha256": "10f06afd840c4d314e670573be136b1556940b0ec9e2e14db2f186c081e76260",
+        "symbols": [
+          {
+            "name": "is_event",
+            "line": 11,
+            "type": "function"
+          },
+          {
+            "name": "read",
+            "line": 18,
+            "type": "function"
+          },
+          {
+            "name": "write",
+            "line": 25,
+            "type": "function"
+          },
+          {
+            "name": "info",
+            "line": 35,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "event_trash.py",
+        "sha256": "d12d4d0fff95356a05f23b10fe93d1a275a395fc3c62b1e65437df9b898a6754",
+        "symbols": [
+          {
+            "name": "available",
+            "line": 28,
+            "type": "function"
+          },
+          {
+            "name": "preview",
+            "line": 37,
+            "type": "function"
+          },
+          {
+            "name": "preview.scan",
+            "line": 50,
+            "type": "function"
+          },
+          {
+            "name": "remove",
+            "line": 70,
+            "type": "function"
+          },
+          {
+            "name": "list_sessions",
+            "line": 120,
+            "type": "function"
+          },
+          {
+            "name": "restore",
+            "line": 135,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "file_comments.py",
+        "sha256": "4a6ad527fc0184d4135cae670adaceeede952a144f007923cfc19a88f2926ae7",
+        "symbols": [
+          {
+            "name": "FileCommentConflict",
+            "line": 15,
+            "type": "class"
+          },
+          {
+            "name": "binding",
+            "line": 21,
+            "type": "function"
+          },
+          {
+            "name": "paths",
+            "line": 31,
+            "type": "function"
+          },
+          {
+            "name": "read",
+            "line": 44,
+            "type": "function"
+          },
+          {
+            "name": "parse",
+            "line": 58,
+            "type": "function"
+          },
+          {
+            "name": "save",
+            "line": 74,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "file_trash.py",
+        "sha256": "302273b9b33d443f954f3742314e7fea661e0e25b9521e89a3db44159628de75",
+        "symbols": [
+          {
+            "name": "TrashConflict",
+            "line": 26,
+            "type": "class"
+          },
+          {
+            "name": "checked",
+            "line": 32,
+            "type": "function"
+          },
+          {
+            "name": "fingerprint",
+            "line": 46,
+            "type": "function"
+          },
+          {
+            "name": "revision",
+            "line": 54,
+            "type": "function"
+          },
+          {
+            "name": "same",
+            "line": 60,
+            "type": "function"
+          },
+          {
+            "name": "rename",
+            "line": 70,
+            "type": "function"
+          },
+          {
+            "name": "append",
+            "line": 81,
+            "type": "function"
+          },
+          {
+            "name": "save",
+            "line": 91,
+            "type": "function"
+          },
+          {
+            "name": "preview",
+            "line": 101,
+            "type": "function"
+          },
+          {
+            "name": "session_path",
+            "line": 121,
+            "type": "function"
+          },
+          {
+            "name": "read_plan",
+            "line": 129,
+            "type": "function"
+          },
+          {
+            "name": "describe",
+            "line": 148,
+            "type": "function"
+          },
+          {
+            "name": "database_move",
+            "line": 168,
+            "type": "function"
+          },
+          {
+            "name": "remove",
+            "line": 199,
+            "type": "function"
+          },
+          {
+            "name": "resume",
+            "line": 261,
+            "type": "function"
+          },
+          {
+            "name": "restore_invoice_record",
+            "line": 307,
+            "type": "function"
+          },
+          {
+            "name": "list_sessions",
+            "line": 330,
+            "type": "function"
+          },
+          {
+            "name": "restore",
+            "line": 356,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "file_uploads.py",
+        "sha256": "388c84a1fc4c2a68fdf4c8c7fe20c46e02db3705738572eb1c2a3f4ff52f3d0d",
+        "symbols": [
+          {
+            "name": "UploadConflict",
+            "line": 26,
+            "type": "class"
+          },
+          {
+            "name": "UploadTooLarge",
+            "line": 32,
+            "type": "class"
+          },
+          {
+            "name": "UploadBusy",
+            "line": 38,
+            "type": "class"
+          },
+          {
+            "name": "available",
+            "line": 44,
+            "type": "function"
+          },
+          {
+            "name": "target",
+            "line": 63,
+            "type": "function"
+          },
+          {
+            "name": "token",
+            "line": 76,
+            "type": "function"
+          },
+          {
+            "name": "options",
+            "line": 84,
+            "type": "function"
+          },
+          {
+            "name": "filename",
+            "line": 91,
+            "type": "function"
+          },
+          {
+            "name": "reserved_names",
+            "line": 102,
+            "type": "function"
+          },
+          {
+            "name": "reserved_names.reserve",
+            "line": 107,
+            "type": "function"
+          },
+          {
+            "name": "receive",
+            "line": 125,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "folder_layout.py",
+        "sha256": "e14308017dcb0d7d09a969061c10bbbf98901b2f880833b63a86c3a8d3247c79",
+        "symbols": [
+          {
+            "name": "identity",
+            "line": 18,
+            "type": "function"
+          },
+          {
+            "name": "exists",
+            "line": 25,
+            "type": "function"
+          },
+          {
+            "name": "rename_exclusive",
+            "line": 31,
+            "type": "function"
+          },
+          {
+            "name": "append",
+            "line": 42,
+            "type": "function"
+          },
+          {
+            "name": "save_json",
+            "line": 52,
+            "type": "function"
+          },
+          {
+            "name": "safe_path",
+            "line": 62,
+            "type": "function"
+          },
+          {
+            "name": "Plan",
+            "line": 78,
+            "type": "class"
+          },
+          {
+            "name": "Plan.__init__",
+            "line": 81,
+            "type": "function"
+          },
+          {
+            "name": "Plan.mkdir",
+            "line": 90,
+            "type": "function"
+          },
+          {
+            "name": "Plan.move",
+            "line": 104,
+            "type": "function"
+          },
+          {
+            "name": "Plan.create_session",
+            "line": 119,
+            "type": "function"
+          },
+          {
+            "name": "load_plan",
+            "line": 155,
+            "type": "function"
+          },
+          {
+            "name": "records",
+            "line": 161,
+            "type": "function"
+          },
+          {
+            "name": "apply",
+            "line": 168,
+            "type": "function"
+          },
+          {
+            "name": "undo",
+            "line": 201,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "folder_notes.py",
+        "sha256": "35d6e536dc460fc167bd506b78b557ed4de31e8343ed42597230d010ed05a3c8",
+        "symbols": [
+          {
+            "name": "FolderNoteConflict",
+            "line": 21,
+            "type": "class"
+          },
+          {
+            "name": "parent_order",
+            "line": 27,
+            "type": "function"
+          },
+          {
+            "name": "checked_path",
+            "line": 40,
+            "type": "function"
+          },
+          {
+            "name": "file_revision",
+            "line": 51,
+            "type": "function"
+          },
+          {
+            "name": "schema",
+            "line": 69,
+            "type": "function"
+          },
+          {
+            "name": "FolderNotes",
+            "line": 78,
+            "type": "class"
+          },
+          {
+            "name": "FolderNotes.__init__",
+            "line": 81,
+            "type": "function"
+          },
+          {
+            "name": "FolderNotes.connect",
+            "line": 88,
+            "type": "function"
+          },
+          {
+            "name": "FolderNotes.record",
+            "line": 95,
+            "type": "function"
+          },
+          {
+            "name": "FolderNotes.get",
+            "line": 111,
+            "type": "function"
+          },
+          {
+            "name": "FolderNotes.target",
+            "line": 121,
+            "type": "function"
+          },
+          {
+            "name": "FolderNotes.path",
+            "line": 132,
+            "type": "function"
+          },
+          {
+            "name": "FolderNotes.read",
+            "line": 139,
+            "type": "function"
+          },
+          {
+            "name": "FolderNotes._read",
+            "line": 147,
+            "type": "function"
+          },
+          {
+            "name": "FolderNotes.save",
+            "line": 190,
+            "type": "function"
+          },
+          {
+            "name": "FolderNotes.event_relevances",
+            "line": 229,
+            "type": "function"
+          },
+          {
+            "name": "FolderNotes.save_relevance",
+            "line": 245,
+            "type": "function"
+          },
+          {
+            "name": "FolderNotes.save_sketch_relevance",
+            "line": 269,
+            "type": "function"
+          },
+          {
+            "name": "FolderNotes.sketch_relevances",
+            "line": 294,
+            "type": "function"
+          },
+          {
+            "name": "FolderNotes.sync",
+            "line": 306,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "folder_rename.py",
+        "sha256": "a664553be4bfdfd6659c676af9c93568704ae8a4643c5d1c56329674edb1b40a",
+        "symbols": [
+          {
+            "name": "FolderRenameConflict",
+            "line": 23,
+            "type": "class"
+          },
+          {
+            "name": "available",
+            "line": 29,
+            "type": "function"
+          },
+          {
+            "name": "target",
+            "line": 38,
+            "type": "function"
+          },
+          {
+            "name": "preview",
+            "line": 49,
+            "type": "function"
+          },
+          {
+            "name": "name",
+            "line": 59,
+            "type": "function"
+          },
+          {
+            "name": "rename",
+            "line": 70,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "folder_rename_undo.py",
+        "sha256": "e327b5ff9b85740c13ca8b8e70e43e66c17aee3b59abbe5334ebe4aa1acbcf91",
+        "symbols": [
+          {
+            "name": "inside",
+            "line": 13,
+            "type": "function"
+          },
+          {
+            "name": "table",
+            "line": 19,
+            "type": "function"
+          },
+          {
+            "name": "remap",
+            "line": 25,
+            "type": "function"
+          },
+          {
+            "name": "metadata_paths",
+            "line": 31,
+            "type": "function"
+          },
+          {
+            "name": "check",
+            "line": 64,
+            "type": "function"
+          },
+          {
+            "name": "rewrite",
+            "line": 87,
+            "type": "function"
+          },
+          {
+            "name": "undo",
+            "line": 131,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "folder_structure.py",
+        "sha256": "6b70c1bbde22bad70d2a09426d26a7576f16d8ce6ecb491109cc64da8f84451f",
+        "symbols": [
+          {
+            "name": "is_supplier_root",
+            "line": 26,
+            "type": "function"
+          },
+          {
+            "name": "is_work_root",
+            "line": 32,
+            "type": "function"
+          },
+          {
+            "name": "is_moneys_root",
+            "line": 38,
+            "type": "function"
+          },
+          {
+            "name": "in_reconciliations",
+            "line": 44,
+            "type": "function"
+          },
+          {
+            "name": "is_print_section",
+            "line": 54,
+            "type": "function"
+          },
+          {
+            "name": "in_freza",
+            "line": 61,
+            "type": "function"
+          },
+          {
+            "name": "is_freza_task",
+            "line": 68,
+            "type": "function"
+          },
+          {
+            "name": "supplier_prefix",
+            "line": 75,
+            "type": "function"
+          },
+          {
+            "name": "section_prefix",
+            "line": 86,
+            "type": "function"
+          },
+          {
+            "name": "is_service_folder",
+            "line": 97,
+            "type": "function"
+          },
+          {
+            "name": "dated",
+            "line": 106,
+            "type": "function"
+          },
+          {
+            "name": "is_catalog_group",
+            "line": 124,
+            "type": "function"
+          },
+          {
+            "name": "grouped_client",
+            "line": 131,
+            "type": "function"
+          },
+          {
+            "name": "client_name",
+            "line": 140,
+            "type": "function"
+          },
+          {
+            "name": "client_path",
+            "line": 147,
+            "type": "function"
+          },
+          {
+            "name": "order_location",
+            "line": 159,
+            "type": "function"
+          },
+          {
+            "name": "folder_role",
+            "line": 180,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "hidden_orders.py",
+        "sha256": "0eb3378027928234dee94fe28b7d02225a18ca4656d0293f0917873eef9fa7d9",
+        "symbols": [
+          {
+            "name": "canonical",
+            "line": 19,
+            "type": "function"
+          },
+          {
+            "name": "production_path",
+            "line": 25,
+            "type": "function"
+          },
+          {
+            "name": "catalog_orders",
+            "line": 32,
+            "type": "function"
+          },
+          {
+            "name": "listed",
+            "line": 77,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "icloud_access.py",
+        "sha256": "13361e680da1df5952207d71c23a5649673861b200fb08284c57a112b8566aba",
+        "symbols": [
+          {
+            "name": "CloudReadPending",
+            "line": 17,
+            "type": "class"
+          },
+          {
+            "name": "CloudReadPending.__init__",
+            "line": 20,
+            "type": "function"
+          },
+          {
+            "name": "CloudReadPending.__str__",
+            "line": 26,
+            "type": "function"
+          },
+          {
+            "name": "renderer",
+            "line": 32,
+            "type": "function"
+          },
+          {
+            "name": "_plain_read",
+            "line": 40,
+            "type": "function"
+          },
+          {
+            "name": "_coordinated_read",
+            "line": 47,
+            "type": "function"
+          },
+          {
+            "name": "read_bytes",
+            "line": 55,
+            "type": "function"
+          },
+          {
+            "name": "sync_error",
+            "line": 79,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "image_reports.py",
+        "sha256": "9c8b12c1205b54e55f62d96978fe51b64232362a0498f4c11365c8ceb058f196",
+        "symbols": [
+          {
+            "name": "renderer",
+            "line": 22,
+            "type": "function"
+          },
+          {
+            "name": "create",
+            "line": 32,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "inbox_folder.py",
+        "sha256": "65135634b0494f456ca7d6b6c5186a0f42ddb55120dd9e042114b8223ad5b156",
+        "symbols": [
+          {
+            "name": "snapshot",
+            "line": 9,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "invoice_discovery.py",
+        "sha256": "c3a3d23b8832c67745f653f1245beb926e18b3a1ac55a56e699ef0eb025ddb72",
+        "symbols": [
+          {
+            "name": "name_key",
+            "line": 22,
+            "type": "function"
+          },
+          {
+            "name": "folder_target",
+            "line": 28,
+            "type": "function"
+          },
+          {
+            "name": "file_key",
+            "line": 40,
+            "type": "function"
+          },
+          {
+            "name": "known_names",
+            "line": 46,
+            "type": "function"
+          },
+          {
+            "name": "candidates",
+            "line": 56,
+            "type": "function"
+          },
+          {
+            "name": "attach",
+            "line": 85,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "invoice_documents.py",
+        "sha256": "1b79495eaf9e6681672daa25e74947da744eac3413b8c6de2fd74d8f9690a389",
+        "symbols": [
+          {
+            "name": "schema",
+            "line": 21,
+            "type": "function"
+          },
+          {
+            "name": "identity",
+            "line": 37,
+            "type": "function"
+          },
+          {
+            "name": "filename",
+            "line": 48,
+            "type": "function"
+          },
+          {
+            "name": "read",
+            "line": 59,
+            "type": "function"
+          },
+          {
+            "name": "metadata",
+            "line": 88,
+            "type": "function"
+          },
+          {
+            "name": "copy_name",
+            "line": 94,
+            "type": "function"
+          },
+          {
+            "name": "with_copy_status",
+            "line": 104,
+            "type": "function"
+          },
+          {
+            "name": "parent",
+            "line": 113,
+            "type": "function"
+          },
+          {
+            "name": "save",
+            "line": 128,
+            "type": "function"
+          },
+          {
+            "name": "upload",
+            "line": 138,
+            "type": "function"
+          },
+          {
+            "name": "set_deleted",
+            "line": 176,
+            "type": "function"
+          },
+          {
+            "name": "content",
+            "line": 197,
+            "type": "function"
+          },
+          {
+            "name": "sync",
+            "line": 215,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "invoices.py",
+        "sha256": "60299af85ad70eac8d0f74d70ca29b036ee5ff9bad210200527c5b09cd178c5d",
+        "symbols": [
+          {
+            "name": "InvoiceConflict",
+            "line": 60,
+            "type": "class"
+          },
+          {
+            "name": "external_comment",
+            "line": 66,
+            "type": "function"
+          },
+          {
+            "name": "today",
+            "line": 74,
+            "type": "function"
+          },
+          {
+            "name": "plan_date",
+            "line": 80,
+            "type": "function"
+          },
+          {
+            "name": "plan_period",
+            "line": 91,
+            "type": "function"
+          },
+          {
+            "name": "known_plan",
+            "line": 101,
+            "type": "function"
+          },
+          {
+            "name": "total_from_text",
+            "line": 118,
+            "type": "function"
+          },
+          {
+            "name": "pdf_total",
+            "line": 150,
+            "type": "function"
+          },
+          {
+            "name": "decimal",
+            "line": 171,
+            "type": "function"
+          },
+          {
+            "name": "validate",
+            "line": 185,
+            "type": "function"
+          },
+          {
+            "name": "renderer",
+            "line": 265,
+            "type": "function"
+          },
+          {
+            "name": "render",
+            "line": 272,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore",
+            "line": 293,
+            "type": "class"
+          },
+          {
+            "name": "InvoiceStore.__init__",
+            "line": 296,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore.connect",
+            "line": 302,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore.owner",
+            "line": 318,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore.record",
+            "line": 329,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore.current",
+            "line": 347,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore.list",
+            "line": 366,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore.get",
+            "line": 376,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore.source_label",
+            "line": 383,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore.plan_source",
+            "line": 389,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore.calendar_plans",
+            "line": 410,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore.save_plan_calendar_inactive",
+            "line": 438,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore.save_plan_calendar_completed",
+            "line": 443,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore.save_plan_calendar_trip",
+            "line": 448,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore.save_plan_calendar_carryover",
+            "line": 453,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore.save_plan_calendar_watch_todos",
+            "line": 458,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore._save_plan_calendar_flag",
+            "line": 465,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore.move_calendar_plan",
+            "line": 493,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore.plan",
+            "line": 524,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore.upload",
+            "line": 609,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore.save_comment",
+            "line": 658,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore.save_list_status",
+            "line": 677,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore.require_calendar_payment",
+            "line": 702,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore.remove",
+            "line": 709,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore.restore",
+            "line": 732,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore.publish_copy",
+            "line": 763,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore.sync_trash",
+            "line": 796,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore.create",
+            "line": 832,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore.save",
+            "line": 879,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore.issue",
+            "line": 905,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore.pdf",
+            "line": 935,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore.preview",
+            "line": 944,
+            "type": "function"
+          },
+          {
+            "name": "InvoiceStore.sync",
+            "line": 955,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "local_metadata.py",
+        "sha256": "a49bce62814e7ed4ef0a6409486bf0d3ea530ebbfea286bf9a7ee49596f52144",
+        "symbols": [
+          {
+            "name": "schema",
+            "line": 22,
+            "type": "function"
+          },
+          {
+            "name": "audit",
+            "line": 45,
+            "type": "function"
+          },
+          {
+            "name": "MetadataStore",
+            "line": 61,
+            "type": "class"
+          },
+          {
+            "name": "MetadataStore.__init__",
+            "line": 64,
+            "type": "function"
+          },
+          {
+            "name": "MetadataStore.key",
+            "line": 70,
+            "type": "function"
+          },
+          {
+            "name": "MetadataStore.connect",
+            "line": 83,
+            "type": "function"
+          },
+          {
+            "name": "MetadataStore.record",
+            "line": 91,
+            "type": "function"
+          },
+          {
+            "name": "MetadataStore.get",
+            "line": 99,
+            "type": "function"
+          },
+          {
+            "name": "MetadataStore.put",
+            "line": 109,
+            "type": "function"
+          },
+          {
+            "name": "MetadataStore.archive",
+            "line": 130,
+            "type": "function"
+          },
+          {
+            "name": "MetadataStore.error",
+            "line": 139,
+            "type": "function"
+          },
+          {
+            "name": "MetadataStore.imported",
+            "line": 146,
+            "type": "function"
+          },
+          {
+            "name": "MetadataStore.complete",
+            "line": 151,
+            "type": "function"
+          },
+          {
+            "name": "MetadataStore.backup",
+            "line": 158,
+            "type": "function"
+          },
+          {
+            "name": "MetadataStore.comment",
+            "line": 178,
+            "type": "function"
+          },
+          {
+            "name": "MetadataStore._comment",
+            "line": 185,
+            "type": "function"
+          },
+          {
+            "name": "MetadataStore.save_comment",
+            "line": 213,
+            "type": "function"
+          },
+          {
+            "name": "MetadataStore._save_comment",
+            "line": 220,
+            "type": "function"
+          },
+          {
+            "name": "MetadataStore.card",
+            "line": 230,
+            "type": "function"
+          },
+          {
+            "name": "MetadataStore.status",
+            "line": 241,
+            "type": "function"
+          },
+          {
+            "name": "MetadataStore.publish",
+            "line": 252,
+            "type": "function"
+          },
+          {
+            "name": "MetadataStore.sync",
+            "line": 263,
+            "type": "function"
+          },
+          {
+            "name": "MetadataStore._sync",
+            "line": 270,
+            "type": "function"
+          },
+          {
+            "name": "MetadataStore.migrate",
+            "line": 305,
+            "type": "function"
+          },
+          {
+            "name": "MetadataStore.upgrade_restoration",
+            "line": 378,
+            "type": "function"
+          },
+          {
+            "name": "MetadataStore.is_publication",
+            "line": 407,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "mobile_sync.py",
+        "sha256": "dc5eddd09b29a12f3ab5deb4a05d71aa3bea01c2ac445ee4c25ba69dcd4d0445",
+        "symbols": [
+          {
+            "name": "MobileConflict",
+            "line": 28,
+            "type": "class"
+          },
+          {
+            "name": "encode",
+            "line": 34,
+            "type": "function"
+          },
+          {
+            "name": "identifier",
+            "line": 40,
+            "type": "function"
+          },
+          {
+            "name": "regular",
+            "line": 52,
+            "type": "function"
+          },
+          {
+            "name": "read_json",
+            "line": 60,
+            "type": "function"
+          },
+          {
+            "name": "write_json",
+            "line": 69,
+            "type": "function"
+          },
+          {
+            "name": "reconcile_tasks",
+            "line": 78,
+            "type": "function"
+          },
+          {
+            "name": "file_token",
+            "line": 110,
+            "type": "function"
+          },
+          {
+            "name": "MobileBridge",
+            "line": 117,
+            "type": "class"
+          },
+          {
+            "name": "MobileBridge.__init__",
+            "line": 120,
+            "type": "function"
+          },
+          {
+            "name": "MobileBridge.get_meta",
+            "line": 136,
+            "type": "function"
+          },
+          {
+            "name": "MobileBridge.put_meta",
+            "line": 143,
+            "type": "function"
+          },
+          {
+            "name": "MobileBridge.configure",
+            "line": 148,
+            "type": "function"
+          },
+          {
+            "name": "MobileBridge.status",
+            "line": 159,
+            "type": "function"
+          },
+          {
+            "name": "MobileBridge.prepare",
+            "line": 169,
+            "type": "function"
+          },
+          {
+            "name": "MobileBridge.target_file",
+            "line": 193,
+            "type": "function"
+          },
+          {
+            "name": "MobileBridge.tasks",
+            "line": 214,
+            "type": "function"
+          },
+          {
+            "name": "MobileBridge.validate",
+            "line": 222,
+            "type": "function"
+          },
+          {
+            "name": "MobileBridge.apply",
+            "line": 253,
+            "type": "function"
+          },
+          {
+            "name": "MobileBridge.apply_order",
+            "line": 308,
+            "type": "function"
+          },
+          {
+            "name": "MobileBridge.apply_file",
+            "line": 344,
+            "type": "function"
+          },
+          {
+            "name": "MobileBridge.inventory",
+            "line": 383,
+            "type": "function"
+          },
+          {
+            "name": "MobileBridge.catalog",
+            "line": 415,
+            "type": "function"
+          },
+          {
+            "name": "MobileBridge.run",
+            "line": 434,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "native_renderers.py",
+        "sha256": "204e4cd8e3c7fb57edb1cc3dd37e8517d8ee892fe6058412eaade2e62f190207",
+        "symbols": [
+          {
+            "name": "build",
+            "line": 10,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "object_activity.py",
+        "sha256": "e75bfc76006e3d31715cbeec9dab167521c946c7670677de9e8bab3d8e8e1fb7",
+        "symbols": [
+          {
+            "name": "ObjectActivity",
+            "line": 13,
+            "type": "class"
+          },
+          {
+            "name": "ObjectActivity.matches",
+            "line": 20,
+            "type": "function"
+          },
+          {
+            "name": "ObjectActivity.refresh",
+            "line": 25,
+            "type": "function"
+          },
+          {
+            "name": "ObjectActivity.refresh.on_error",
+            "line": 29,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "object_orders.py",
+        "sha256": "20bef0d9e97f62137b057fd36665bba268e4c5c08f17b4fbfe1d235f6a010625",
+        "symbols": [
+          {
+            "name": "inside",
+            "line": 22,
+            "type": "function"
+          },
+          {
+            "name": "canonical",
+            "line": 28,
+            "type": "function"
+          },
+          {
+            "name": "ObjectOrders",
+            "line": 34,
+            "type": "class"
+          },
+          {
+            "name": "ObjectOrders.__init__",
+            "line": 40,
+            "type": "function"
+          },
+          {
+            "name": "ObjectOrders.path",
+            "line": 46,
+            "type": "function"
+          },
+          {
+            "name": "ObjectOrders.put",
+            "line": 55,
+            "type": "function"
+          },
+          {
+            "name": "ObjectOrders.refresh",
+            "line": 69,
+            "type": "function"
+          },
+          {
+            "name": "ObjectOrders.save_catalog",
+            "line": 101,
+            "type": "function"
+          },
+          {
+            "name": "ObjectOrders.allowed_paths",
+            "line": 120,
+            "type": "function"
+          },
+          {
+            "name": "ObjectOrders.allowed_paths.allowed",
+            "line": 124,
+            "type": "function"
+          },
+          {
+            "name": "ObjectOrders.read",
+            "line": 132,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "object_years.py",
+        "sha256": "61ffe661f90d7e53c32723489e39da1d79e6884f1c38fdce804934e64784ad94",
+        "symbols": [
+          {
+            "name": "YearGroupConflict",
+            "line": 23,
+            "type": "class"
+          },
+          {
+            "name": "_preview",
+            "line": 29,
+            "type": "function"
+          },
+          {
+            "name": "preview",
+            "line": 88,
+            "type": "function"
+          },
+          {
+            "name": "group",
+            "line": 95,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "order_calendar.py",
+        "sha256": "0c3fab61e4933a46e6e14bc7da12a5f2637be3b54936fef5eb0020f0c05b2ad8",
+        "symbols": [
+          {
+            "name": "block_name",
+            "line": 27,
+            "type": "function"
+          },
+          {
+            "name": "validate_key",
+            "line": 35,
+            "type": "function"
+          },
+          {
+            "name": "validate_date",
+            "line": 44,
+            "type": "function"
+          },
+          {
+            "name": "validate_text",
+            "line": 56,
+            "type": "function"
+          },
+          {
+            "name": "_read",
+            "line": 66,
+            "type": "function"
+          },
+          {
+            "name": "unify_weekly_blocks",
+            "line": 88,
+            "type": "function"
+          },
+          {
+            "name": "normalize_weekly_blocks",
+            "line": 112,
+            "type": "function"
+          },
+          {
+            "name": "read",
+            "line": 122,
+            "type": "function"
+          },
+          {
+            "name": "read_inactive",
+            "line": 133,
+            "type": "function"
+          },
+          {
+            "name": "read_completed",
+            "line": 139,
+            "type": "function"
+          },
+          {
+            "name": "read_trip",
+            "line": 145,
+            "type": "function"
+          },
+          {
+            "name": "read_watch_todos",
+            "line": 151,
+            "type": "function"
+          },
+          {
+            "name": "_read_flags",
+            "line": 157,
+            "type": "function"
+          },
+          {
+            "name": "read_colors",
+            "line": 175,
+            "type": "function"
+          },
+          {
+            "name": "_write_colors",
+            "line": 197,
+            "type": "function"
+          },
+          {
+            "name": "set_color",
+            "line": 203,
+            "type": "function"
+          },
+          {
+            "name": "mark_relevance_contract",
+            "line": 221,
+            "type": "function"
+          },
+          {
+            "name": "mark_completion_contract",
+            "line": 229,
+            "type": "function"
+          },
+          {
+            "name": "mark_trip_contract",
+            "line": 237,
+            "type": "function"
+          },
+          {
+            "name": "mark_flag_contract",
+            "line": 245,
+            "type": "function"
+          },
+          {
+            "name": "mark_watch_todos_contract",
+            "line": 254,
+            "type": "function"
+          },
+          {
+            "name": "set_watch_todos",
+            "line": 262,
+            "type": "function"
+          },
+          {
+            "name": "set_trip",
+            "line": 286,
+            "type": "function"
+          },
+          {
+            "name": "set_completed",
+            "line": 310,
+            "type": "function"
+          },
+          {
+            "name": "set_inactive",
+            "line": 334,
+            "type": "function"
+          },
+          {
+            "name": "write",
+            "line": 359,
+            "type": "function"
+          },
+          {
+            "name": "remove",
+            "line": 379,
+            "type": "function"
+          },
+          {
+            "name": "clear_week_comment",
+            "line": 387,
+            "type": "function"
+          },
+          {
+            "name": "_remove_entry",
+            "line": 394,
+            "type": "function"
+          },
+          {
+            "name": "restore",
+            "line": 420,
+            "type": "function"
+          },
+          {
+            "name": "move",
+            "line": 443,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "order_creation.py",
+        "sha256": "f9eeb1e7e17ab6194a238728fdea4a038311ba35b6d2d100d3cfd3357d2d6731",
+        "symbols": [
+          {
+            "name": "complete_service_folders",
+            "line": 17,
+            "type": "function"
+          },
+          {
+            "name": "prepare",
+            "line": 42,
+            "type": "function"
+          },
+          {
+            "name": "register",
+            "line": 69,
+            "type": "function"
+          },
+          {
+            "name": "failed",
+            "line": 116,
+            "type": "function"
+          },
+          {
+            "name": "recover",
+            "line": 136,
+            "type": "function"
+          },
+          {
+            "name": "retry_one",
+            "line": 154,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "order_deadlines.py",
+        "sha256": "14175f83a699f1e4750e432e8f933ecf449541a0705c20366e678d91471f25f2",
+        "symbols": [
+          {
+            "name": "validate_week",
+            "line": 14,
+            "type": "function"
+          },
+          {
+            "name": "read",
+            "line": 29,
+            "type": "function"
+          },
+          {
+            "name": "write",
+            "line": 47,
+            "type": "function"
+          },
+          {
+            "name": "read_legacy_comments",
+            "line": 66,
+            "type": "function"
+          },
+          {
+            "name": "validate_comment",
+            "line": 86,
+            "type": "function"
+          },
+          {
+            "name": "read_comments",
+            "line": 94,
+            "type": "function"
+          },
+          {
+            "name": "write_comment",
+            "line": 102,
+            "type": "function"
+          },
+          {
+            "name": "week_options",
+            "line": 112,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "order_document.py",
+        "sha256": "3c8c8012798a15016c0dde829c6728c9ce103b27d64ce298a998c4458e6ea6ce",
+        "symbols": [
+          {
+            "name": "read_favorite",
+            "line": 34,
+            "type": "function"
+          },
+          {
+            "name": "write_favorite",
+            "line": 42,
+            "type": "function"
+          },
+          {
+            "name": "read_flag",
+            "line": 52,
+            "type": "function"
+          },
+          {
+            "name": "write_flag",
+            "line": 61,
+            "type": "function"
+          },
+          {
+            "name": "read_blue_plus",
+            "line": 71,
+            "type": "function"
+          },
+          {
+            "name": "write_blue_plus",
+            "line": 80,
+            "type": "function"
+          },
+          {
+            "name": "read_dollar",
+            "line": 90,
+            "type": "function"
+          },
+          {
+            "name": "write_dollar",
+            "line": 99,
+            "type": "function"
+          },
+          {
+            "name": "validate_todos",
+            "line": 109,
+            "type": "function"
+          },
+          {
+            "name": "read_todos",
+            "line": 125,
+            "type": "function"
+          },
+          {
+            "name": "write_todos",
+            "line": 143,
+            "type": "function"
+          },
+          {
+            "name": "valid_purchase_supplier",
+            "line": 151,
+            "type": "function"
+          },
+          {
+            "name": "validate_purchases",
+            "line": 160,
+            "type": "function"
+          },
+          {
+            "name": "read_purchases",
+            "line": 173,
+            "type": "function"
+          },
+          {
+            "name": "write_purchases",
+            "line": 196,
+            "type": "function"
+          },
+          {
+            "name": "purchase_matches_supplier",
+            "line": 205,
+            "type": "function"
+          },
+          {
+            "name": "write_purchase_done",
+            "line": 213,
+            "type": "function"
+          },
+          {
+            "name": "write_purchase_text",
+            "line": 236,
+            "type": "function"
+          },
+          {
+            "name": "folder_note",
+            "line": 263,
+            "type": "function"
+          },
+          {
+            "name": "validate_blocks",
+            "line": 269,
+            "type": "function"
+          },
+          {
+            "name": "money",
+            "line": 279,
+            "type": "function"
+          },
+          {
+            "name": "display_money",
+            "line": 295,
+            "type": "function"
+          },
+          {
+            "name": "read_text",
+            "line": 301,
+            "type": "function"
+          },
+          {
+            "name": "status_key",
+            "line": 309,
+            "type": "function"
+          },
+          {
+            "name": "split_statuses",
+            "line": 321,
+            "type": "function"
+          },
+          {
+            "name": "parse",
+            "line": 337,
+            "type": "function"
+          },
+          {
+            "name": "parse.fields",
+            "line": 357,
+            "type": "function"
+          },
+          {
+            "name": "render",
+            "line": 400,
+            "type": "function"
+          },
+          {
+            "name": "load",
+            "line": 438,
+            "type": "function"
+          },
+          {
+            "name": "atomic_write",
+            "line": 472,
+            "type": "function"
+          },
+          {
+            "name": "archive_current",
+            "line": 489,
+            "type": "function"
+          },
+          {
+            "name": "archive_legacy",
+            "line": 512,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "order_folders.py",
+        "sha256": "e887d8468058c5afffda92c86af40611e04d8aa5c6804a47cf85abda85ca3e6d",
+        "symbols": [
+          {
+            "name": "OrderFolderConflict",
+            "line": 17,
+            "type": "class"
+          },
+          {
+            "name": "layout_scope",
+            "line": 23,
+            "type": "function"
+          },
+          {
+            "name": "year_container",
+            "line": 30,
+            "type": "function"
+          },
+          {
+            "name": "year_groups",
+            "line": 38,
+            "type": "function"
+          },
+          {
+            "name": "create_object",
+            "line": 47,
+            "type": "function"
+          },
+          {
+            "name": "create",
+            "line": 76,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "order_links.py",
+        "sha256": "c2d2c7e903e794332292808aaecf952860eafb92fa6e1bacf1b0e4d1ca6cc799",
+        "symbols": [
+          {
+            "name": "mark_status_contract",
+            "line": 20,
+            "type": "function"
+          },
+          {
+            "name": "checked_ids",
+            "line": 26,
+            "type": "function"
+          },
+          {
+            "name": "read",
+            "line": 44,
+            "type": "function"
+          },
+          {
+            "name": "read_primary",
+            "line": 58,
+            "type": "function"
+          },
+          {
+            "name": "write",
+            "line": 65,
+            "type": "function"
+          },
+          {
+            "name": "scope",
+            "line": 80,
+            "type": "function"
+          },
+          {
+            "name": "primary_items",
+            "line": 91,
+            "type": "function"
+          },
+          {
+            "name": "states",
+            "line": 107,
+            "type": "function"
+          },
+          {
+            "name": "group_main",
+            "line": 119,
+            "type": "function"
+          },
+          {
+            "name": "child_ids",
+            "line": 162,
+            "type": "function"
+          },
+          {
+            "name": "mark_group_contract",
+            "line": 178,
+            "type": "function"
+          },
+          {
+            "name": "OrderLinks",
+            "line": 186,
+            "type": "class"
+          },
+          {
+            "name": "OrderLinks.__init__",
+            "line": 189,
+            "type": "function"
+          },
+          {
+            "name": "OrderLinks._rows",
+            "line": 195,
+            "type": "function"
+          },
+          {
+            "name": "OrderLinks._read",
+            "line": 200,
+            "type": "function"
+          },
+          {
+            "name": "OrderLinks.read",
+            "line": 237,
+            "type": "function"
+          },
+          {
+            "name": "OrderLinks.migrate_statuses",
+            "line": 248,
+            "type": "function"
+          },
+          {
+            "name": "OrderLinks.save",
+            "line": 270,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "order_todos.py",
+        "sha256": "dcd2b45df6fff6bca940402543031a620710ede209ca42405d740a6f75314679",
+        "symbols": [
+          {
+            "name": "path_key",
+            "line": 17,
+            "type": "function"
+          },
+          {
+            "name": "group",
+            "line": 24,
+            "type": "function"
+          },
+          {
+            "name": "OrderTodos",
+            "line": 35,
+            "type": "class"
+          },
+          {
+            "name": "OrderTodos.__init__",
+            "line": 38,
+            "type": "function"
+          },
+          {
+            "name": "OrderTodos.attach",
+            "line": 45,
+            "type": "function"
+          },
+          {
+            "name": "OrderTodos.scope",
+            "line": 87,
+            "type": "function"
+          },
+          {
+            "name": "OrderTodos.in_order",
+            "line": 93,
+            "type": "function"
+          },
+          {
+            "name": "OrderTodos.refresh",
+            "line": 112,
+            "type": "function"
+          },
+          {
+            "name": "OrderTodos.refresh.on_error",
+            "line": 140,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "orders.py",
+        "sha256": "0c6d4b2a003db5188538b9f2150659fc743a394bcf131ed2f8fc32683674aa0b",
+        "symbols": [
+          {
+            "name": "OrderConflict",
+            "line": 28,
+            "type": "class"
+          },
+          {
+            "name": "OrderStore",
+            "line": 34,
+            "type": "class"
+          },
+          {
+            "name": "OrderStore.__init__",
+            "line": 37,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.connect",
+            "line": 48,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.path",
+            "line": 88,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.target",
+            "line": 100,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.record",
+            "line": 112,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.get",
+            "line": 156,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.list",
+            "line": 166,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.pending_unregistrations",
+            "line": 177,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.discard_service_orders",
+            "line": 183,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.add",
+            "line": 194,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.require_order_folder",
+            "line": 223,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.save",
+            "line": 231,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.save_status",
+            "line": 281,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.save_deadline_week",
+            "line": 302,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.save_deadline_comment",
+            "line": 308,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.save_calendar_compact",
+            "line": 313,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.save_flag",
+            "line": 318,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.save_blue_plus",
+            "line": 323,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.save_dollar",
+            "line": 328,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.save_supplier_status",
+            "line": 333,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.save_purchase_done",
+            "line": 340,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.save_purchase_text",
+            "line": 349,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.save_calendar_event",
+            "line": 358,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.remove_calendar_event",
+            "line": 363,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.restore_calendar_event",
+            "line": 368,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.save_calendar_color",
+            "line": 373,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.save_calendar_inactive",
+            "line": 380,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.save_calendar_completed",
+            "line": 385,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.save_calendar_trip",
+            "line": 390,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.save_calendar_watch_todos",
+            "line": 395,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.move_calendar_event",
+            "line": 400,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore._save_extra_block",
+            "line": 405,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.save_favorite",
+            "line": 442,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.work_links",
+            "line": 463,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.save_work_links",
+            "line": 485,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.remove",
+            "line": 517,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.atomic_write",
+            "line": 542,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.sync",
+            "line": 547,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.import_folder",
+            "line": 586,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore._import_folder",
+            "line": 594,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.restore",
+            "line": 641,
+            "type": "function"
+          },
+          {
+            "name": "OrderStore.discover",
+            "line": 697,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "reconciliations.py",
+        "sha256": "ad8af0cf52986c6f440f73996687068ad456838f0e9b10702b5cb161553482ae",
+        "symbols": [
+          {
+            "name": "ReconciliationConflict",
+            "line": 19,
+            "type": "class"
+          },
+          {
+            "name": "schema",
+            "line": 25,
+            "type": "function"
+          },
+          {
+            "name": "mark",
+            "line": 39,
+            "type": "function"
+          },
+          {
+            "name": "checked_path",
+            "line": 45,
+            "type": "function"
+          },
+          {
+            "name": "checked_data",
+            "line": 56,
+            "type": "function"
+          },
+          {
+            "name": "record",
+            "line": 72,
+            "type": "function"
+          },
+          {
+            "name": "insert",
+            "line": 79,
+            "type": "function"
+          },
+          {
+            "name": "invoice_link",
+            "line": 88,
+            "type": "function"
+          },
+          {
+            "name": "untouched_empty_note",
+            "line": 97,
+            "type": "function"
+          },
+          {
+            "name": "Reconciliations",
+            "line": 106,
+            "type": "class"
+          },
+          {
+            "name": "Reconciliations.__init__",
+            "line": 109,
+            "type": "function"
+          },
+          {
+            "name": "Reconciliations.connect",
+            "line": 115,
+            "type": "function"
+          },
+          {
+            "name": "Reconciliations.source",
+            "line": 123,
+            "type": "function"
+          },
+          {
+            "name": "Reconciliations.open",
+            "line": 169,
+            "type": "function"
+          },
+          {
+            "name": "Reconciliations.catalog",
+            "line": 189,
+            "type": "function"
+          },
+          {
+            "name": "Reconciliations.with_links",
+            "line": 196,
+            "type": "function"
+          },
+          {
+            "name": "Reconciliations.get",
+            "line": 205,
+            "type": "function"
+          },
+          {
+            "name": "Reconciliations.save",
+            "line": 230,
+            "type": "function"
+          },
+          {
+            "name": "Reconciliations.assign",
+            "line": 248,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "recovery_backup.py",
+        "sha256": "d481908b68ba0032fb608b7bd433178046fc61024c99284139b1cfd4ad5623ae",
+        "symbols": [
+          {
+            "name": "state_path",
+            "line": 29,
+            "type": "function"
+          },
+          {
+            "name": "status",
+            "line": 36,
+            "type": "function"
+          },
+          {
+            "name": "save_status",
+            "line": 50,
+            "type": "function"
+          },
+          {
+            "name": "failure",
+            "line": 66,
+            "type": "function"
+          },
+          {
+            "name": "due",
+            "line": 74,
+            "type": "function"
+          },
+          {
+            "name": "source_files",
+            "line": 84,
+            "type": "function"
+          },
+          {
+            "name": "create",
+            "line": 139,
+            "type": "function"
+          },
+          {
+            "name": "digest",
+            "line": 234,
+            "type": "function"
+          },
+          {
+            "name": "worker",
+            "line": 244,
+            "type": "function"
+          },
+          {
+            "name": "main",
+            "line": 263,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "remote_access.py",
+        "sha256": "8afde9262b319520793145ff32c8134d2647744ab74ee0d14b8a5808ead711de",
+        "symbols": [
+          {
+            "name": "password_document",
+            "line": 31,
+            "type": "function"
+          },
+          {
+            "name": "save_password",
+            "line": 42,
+            "type": "function"
+          },
+          {
+            "name": "settings",
+            "line": 59,
+            "type": "function"
+          },
+          {
+            "name": "PasswordGate",
+            "line": 78,
+            "type": "class"
+          },
+          {
+            "name": "PasswordGate.__init__",
+            "line": 81,
+            "type": "function"
+          },
+          {
+            "name": "PasswordGate.document",
+            "line": 91,
+            "type": "function"
+          },
+          {
+            "name": "PasswordGate.key",
+            "line": 109,
+            "type": "function"
+          },
+          {
+            "name": "PasswordGate.token",
+            "line": 115,
+            "type": "function"
+          },
+          {
+            "name": "PasswordGate.valid",
+            "line": 122,
+            "type": "function"
+          },
+          {
+            "name": "PasswordGate.retry_after",
+            "line": 138,
+            "type": "function"
+          },
+          {
+            "name": "cookie",
+            "line": 152,
+            "type": "function"
+          },
+          {
+            "name": "safe_next",
+            "line": 164,
+            "type": "function"
+          },
+          {
+            "name": "cookie_header",
+            "line": 174,
+            "type": "function"
+          },
+          {
+            "name": "RemoteHTTPServer",
+            "line": 181,
+            "type": "class"
+          },
+          {
+            "name": "RemoteHTTPServer.__init__",
+            "line": 187,
+            "type": "function"
+          },
+          {
+            "name": "RemoteHTTPServer.process_request",
+            "line": 193,
+            "type": "function"
+          },
+          {
+            "name": "RemoteHTTPServer.process_request_thread",
+            "line": 205,
+            "type": "function"
+          },
+          {
+            "name": "handler_class",
+            "line": 214,
+            "type": "function"
+          },
+          {
+            "name": "handler_class.RemoteHandler",
+            "line": 217,
+            "type": "class"
+          },
+          {
+            "name": "handler_class.RemoteHandler.setup",
+            "line": 222,
+            "type": "function"
+          },
+          {
+            "name": "handler_class.RemoteHandler.end_headers",
+            "line": 228,
+            "type": "function"
+          },
+          {
+            "name": "handler_class.RemoteHandler.reply",
+            "line": 239,
+            "type": "function"
+          },
+          {
+            "name": "handler_class.RemoteHandler.context",
+            "line": 252,
+            "type": "function"
+          },
+          {
+            "name": "handler_class.RemoteHandler.same_origin",
+            "line": 267,
+            "type": "function"
+          },
+          {
+            "name": "handler_class.RemoteHandler.authenticated",
+            "line": 274,
+            "type": "function"
+          },
+          {
+            "name": "handler_class.RemoteHandler.denied",
+            "line": 279,
+            "type": "function"
+          },
+          {
+            "name": "handler_class.RemoteHandler.login_page",
+            "line": 288,
+            "type": "function"
+          },
+          {
+            "name": "handler_class.RemoteHandler.get_remote",
+            "line": 305,
+            "type": "function"
+          },
+          {
+            "name": "handler_class.RemoteHandler.do_GET",
+            "line": 330,
+            "type": "function"
+          },
+          {
+            "name": "handler_class.RemoteHandler.do_HEAD",
+            "line": 335,
+            "type": "function"
+          },
+          {
+            "name": "handler_class.RemoteHandler.send_file",
+            "line": 340,
+            "type": "function"
+          },
+          {
+            "name": "handler_class.RemoteHandler.do_POST",
+            "line": 349,
+            "type": "function"
+          },
+          {
+            "name": "start",
+            "line": 415,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "scripts/archive_order_duplicate.py",
+        "sha256": "b430083d2dce9237c76ef5b6f34b92b757b4b26328ebb1dba3ce80c3ff7d2a4e",
+        "symbols": [
+          {
+            "name": "table",
+            "line": 20,
+            "type": "function"
+          },
+          {
+            "name": "inside",
+            "line": 26,
+            "type": "function"
+          },
+          {
+            "name": "append",
+            "line": 32,
+            "type": "function"
+          },
+          {
+            "name": "source_absent",
+            "line": 41,
+            "type": "function"
+          },
+          {
+            "name": "check_links",
+            "line": 57,
+            "type": "function"
+          },
+          {
+            "name": "covered",
+            "line": 82,
+            "type": "function"
+          },
+          {
+            "name": "archive",
+            "line": 106,
+            "type": "function"
+          },
+          {
+            "name": "undo",
+            "line": 190,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "scripts/build_documentation.py",
+        "sha256": "e0bc92abe43a5bc8dd7621ac1d5f56ab41b5aeb4549c8d3ca972353930c6ec6c",
+        "symbols": [
+          {
+            "name": "description",
+            "line": 21,
+            "type": "function"
+          },
+          {
+            "name": "own_nodes",
+            "line": 28,
+            "type": "function"
+          },
+          {
+            "name": "facts",
+            "line": 38,
+            "type": "function"
+          },
+          {
+            "name": "python_inventory",
+            "line": 55,
+            "type": "function"
+          },
+          {
+            "name": "python_inventory.Visitor",
+            "line": 63,
+            "type": "class"
+          },
+          {
+            "name": "python_inventory.Visitor.__init__",
+            "line": 66,
+            "type": "function"
+          },
+          {
+            "name": "python_inventory.Visitor.visit_definition",
+            "line": 71,
+            "type": "function"
+          },
+          {
+            "name": "native_inventory",
+            "line": 93,
+            "type": "function"
+          },
+          {
+            "name": "embedded_inventory",
+            "line": 114,
+            "type": "function"
+          },
+          {
+            "name": "reference_name",
+            "line": 127,
+            "type": "function"
+          },
+          {
+            "name": "source_link",
+            "line": 133,
+            "type": "function"
+          },
+          {
+            "name": "module_page",
+            "line": 140,
+            "type": "function"
+          },
+          {
+            "name": "api_page",
+            "line": 167,
+            "type": "function"
+          },
+          {
+            "name": "schema_page",
+            "line": 210,
+            "type": "function"
+          },
+          {
+            "name": "usage_page",
+            "line": 234,
+            "type": "function"
+          },
+          {
+            "name": "check_links",
+            "line": 255,
+            "type": "function"
+          },
+          {
+            "name": "main",
+            "line": 283,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "scripts/deploy.py",
+        "sha256": "bd01154d3fcc342e1c67a4a33b6b95382a9b254dc7bd57003fb1b0d568aa43e2",
+        "symbols": [
+          {
+            "name": "source_files",
+            "line": 24,
+            "type": "function"
+          },
+          {
+            "name": "snapshot_bytes",
+            "line": 38,
+            "type": "function"
+          },
+          {
+            "name": "main",
+            "line": 54,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "scripts/deploy_remote.py",
+        "sha256": "72cad2b09d21b2e23e72fbf4eb1ff713c28b5e17eeeafb664e668fa0daf756d9",
+        "symbols": [
+          {
+            "name": "atomic_write",
+            "line": 25,
+            "type": "function"
+          },
+          {
+            "name": "write_json",
+            "line": 36,
+            "type": "function"
+          },
+          {
+            "name": "database_name",
+            "line": 42,
+            "type": "function"
+          },
+          {
+            "name": "backup_database",
+            "line": 48,
+            "type": "function"
+          },
+          {
+            "name": "unpack",
+            "line": 64,
+            "type": "function"
+          },
+          {
+            "name": "install_database",
+            "line": 91,
+            "type": "function"
+          },
+          {
+            "name": "launchctl",
+            "line": 124,
+            "type": "function"
+          },
+          {
+            "name": "service_loaded",
+            "line": 130,
+            "type": "function"
+          },
+          {
+            "name": "stop",
+            "line": 136,
+            "type": "function"
+          },
+          {
+            "name": "select_release",
+            "line": 148,
+            "type": "function"
+          },
+          {
+            "name": "prepare_launcher",
+            "line": 157,
+            "type": "function"
+          },
+          {
+            "name": "health",
+            "line": 181,
+            "type": "function"
+          },
+          {
+            "name": "prepare_renderers",
+            "line": 191,
+            "type": "function"
+          },
+          {
+            "name": "start",
+            "line": 200,
+            "type": "function"
+          },
+          {
+            "name": "check_remote_access_compatibility",
+            "line": 220,
+            "type": "function"
+          },
+          {
+            "name": "check_event_rename_compatibility",
+            "line": 231,
+            "type": "function"
+          },
+          {
+            "name": "deploy",
+            "line": 367,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "scripts/rebind_glass_notes.py",
+        "sha256": "f3b8014f704b371f6414b9ca7ed3f462e98e0703859969581d6dbe3305314abb",
+        "symbols": [
+          {
+            "name": "append_journal",
+            "line": 20,
+            "type": "function"
+          },
+          {
+            "name": "inside",
+            "line": 30,
+            "type": "function"
+          },
+          {
+            "name": "checked_folder",
+            "line": 36,
+            "type": "function"
+          },
+          {
+            "name": "check_database",
+            "line": 51,
+            "type": "function"
+          },
+          {
+            "name": "rebind",
+            "line": 64,
+            "type": "function"
+          },
+          {
+            "name": "undo",
+            "line": 136,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "scripts/rebind_order.py",
+        "sha256": "75c11fc796876684bdbb32f501a72118fd350422d1a12627ec9e4a72e37255a1",
+        "symbols": [
+          {
+            "name": "inside",
+            "line": 22,
+            "type": "function"
+          },
+          {
+            "name": "table",
+            "line": 28,
+            "type": "function"
+          },
+          {
+            "name": "checked_folder",
+            "line": 34,
+            "type": "function"
+          },
+          {
+            "name": "append",
+            "line": 49,
+            "type": "function"
+          },
+          {
+            "name": "check_links",
+            "line": 59,
+            "type": "function"
+          },
+          {
+            "name": "update_paths",
+            "line": 88,
+            "type": "function"
+          },
+          {
+            "name": "rebind",
+            "line": 100,
+            "type": "function"
+          },
+          {
+            "name": "undo",
+            "line": 161,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "scripts/remote_access_password.py",
+        "sha256": "dbb867f44d4d8032683c4dd0bb6b066f0be975e4a861bea6fa2ce2614d6449e8",
+        "symbols": [
+          {
+            "name": "setup_server",
+            "line": 21,
+            "type": "function"
+          },
+          {
+            "name": "setup_server.Handler",
+            "line": 31,
+            "type": "class"
+          },
+          {
+            "name": "setup_server.Handler.setup",
+            "line": 34,
+            "type": "function"
+          },
+          {
+            "name": "setup_server.Handler.log_message",
+            "line": 40,
+            "type": "function"
+          },
+          {
+            "name": "setup_server.Handler.reply",
+            "line": 45,
+            "type": "function"
+          },
+          {
+            "name": "setup_server.Handler.allowed",
+            "line": 57,
+            "type": "function"
+          },
+          {
+            "name": "setup_server.Handler.page",
+            "line": 62,
+            "type": "function"
+          },
+          {
+            "name": "setup_server.Handler.do_GET",
+            "line": 69,
+            "type": "function"
+          },
+          {
+            "name": "setup_server.Handler.do_POST",
+            "line": 79,
+            "type": "function"
+          },
+          {
+            "name": "main",
+            "line": 111,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "scripts/verify_recovery_backup.py",
+        "sha256": "23f2e4bdbdcc1ae5782d6f8d1e7a9c1cce30e042f451e61b32a3cf3fec623041",
+        "symbols": [
+          {
+            "name": "verify",
+            "line": 13,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "server.py",
+        "sha256": "4568deeac368bbbdf3bbca82c76f12f2bdee03d2109cbad3d918fad2cd3e7c1a",
+        "symbols": [
+          {
+            "name": "read_config",
+            "line": 93,
+            "type": "function"
+          },
+          {
+            "name": "_thumbnail_store",
+            "line": 142,
+            "type": "function"
+          },
+          {
+            "name": "thumbnail_store",
+            "line": 148,
+            "type": "function"
+          },
+          {
+            "name": "normalized",
+            "line": 154,
+            "type": "function"
+          },
+          {
+            "name": "hash_folder_name",
+            "line": 160,
+            "type": "function"
+          },
+          {
+            "name": "search_text",
+            "line": 166,
+            "type": "function"
+          },
+          {
+            "name": "is_print_folder",
+            "line": 172,
+            "type": "function"
+          },
+          {
+            "name": "print_target",
+            "line": 179,
+            "type": "function"
+          },
+          {
+            "name": "PrintConflict",
+            "line": 199,
+            "type": "class"
+          },
+          {
+            "name": "text_from_rtf",
+            "line": 205,
+            "type": "function"
+          },
+          {
+            "name": "text_to_rtf",
+            "line": 217,
+            "type": "function"
+          },
+          {
+            "name": "decode_print_document",
+            "line": 237,
+            "type": "function"
+          },
+          {
+            "name": "encode_print_document",
+            "line": 266,
+            "type": "function"
+          },
+          {
+            "name": "split_print_text",
+            "line": 281,
+            "type": "function"
+          },
+          {
+            "name": "split_print_text.is_link",
+            "line": 286,
+            "type": "function"
+          },
+          {
+            "name": "compose_print_text",
+            "line": 319,
+            "type": "function"
+          },
+          {
+            "name": "read_print_task",
+            "line": 336,
+            "type": "function"
+          },
+          {
+            "name": "_read_print_task",
+            "line": 343,
+            "type": "function"
+          },
+          {
+            "name": "next_print_name",
+            "line": 373,
+            "type": "function"
+          },
+          {
+            "name": "create_print_task",
+            "line": 396,
+            "type": "function"
+          },
+          {
+            "name": "save_print_task",
+            "line": 434,
+            "type": "function"
+          },
+          {
+            "name": "sort_key",
+            "line": 480,
+            "type": "function"
+          },
+          {
+            "name": "directory_sort_key",
+            "line": 486,
+            "type": "function"
+          },
+          {
+            "name": "folder_sort_key",
+            "line": 493,
+            "type": "function"
+          },
+          {
+            "name": "visible",
+            "line": 499,
+            "type": "function"
+          },
+          {
+            "name": "safe_path",
+            "line": 505,
+            "type": "function"
+          },
+          {
+            "name": "relative_path",
+            "line": 522,
+            "type": "function"
+          },
+          {
+            "name": "comment_file",
+            "line": 528,
+            "type": "function"
+          },
+          {
+            "name": "create_image_report",
+            "line": 540,
+            "type": "function"
+          },
+          {
+            "name": "directory_children",
+            "line": 567,
+            "type": "function"
+          },
+          {
+            "name": "folder_node",
+            "line": 573,
+            "type": "function"
+          },
+          {
+            "name": "read_tree",
+            "line": 583,
+            "type": "function"
+          },
+          {
+            "name": "read_tree.children_of",
+            "line": 590,
+            "type": "function"
+          },
+          {
+            "name": "read_tree.node_of",
+            "line": 595,
+            "type": "function"
+          },
+          {
+            "name": "read_tree.matching_node",
+            "line": 609,
+            "type": "function"
+          },
+          {
+            "name": "file_group",
+            "line": 638,
+            "type": "function"
+          },
+          {
+            "name": "preview_kind",
+            "line": 644,
+            "type": "function"
+          },
+          {
+            "name": "load_legacy_statuses",
+            "line": 663,
+            "type": "function"
+          },
+          {
+            "name": "status_document",
+            "line": 674,
+            "type": "function"
+          },
+          {
+            "name": "read_status_document",
+            "line": 698,
+            "type": "function"
+          },
+          {
+            "name": "write_status_document",
+            "line": 714,
+            "type": "function"
+          },
+          {
+            "name": "editable_status_folder",
+            "line": 740,
+            "type": "function"
+          },
+          {
+            "name": "migrate_statuses",
+            "line": 752,
+            "type": "function"
+          },
+          {
+            "name": "order_store",
+            "line": 804,
+            "type": "function"
+          },
+          {
+            "name": "metadata_store",
+            "line": 810,
+            "type": "function"
+          },
+          {
+            "name": "read_file_comment",
+            "line": 816,
+            "type": "function"
+          },
+          {
+            "name": "invoice_store",
+            "line": 822,
+            "type": "function"
+          },
+          {
+            "name": "schedule_mobile_sync",
+            "line": 828,
+            "type": "function"
+          },
+          {
+            "name": "mobile_sync_worker",
+            "line": 836,
+            "type": "function"
+          },
+          {
+            "name": "discover_orders",
+            "line": 853,
+            "type": "function"
+          },
+          {
+            "name": "discover_orders.work",
+            "line": 861,
+            "type": "function"
+          },
+          {
+            "name": "schedule_order_sync",
+            "line": 877,
+            "type": "function"
+          },
+          {
+            "name": "schedule_order_sync.sync",
+            "line": 880,
+            "type": "function"
+          },
+          {
+            "name": "folder_note_store",
+            "line": 893,
+            "type": "function"
+          },
+          {
+            "name": "sketch_target",
+            "line": 899,
+            "type": "function"
+          },
+          {
+            "name": "read_sketches",
+            "line": 910,
+            "type": "function"
+          },
+          {
+            "name": "client_activity_store",
+            "line": 951,
+            "type": "function"
+          },
+          {
+            "name": "object_activity_store",
+            "line": 957,
+            "type": "function"
+          },
+          {
+            "name": "inactive_paths",
+            "line": 963,
+            "type": "function"
+          },
+          {
+            "name": "listed_orders",
+            "line": 969,
+            "type": "function"
+          },
+          {
+            "name": "send_calendar_command",
+            "line": 987,
+            "type": "function"
+          },
+          {
+            "name": "listed_object_orders",
+            "line": 999,
+            "type": "function"
+          },
+          {
+            "name": "listed_work_orders",
+            "line": 1005,
+            "type": "function"
+          },
+          {
+            "name": "metadata_worker",
+            "line": 1014,
+            "type": "function"
+          },
+          {
+            "name": "client_activity_worker",
+            "line": 1036,
+            "type": "function"
+          },
+          {
+            "name": "schedule_todo_refresh",
+            "line": 1054,
+            "type": "function"
+          },
+          {
+            "name": "order_todo_worker",
+            "line": 1063,
+            "type": "function"
+          },
+          {
+            "name": "order_sync_worker",
+            "line": 1078,
+            "type": "function"
+          },
+          {
+            "name": "folder_status",
+            "line": 1095,
+            "type": "function"
+          },
+          {
+            "name": "freza_preview_target",
+            "line": 1150,
+            "type": "function"
+          },
+          {
+            "name": "read_folder",
+            "line": 1175,
+            "type": "function"
+          },
+          {
+            "name": "read_folder.walk_error",
+            "line": 1202,
+            "type": "function"
+          },
+          {
+            "name": "save_status",
+            "line": 1346,
+            "type": "function"
+          },
+          {
+            "name": "save_note",
+            "line": 1367,
+            "type": "function"
+          },
+          {
+            "name": "image_preview",
+            "line": 1395,
+            "type": "function"
+          },
+          {
+            "name": "pdf_renderer",
+            "line": 1421,
+            "type": "function"
+          },
+          {
+            "name": "pdf_key",
+            "line": 1431,
+            "type": "function"
+          },
+          {
+            "name": "pdf_error",
+            "line": 1438,
+            "type": "function"
+          },
+          {
+            "name": "invoice_pdf_target",
+            "line": 1447,
+            "type": "function"
+          },
+          {
+            "name": "pdf_info",
+            "line": 1470,
+            "type": "function"
+          },
+          {
+            "name": "pdf_page",
+            "line": 1488,
+            "type": "function"
+          },
+          {
+            "name": "ManagerHandler",
+            "line": 1511,
+            "type": "class"
+          },
+          {
+            "name": "ManagerHandler.log_message",
+            "line": 1514,
+            "type": "function"
+          },
+          {
+            "name": "ManagerHandler.send_json",
+            "line": 1519,
+            "type": "function"
+          },
+          {
+            "name": "ManagerHandler.send_invoice_pdf",
+            "line": 1531,
+            "type": "function"
+          },
+          {
+            "name": "ManagerHandler.send_invoice_document",
+            "line": 1536,
+            "type": "function"
+          },
+          {
+            "name": "ManagerHandler.send_file",
+            "line": 1550,
+            "type": "function"
+          },
+          {
+            "name": "ManagerHandler.handle_get",
+            "line": 1607,
+            "type": "function"
+          },
+          {
+            "name": "ManagerHandler.do_GET",
+            "line": 1793,
+            "type": "function"
+          },
+          {
+            "name": "ManagerHandler.do_HEAD",
+            "line": 1798,
+            "type": "function"
+          },
+          {
+            "name": "ManagerHandler.receive_upload",
+            "line": 1803,
+            "type": "function"
+          },
+          {
+            "name": "ManagerHandler.receive_calendar_telegram",
+            "line": 1841,
+            "type": "function"
+          },
+          {
+            "name": "ManagerHandler.receive_telegram_settings",
+            "line": 1906,
+            "type": "function"
+          },
+          {
+            "name": "ManagerHandler.do_POST",
+            "line": 1946,
+            "type": "function"
+          },
+          {
+            "name": "main",
+            "line": 2414,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "sketches.py",
+        "sha256": "6cc273786710a1972f124d49fd3f3d8563c8aa17084b4cff8e014ab1d1374697",
+        "symbols": [
+          {
+            "name": "cdr_folder",
+            "line": 24,
+            "type": "function"
+          },
+          {
+            "name": "sketch_name",
+            "line": 30,
+            "type": "function"
+          },
+          {
+            "name": "folder_path",
+            "line": 39,
+            "type": "function"
+          },
+          {
+            "name": "read",
+            "line": 49,
+            "type": "function"
+          },
+          {
+            "name": "write",
+            "line": 71,
+            "type": "function"
+          },
+          {
+            "name": "info",
+            "line": 84,
+            "type": "function"
+          },
+          {
+            "name": "group_info",
+            "line": 95,
+            "type": "function"
+          },
+          {
+            "name": "embedded_preview",
+            "line": 104,
+            "type": "function"
+          },
+          {
+            "name": "fingerprint",
+            "line": 147,
+            "type": "function"
+          },
+          {
+            "name": "preview",
+            "line": 154,
+            "type": "function"
+          },
+          {
+            "name": "corel_app",
+            "line": 187,
+            "type": "function"
+          },
+          {
+            "name": "open_corel",
+            "line": 206,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "spreadsheet_preview.py",
+        "sha256": "c01c493616ccf65870bbb6c49f1d33e1d4996cfdb27f4c06ba5d1e4a03a01d83",
+        "symbols": [
+          {
+            "name": "read_bytes",
+            "line": 16,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "supplier_purchases.py",
+        "sha256": "0ed7b66940902610662ce07cc3ed3f367386434877240430f8765e06f42b6bd1",
+        "symbols": [
+          {
+            "name": "remember_sections",
+            "line": 20,
+            "type": "function"
+          },
+          {
+            "name": "valid_catalog",
+            "line": 43,
+            "type": "function"
+          },
+          {
+            "name": "available_suppliers",
+            "line": 50,
+            "type": "function"
+          },
+          {
+            "name": "write_assignments",
+            "line": 77,
+            "type": "function"
+          },
+          {
+            "name": "supplier_name",
+            "line": 96,
+            "type": "function"
+          },
+          {
+            "name": "SupplierPurchases",
+            "line": 113,
+            "type": "class"
+          },
+          {
+            "name": "SupplierPurchases.__init__",
+            "line": 116,
+            "type": "function"
+          },
+          {
+            "name": "SupplierPurchases.section",
+            "line": 121,
+            "type": "function"
+          },
+          {
+            "name": "SupplierPurchases.source_orders",
+            "line": 130,
+            "type": "function"
+          },
+          {
+            "name": "SupplierPurchases.catalog",
+            "line": 135,
+            "type": "function"
+          },
+          {
+            "name": "SupplierPurchases.read",
+            "line": 148,
+            "type": "function"
+          },
+          {
+            "name": "SupplierPurchases.save",
+            "line": 161,
+            "type": "function"
+          },
+          {
+            "name": "SupplierPurchases.edit",
+            "line": 170,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "telegram_calendar.py",
+        "sha256": "4492fc2a07189a874fb1b168797c293a62f39e6837f73ec3b99d210fdcff96ec",
+        "symbols": [
+          {
+            "name": "TelegramError",
+            "line": 25,
+            "type": "class"
+          },
+          {
+            "name": "settings_path",
+            "line": 31,
+            "type": "function"
+          },
+          {
+            "name": "read_ini",
+            "line": 37,
+            "type": "function"
+          },
+          {
+            "name": "validate_token",
+            "line": 46,
+            "type": "function"
+          },
+          {
+            "name": "settings",
+            "line": 65,
+            "type": "function"
+          },
+          {
+            "name": "status",
+            "line": 83,
+            "type": "function"
+          },
+          {
+            "name": "api_request",
+            "line": 94,
+            "type": "function"
+          },
+          {
+            "name": "bot_api",
+            "line": 116,
+            "type": "function"
+          },
+          {
+            "name": "bot_info",
+            "line": 124,
+            "type": "function"
+          },
+          {
+            "name": "chats",
+            "line": 135,
+            "type": "function"
+          },
+          {
+            "name": "configure",
+            "line": 156,
+            "type": "function"
+          },
+          {
+            "name": "validate_image",
+            "line": 200,
+            "type": "function"
+          },
+          {
+            "name": "current_week",
+            "line": 210,
+            "type": "function"
+          },
+          {
+            "name": "send",
+            "line": 217,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "telegram_calendar_commands.py",
+        "sha256": "dea735044c80f942451164bb3969678866725089223dc29f2156fd0907c18eea",
+        "symbols": [
+          {
+            "name": "decode",
+            "line": 15,
+            "type": "function"
+          },
+          {
+            "name": "enqueue",
+            "line": 27,
+            "type": "function"
+          },
+          {
+            "name": "update",
+            "line": 42,
+            "type": "function"
+          },
+          {
+            "name": "process",
+            "line": 50,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "telegram_inbox.py",
+        "sha256": "d9839f81b286f3e6db0491c025b18253a3ce3ff4658ac69d9b7f87921dc02d56",
+        "symbols": [
+          {
+            "name": "decode",
+            "line": 21,
+            "type": "function"
+          },
+          {
+            "name": "items",
+            "line": 36,
+            "type": "function"
+          },
+          {
+            "name": "complete",
+            "line": 46,
+            "type": "function"
+          },
+          {
+            "name": "set_deleted",
+            "line": 52,
+            "type": "function"
+          },
+          {
+            "name": "change",
+            "line": 58,
+            "type": "function"
+          },
+          {
+            "name": "cursor",
+            "line": 87,
+            "type": "function"
+          },
+          {
+            "name": "ingest",
+            "line": 102,
+            "type": "function"
+          },
+          {
+            "name": "poll",
+            "line": 154,
+            "type": "function"
+          },
+          {
+            "name": "snapshot",
+            "line": 172,
+            "type": "function"
+          },
+          {
+            "name": "worker",
+            "line": 178,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "thumbnail_cache.py",
+        "sha256": "8845d5233a2327e8ad539b189b386a7e8b352dcdc3962a37dc4c10f805c5e70b",
+        "symbols": [
+          {
+            "name": "relative",
+            "line": 34,
+            "type": "function"
+          },
+          {
+            "name": "supported",
+            "line": 45,
+            "type": "function"
+          },
+          {
+            "name": "signature",
+            "line": 52,
+            "type": "function"
+          },
+          {
+            "name": "source",
+            "line": 59,
+            "type": "function"
+          },
+          {
+            "name": "ThumbnailCache",
+            "line": 74,
+            "type": "class"
+          },
+          {
+            "name": "ThumbnailCache.__init__",
+            "line": 77,
+            "type": "function"
+          },
+          {
+            "name": "ThumbnailCache.connect",
+            "line": 102,
+            "type": "function"
+          },
+          {
+            "name": "ThumbnailCache.observe",
+            "line": 113,
+            "type": "function"
+          },
+          {
+            "name": "ThumbnailCache.items",
+            "line": 134,
+            "type": "function"
+          },
+          {
+            "name": "ThumbnailCache.image",
+            "line": 149,
+            "type": "function"
+          },
+          {
+            "name": "ThumbnailCache.cover",
+            "line": 158,
+            "type": "function"
+          },
+          {
+            "name": "ThumbnailCache.next_item",
+            "line": 171,
+            "type": "function"
+          },
+          {
+            "name": "ThumbnailCache.finish",
+            "line": 180,
+            "type": "function"
+          },
+          {
+            "name": "ThumbnailCache.status",
+            "line": 191,
+            "type": "function"
+          },
+          {
+            "name": "ThumbnailCache.scan",
+            "line": 202,
+            "type": "function"
+          },
+          {
+            "name": "ThumbnailCache.scan.failed",
+            "line": 209,
+            "type": "function"
+          },
+          {
+            "name": "renderer",
+            "line": 242,
+            "type": "function"
+          },
+          {
+            "name": "run_renderer",
+            "line": 248,
+            "type": "function"
+          },
+          {
+            "name": "generate",
+            "line": 270,
+            "type": "function"
+          },
+          {
+            "name": "worker",
+            "line": 299,
+            "type": "function"
+          },
+          {
+            "name": "worker.watch_parent",
+            "line": 312,
+            "type": "function"
+          },
+          {
+            "name": "worker.scan_loop",
+            "line": 319,
+            "type": "function"
+          },
+          {
+            "name": "supervise",
+            "line": 351,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "weekly_events_migration.py",
+        "sha256": "7724e607d1115ecc2faaebd6d3d96a9a3ffc6502f93bd435092538512c982a7a",
+        "symbols": [
+          {
+            "name": "changes",
+            "line": 21,
+            "type": "function"
+          },
+          {
+            "name": "table_counts",
+            "line": 53,
+            "type": "function"
+          },
+          {
+            "name": "migrate",
+            "line": 88,
+            "type": "function"
+          },
+          {
+            "name": "main",
+            "line": 146,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "work_order_list.py",
+        "sha256": "682632f80baf31d4f09228a30d4671daede06508d1348332f8562553efb34b0e",
+        "symbols": [
+          {
+            "name": "supplier_scope",
+            "line": 13,
+            "type": "function"
+          },
+          {
+            "name": "WorkOrderList",
+            "line": 22,
+            "type": "class"
+          },
+          {
+            "name": "WorkOrderList.path",
+            "line": 28,
+            "type": "function"
+          },
+          {
+            "name": "WorkOrderList.sections",
+            "line": 37,
+            "type": "function"
+          },
+          {
+            "name": "WorkOrderList.allowed_paths",
+            "line": 46,
+            "type": "function"
+          },
+          {
+            "name": "WorkOrderList.allowed_paths.allowed",
+            "line": 53,
+            "type": "function"
+          },
+          {
+            "name": "WorkOrderList.refresh",
+            "line": 63,
+            "type": "function"
+          },
+          {
+            "name": "WorkOrderList.read",
+            "line": 98,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "work_orders.py",
+        "sha256": "e016787a1843f61541e911a893921bbee0ebe8ec1433a1b6e05e84f2f1b4b729",
+        "symbols": [
+          {
+            "name": "SupplierFavoriteConflict",
+            "line": 30,
+            "type": "class"
+          },
+          {
+            "name": "supplier_root_path",
+            "line": 36,
+            "type": "function"
+          },
+          {
+            "name": "supplier_section_path",
+            "line": 44,
+            "type": "function"
+          },
+          {
+            "name": "is_etc_section",
+            "line": 55,
+            "type": "function"
+          },
+          {
+            "name": "supplier_favorite_record",
+            "line": 62,
+            "type": "function"
+          },
+          {
+            "name": "supplier_favorites",
+            "line": 78,
+            "type": "function"
+          },
+          {
+            "name": "read_supplier_favorites",
+            "line": 114,
+            "type": "function"
+          },
+          {
+            "name": "save_supplier_favorite",
+            "line": 127,
+            "type": "function"
+          },
+          {
+            "name": "read_favorite_rows",
+            "line": 159,
+            "type": "function"
+          },
+          {
+            "name": "in_work",
+            "line": 166,
+            "type": "function"
+          },
+          {
+            "name": "direct_order",
+            "line": 173,
+            "type": "function"
+          },
+          {
+            "name": "supplier_name",
+            "line": 180,
+            "type": "function"
+          },
+          {
+            "name": "new_supplier_hue",
+            "line": 190,
+            "type": "function"
+          },
+          {
+            "name": "supplier_color",
+            "line": 209,
+            "type": "function"
+          },
+          {
+            "name": "supplier_order",
+            "line": 247,
+            "type": "function"
+          },
+          {
+            "name": "status_order",
+            "line": 257,
+            "type": "function"
+          },
+          {
+            "name": "folder_date",
+            "line": 263,
+            "type": "function"
+          },
+          {
+            "name": "read_status",
+            "line": 276,
+            "type": "function"
+          },
+          {
+            "name": "write_status",
+            "line": 284,
+            "type": "function"
+          },
+          {
+            "name": "archive_time",
+            "line": 299,
+            "type": "function"
+          },
+          {
+            "name": "archived",
+            "line": 312,
+            "type": "function"
+          },
+          {
+            "name": "checked_ids",
+            "line": 318,
+            "type": "function"
+          },
+          {
+            "name": "read_links",
+            "line": 329,
+            "type": "function"
+          },
+          {
+            "name": "write_links",
+            "line": 343,
+            "type": "function"
+          },
+          {
+            "name": "summary",
+            "line": 351,
+            "type": "function"
+          }
+        ]
+      }
+    ],
+    "javascript": [
+      {
+        "path": "static/app.js",
+        "sha256": "e305643971439661dc0438b2c8b18db7382bbf5e49b97cde8faf5e730af7f898",
+        "symbols": [
+          {
+            "name": "$",
+            "line": 3,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "icon",
+            "line": 53,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "escapeHtml",
+            "line": 56,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "normalize",
+            "line": 59,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "isWorkOrderPath",
+            "line": 62,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "apiUrl",
+            "line": 65,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "treeUrl",
+            "line": 68,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "folderUrl",
+            "line": 71,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "formatSize",
+            "line": 74,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "formatDate",
+            "line": 82,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "printCountLabel",
+            "line": 85,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "folderParent",
+            "line": 88,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "renderUpload",
+            "line": 92,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "sendUpload",
+            "line": 115,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "refreshUploadedFiles",
+            "line": 139,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "uploadFiles",
+            "line": 152,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "request",
+            "line": 183,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "notify",
+            "line": 198,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "registerNodes",
+            "line": 218,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "treeMarkup",
+            "line": 227,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderFavoriteOrders",
+            "line": 246,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderTree",
+            "line": 266,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "markup",
+            "line": 273,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "focusTree",
+            "line": 293,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "loadChildren",
+            "line": 304,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "toggleFolder",
+            "line": 315,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "revealPath",
+            "line": 328,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "loadTree",
+            "line": 346,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "reloadClientTrees",
+            "line": 365,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "folderActivity",
+            "line": 382,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "activityRoute",
+            "line": 388,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "updateFolderActivity",
+            "line": 394,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderClientActivity",
+            "line": 400,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "saveClientActivity",
+            "line": 419,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderSketches",
+            "line": 444,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "applySketchGroup",
+            "line": 467,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "refreshSketchRelevance",
+            "line": 480,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "saveSketchRelevance",
+            "line": 493,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "openSketch",
+            "line": 519,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "subfolderButton",
+            "line": 535,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderSubfolders",
+            "line": 555,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "focusSupplierStar",
+            "line": 645,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "refreshSupplierFavorites",
+            "line": 651,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "toggleSupplierFavorite",
+            "line": 670,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "refreshEventRelevance",
+            "line": 698,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "saveEventRelevance",
+            "line": 714,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderFolder",
+            "line": 737,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "resizeOrderNote",
+            "line": 852,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderOrderHeading",
+            "line": 861,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderStatus",
+            "line": 897,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderPurchaseSaveState",
+            "line": 914,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "purchaseSupplierButtons",
+            "line": 921,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "updatePurchaseSupplierButtons",
+            "line": 934,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "refreshPurchaseSuppliers",
+            "line": 953,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderPurchases",
+            "line": 981,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "applyRemotePurchaseUpdate",
+            "line": 999,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "unchanged",
+            "line": 1006,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "renderTodos",
+            "line": 1020,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "hasDescendantTodos",
+            "line": 1037,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderDescendantTodos",
+            "line": 1043,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "loadDescendantTodos",
+            "line": 1067,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "saveTodosSoon",
+            "line": 1085,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "filteredFiles",
+            "line": 1095,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "fileCard",
+            "line": 1108,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "updateFileCommentCaption",
+            "line": 1120,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderFiles",
+            "line": 1138,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "refreshThumbnails",
+            "line": 1178,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderFileActions",
+            "line": 1214,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "confirmFileRemoval",
+            "line": 1236,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "removeSelectedFiles",
+            "line": 1253,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "loadFileTrash",
+            "line": 1281,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "openFileTrash",
+            "line": 1295,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "confirmEventRemoval",
+            "line": 1305,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "removeEvent",
+            "line": 1321,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "restoreEventSession",
+            "line": 1352,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "restoreFileSession",
+            "line": 1378,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "createImageReport",
+            "line": 1401,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "printFiles",
+            "line": 1424,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderPrintList",
+            "line": 1432,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderPrintSaveState",
+            "line": 1445,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "showPrintTask",
+            "line": 1466,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderNewOrderName",
+            "line": 1479,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "openCreateObject",
+            "line": 1487,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "createObject",
+            "line": 1499,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "openObjectYears",
+            "line": 1525,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "groupObjectYears",
+            "line": 1544,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "moved",
+            "line": 1565,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "openCreateOrderFolder",
+            "line": 1575,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "createOrderFolder",
+            "line": 1615,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderNewEventName",
+            "line": 1647,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderEventProposal",
+            "line": 1653,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "openCreateEventFolder",
+            "line": 1668,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "eventAction",
+            "line": 1684,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "refreshEventProposal",
+            "line": 1724,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "openPrintTask",
+            "line": 1734,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "newPrintTask",
+            "line": 1758,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "saveCurrentPrintTask",
+            "line": 1770,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "saveCurrentStatus",
+            "line": 1811,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "rubles",
+            "line": 1855,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "currentOrderValues",
+            "line": 1859,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderOrderCalculated",
+            "line": 1873,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "read",
+            "line": 1876,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "renderExportState",
+            "line": 1887,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "isObjectOrderList",
+            "line": 1895,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "isWorkOrderList",
+            "line": 1901,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "isFolderOrderList",
+            "line": 1907,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "hasOrderList",
+            "line": 1913,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "orderListRows",
+            "line": 1919,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "findListOrder",
+            "line": 1925,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "orderGroupScope",
+            "line": 1933,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "orderGroupCollapsed",
+            "line": 1939,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "applyOrderGroupVisibility",
+            "line": 1951,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "toggleOrderGroup",
+            "line": 1961,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "focusOrderGroup",
+            "line": 1973,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "mountOrderList",
+            "line": 1980,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "loadOrders",
+            "line": 2037,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "orderTodoText",
+            "line": 2087,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "orderTodoSummary",
+            "line": 2093,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderOrderTodoButton",
+            "line": 2103,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "orderPurchaseSummary",
+            "line": 2111,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "orderPurchaseText",
+            "line": 2118,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderOrderPurchaseButton",
+            "line": 2124,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderOrderPurchases",
+            "line": 2131,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderOrderTodoGroup",
+            "line": 2142,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderOrderTodos",
+            "line": 2152,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderOrderTodoDialog",
+            "line": 2161,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "openOrderTodos",
+            "line": 2186,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "orderRowSaving",
+            "line": 2199,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "orderDeadlineRange",
+            "line": 2205,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "shiftDeadlineWeek",
+            "line": 2222,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "deadlineWeekInfo",
+            "line": 2233,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderDeadlineMonthLegend",
+            "line": 2248,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "orderListDeadlineOptions",
+            "line": 2258,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderOrderDeadlines",
+            "line": 2271,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "deadlineWeekDates",
+            "line": 2313,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "dateLabel",
+            "line": 2318,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "renderCardDeadlines",
+            "line": 2324,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderDeadlineComments",
+            "line": 2352,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "hasPendingDeadlineComments",
+            "line": 2403,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "deadlineCommentInput",
+            "line": 2409,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "applyOrderRecord",
+            "line": 2423,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "flushDeadlineComments",
+            "line": 2434,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "expandCardDeadlineWeeks",
+            "line": 2484,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "focusOrderDeadline",
+            "line": 2497,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "toggleOrderDeadline",
+            "line": 2507,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "toggleCalendarCompact",
+            "line": 2516,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "changeOrderDeadline",
+            "line": 2553,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderOrderMarkerButton",
+            "line": 2607,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "focusOrderMarker",
+            "line": 2618,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "toggleOrderMarker",
+            "line": 2626,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderOrderFavoriteButton",
+            "line": 2653,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderOrderRelatedButton",
+            "line": 2661,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderCompactOrderLinks",
+            "line": 2673,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderOrderCardLinks",
+            "line": 2683,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderOrderLinks",
+            "line": 2701,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "section",
+            "line": 2720,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "refreshOrderLinks",
+            "line": 2738,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "openOrderLinks",
+            "line": 2762,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "closeOrderLinks",
+            "line": 2776,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "toggleOrderLink",
+            "line": 2786,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "initializeOrderLinks",
+            "line": 2799,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "saveOrderLinksChange",
+            "line": 2807,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "focusOrderFavorite",
+            "line": 2830,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "toggleOrderFavorite",
+            "line": 2839,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "orderShownOnMain",
+            "line": 2888,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "productionStatusGroups",
+            "line": 2894,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "orderListGroups",
+            "line": 2903,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderProductionStatusOptions",
+            "line": 2915,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderOrderProductionStatus",
+            "line": 2925,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderSupplierOrderStatus",
+            "line": 2938,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "changeOrderProductionStatus",
+            "line": 2951,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderOrderComment",
+            "line": 2994,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderOrderLocationLink",
+            "line": 3001,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "compareOrders",
+            "line": 3009,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderMoneyOverview",
+            "line": 3015,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderHomeCalendar",
+            "line": 3023,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "cancelCalendarTodoPreviewSwitch",
+            "line": 3033,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "closeCalendarTodoPreview",
+            "line": 3041,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "positionCalendarTodoPreview",
+            "line": 3057,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderCalendarTodoPreview",
+            "line": 3068,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "openCalendarTodoPreview",
+            "line": 3090,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "hoverCalendarTodoPreview",
+            "line": 3109,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "scheduleCalendarTodoPreviewClose",
+            "line": 3121,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderCalendarEventControls",
+            "line": 3130,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "closeCalendarEventMenu",
+            "line": 3144,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "calendarEventEntries",
+            "line": 3153,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "applyFreeCalendarEvent",
+            "line": 3159,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "applyCalendarInvoicePlan",
+            "line": 3170,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "freeCalendarIdentity",
+            "line": 3185,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "openCalendarEventMenu",
+            "line": 3195,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "moveCalendarEvent",
+            "line": 3245,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "toggleCalendarEventFlag",
+            "line": 3276,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "applyCalendarDeletion",
+            "line": 3306,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "restoreCalendarDeletion",
+            "line": 3319,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "removeCalendarRecord",
+            "line": 3337,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "run",
+            "line": 3353,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "deleteCalendarEventFromMenu",
+            "line": 3363,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "deleteCalendarEventFromDialog",
+            "line": 3378,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "colorCalendarEvent",
+            "line": 3398,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "openCalendarEvent",
+            "line": 3421,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "closeCalendarEvent",
+            "line": 3452,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "saveCalendarEvent",
+            "line": 3460,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "refreshCalendarEvent",
+            "line": 3488,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderWorkOrders",
+            "line": 3533,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderWorkArchive",
+            "line": 3554,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "restoreWorkArchive",
+            "line": 3571,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderOrders",
+            "line": 3601,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "showOrders",
+            "line": 3687,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "openLocation",
+            "line": 3735,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "navigate",
+            "line": 3742,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "loadOrderFiles",
+            "line": 3829,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "openNative",
+            "line": 3853,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderFolderRename",
+            "line": 3859,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "openFolderRename",
+            "line": 3866,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "submitFolderRename",
+            "line": 3882,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "moved",
+            "line": 3903,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "showPreview",
+            "line": 3914,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "showInvoicePreview",
+            "line": 3991,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderFileComment",
+            "line": 4022,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "loadFileComment",
+            "line": 4037,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "saveFileComment",
+            "line": 4063,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "closePreview",
+            "line": 4097,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "showPdfPages",
+            "line": 4104,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "changePage",
+            "line": 4131,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "previewUnavailable",
+            "line": 4152,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "setPreviewExpanded",
+            "line": 4171,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "stepPreview",
+            "line": 4180,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "run",
+            "line": 4189,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "askRemoveOrder",
+            "line": 4598,
+            "type": "FunctionDeclaration"
+          }
+        ]
+      },
+      {
+        "path": "static/calendar-snapshot.js",
+        "sha256": "400395377a4188b2ee70909db8465845c48fa9044113ff985ccda9fc56ee6158",
+        "symbols": [
+          {
+            "name": "loadRenderer",
+            "line": 6,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "capture",
+            "line": 20,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "ignoreElements",
+            "line": 47,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "onclone",
+            "line": 50,
+            "type": "ArrowFunctionExpression"
+          }
+        ]
+      },
+      {
+        "path": "static/calendar-telegram.js",
+        "sha256": "8bb9f02adea12ea694b0937dcc74311b0844395b442eb2409e6bed18e450fdb8",
+        "symbols": [
+          {
+            "name": "get",
+            "line": 5,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "readSettings",
+            "line": 10,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "showSettings",
+            "line": 17,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "openSettings",
+            "line": 25,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "setSettingsBusy",
+            "line": 31,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "settingsRequest",
+            "line": 38,
+            "type": "FunctionDeclaration"
+          }
+        ]
+      },
+      {
+        "path": "static/hidden-orders.js",
+        "sha256": "bb368c28558a567feec2ae0d4b46d2ab477fc01647d16893301379a3400ad7ac",
+        "symbols": [
+          {
+            "name": "$",
+            "line": 5,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "escape",
+            "line": 8,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "normalize",
+            "line": 11,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "groupKey",
+            "line": 21,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "href",
+            "line": 24,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "link",
+            "line": 27,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "remember",
+            "line": 30,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "groupOrders",
+            "line": 34,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "render",
+            "line": 49,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "load",
+            "line": 83,
+            "type": "FunctionDeclaration"
+          }
+        ]
+      },
+      {
+        "path": "static/home-calendar.js",
+        "sha256": "bf6aa15f24bff86feb3a642a512f2da73f6f288c2be40f05e731cf8281e88e6b",
+        "symbols": [
+          {
+            "name": "showTripMark",
+            "line": 14,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "showTodoMark",
+            "line": 20,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "dateKey",
+            "line": 33,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "shiftDays",
+            "line": 36,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "monday",
+            "line": 39,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "weekNumber",
+            "line": 42,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "moscowDate",
+            "line": 48,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "value",
+            "line": 52,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "activeOrderDays",
+            "line": 57,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "visibleOrderWeeks",
+            "line": 61,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "calendarRange",
+            "line": 80,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "include",
+            "line": 85,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "get",
+            "line": 109,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "maxScroll",
+            "line": 114,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "measureWeeks",
+            "line": 119,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "weekIndex",
+            "line": 127,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "fitViewport",
+            "line": 135,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "scrollToIndex",
+            "line": 149,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "updateHeading",
+            "line": 158,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "scrollToWeek",
+            "line": 180,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderWeekOrders",
+            "line": 186,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderCompactOrders",
+            "line": 293,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderFreeEvents",
+            "line": 316,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderInvoicePlans",
+            "line": 369,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "sizeInvoicePlanHeaders",
+            "line": 432,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "planHeader",
+            "line": 466,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "carryoverHeader",
+            "line": 495,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "show",
+            "line": 511,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "snapshotRange",
+            "line": 614,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "createSnapshot",
+            "line": 623,
+            "type": "FunctionDeclaration"
+          }
+        ]
+      },
+      {
+        "path": "static/inbox.js",
+        "sha256": "cf4fc5fe575ad3c076d052fa0e280b445d8a0c00622d5b96d67fe62982d369bb",
+        "symbols": [
+          {
+            "name": "renderFolder",
+            "line": 9,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "loadFolder",
+            "line": 19,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderList",
+            "line": 42,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "render",
+            "line": 90,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "load",
+            "line": 102,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "focusTask",
+            "line": 123,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "focusRemaining",
+            "line": 129,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "update",
+            "line": 135,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "complete",
+            "line": 165,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "remove",
+            "line": 175,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "run",
+            "line": 181,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "copy",
+            "line": 191,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "onCopy",
+            "line": 208,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "loadAll",
+            "line": 233,
+            "type": "FunctionDeclaration"
+          }
+        ]
+      },
+      {
+        "path": "static/invoice-documents.js",
+        "sha256": "5c3fbd9bcb6b347aab623cc71f117fabb61b39fed81355f493baa2f8376dc2d5",
+        "symbols": [
+          {
+            "name": "size",
+            "line": 7,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "row",
+            "line": 10,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "attr",
+            "line": 13,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "uiFor",
+            "line": 16,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "repaint",
+            "line": 22,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "button",
+            "line": 26,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "markup",
+            "line": 33,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "queue",
+            "line": 56,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "encoded",
+            "line": 71,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "upload",
+            "line": 82,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "review",
+            "line": 108,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "change",
+            "line": 123,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "run",
+            "line": 133,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "init",
+            "line": 141,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "focusKey",
+            "line": 189,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "restoreFocus",
+            "line": 196,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "isBusy",
+            "line": 202,
+            "type": "ArrowFunctionExpression"
+          }
+        ]
+      },
+      {
+        "path": "static/invoices.js",
+        "sha256": "5a07b250220ee788eb56af88d48051b309b342f47c017998b86bb577022a71e0",
+        "symbols": [
+          {
+            "name": "invoiceLabel",
+            "line": 11,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "displayDate",
+            "line": 14,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "displayPlanDate",
+            "line": 17,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "planAmount",
+            "line": 25,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "cash",
+            "line": 33,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "pdfUrl",
+            "line": 36,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "message",
+            "line": 39,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "renderInvoiceList",
+            "line": 46,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "focusStatusButton",
+            "line": 113,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "toggleListStatus",
+            "line": 120,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "refreshList",
+            "line": 146,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderCandidates",
+            "line": 191,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "checkInvoiceFolder",
+            "line": 205,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "newIdentity",
+            "line": 225,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "showPlan",
+            "line": 234,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "closePlan",
+            "line": 265,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "planValues",
+            "line": 272,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "normalizePlanDate",
+            "line": 279,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "updatePlanFields",
+            "line": 293,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "readPlanSource",
+            "line": 304,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "savePlan",
+            "line": 336,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "deletePlan",
+            "line": 367,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "checkPlan",
+            "line": 393,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "showExternal",
+            "line": 413,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "closeExternal",
+            "line": 436,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "selectExternalFile",
+            "line": 444,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "saveExternal",
+            "line": 458,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "itemMarkup",
+            "line": 500,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "collect",
+            "line": 507,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "totals",
+            "line": 516,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "scaled",
+            "line": 520,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "controls",
+            "line": 541,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "show",
+            "line": 555,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "save",
+            "line": 572,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "close",
+            "line": 597,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "create",
+            "line": 606,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "action",
+            "line": 623,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "changed",
+            "line": 631,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "refresh",
+            "line": 639,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "accept",
+            "line": 640,
+            "type": "ArrowFunctionExpression"
+          }
+        ]
+      },
+      {
+        "path": "static/mobile.js",
+        "sha256": "4c1438428a3d645b49564c03837c6c52de8be4541b4b9d9f41ad469c5eaa72ab",
+        "symbols": [
+          {
+            "name": "byId",
+            "line": 5,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "refresh",
+            "line": 9,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "update",
+            "line": 24,
+            "type": "FunctionDeclaration"
+          }
+        ]
+      },
+      {
+        "path": "static/money-overview.js",
+        "sha256": "875fa74d260815bbd5dfd10c5232945ffd79985d300f8e2a3d0ae139b812763d",
+        "symbols": [
+          {
+            "name": "escape",
+            "line": 9,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "key",
+            "line": 12,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "shift",
+            "line": 15,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "currentMonth",
+            "line": 18,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "months",
+            "line": 23,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "item",
+            "line": 46,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "render",
+            "line": 63,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "show",
+            "line": 91,
+            "type": "FunctionDeclaration"
+          }
+        ]
+      },
+      {
+        "path": "static/navigation.js",
+        "sha256": "1804a3d103c2ee505e6e29fa58985e995922648a2c8e20b466b8803ef3e7e53a",
+        "symbols": [
+          {
+            "name": "setOpen",
+            "line": 13,
+            "type": "FunctionDeclaration"
+          }
+        ]
+      },
+      {
+        "path": "static/order-sorting.js",
+        "sha256": "8a3cb962bbf8c80f372b0ec311270ea024fae9ace4f0149e6b724a5423841f27",
+        "symbols": [
+          {
+            "name": "compareOrderText",
+            "line": 5,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "compareOrders",
+            "line": 13,
+            "type": "FunctionDeclaration"
+          }
+        ]
+      },
+      {
+        "path": "static/reconciliations.js",
+        "sha256": "535c4881b2b94cf9ec998afee36e46fc82cc49dd19dede95d50c13e8721a1868",
+        "symbols": [
+          {
+            "name": "money",
+            "line": 7,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "date",
+            "line": 10,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "renderList",
+            "line": 14,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "button",
+            "line": 37,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderTable",
+            "line": 46,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "refresh",
+            "line": 70,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "controls",
+            "line": 112,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "loadAssignment",
+            "line": 118,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "open",
+            "line": 140,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "close",
+            "line": 151,
+            "type": "FunctionDeclaration"
+          }
+        ]
+      },
+      {
+        "path": "static/remote-access.js",
+        "sha256": "1b60ae8f97ada1daf5f34d495830ebdb6a713a9208d94ae57d088342c972a7ad",
+        "symbols": [
+          {
+            "name": "loginUrl",
+            "line": 7,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "requireLogin",
+            "line": 10,
+            "type": "FunctionDeclaration"
+          }
+        ]
+      },
+      {
+        "path": "static/spreadsheet-preview.js",
+        "sha256": "b8e4968c69f24a0329cb6292783d3e4b4973909f36aadf9f7797c5fe76016c3f",
+        "symbols": [
+          {
+            "name": "close",
+            "line": 6,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "open",
+            "line": 14,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "fail",
+            "line": 59,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "send",
+            "line": 66,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "changePage",
+            "line": 73,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "resize",
+            "line": 82,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "columnName",
+            "line": 112,
+            "type": "FunctionDeclaration"
+          }
+        ]
+      },
+      {
+        "path": "static/spreadsheet-worker.js",
+        "sha256": "4a61ce5f6f0a255c1996e16767c1ed1a75bd5779040c144fa571aa898dce660e",
+        "symbols": [
+          {
+            "name": "page",
+            "line": 9,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "value",
+            "line": 25,
+            "type": "FunctionDeclaration"
+          }
+        ]
+      },
+      {
+        "path": "static/supplier-purchases.js",
+        "sha256": "db57902806a51414bac240362b88317cc7377837842a20e23e7e1cdb7d268b25",
+        "symbols": [
+          {
+            "name": "visible",
+            "line": 7,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "itemKey",
+            "line": 10,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "render",
+            "line": 16,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "refresh",
+            "line": 50,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "focusEdit",
+            "line": 74,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "editorControls",
+            "line": 80,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "openEditor",
+            "line": 91,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "saveText",
+            "line": 108,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "checkText",
+            "line": 137,
+            "type": "FunctionDeclaration"
+          }
+        ]
+      },
+      {
+        "path": "static/work-orders.js",
+        "sha256": "5fb2008f85eab7847f0a6c103e5efb20856c1bc572c3a97aa33be62a20e86f58",
+        "symbols": [
+          {
+            "name": "visible",
+            "line": 6,
+            "type": "ArrowFunctionExpression"
+          },
+          {
+            "name": "render",
+            "line": 10,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "refresh",
+            "line": 27,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "renderOptions",
+            "line": 52,
+            "type": "FunctionDeclaration"
+          }
+        ]
+      },
+      {
+        "path": "scripts/documentation_js.cjs",
+        "sha256": "4a69948007765d5ddd4c982de5f49860809e7916a38635f672671c3e517a3d6d",
+        "symbols": [
+          {
+            "name": "description",
+            "line": 16,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "callsIn",
+            "line": 26,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "scan",
+            "line": 30,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "inventory",
+            "line": 49,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "walk",
+            "line": 55,
+            "type": "FunctionDeclaration"
+          }
+        ]
+      }
+    ],
+    "native": [
+      {
+        "path": "calendar_renderer.swift",
+        "sha256": "5b57b9cbf0a8c0f123c30562db54f0b154e6192c26184073b1ce780c71bf3760",
+        "symbols": [
+          {
+            "name": "fail",
+            "line": 6,
+            "type": "func"
+          },
+          {
+            "name": "CalendarRenderer",
+            "line": 13,
+            "type": "class"
+          },
+          {
+            "name": "init",
+            "line": 17,
+            "type": "init"
+          },
+          {
+            "name": "webView",
+            "line": 27,
+            "type": "func"
+          },
+          {
+            "name": "webView",
+            "line": 32,
+            "type": "func"
+          },
+          {
+            "name": "webView",
+            "line": 35,
+            "type": "func"
+          },
+          {
+            "name": "webView",
+            "line": 38,
+            "type": "func"
+          },
+          {
+            "name": "userContentController",
+            "line": 43,
+            "type": "func"
+          }
+        ]
+      },
+      {
+        "path": "icloud_read.swift",
+        "sha256": "b794ea51b8036697798ebd8a6376af1241652826438bcbeba87e6110912e13aa",
+        "symbols": []
+      },
+      {
+        "path": "image_report.swift",
+        "sha256": "fda03dda640840fb10c38cd2d1298e937e151d8225c4a026fc490a7d7c05a027",
+        "symbols": [
+          {
+            "name": "Item",
+            "line": 8,
+            "type": "struct"
+          },
+          {
+            "name": "fail",
+            "line": 15,
+            "type": "func"
+          },
+          {
+            "name": "nextCell",
+            "line": 44,
+            "type": "func"
+          },
+          {
+            "name": "reportImage",
+            "line": 63,
+            "type": "func"
+          }
+        ]
+      },
+      {
+        "path": "invoice_pdf.swift",
+        "sha256": "7d214b822389eaec51a8751566b83fcc4a212079072bb5e0786d30fade483fee",
+        "symbols": [
+          {
+            "name": "fail",
+            "line": 7,
+            "type": "func"
+          },
+          {
+            "name": "s",
+            "line": 17,
+            "type": "func"
+          },
+          {
+            "name": "money",
+            "line": 20,
+            "type": "func"
+          },
+          {
+            "name": "date",
+            "line": 28,
+            "type": "func"
+          },
+          {
+            "name": "Text",
+            "line": 33,
+            "type": "struct"
+          },
+          {
+            "name": "Rule",
+            "line": 39,
+            "type": "struct"
+          },
+          {
+            "name": "attributed",
+            "line": 44,
+            "type": "func"
+          },
+          {
+            "name": "text",
+            "line": 53,
+            "type": "func"
+          },
+          {
+            "name": "rule",
+            "line": 65,
+            "type": "func"
+          },
+          {
+            "name": "layout",
+            "line": 68,
+            "type": "func"
+          }
+        ]
+      },
+      {
+        "path": "mobile/Core.swift",
+        "sha256": "3d7b462b47801e1db5fffea5c6a919726f31ab2ed7531ab700d566b6667503c0",
+        "symbols": [
+          {
+            "name": "PhoneTask",
+            "line": 6,
+            "type": "struct"
+          },
+          {
+            "name": "PhoneFile",
+            "line": 15,
+            "type": "struct"
+          },
+          {
+            "name": "PhoneOrder",
+            "line": 27,
+            "type": "struct"
+          },
+          {
+            "name": "Receipt",
+            "line": 51,
+            "type": "struct"
+          },
+          {
+            "name": "Catalog",
+            "line": 61,
+            "type": "struct"
+          },
+          {
+            "name": "PhoneOperation",
+            "line": 72,
+            "type": "struct"
+          },
+          {
+            "name": "QueuedOperation",
+            "line": 96,
+            "type": "struct"
+          },
+          {
+            "name": "LocalState",
+            "line": 108,
+            "type": "struct"
+          },
+          {
+            "name": "PhoneError",
+            "line": 120,
+            "type": "enum"
+          },
+          {
+            "name": "PhoneStore",
+            "line": 129,
+            "type": "class"
+          },
+          {
+            "name": "init",
+            "line": 137,
+            "type": "init"
+          },
+          {
+            "name": "persist",
+            "line": 154,
+            "type": "func"
+          },
+          {
+            "name": "draft",
+            "line": 171,
+            "type": "func"
+          },
+          {
+            "name": "bookmark",
+            "line": 179,
+            "type": "func"
+          },
+          {
+            "name": "enqueue",
+            "line": 188,
+            "type": "func"
+          },
+          {
+            "name": "markSent",
+            "line": 235,
+            "type": "func"
+          },
+          {
+            "name": "ingest",
+            "line": 243,
+            "type": "func"
+          },
+          {
+            "name": "safePath",
+            "line": 251,
+            "type": "func"
+          },
+          {
+            "name": "order",
+            "line": 295,
+            "type": "func"
+          },
+          {
+            "name": "cachedURL",
+            "line": 321,
+            "type": "func"
+          }
+        ]
+      },
+      {
+        "path": "mobile/DriveTransport.swift",
+        "sha256": "d5b5f44a01a4a1f37874bc3203535d43d69fe40f0aad5d941d987769c8bf6eb6",
+        "symbols": [
+          {
+            "name": "DriveTransport",
+            "line": 6,
+            "type": "actor"
+          },
+          {
+            "name": "SyncResult",
+            "line": 9,
+            "type": "struct"
+          },
+          {
+            "name": "resolve",
+            "line": 16,
+            "type": "func"
+          },
+          {
+            "name": "available",
+            "line": 23,
+            "type": "func"
+          },
+          {
+            "name": "read",
+            "line": 33,
+            "type": "func"
+          },
+          {
+            "name": "sync",
+            "line": 50,
+            "type": "func"
+          },
+          {
+            "name": "cache",
+            "line": 90,
+            "type": "func"
+          }
+        ]
+      },
+      {
+        "path": "mobile/PhoneApp.swift",
+        "sha256": "8a3a007a92e9d1fb25b583857fa63d0d108e30099a0a091ee932f173508e0d74",
+        "symbols": [
+          {
+            "name": "PhoneModel",
+            "line": 9,
+            "type": "class"
+          },
+          {
+            "name": "init",
+            "line": 21,
+            "type": "init"
+          },
+          {
+            "name": "order",
+            "line": 33,
+            "type": "func"
+          },
+          {
+            "name": "flushDrafts",
+            "line": 37,
+            "type": "func"
+          },
+          {
+            "name": "draft",
+            "line": 45,
+            "type": "func"
+          },
+          {
+            "name": "submit",
+            "line": 55,
+            "type": "func"
+          },
+          {
+            "name": "toggle",
+            "line": 69,
+            "type": "func"
+          },
+          {
+            "name": "selectFolder",
+            "line": 81,
+            "type": "func"
+          },
+          {
+            "name": "sync",
+            "line": 94,
+            "type": "func"
+          },
+          {
+            "name": "cache",
+            "line": 113,
+            "type": "func"
+          },
+          {
+            "name": "isCached",
+            "line": 125,
+            "type": "func"
+          },
+          {
+            "name": "ZigzagPhoneApp",
+            "line": 131,
+            "type": "struct"
+          },
+          {
+            "name": "RootView",
+            "line": 146,
+            "type": "struct"
+          },
+          {
+            "name": "SyncSummary",
+            "line": 174,
+            "type": "struct"
+          },
+          {
+            "name": "OrderListView",
+            "line": 189,
+            "type": "struct"
+          },
+          {
+            "name": "OrderView",
+            "line": 233,
+            "type": "struct"
+          },
+          {
+            "name": "money",
+            "line": 238,
+            "type": "func"
+          },
+          {
+            "name": "Composer",
+            "line": 302,
+            "type": "struct"
+          },
+          {
+            "name": "FileView",
+            "line": 320,
+            "type": "struct"
+          },
+          {
+            "name": "QueueView",
+            "line": 359,
+            "type": "struct"
+          },
+          {
+            "name": "SettingsView",
+            "line": 392,
+            "type": "struct"
+          },
+          {
+            "name": "FolderPicker",
+            "line": 417,
+            "type": "struct"
+          },
+          {
+            "name": "makeCoordinator",
+            "line": 421,
+            "type": "func"
+          },
+          {
+            "name": "makeUIViewController",
+            "line": 424,
+            "type": "func"
+          },
+          {
+            "name": "updateUIViewController",
+            "line": 431,
+            "type": "func"
+          },
+          {
+            "name": "Coordinator",
+            "line": 434,
+            "type": "class"
+          },
+          {
+            "name": "init",
+            "line": 438,
+            "type": "init"
+          },
+          {
+            "name": "documentPicker",
+            "line": 441,
+            "type": "func"
+          },
+          {
+            "name": "LocalPreview",
+            "line": 449,
+            "type": "struct"
+          },
+          {
+            "name": "makeCoordinator",
+            "line": 453,
+            "type": "func"
+          },
+          {
+            "name": "makeUIViewController",
+            "line": 456,
+            "type": "func"
+          },
+          {
+            "name": "updateUIViewController",
+            "line": 463,
+            "type": "func"
+          },
+          {
+            "name": "Coordinator",
+            "line": 466,
+            "type": "class"
+          },
+          {
+            "name": "init",
+            "line": 470,
+            "type": "init"
+          },
+          {
+            "name": "numberOfPreviewItems",
+            "line": 473,
+            "type": "func"
+          },
+          {
+            "name": "previewController",
+            "line": 476,
+            "type": "func"
+          }
+        ]
+      },
+      {
+        "path": "pdf_preview.swift",
+        "sha256": "57bf0beec8928472b9dcc6fcb39244b2182df507072425e75332d75961842771",
+        "symbols": [
+          {
+            "name": "fail",
+            "line": 7,
+            "type": "func"
+          }
+        ]
+      },
+      {
+        "path": "scripts/manager_launcher.c",
+        "sha256": "99a54129e097526e7014a3240199093cab647ecdc5b0f8c6d3ce9dc14f492008",
+        "symbols": [
+          {
+            "name": "forward_signal",
+            "line": 14,
+            "type": "function"
+          },
+          {
+            "name": "authorize",
+            "line": 20,
+            "type": "function"
+          },
+          {
+            "name": "main",
+            "line": 32,
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "path": "thumbnail_preview.swift",
+        "sha256": "5a7fc75a275968f32c49cfa3023e5828dd68b4215c0c78d40a3fab98f4a86ba1",
+        "symbols": [
+          {
+            "name": "fail",
+            "line": 9,
+            "type": "func"
+          },
+          {
+            "name": "jpeg",
+            "line": 16,
+            "type": "func"
+          }
+        ]
+      }
+    ],
+    "embedded": [
+      {
+        "path": "calendar_delivery.py",
+        "sha256": "9b75bcbc0a249373c56d59caad51f4a088c263d0bd9eadd1e14608389d953271",
+        "symbols": [
+          {
+            "name": "makeCalendar",
+            "line": 78,
+            "type": "embedded JavaScript"
+          }
+        ]
+      }
+    ]
+  }
+}

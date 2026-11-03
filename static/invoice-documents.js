@@ -2,20 +2,34 @@
 const InvoiceDocuments = (() => {
   const uploads = new Map();
   let hooks;
+  // Форматирует размер файла для интерфейса.
+  // Использует `new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 }).format`, `Intl.NumberFormat`.
   const size = (bytes) => bytes < 1024 ? bytes + ' Б' : new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 }).format(bytes / (bytes >= 1048576 ? 1048576 : 1024)) + (bytes >= 1048576 ? ' МБ' : ' КБ');
+  // Строит строку вложения счёта с состоянием публикации и удаления.
+  // Использует `$`.
   const row = (id) => $('invoiceList').invoiceRecords?.find((item) => item.id === id && item.path === state.folder?.path);
+  // Экранирует текст перед вставкой в HTML-разметку или атрибут.
+  // Результат вычисляется из переданных аргументов и текущего состояния компонента.
   const attr = (record, action, document = '') => ' data-doc-invoice="' + record.id + '" data-doc-action="' + action + '"' + (document ? ' data-doc-document="' + document + '"' : '');
+  // Получает локальное состояние редактора вложений выбранного счёта.
+  // Использует `uploads.has`, `uploads.set`, `uploads.get`.
   const uiFor = (record) => {
     if (!uploads.has(record.id)) uploads.set(record.id, { path: record.path, revision: record.revision, files: [], open: false, busy: false, conflict: false, message: '', error: false });
     return uploads.get(record.id);
   };
+  // Обновляет существующий компонент после изменения его данных.
+  // Использует `hooks.render`, `$`.
   const repaint = () => hooks.render($('invoiceList').invoiceRecords || []);
 
+  // Строит кнопку действия компонента с текущим состоянием записи.
+  // Использует `uploads.get`, `attr`, `Boolean`.
   function button(record) {
     const ui = uploads.get(record.id);
     return '<button class="secondary-button" type="button"' + attr(record, 'toggle') + ' aria-expanded="' + Boolean(ui?.open) + '"' + (!record.closing_documents_editable || ui?.busy ? ' disabled' : '') + '>Закрывашки +' + (ui?.files.length ? ' (' + ui.files.length + ')' : '') + '</button>';
   }
 
+  // Формирует HTML текущего компонента из переданных данных.
+  // Использует `/api/invoice-document`.
   function markup(record) {
     const ui = uploads.get(record.id);
     const items = record.closing_documents || [], trash = record.closing_documents_trash || [];
@@ -37,6 +51,8 @@ const InvoiceDocuments = (() => {
     return (links ? '<div class="invoice-closing-documents"><small>Закрывающие</small>' + links + '</div>' : '') + removed + (!record.closing_documents_editable ? '<small class="invoice-document-state error">Неизвестный формат закрывающих сохранён без изменений</small>' : '') + form;
   }
 
+  // Последовательно выполняет операции одного редактора документов.
+  // Использует `uiFor`, `ui.files.push`, `freeCalendarIdentity`.
   function queue(record, files) {
     const ui = uiFor(record);
     if (ui.busy || !record.closing_documents_editable) return;
@@ -50,6 +66,8 @@ const InvoiceDocuments = (() => {
     repaint();
   }
 
+  // Кодирует байты выбранного документа для допустимого запроса загрузки.
+  // Использует `Promise`.
   function encoded(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -59,6 +77,8 @@ const InvoiceDocuments = (() => {
     });
   }
 
+  // Передаёт выбранное вложение счёта в последовательную очередь сохранения.
+  // Использует `/api/invoice-document-upload`.
   async function upload(record) {
     const ui = uiFor(record);
     if (ui.busy || ui.conflict || !ui.files.length) return;
@@ -83,6 +103,8 @@ const InvoiceDocuments = (() => {
     } finally { ui.busy = false; repaint(); }
   }
 
+  // Показывает доступные действия проверки и изменения вложения.
+  // Использует `/api/invoice`.
   async function review(record) {
     const ui = uiFor(record);
     if (ui.busy) return;
@@ -96,6 +118,8 @@ const InvoiceDocuments = (() => {
     finally { ui.busy = false; repaint(); }
   }
 
+  // Сохраняет частичное изменение выбранного вложения счёта.
+  // Использует `/api/invoice-document-remove`, `/api/invoice-document-restore`.
   async function change(record, documentId, deleted) {
     const ui = uiFor(record);
     if (ui.busy) return;
@@ -105,12 +129,15 @@ const InvoiceDocuments = (() => {
         { path: record.path, id: record.id, revision: record.revision, document_id: documentId });
       ui.revision = saved.revision; hooks.accept(saved);
       notify(deleted ? 'Закрывающий документ убран из строки' : 'Закрывающий документ восстановлен', false,
-        deleted ? { label: 'Отменить', run: () => change(saved, documentId, false) } : null);
+        deleted ? { label: 'Отменить', /* Выполняет сохранённое действие отмены или подтверждённую операцию компонента.
+         * Использует `change`. */ run: () => change(saved, documentId, false) } : null);
       await hooks.refresh();
     } catch (error) { await hooks.refresh(); throw error; }
     finally { ui.busy = false; repaint(); }
   }
 
+  // Подключает обработчики и зависимости компонента.
+  // Подключает обработчики событий к существующим элементам компонента.
   function init(options) {
     hooks = options;
     $('invoiceList').addEventListener('toggle', (event) => {
@@ -157,15 +184,20 @@ const InvoiceDocuments = (() => {
     window.addEventListener('beforeunload', (event) => { if ([...uploads.values()].some((ui) => ui.busy || ui.files.length)) { event.preventDefault(); event.returnValue = ''; } });
   }
 
+  // Запоминает устойчивый ключ сфокусированного элемента вложений.
+  // Результат вычисляется из переданных аргументов и текущего состояния компонента.
   function focusKey() {
     const element = document.activeElement?.closest('[data-doc-action]');
     return element ? { action: element.dataset.docAction, id: element.dataset.docInvoice, document: element.dataset.docDocument || '' } : null;
   }
 
+  // Возвращает фокус после обновления списка вложений.
+  // Обращается к DOM текущего документа или переданного контейнера.
   function restoreFocus(key) {
     if (!key || document.activeElement !== document.body) return;
     [...$('invoiceList').querySelectorAll('[data-doc-action]')].find((element) => element.dataset.docAction === key.action && element.dataset.docInvoice === key.id && (element.dataset.docDocument || '') === key.document)?.focus({ preventScroll: true });
   }
 
-  return { init, markup, button, focusKey, restoreFocus, isBusy: (id) => Boolean(uploads.get(id)?.busy) };
+  return { init, markup, button, focusKey, restoreFocus, /* Проверяет наличие незавершённой операции редактора.
+   * Использует `Boolean`, `uploads.get`. */ isBusy: (id) => Boolean(uploads.get(id)?.busy) };
 })();

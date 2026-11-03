@@ -8,6 +8,8 @@ import native_renderers
 from telegram_calendar import current_week, validate_image, TelegramError
 
 
+# Проверяет наличие актуального невыполненного события в прошедшей неделе.
+# Возвращает `True`; либо `False`.
 def order_visible(order, week, now=None):
     """Past grid rows need an active unfinished event. Unknown text stays visible."""
     if order.get('calendar_compact') is True or week >= current_week(now).isoformat():
@@ -25,6 +27,8 @@ def order_visible(order, week, now=None):
     return False
 
 
+# Выбирает две или три недели снимка относительно текущей даты Москвы.
+# Возвращает `(previous, (current + timedelta(days=13)).isoformat())`; либо `(previous if has_previous else current_key, (current + timedelta(days=13)).isoformat())`.
 def period(snapshot, now=None):
     current = current_week(now)
     previous = (current - timedelta(days=7)).isoformat()
@@ -46,10 +50,14 @@ def period(snapshot, now=None):
     return (previous if has_previous else current_key), (current + timedelta(days=13)).isoformat()
 
 
+# Получает собранный Swift-помощник для текущего исходника.
+# Возвращает `native_renderers.build(Path(app_dir) / 'calendar_renderer.swift', data_dir, 'calendar-renderer', 90)`.
 def renderer(app_dir, data_dir):
     return native_renderers.build(Path(app_dir) / 'calendar_renderer.swift', data_dir, 'calendar-renderer', 90)
 
 
+# Собирает автономный HTML для рендера календаря общими браузерными модулями.
+# Формирует возвращаемое значение из проверенного локального состояния.
 def html(snapshot, app_dir, now):
     app_dir = Path(app_dir)
     start, through = period(snapshot, now)
@@ -65,6 +73,8 @@ def html(snapshot, app_dir, now):
 <div id="calendarViewport" class="calendar-viewport"><div id="calendarWeeks" class="calendar-weeks"></div></div></section>
 <script>{scripts}</script><script>
 const delivery = {payload};
+// Строит общий PNG из переданного SQLite-снимка без пользовательской вкладки.
+// Сверяет период и передаёт base64 через единственный канал сообщений WebKit.
 async function makeCalendar() {{
   try {{
     const data = delivery.snapshot;
@@ -79,6 +89,8 @@ async function makeCalendar() {{
 </script></body></html>'''
 
 
+# Рендерит один общий PNG календаря в отдельном процессе WebKit.
+# Запускает внешний процесс; параметры и ограничения заданы в теле функции.
 def render(snapshot, app_dir, data_dir, now):
     try:
         result = subprocess.run([str(renderer(app_dir, data_dir))], input=html(snapshot, app_dir, now).encode(),

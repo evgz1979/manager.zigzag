@@ -1,7 +1,13 @@
 "use strict";
 (() => {
+  // Находит элемент интерфейса по устойчивому DOM-идентификатору.
+  // Обращается к DOM текущего документа или переданного контейнера.
   const $ = (id) => document.getElementById(id);
+  // Экранирует текст перед вставкой в HTML-разметку или атрибут.
+  // Заменяет &, <, >, кавычки и апостроф на безопасные HTML-сущности.
   const escape = (value) => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+  // Нормализует строку для поиска и сравнения без учёта регистра.
+  // Использует `String(value ?? "").normalize("NFC").toLocaleLowerCase`, `String(value ?? "").normalize`, `String`.
   const normalize = (value) => String(value ?? "").normalize("NFC").toLocaleLowerCase("ru");
   const compare = new Intl.Collator("ru", { numeric: true, sensitivity: "base" }).compare;
   const storageKey = "zigzag.hidden-orders.collapsed.v1";
@@ -10,11 +16,21 @@
     const saved = JSON.parse(localStorage.getItem(storageKey) || "[]");
     if (Array.isArray(saved)) collapsed = new Set(saved.filter((key) => typeof key === "string"));
   } catch (_) { /* The list remains usable without browser storage. */ }
+  // Строит ключ группировки скрытых заказов по местоположению.
+  // Использует `JSON.stringify`.
   const groupKey = (kind, path) => JSON.stringify([kind, path]);
+  // Собирает URL запроса с безопасным кодированием параметров.
+  // Использует `encodeURIComponent`.
   const href = (path) => "/?path=" + encodeURIComponent(path);
+  // Строит ссылку открытия папки с безопасным отображением имени.
+  // Использует `escape`, `href`.
   const link = (path, label, className = "") => '<a class="' + className + '" href="' + escape(href(path)) + '">' + escape(label) + '</a>';
+  // Сохраняет полученные скрытые заказы для фильтрации интерфейса.
+  // Сохраняет локальную настройку интерфейса через localStorage.
   const remember = () => { try { localStorage.setItem(storageKey, JSON.stringify([...collapsed])); } catch (_) { /* View state is optional. */ } };
 
+  // Группирует известные скрытые заказы по клиентам и объектам.
+  // Использует `Map`, `clients.has`, `clients.set`.
   function groupOrders(rows) {
     const clients = new Map();
     for (const order of rows) {
@@ -28,6 +44,8 @@
     return [...clients.values()].sort((a, b) => compare(a.name, b.name) || compare(a.path, b.path));
   }
 
+  // Обновляет DOM компонента из текущих данных в модуле списка скрытых заказов.
+  // Обращается к DOM текущего документа или переданного контейнера.
   function render() {
     const needle = normalize($("hiddenOrdersSearch").value.trim()), selectedReason = $("hiddenOrdersReason").value;
     const reason = selectedReason === "all" || Object.hasOwn(labels, selectedReason) ? selectedReason : "all";
@@ -60,6 +78,8 @@
     $("hiddenOrdersEmpty").hidden = !loaded || Boolean(rows.length);
   }
 
+  // Загружает сохранённые данные компонента с сервера в модуле списка скрытых заказов.
+  // Использует `/api/hidden-orders`.
   async function load() {
     if (loading) return;
     loading = true;

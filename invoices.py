@@ -55,20 +55,28 @@ FIELDS = {"kind": 20, "number": 40, "date": 10, "due_date": 10, "buyer_name": 30
           "work_start": 10, "work_end": 10, "terms": 2500}
 
 
+# Обозначает конфликт изменения в этом модуле.
+# Вызывающий обработчик использует тип исключения для отказа без подмены данных.
 class InvoiceConflict(ValueError):
     pass
 
 
+# Проверяет комментарий внешнего PDF перед сохранением.
+# При недопустимом состоянии возбуждает ValueError.
 def external_comment(value):
     if not isinstance(value, str) or len(value) > 5000 or any(ord(c) < 32 and c not in '\n\r\t' for c in value):
         raise ValueError("Комментарий к счёту: до 5000 символов")
     return value
 
 
+# Возвращает текущую календарную дату в принятом часовом поясе.
+# Возвращает `datetime.now(ZoneInfo('Europe/Moscow')).date()`.
 def today():
     return datetime.now(ZoneInfo("Europe/Moscow")).date()
 
 
+# Проверяет дату плана платежа и её каноническую запись.
+# При недопустимом состоянии возбуждает ValueError.
 def plan_date(value):
     try:
         if not isinstance(value, str) or date.fromisoformat(value).isoformat() != value:
@@ -78,6 +86,8 @@ def plan_date(value):
     return value
 
 
+# Проверяет дневной или недельный период плана платежа.
+# При недопустимом состоянии возбуждает ValueError.
 def plan_period(value, scheduled):
     if value not in ('day', 'week'):
         raise ValueError('Выбери день или неделю планирования')
@@ -86,6 +96,8 @@ def plan_period(value, scheduled):
     return value
 
 
+# Проверяет строгость внутреннего формата плана платежа.
+# Возвращает `False`.
 def known_plan(data):
     if type(data.get('version')) is not int or data['version'] != 1 or data.get('kind') != 'planned':
         return False
@@ -101,6 +113,8 @@ def known_plan(data):
         return False
 
 
+# Извлекает только однозначную подписанную итоговую сумму PDF.
+# Возвращает `candidates.pop() if len(candidates) == 1 else None`; либо `None`.
 def total_from_text(text):
     """Only accept an unambiguous labelled total, never an arbitrary PDF number."""
     text = text.replace('\u00a0', ' ').replace('\u202f', ' ')
@@ -131,6 +145,8 @@ def total_from_text(text):
     return None
 
 
+# Извлекает текст PDF помощником и ищет однозначную итоговую сумму.
+# Запускает внешний процесс; параметры и ограничения заданы в теле функции.
 def pdf_total(body, app_dir, data_dir):
     cache = Path(data_dir) / 'invoice-amounts'
     cache.mkdir(parents=True, exist_ok=True)
@@ -150,6 +166,8 @@ def pdf_total(body, app_dir, data_dir):
         return total_from_text(text)
 
 
+# Проверяет денежное значение и переводит его в точное внутреннее представление.
+# При недопустимом состоянии возбуждает ValueError.
 def decimal(value, label, places, maximum):
     if not isinstance(value, str) or len(value) > 30:
         raise ValueError("Проверь поле «" + label + "»")
@@ -162,6 +180,8 @@ def decimal(value, label, places, maximum):
         raise ValueError("Проверь поле «" + label + "»: допустимо до " + str(places) + " знаков после запятой") from None
 
 
+# Проверяет реквизиты, позиции, точность сумм и условия выпуска счёта.
+# При недопустимом состоянии возбуждает ValueError.
 def validate(value, *, issuing=False):
     if not isinstance(value, dict):
         raise ValueError("Некорректные данные счёта")
@@ -240,11 +260,15 @@ def validate(value, *, issuing=False):
     return result
 
 
+# Получает собранный Swift-помощник для текущего исходника.
+# Возвращает `native_renderers.build(Path(app_dir) / 'invoice_pdf.swift', data_dir, 'invoice-pdf', 90)`.
 def renderer(app_dir, data_dir):
     with BUILD_LOCK:
         return native_renderers.build(Path(app_dir) / "invoice_pdf.swift", data_dir, "invoice-pdf", 90)
 
 
+# Передаёт проверенную модель счёта Swift-помощнику для получения PDF.
+# Запускает внешний процесс; параметры и ограничения заданы в теле функции.
 def render(data, app_dir, data_dir):
     cache = Path(data_dir) / "invoices"
     cache.mkdir(parents=True, exist_ok=True)
@@ -264,10 +288,16 @@ def render(data, app_dir, data_dir):
         return body
 
 
+# Хранит черновики, выпуски, внешние PDF и планы платежей одной рабочей базы.
+# Основные операции: __init__, connect, owner, record, current; остальные описаны у методов.
 class InvoiceStore:
+    # Сохраняет зависимости и начальные параметры экземпляра.
+    # Состояние и зависимости сохраняются в полях self для последующих операций.
     def __init__(self, store, app_dir):
         self.store, self.app_dir = store, Path(app_dir)
 
+    # Открывает соединение SQLite и управляет его временем жизни.
+    # Работает с таблицами invoices, invoice_sequences, invoice_settings, invoice_history.
     @contextmanager
     def connect(self):
         with self.store.connect() as db:
@@ -283,6 +313,8 @@ class InvoiceStore:
             invoice_documents.schema(db)
             yield db
 
+    # Проверяет владельца и доступность счёта для операции.
+    # Работает с таблицами orders.
     def owner(self, db, path, *, active=False):
         path = self.store.path(path)
         assert_unlocked(db, path)
@@ -291,6 +323,8 @@ class InvoiceStore:
             raise ValueError("Сначала добавь заказ в список заказов")
         return row
 
+    # Собирает представление счёта с суммой, планами и состоянием документов.
+    # Разбирает JSON; вызывающий код должен учитывать ошибки или неизвестный формат.
     @staticmethod
     def record(row):
         result = {key: row[key] for key in row.keys() if key != "pdf"}
@@ -308,6 +342,8 @@ class InvoiceStore:
         result['closing_documents_trash'] = [item for item in copies if item['deleted']]
         return result
 
+    # Проверяет текущую запись и ожидаемую версию перед изменением.
+    # Работает с таблицами invoices.
     def current(self, db, path, identity, *, trashed=False):
         path = '' if path == '' else self.store.path(path)
         if path:
@@ -325,6 +361,8 @@ class InvoiceStore:
             raise InvoiceConflict('Счёт в корзине. Обнови список или восстанови его')
         return row
 
+    # Читает счета и планы выбранного заказа из SQLite.
+    # Работает с таблицами invoices.
     def list(self, path, *, trashed=False):
         with self.connect() as db:
             self.owner(db, path)
@@ -333,15 +371,21 @@ class InvoiceStore:
             rows = db.execute("SELECT id,path,year,number,revision,state,data,filename,exported,sync_error,created,updated FROM invoices WHERE path=? AND json_extract(data,'$._trash') " + condition + ' ORDER BY created DESC,id', (path,))
             return [invoice_documents.with_copy_status(db, self.record(row)) for row in rows]
 
+    # Читает точный счёт по пути владельца и UUID.
+    # Возвращает `invoice_documents.with_copy_status(db, self.record(self.current(db, path, identity)))`.
     def get(self, path, identity):
         with self.connect() as db:
             return invoice_documents.with_copy_status(db, self.record(self.current(db, path, identity)))
 
+    # Формирует подпись источника плана из сохранённых данных счёта.
+    # Разбирает JSON; вызывающий код должен учитывать ошибки или неизвестный формат.
     @staticmethod
     def source_label(row):
         data = json.loads(row['data'])
         return data.get('original_name', 'Внешний счёт') if row['state'] == 'external' else ('Счёт-договор' if data.get('kind') == 'contract' else 'Счёт') + ' № ' + row['number']
 
+    # Проверяет выбранный источник плана платежа.
+    # При недопустимом состоянии возбуждает ValueError.
     def plan_source(self, path, identity):
         with self.connect() as db:
             row = self.current(db, path, identity)
@@ -361,6 +405,8 @@ class InvoiceStore:
                 result['hint'] = 'Не удалось однозначно прочитать итог PDF. Укажи сумму вручную.'
         return result
 
+    # Собирает планы платежей для календаря из SQLite.
+    # Работает с таблицами invoices.
     def calendar_plans(self, visible_orders):
         owners = {order['path']: order for order in visible_orders if order.get('registered') is not False}
         with self.connect() as db:
@@ -387,23 +433,35 @@ class InvoiceStore:
                                    'title': owner['title'] if owner else 'Без заказа', 'client': owner['client'] if owner else '', 'object': owner['object'] if owner else ''})
             return result
 
+    # Сохраняет независимую неактуальность плана платежа.
+    # Возвращает `self._save_plan_calendar_flag(payload, 'is_inactive', '_calendar_inactive')`.
     def save_plan_calendar_inactive(self, payload):
         return self._save_plan_calendar_flag(payload, 'is_inactive', '_calendar_inactive')
 
+    # Сохраняет независимое выполнение плана платежа.
+    # Возвращает `self._save_plan_calendar_flag(payload, 'is_completed', '_calendar_completed')`.
     def save_plan_calendar_completed(self, payload):
         return self._save_plan_calendar_flag(payload, 'is_completed', '_calendar_completed')
 
+    # Сохраняет независимую отметку выезда плана платежа.
+    # Возвращает `self._save_plan_calendar_flag(payload, 'is_trip', '_calendar_trip')`.
     def save_plan_calendar_trip(self, payload):
         return self._save_plan_calendar_flag(payload, 'is_trip', '_calendar_trip')
 
+    # Сохраняет ручное размещение плана в переносе слева.
+    # Возвращает `self._save_plan_calendar_flag(payload, 'is_carryover', '_calendar_carryover')`.
     def save_plan_calendar_carryover(self, payload):
         return self._save_plan_calendar_flag(payload, 'is_carryover', '_calendar_carryover')
 
+    # Сохраняет отметку задач у плана, связанного с заказом.
+    # При недопустимом состоянии возбуждает ValueError.
     def save_plan_calendar_watch_todos(self, payload):
         if not payload.get('path'):
             raise ValueError('Смотри ту-ду доступно только у плана с заказом')
         return self._save_plan_calendar_flag(payload, 'is_watch_todos', '_calendar_watch_todos')
 
+    # Обновляет одну строгую отметку плана с проверкой версии.
+    # Работает с таблицами invoice_history, invoices.
     def _save_plan_calendar_flag(self, payload, field, key):
         import order_calendar
         value = payload.get(field)
@@ -430,6 +488,8 @@ class InvoiceStore:
             order_calendar.mark_flag_contract(db, field)
             return self.record(self.current(db, row['path'], row['id']))
 
+    # Переносит дату плана и сохраняет остальные данные платежа.
+    # Работает с таблицами invoice_history, invoices.
     def move_calendar_plan(self, payload):
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
@@ -459,6 +519,8 @@ class InvoiceStore:
                        (json.dumps(data, ensure_ascii=False), time.time(), row['id']))
             return self.record(self.current(db, row['path'], row['id']))
 
+    # Проверяет и сохраняет дневной или недельный план платежа.
+    # Работает с таблицами invoices, invoice_history, metadata_settings.
     def plan(self, payload):
         path, identity = ('' if payload.get('path') == '' else self.store.path(payload.get('path'))), payload.get('id')
         scheduled = plan_date(payload.get('date'))
@@ -542,6 +604,8 @@ class InvoiceStore:
                     db.execute("INSERT OR REPLACE INTO metadata_settings VALUES ('invoice_payment_sources','1')")
             return self.record(self.current(db, path, identity))
 
+    # Принимает проверенный документ и сохраняет его содержимое.
+    # Работает с таблицами invoices.
     def upload(self, payload):
         path, identity, name = self.store.path(payload.get('path')), payload.get('id'), payload.get('name')
         try:
@@ -589,6 +653,8 @@ class InvoiceStore:
                 (identity, path, identity, json.dumps(data, ensure_ascii=False), pdf, filename, stamp, stamp))
             return self.record(self.current(db, path, identity))
 
+    # Сохраняет текст комментария с проверкой ожидаемой версии.
+    # Работает с таблицами invoice_history, invoices.
     def save_comment(self, payload):
         comment = external_comment(payload.get('comment'))
         with self.connect() as db:
@@ -606,6 +672,8 @@ class InvoiceStore:
                        (json.dumps(data, ensure_ascii=False), time.time(), row['id']))
             return self.record(self.current(db, row['path'], row['id']))
 
+    # Сохраняет выбранный статус строки счёта без изменения содержимого PDF.
+    # Работает с таблицами invoice_history, invoices.
     def save_list_status(self, payload):
         value = payload.get('value')
         if not isinstance(value, str) or value not in LIST_STATUSES:
@@ -628,12 +696,16 @@ class InvoiceStore:
                        (json.dumps(data, ensure_ascii=False), time.time(), row['id']))
             return self.record(self.current(db, row['path'], row['id']))
 
+    # Проверяет пригодность записи для операций с планом календаря.
+    # При недопустимом состоянии возбуждает ValueError.
     @staticmethod
     def require_calendar_payment(row):
         data = json.loads(row['data'])
         if row['path'] or row['state'] != 'planned' or data.get('scope') != 'calendar' or not known_plan(data) or data.get('operation') not in ('incoming', 'outgoing'):
             raise ValueError('В календаре можно удалять только поступления и затраты без заказа')
 
+    # Помещает счёт или допустимый план в корзину с сохранением истории.
+    # Работает с таблицами invoice_history, invoices.
     def remove(self, payload, *, calendar_only=False):
         if payload.get('confirmed') is not True:
             raise ValueError('Подтверди перенос выбранного счёта в корзину')
@@ -655,6 +727,8 @@ class InvoiceStore:
             db.execute('UPDATE invoices SET data=?,revision=revision+1,updated=? WHERE id=?', (json.dumps(data, ensure_ascii=False), time.time(), row['id']))
             return self.record(self.current(db, row['path'], row['id'], trashed=True))
 
+    # Возвращает сохранённый счёт или план из корзины по ожидаемой версии.
+    # Работает с таблицами invoice_history, invoices.
     def restore(self, payload, *, calendar_only=False):
         with orders.SYNC_LOCK, file_comments.LOCK:
             with self.connect() as db:
@@ -684,6 +758,8 @@ class InvoiceStore:
                                (json.dumps(data, ensure_ascii=False), time.time(), row['id']))
             return self.get(payload['path'], payload['id'])
 
+    # Публикует сохранённую копию документа в папку без подмены оригиналов.
+    # При недопустимом состоянии возбуждает ValueError.
     def publish_copy(self, row):
         folder = self.store.target(row["path"]) / "# bills"
         if folder.is_symlink():
@@ -715,6 +791,8 @@ class InvoiceStore:
                     temporary.unlink(missing_ok=True)
         return target
 
+    # Согласует ожидающее перемещение копий документов в корзину.
+    # Работает с таблицами invoices.
     def sync_trash(self):
         with self.connect() as db:
             identities = [row[0] for row in db.execute("SELECT id FROM invoices WHERE json_extract(data,'$._trash.state')='pending'")]
@@ -749,6 +827,8 @@ class InvoiceStore:
                     db.execute("UPDATE invoices SET data=json_set(data,'$._trash.error',?,'$._trash.state',?) WHERE id=? AND json_extract(data,'$._trash.token')=?",
                                (error, 'pending' if error else 'complete', identity, marker['token']))
 
+    # Создаёт новый черновик счёта, при необходимости на основе существующего.
+    # Работает с таблицами invoices, invoice_sequences, invoice_settings.
     def create(self, payload):
         path, identity = payload.get("path"), payload.get("id")
         try:
@@ -794,6 +874,8 @@ class InvoiceStore:
                        (identity, path, year, number, json.dumps(data, ensure_ascii=False), stamp, stamp))
             return self.record(self.current(db, path, identity))
 
+    # Сохраняет проверенный черновик по UUID и ожидаемой версии.
+    # Работает с таблицами invoices, invoice_history, invoice_settings.
     def save(self, payload):
         data = validate(payload.get("data"))
         with self.connect() as db:
@@ -818,6 +900,8 @@ class InvoiceStore:
                            (json.dumps(data["seller"], ensure_ascii=False),))
             return self.record(self.current(db, row["path"], row["id"]))
 
+    # Выпускает неизменяемый документ из проверенного черновика.
+    # Работает с таблицами invoices.
     def issue(self, payload):
         with self.connect() as db:
             row = self.current(db, payload.get("path"), payload.get("id"))
@@ -846,6 +930,8 @@ class InvoiceStore:
                        (pdf, filename, time.time(), identity))
             return self.record(self.current(db, path, identity))
 
+    # Возвращает сохранённый выпущенный PDF после проверки владельца.
+    # При недопустимом состоянии возбуждает ValueError.
     def pdf(self, path, identity):
         with self.connect() as db:
             row = self.current(db, path, identity)
@@ -853,6 +939,8 @@ class InvoiceStore:
                 raise ValueError("Сначала выпусти PDF")
             return row["pdf"], row["filename"]
 
+    # Готовит проверяемое предложение операции без её выполнения.
+    # При недопустимом состоянии возбуждает ValueError.
     def preview(self, path, identity):
         record = self.get(path, identity)
         if record['state'] == 'planned':
@@ -862,6 +950,8 @@ class InvoiceStore:
         data = validate(record["data"], issuing=True)
         return render({**data, "preview": True}, self.app_dir, self.store.database.parent)
 
+    # Публикует ожидающие документы счетов и согласует состояние их копий.
+    # Работает с таблицами invoices.
     def sync(self):
         if not SYNC_LOCK.acquire(blocking=False):
             return

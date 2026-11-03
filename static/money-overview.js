@@ -4,12 +4,22 @@ const MoneyOverview = (() => {
   const monthName = new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric", timeZone: "UTC" });
   const shortDate = new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short", timeZone: "UTC" });
   const compactDate = new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit", timeZone: "UTC" });
+  // Экранирует текст перед вставкой в HTML-разметку или атрибут.
+  // Заменяет &, <, >, кавычки и апостроф на безопасные HTML-сущности.
   const escape = (value) => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+  // Вычисляет строковый ключ месяца для группировки платежей.
+  // Использует `date.toISOString().slice`, `date.toISOString`.
   const key = (date) => date.toISOString().slice(0, 7);
+  // Сдвигает ключ месяца на заданное число месяцев.
+  // Использует `Date`, `Date.UTC`, `Number`.
   const shift = (month, offset) => new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1 + offset, 1));
+  // Вычисляет ключ текущего месяца по Москве.
+  // Использует `Intl.DateTimeFormat`, `Date`.
   const currentMonth = () => new Intl.DateTimeFormat("sv-SE", { year: "numeric", month: "2-digit", timeZone: "Europe/Moscow" }).format(new Date());
   let offset = 0, plans = [], initialized = false, rendered = "";
 
+  // Строит последовательность четырёх месяцев сводки.
+  // Использует `Array.from`, `Map`, `result.map`.
   function months(records, firstMonth) {
     const result = Array.from({ length: COUNT }, (_, index) => ({
       key: key(shift(firstMonth, index)), incoming: [], outgoing: [], income: 0, expense: 0,
@@ -31,6 +41,8 @@ const MoneyOverview = (() => {
     return result;
   }
 
+  // Строит строку одного платежа помесячной сводки.
+  // Использует `money.format`, `shortDate.format`, `Date`.
   function item(plan) {
     const amount = (plan.operation === "incoming" ? "+" : "−") + money.format(plan.amount / 100);
     const date = shortDate.format(new Date(plan.date + "T00:00:00Z"));
@@ -46,6 +58,8 @@ const MoneyOverview = (() => {
       '<button type="button"' + attrs + ' data-money-plan="' + escape(plan.id) + '">' + contents + '</button>') + '</li>';
   }
 
+  // Обновляет DOM компонента из текущих данных в модуле помесячной сводки денег.
+  // Обращается к DOM текущего документа или переданного контейнера.
   function render() {
     const container = document.getElementById("moneyMonths");
     const data = months(plans, key(shift(currentMonth(), offset)));
@@ -72,6 +86,8 @@ const MoneyOverview = (() => {
     pane.scrollTop = top;
   }
 
+  // Показывает компонент по полученным данным и текущему состоянию в модуле помесячной сводки денег.
+  // Подключает обработчики событий к существующим элементам компонента.
   function show(records, visible, { loaded = false, error = "" } = {}) {
     const panel = document.getElementById("moneyOverview");
     panel.hidden = !visible;

@@ -13,15 +13,21 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 
+# Проверяет или вычисляет устойчивую идентичность объекта.
+# Возвращает `{'device': value.st_dev, 'inode': value.st_ino, 'kind': stat.S_IFMT(value.st_mode)}`.
 def identity(path):
     value = Path(path).lstat()
     return {"device": value.st_dev, "inode": value.st_ino, "kind": stat.S_IFMT(value.st_mode)}
 
 
+# Проверяет существование пути, включая повреждённые символические ссылки.
+# Возвращает `os.path.lexists(path)`.
 def exists(path):
     return os.path.lexists(path)
 
 
+# Выполняет macOS-перенос с запретом замены существующей цели.
+# При недопустимом состоянии возбуждает OSError.
 def rename_exclusive(source, destination):
     function = ctypes.CDLL(None, use_errno=True).renamex_np
     function.argtypes = (ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint)
@@ -31,6 +37,8 @@ def rename_exclusive(source, destination):
         raise OSError(error, os.strerror(error), str(destination))
 
 
+# Дописывает запись в устойчивый журнал операции.
+# Передаёт работу `datetime.now(ZoneInfo('Europe/Moscow')).isoformat`, `datetime.now`, `ZoneInfo`.
 def append(session, record):
     record = {"time": datetime.now(ZoneInfo("Europe/Moscow")).isoformat(), **record}
     with (Path(session) / ".journal.jsonl").open("a", encoding="utf-8") as stream:
@@ -39,6 +47,8 @@ def append(session, record):
         os.fsync(stream.fileno())
 
 
+# Сохраняет структурированный JSON в предусмотренный файл.
+# Передаёт работу `Path(path).open`, `Path`, `json.dump`.
 def save_json(path, value):
     with Path(path).open("x", encoding="utf-8") as stream:
         json.dump(value, stream, ensure_ascii=False, indent=2)
@@ -47,6 +57,8 @@ def save_json(path, value):
         os.fsync(stream.fileno())
 
 
+# Проверяет границы корня, допустимую область и компоненты пути.
+# При недопустимом состоянии возбуждает ValueError.
 def safe_path(root, relative, clients, *, service_roots=()):
     relative = Path(relative)
     if relative.is_absolute() or not relative.parts or ".." in relative.parts:
@@ -61,7 +73,11 @@ def safe_path(root, relative, clients, *, service_roots=()):
     return root / relative
 
 
+# Хранит проверяемый план файловых операций и создаёт журнал отката.
+# Основные операции: __init__, mkdir, move, create_session.
 class Plan:
+    # Сохраняет зависимости и начальные параметры экземпляра.
+    # Состояние и зависимости сохраняются в полях self для последующих операций.
     def __init__(self, root, clients, *, service_roots=()):
         self.root = Path(root).resolve()
         self.clients = clients
@@ -69,6 +85,8 @@ class Plan:
         self.operations = []
         self.directories = set()
 
+    # Добавляет или выполняет создание отсутствующей папки в плане.
+    # При недопустимом состоянии возбуждает FileExistsError.
     def mkdir(self, relative):
         relative = Path(relative).as_posix()
         if relative in self.directories:
@@ -81,6 +99,8 @@ class Plan:
         self.operations.append({"operation": "mkdir", "destination": relative})
         self.directories.add(relative)
 
+    # Переносит объект или событие с проверкой исходного и целевого состояния.
+    # При недопустимом состоянии возбуждает FileExistsError, ValueError.
     def move(self, source, destination, reason, origin=None):
         source, destination = Path(source).as_posix(), Path(destination).as_posix()
         if source == destination:
@@ -94,6 +114,8 @@ class Plan:
         self.operations.append({"operation": "move", "source": source, "destination": destination,
                                 "identity": identity(original), "reason": reason})
 
+    # Создаёт устойчивый сеанс плана и самостоятельную инструкцию отката.
+    # При недопустимом состоянии возбуждает ValueError.
     def create_session(self, notes, before):
         history = self.root / ".folder-layout-history"
         if history.is_symlink():
@@ -128,15 +150,21 @@ class Plan:
         return session
 
 
+# Загружает и проверяет явно подготовленный план переносов.
+# Разбирает JSON; вызывающий код должен учитывать ошибки или неизвестный формат.
 def load_plan(session):
     return json.loads((Path(session) / ".plan.json").read_text(encoding="utf-8"))
 
 
+# Читает последовательность записей журнала операции.
+# Разбирает JSON; вызывающий код должен учитывать ошибки или неизвестный формат.
 def records(session):
     lines = (Path(session) / ".journal.jsonl").read_text(encoding="utf-8").splitlines(keepends=True)
     return [json.loads(line) for line in lines if line.endswith("\n")]
 
 
+# Применяет проверенную операцию или подготовленный план.
+# При недопустимом состоянии возбуждает ValueError, FileExistsError.
 def apply(session):
     session = Path(session)
     plan = load_plan(session)
@@ -168,6 +196,8 @@ def apply(session):
         append(session, {"phase": "complete", "operations": len(plan["operations"])})
 
 
+# Выполняет сохранённые обратные операции после проверки текущего состояния.
+# При недопустимом состоянии возбуждает ValueError, FileExistsError, OSError.
 def undo(session, perform=False, *, coordinate_database=False, keep_directories=()):
     session = Path(session)
     plan = load_plan(session)

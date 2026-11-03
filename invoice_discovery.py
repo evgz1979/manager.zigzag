@@ -17,10 +17,14 @@ import orders
 import work_orders
 
 
+# Строит нормализованный ключ имени для сравнения файлов.
+# Возвращает `unicodedata.normalize('NFC', name).casefold()`.
 def name_key(name):
     return unicodedata.normalize('NFC', name).casefold()
 
 
+# Проверяет непосредственную папку счетов выбранного заказа.
+# При недопустимом состоянии возбуждает ValueError.
 def folder_target(store, path):
     path = store.store.path(path)
     if work_orders.in_work(path):
@@ -31,10 +35,14 @@ def folder_target(store, path):
     return folder
 
 
+# Строит нормализованный ключ имени для сравнения файлов.
+# Возвращает `hashlib.sha256(json.dumps(file_trash.fingerprint(target), sort_keys=True).encode()).hexdigest()`.
 def file_key(target):
     return hashlib.sha256(json.dumps(file_trash.fingerprint(target), sort_keys=True).encode()).hexdigest()
 
 
+# Собирает уже известные имена счетов и вложений, включая корзину.
+# Работает с таблицами invoices, invoice_documents.
 def known_names(db, path):
     # Include trash and removed closing documents: they must not become new invoices.
     names = {name_key(row[0]) for row in db.execute('SELECT filename FROM invoices WHERE path=?', (path,)) if row[0]}
@@ -43,6 +51,8 @@ def known_names(db, path):
     return names
 
 
+# Перечисляет ещё не прикреплённые непосредственные PDF без чтения содержимого.
+# Возвращает `{'items': [], 'warning': ''}`.
 def candidates(store, path):
     with orders.SYNC_LOCK:
         with store.connect() as db:
@@ -70,6 +80,8 @@ def candidates(store, path):
                 'warning': f'Не предложено PDF: {skipped}. Нужен непустой PDF до 20 МБ с обычным именем.' if skipped else ''}
 
 
+# Привязывает существующие данные к выбранной сущности или сводке.
+# Работает с таблицами invoices.
 def attach(store, payload):
     name = payload.get('name')
     if not isinstance(name, str) or not name or name.startswith('.') or any(c in '/\\:' or ord(c) < 32 or ord(c) == 127 for c in name) or Path(name).suffix.casefold() != '.pdf' or len(os.fsencode(name)) > 255:

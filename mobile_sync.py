@@ -1,6 +1,7 @@
 """Offline phone companion: immutable operations, durable receipts, read-only catalog.
 
-SQLite stays on the Mac. Nothing in the document root is created until enabled.
+SQLite stays on the Mac. The current database_only mode pauses all exchange.
+The legacy file protocol below is retained for future adaptation and recovery.
 The phone never edits !.txt or a file-comment document directly.
 """
 import collections
@@ -22,14 +23,20 @@ DIRECTORY = ".mobile-sync"
 MAX_OPERATION = 64 * 1024
 
 
+# Обозначает конфликт изменения в этом модуле.
+# Вызывающий обработчик использует тип исключения для отказа без подмены данных.
 class MobileConflict(ValueError):
     pass
 
 
+# Кодирует данные в устойчивое текстовое представление протокола.
+# Возвращает `json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2) + '\n'`.
 def encode(value):
     return json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
 
 
+# Проверяет или вычисляет устойчивую идентичность объекта.
+# При недопустимом состоянии возбуждает ValueError.
 def identifier(value):
     try:
         valid = isinstance(value, str) and str(uuid.UUID(value)) == value
@@ -40,12 +47,16 @@ def identifier(value):
     return value
 
 
+# Запрещает ссылки и объекты, не являющиеся обычным файлом.
+# При недопустимом состоянии возбуждает ValueError.
 def regular(path):
     if path.is_symlink() or (path.exists() and not path.is_file()):
         raise ValueError("Служебный файл обмена должен быть обычным файлом")
     return path
 
 
+# Читает ограниченный обычный JSON-файл протокола.
+# При недопустимом состоянии возбуждает ValueError.
 def read_json(path, limit=MAX_OPERATION):
     regular(path)
     if path.stat().st_size > limit:
@@ -53,6 +64,8 @@ def read_json(path, limit=MAX_OPERATION):
     return json.loads(path.read_bytes())
 
 
+# Записывает JSON только при изменении сериализованного содержимого.
+# Передаёт работу `regular`, `encode`, `path.exists`.
 def write_json(path, value):
     regular(path)
     body = encode(value)
@@ -60,6 +73,8 @@ def write_json(path, value):
         document.atomic_write(path, body)
 
 
+# Сохраняет идентичности однозначных задач и создаёт новые при неоднозначности.
+# Возвращает `None`; либо `result`.
 def reconcile_tasks(previous, current):
     """Keep identities for unambiguous text matches; never guess after a rename.
 
@@ -90,12 +105,18 @@ def reconcile_tasks(previous, current):
     return result
 
 
+# Вычисляет привязку действия к текущей версии файла.
+# Возвращает `hashlib.sha256(f'{stat.st_dev}:{stat.st_ino}:{stat.st_size}:{stat.st_mtime_ns}'.encode()).hexdigest()`.
 def file_token(path):
     stat = path.stat()
     return hashlib.sha256(f"{stat.st_dev}:{stat.st_ino}:{stat.st_size}:{stat.st_mtime_ns}".encode()).hexdigest()
 
 
+# Объединяет операции модуля: сохранённый протокол отложенного обмена с iphone; при database_only обмен запрещён.
+# Основные операции: __init__, get_meta, put_meta, configure, status; остальные описаны у методов.
 class MobileBridge:
+    # Сохраняет зависимости и начальные параметры экземпляра.
+    # Работает с таблицами mobile_meta, mobile_operations, mobile_tasks, mobile_files.
     def __init__(self, store):
         self.store = store
         self.folder = store.root / DIRECTORY
@@ -109,15 +130,21 @@ class MobileBridge:
             db.execute("""CREATE TABLE IF NOT EXISTS mobile_files (
                 order_id TEXT PRIMARY KEY, scanned REAL NOT NULL, items TEXT NOT NULL)""")
 
+    # Читает служебное значение сохранённого состояния обмена.
+    # Работает с таблицами mobile_meta.
     @staticmethod
     def get_meta(db, key, default=""):
         row = db.execute("SELECT value FROM mobile_meta WHERE key=?", (key,)).fetchone()
         return row[0] if row else default
 
+    # Записывает служебное значение сохранённого состояния обмена.
+    # Работает с таблицами mobile_meta.
     @staticmethod
     def put_meta(db, key, value):
         db.execute("INSERT OR REPLACE INTO mobile_meta VALUES (?,?)", (key, str(value)))
 
+    # Проверяет и сохраняет настройки функции с учётом режима хранения.
+    # При недопустимом состоянии возбуждает ValueError.
     def configure(self, enabled):
         if self.store.database_only and enabled:
             raise ValueError("Обмен с iPhone отложен; очередь сохранена")
@@ -127,6 +154,8 @@ class MobileBridge:
             self.put_meta(db, "enabled", int(enabled))
         return self.status()
 
+    # Возвращает состояние обработки и сохранённые ошибки.
+    # Работает с таблицами mobile_meta, mobile_operations.
     def status(self):
         with self.store.connect() as db:
             values = dict(db.execute("SELECT key,value FROM mobile_meta"))
@@ -135,6 +164,8 @@ class MobileBridge:
                 "last_sync": float(values.get("last_sync", 0)), "error": values.get("error", ""),
                 "orders": int(values.get("orders", 0)), "conflicts": conflicts}
 
+    # Создаёт подготовленное состояние операции до её применения.
+    # При недопустимом состоянии возбуждает FileNotFoundError, ValueError, MobileConflict.
     def prepare(self):
         if not self.store.root.is_dir():
             raise FileNotFoundError("Корень документов недоступен; обмен будет повторён")
@@ -157,6 +188,8 @@ class MobileBridge:
             self.put_meta(db, "root_id", root_id)
         return root_id
 
+    # Проверяет точный файл и его привязку для ожидающего действия.
+    # При недопустимом состоянии возбуждает MobileConflict, FileNotFoundError.
     def target_file(self, relative, order_path):
         if (not isinstance(relative, str) or not relative or "\x00" in relative
                 or PurePosixPath(relative).is_absolute() or PurePosixPath(relative).as_posix() != relative
@@ -176,12 +209,16 @@ class MobileBridge:
             raise MobileConflict("Файл удалён или переименован; комментарий сохранён в обмене")
         return target
 
+    # Сопоставляет задачи заказа с устойчивыми идентификаторами обмена.
+    # Работает с таблицами mobile_tasks.
     def tasks(self, db, record):
         saved = db.execute("SELECT items FROM mobile_tasks WHERE order_id=?", (record["id"],)).fetchone()
         items = reconcile_tasks(json.loads(saved[0]) if saved else [], record["todo_items"])
         db.execute("INSERT OR REPLACE INTO mobile_tasks VALUES (?,?)", (record["id"], encode(items)))
         return items
 
+    # Проверяет структуру и допустимые значения входных данных.
+    # При недопустимом состоянии возбуждает ValueError.
     def validate(self, operation, root_id):
         if not isinstance(operation, dict) or operation.get("schema") != 1 or operation.get("root_id") != root_id:
             raise ValueError("Неподдерживаемый обмен или другая папка документов")
@@ -211,6 +248,8 @@ class MobileBridge:
                     or type(operation.get("base_version")) is not int or operation["base_version"] < 1):
                 raise ValueError("Не указана исходная версия задачи")
 
+    # Применяет проверенную операцию или подготовленный план.
+    # Работает с таблицами mobile_operations, orders.
     def apply(self, operation, raw, root_id):
         self.validate(operation, root_id)
         digest = hashlib.sha256(raw).hexdigest()
@@ -264,6 +303,8 @@ class MobileBridge:
                        (op_id, digest, raw.decode(), result["status"], encode(result)))
             return result
 
+    # Применяет подтверждённую операцию к данным исходного заказа.
+    # Работает с таблицами orders, mobile_tasks.
     def apply_order(self, db, operation, record):
         kind = operation["kind"]
         if kind == "order_comment":
@@ -298,6 +339,8 @@ class MobileBridge:
                    (encode(blocks), time.time(), record["id"]))
         db.execute("INSERT OR REPLACE INTO mobile_tasks VALUES (?,?)", (record["id"], encode(items)))
 
+    # Применяет комментарий к проверенной версии исходного файла.
+    # Работает с таблицами mobile_files, mobile_operations.
     def apply_file(self, db, operation, raw, digest, record, previous):
         # No SQLite write lock may be held across iCloud filesystem access.
         # The prepared intent bridges the two stores without blocking card saves.
@@ -335,6 +378,8 @@ class MobileBridge:
         file_comments.save(target, prepared["comment"], prepared["before_revision"])
         db.execute("DELETE FROM mobile_files WHERE order_id=?", (record["id"],))
 
+    # Собирает ограниченный перечень доступных файлов заказа для каталога телефона.
+    # Работает с таблицами mobile_files.
     def inventory(self, record):
         with self.store.connect() as db:
             saved = db.execute("SELECT * FROM mobile_files WHERE order_id=?", (record["id"],)).fetchone()
@@ -365,6 +410,8 @@ class MobileBridge:
         except (OSError, ValueError) as error:
             return (json.loads(saved["items"]) if saved else []), (saved["scanned"] if saved else 0), str(error)
 
+    # Собирает доступный каталог сущностей из сохранённых индексов.
+    # Работает с таблицами mobile_operations.
     def catalog(self, root_id):
         orders = []
         for record in self.store.list():
@@ -382,6 +429,8 @@ class MobileBridge:
             receipts = [json.loads(row[0]) for row in db.execute("SELECT result FROM mobile_operations WHERE status!='prepared'")]
         return {"schema": 1, "root_id": root_id, "generation": generation, "generated": time.time(), "orders": orders, "receipts": receipts}
 
+    # Сохраняет прежний цикл обмена; при database_only возвращается без файловых операций.
+    # При недопустимом состоянии возбуждает ValueError.
     def run(self):
         if self.store.database_only:
             return

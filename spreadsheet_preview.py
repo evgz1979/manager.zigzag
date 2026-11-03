@@ -11,6 +11,8 @@ MAX_BYTES = 20 * 1024 * 1024
 READ_SLOTS = threading.BoundedSemaphore(2)
 
 
+# Возвращает ограниченное содержимое файла после необходимых проверок.
+# Запускает внешний процесс; параметры и ограничения заданы в теле функции.
 def read_bytes(target):
     target = Path(target)
     if target.suffix.lower() not in EXTENSIONS:

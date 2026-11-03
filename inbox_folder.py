@@ -4,6 +4,8 @@ from pathlib import Path
 import unicodedata
 
 
+# Считает только непосредственные видимые обычные файлы единственной папки Inbox.
+# Возвращает `{'path': '', 'count': 0, 'error': ''}`; либо `{'path': '', 'count': None, 'error': 'Найдено несколько папок #inbox'}`.
 def snapshot(root):
     root = Path(root)
     try:

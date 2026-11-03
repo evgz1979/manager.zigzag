@@ -1,12 +1,16 @@
 /* Read-only spreadsheet viewer; all document text is inserted as text nodes. */
 window.SpreadsheetPreview = (() => {
   let active;
+  // Закрывает компонент и освобождает его временное состояние в модуле браузерного просмотра таблиц.
+  // Управляет отложенным обновлением через таймер или кадр браузера.
   function close() {
     if (!active) return;
     active.worker.terminate();
     clearTimeout(active.timeout);
     active = null;
   }
+  // Открывает компонент и загружает его исходные данные в модуле браузерного просмотра таблиц.
+  // Подключает обработчики событий к существующим элементам компонента.
   function open(container, url, onError) {
     close();
     const worker = new Worker("/spreadsheet-worker.js");
@@ -50,16 +54,22 @@ window.SpreadsheetPreview = (() => {
     viewer.append(toolbar, scroll, footer);
     container.replaceChildren(viewer);
     let result, table;
+    // Показывает ошибку открытия таблицы и освобождает временные ресурсы.
+    // Использует `close`, `onError`.
     function fail(message) {
       if (active !== current) return;
       close();
       onError(message);
     }
+    // Передаёт команду отдельному Worker просмотра таблиц.
+    // Управляет отложенным обновлением через таймер или кадр браузера.
     function send(message) {
       clearTimeout(current.timeout);
       current.timeout = setTimeout(() => fail("Таблица слишком долго открывается. Попробуй ещё раз или скачай файл."), 45000);
       worker.postMessage({ ...message, id: ++current.id });
     }
+    // Переключает отображаемую страницу текущего документа.
+    // Использует `send`.
     function changePage(sheetIndex, offset) {
       previous.disabled = next.disabled = true;
       send({ type: "page", sheetIndex, offset });
@@ -67,6 +77,8 @@ window.SpreadsheetPreview = (() => {
     sheets.addEventListener("change", () => changePage(Number(sheets.value), 0));
     previous.addEventListener("click", () => changePage(result.sheetIndex, Math.max(0, result.start - result.firstRow - result.pageSize)));
     next.addEventListener("click", () => changePage(result.sheetIndex, result.start - result.firstRow + result.pageSize));
+    // Пересчитывает размеры видимой области просмотрщика таблицы.
+    // Использует `Number`.
     function resize() {
       if (table) table.style.zoom = Number(zoom.value) / 100;
     }
@@ -95,6 +107,8 @@ window.SpreadsheetPreview = (() => {
       table.style.width = (42 + data.widths.reduce((sum, width) => sum + width, 0)) + "px";
       const head = table.createTHead(), heading = head.insertRow();
       heading.append(document.createElement("th"));
+      // Преобразует номер колонки в буквенное обозначение Excel.
+      // Использует `Math.floor`, `String.fromCharCode`.
       function columnName(index) {
         let name = "";
         for (++index; index; index = Math.floor((index - 1) / 26)) name = String.fromCharCode(65 + (index - 1) % 26) + name;

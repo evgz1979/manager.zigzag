@@ -1,4 +1,4 @@
-"""Symmetric client-order links, stored by UUID in existing order extra blocks."""
+"""Client-order groups with one primary and multiple children, stored by UUID in extra blocks."""
 import json
 import uuid
 from pathlib import Path
@@ -15,10 +15,14 @@ ORDER_LINK_STAR_VERSION = 1
 MAX_LINKS = 200
 
 
+# Фиксирует использование статуса подчинённого связанного заказа.
+# Работает с таблицами metadata_settings.
 def mark_status_contract(db):
     db.execute("INSERT INTO metadata_settings VALUES ('client_order_link_status','1') ON CONFLICT(key) DO UPDATE SET value=excluded.value")
 
 
+# Проверяет UUID и уникальность списка связанных сущностей.
+# При недопустимом состоянии возбуждает ValueError.
 def checked_ids(value):
     if not isinstance(value, list) or len(value) > MAX_LINKS:
         raise ValueError(f"Выбери не больше {MAX_LINKS} разных заказов")
@@ -35,6 +39,8 @@ def checked_ids(value):
     return value
 
 
+# Разбирает строгий блок UUID связанных клиентских заказов.
+# Разбирает JSON; вызывающий код должен учитывать ошибки или неизвестный формат.
 def read(blocks, block=BLOCK):
     if block not in blocks:
         return []
@@ -47,11 +53,15 @@ def read(blocks, block=BLOCK):
         return None
 
 
+# Читает выбранного главного в группе связанных заказов.
+# Возвращает `primary if identities is not None and primary is not None and (set(primary) <= set(identities)) else None`.
 def read_primary(blocks):
     identities, primary = read(blocks), read(blocks, PRIMARY_BLOCK)
     return primary if identities is not None and primary is not None and set(primary) <= set(identities) else None
 
 
+# Сериализует проверенную группу связей, сохраняя остальные блоки заказа.
+# При недопустимом состоянии возбуждает ValueError.
 def write(blocks, identities, primary=None):
     if read(blocks) is None or read_primary(blocks) is None:
         raise ValueError("Неизвестный формат связанных заказов сохранён без изменений")
@@ -65,6 +75,8 @@ def write(blocks, identities, primary=None):
     return result
 
 
+# Вычисляет область видимости и допустимых связей текущей сущности.
+# Возвращает `None`; либо `(location['client_path'], location['object_path'])`.
 def scope(path):
     if any(part.startswith(("#", ".")) for part in Path(path).parts):
         return None
@@ -74,6 +86,8 @@ def scope(path):
     return location["client_path"], location["object_path"]
 
 
+# Строит компактные ссылки на подчинённые заказы главного.
+# Работает с таблицами orders.
 def primary_items(db, path, identities):
     if identities is None:
         return None
@@ -88,6 +102,8 @@ def primary_items(db, path, identities):
     return sorted(result, key=lambda item: (item["title"].casefold(), item["id"]))
 
 
+# Строит состояние группы связей для интерфейса выбора.
+# Разбирает JSON; вызывающий код должен учитывать ошибки или неизвестный формат.
 def states(rows):
     result = {}
     for identity, row in rows.items():
@@ -98,6 +114,8 @@ def states(rows):
     return result
 
 
+# Находит главного группы и необходимость инициализации прежней связи.
+# При недопустимом состоянии возбуждает ValueError.
 def group_main(rows, identity):
     """Return one main and whether an old, undirected star needs initialization."""
     known = states(rows)
@@ -139,6 +157,8 @@ def group_main(rows, identity):
     return main, legacy
 
 
+# Определяет идентификаторы подчинённых заказов текущей группы.
+# Возвращает `children`.
 def child_ids(rows):
     children = set()
     for identity, (_, primary) in states(rows).items():
@@ -153,20 +173,30 @@ def child_ids(rows):
     return children
 
 
+# Фиксирует использование направленной группы связанных заказов.
+# Работает с таблицами metadata_settings.
 def mark_group_contract(db):
     for key in ('client_order_links', 'client_order_link_roles', 'client_order_link_star'):
         db.execute("INSERT INTO metadata_settings VALUES (?, '1') ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key,))
     mark_status_contract(db)
 
 
+# Меняет группы связанных заказов одного объекта в общей транзакции SQLite.
+# Основные операции: __init__, _rows, _read, read, migrate_statuses; остальные описаны у методов.
 class OrderLinks:
+    # Сохраняет зависимости и начальные параметры экземпляра.
+    # Состояние и зависимости сохраняются в полях self для последующих операций.
     def __init__(self, store):
         self.store = store
 
+    # Читает строки группы непосредственно из текущей транзакции.
+    # Работает с таблицами orders.
     @staticmethod
     def _rows(db):
         return {row["id"]: dict(row) for row in db.execute("SELECT * FROM orders")}
 
+    # Читает данные текущего формата и сохраняет различие пустого и неизвестного.
+    # При недопустимом состоянии возбуждает ValueError.
     def _read(self, db, source):
         rows = self._rows(db)
         claimed = {child for _, own in states(rows).values() for child in own}
@@ -202,6 +232,8 @@ class OrderLinks:
         return {'order': self.store.record(source, db), 'linked_ids': identities, 'items': sorted(items, key=key),
                 'candidates': sorted(candidates, key=key), 'needs_primary': legacy, 'group_error': problem, 'versions': versions}
 
+    # Возвращает доступную группу связей и состояние её главного для интерфейса.
+    # Работает с таблицами orders.
     def read(self, relative):
         relative = self.store.path(relative)
         with self.store.connect() as db:
@@ -211,6 +243,8 @@ class OrderLinks:
                 raise FileNotFoundError('Заказ не найден')
             return self._read(db, source)
 
+    # Переносит известные прежние статусы по правилам действующего хранилища.
+    # Работает с таблицами metadata_settings, orders.
     def migrate_statuses(self):
         if not self.store.database_only:
             return 0
@@ -231,6 +265,8 @@ class OrderLinks:
                 mark_group_contract(db)
             return len(updates)
 
+    # Сохраняет изменение группы и автоматических статусов по проверенным версиям.
+    # Работает с таблицами orders.
     def save(self, payload):
         from orders import OrderConflict
         relative = self.store.path(payload.get('path'))

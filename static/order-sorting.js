@@ -1,11 +1,15 @@
 /* Shared order sorting for the live lists and calendar rendering on M4. */
 const OrderSorting = (() => {
+  // Сравнивает значения заказов по выбранному порядку сортировки.
+  // Использует `String(first ?? "").normalize`, `String`, `String(second ?? "").normalize`.
   function compareOrderText(first, second) {
     first = String(first ?? "").normalize("NFC");
     second = String(second ?? "").normalize("NFC");
     return first.localeCompare(second, "ru", { numeric: true }) || (first < second ? -1 : first > second ? 1 : 0);
   }
 
+  // Сравнивает значения заказов по выбранному порядку сортировки.
+  // Использует `compareOrderText`, `Boolean`, `Number`.
   function compareOrders(a, b, key = "title", direction = 1, labelSets = {}) {
     if (key === "folder_date") {
       if ((a.folder_date == null) !== (b.folder_date == null)) return a.folder_date == null ? 1 : -1;

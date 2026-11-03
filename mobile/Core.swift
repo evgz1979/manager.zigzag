@@ -1,6 +1,8 @@
 import Foundation
 import CryptoKit
 
+// Описывает задачу телефона с устойчивой идентичностью и версией.
+// Codable сохраняет текст и выполнение для каталога и локального состояния.
 struct PhoneTask: Codable, Identifiable, Equatable {
     var id: String
     var text: String
@@ -8,6 +10,8 @@ struct PhoneTask: Codable, Identifiable, Equatable {
     var version: Int = 1
 }
 
+// Описывает вложение заказа и привязку к версии исходного файла.
+// Путь используется как id; размер, время и token проверяются при действиях.
 struct PhoneFile: Codable, Identifiable, Equatable {
     var path: String
     var name: String
@@ -18,6 +22,8 @@ struct PhoneFile: Codable, Identifiable, Equatable {
     var id: String { path }
 }
 
+// Описывает доступную телефону копию карточки заказа.
+// Содержит задачи, вложения и время их последнего обновления.
 struct PhoneOrder: Codable, Identifiable {
     var id: String
     var path: String
@@ -40,6 +46,8 @@ struct PhoneOrder: Codable, Identifiable {
     var files_error: String
 }
 
+// Описывает подтверждение применения либо конфликт операции на Mac.
+// UUID, digest и root_id связывают ответ с точными неизменяемыми байтами запроса.
 struct Receipt: Codable {
     var id: String
     var digest: String
@@ -48,6 +56,8 @@ struct Receipt: Codable {
     var message: String
 }
 
+// Описывает версионный каталог заказов и подтверждений Mac.
+// Схема и root_id проверяются до замены локального каталога телефона.
 struct Catalog: Codable {
     var schema: Int
     var root_id: String
@@ -57,6 +67,8 @@ struct Catalog: Codable {
     var receipts: [Receipt]
 }
 
+// Описывает одно неизменяемое действие телефона для Mac.
+// UUID, sequence и исходная версия защищают от дубля и применения к другой задаче.
 struct PhoneOperation: Codable, Identifiable {
     var schema = 1
     var id = UUID().uuidString.lowercased()
@@ -79,6 +91,8 @@ struct PhoneOperation: Codable, Identifiable {
     var depends_on: String?
 }
 
+// Хранит действие, точные байты отправки и полученное подтверждение.
+// Digest считается от однажды сериализованных байтов, а не от повторной кодировки.
 struct QueuedOperation: Codable, Identifiable {
     var operation: PhoneOperation
     // Encode ONCE. The exact immutable bytes also authenticate the receipt.
@@ -89,6 +103,8 @@ struct QueuedOperation: Codable, Identifiable {
     var digest: String { SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined() }
 }
 
+// Объединяет устойчивое состояние телефона: каталог, очередь и черновики.
+// Сохраняется целиком через PhoneStore.persist до обновления памяти.
 struct LocalState: Codable {
     var deviceID = UUID().uuidString.lowercased()
     var nextSequence = 1
@@ -99,6 +115,8 @@ struct LocalState: Codable {
     var received: Double?
 }
 
+// Представляет понятную пользователю ошибку локального приложения.
+// LocalizedError предоставляет сообщение для состояния интерфейса.
 enum PhoneError: LocalizedError {
     case message(String)
     var errorDescription: String? { if case .message(let text) = self { return text }; return nil }
@@ -106,12 +124,16 @@ enum PhoneError: LocalizedError {
 
 /// Local disk only. All writes go through persist; failure never clears a draft.
 /// A damaged state is not silently replaced by an empty queue.
+// Хранит локальные данные и очередь операций телефона на диске.
+// Все изменения проходят через persist; повреждение не заменяется пустой очередью.
 final class PhoneStore {
     let directory: URL
     private(set) var state: LocalState
     private(set) var loadError: String?
     private let encoder: JSONEncoder
 
+    // Инициализирует зависимости и состояние экземпляра.
+    // Конкретные параметры и правила загрузки определены в теле и полях типа.
     init(directory: URL) {
         self.directory = directory
         encoder = JSONEncoder()
@@ -127,6 +149,8 @@ final class PhoneStore {
         }
     }
 
+    // Атомарно сохраняет новое локальное состояние до изменения памяти.
+    // Если запись не удалась, прежнее состояние и черновики остаются доступны.
     func persist(_ next: LocalState) throws {
         if let error = loadError { throw PhoneError.message(error) }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -142,12 +166,16 @@ final class PhoneStore {
         state = next
     }
 
+    // Читает или сохраняет текстовый черновик по устойчивому ключу.
+    // SwiftUI Binding и PhoneStore используют один ключ локального состояния.
     func draft(_ key: String, text: String) throws {
         var next = state
         next.drafts[key] = text
         try persist(next)
     }
 
+    // Сохраняет security-scoped bookmark выбранной папки.
+    // Изменение проходит через общий устойчивый persist.
     func bookmark(_ data: Data) throws {
         var next = state
         next.bookmark = data
@@ -155,6 +183,8 @@ final class PhoneStore {
     }
 
     @discardableResult
+    // Создаёт и сохраняет неизменяемое действие телефона с уникальным UUID.
+    // Проверяет вид операции и сохраняет исходные признаки задачи или файла.
     func enqueue(orderID: String, kind: String, text: String? = nil, task: PhoneTask? = nil,
                  file: PhoneFile? = nil, draftKey: String? = nil) throws -> String {
         guard let catalog = state.catalog, let order = catalog.orders.first(where: { $0.id == orderID }) else {
@@ -200,18 +230,24 @@ final class PhoneStore {
         return operation.id
     }
 
+    // Помечает операции как опубликованные в папку обмена.
+    // Флаг sent ещё не означает receipt применения операции сервером Mac.
     func markSent(_ ids: Set<String>) throws {
         var next = state
         for index in next.queue.indices where ids.contains(next.queue[index].id) { next.queue[index].sent = true }
         try persist(next)
     }
 
+    // Проверяет новый каталог и принимает подтверждения операций телефона.
+    // Чужой архив, неверные UUID, пути или digest не изменяют очередь.
     func ingest(_ catalog: Catalog) throws {
         guard catalog.schema == 1, UUID(uuidString: catalog.root_id) != nil, catalog.generation > 0,
               Set(catalog.orders.map(\.id)).count == catalog.orders.count else {
             throw PhoneError.message("Неподдерживаемый каталог обмена")
         }
         for order in catalog.orders {
+            // Проверяет относительный путь вложения или заказа из каталога.
+            // Запрещает пустые и скрытые компоненты и нулевые символы.
             func safePath(_ path: String) -> Bool {
                 let parts = path.split(separator: "/", omittingEmptySubsequences: false)
                 return !parts.isEmpty && parts.allSatisfy { !$0.isEmpty && !$0.hasPrefix(".") && !$0.contains("\0") }
@@ -254,6 +290,8 @@ final class PhoneStore {
     var waiting: Int { state.queue.filter { $0.receipt == nil }.count }
 
     /// Overlay local actions until a catalog confirms application on the Mac.
+    // Возвращает карточку заказа с наложенными ожидающими действиями телефона.
+    // Неподтверждённые операции остаются видимыми до получения receipt Mac.
     func order(_ id: String) -> PhoneOrder? {
         guard var result = state.catalog?.orders.first(where: { $0.id == id }) else { return nil }
         for queued in state.queue where queued.operation.order_id == id && queued.receipt == nil {
@@ -278,6 +316,8 @@ final class PhoneStore {
         return result
     }
 
+    // Вычисляет локальный путь автономной копии конкретной версии вложения.
+    // SHA-256 от пути и token разделяет версии; имя файла сохраняется в конце.
     func cachedURL(_ file: PhoneFile) -> URL {
         let key = SHA256.hash(data: Data((file.path + "\0" + file.token).utf8)).map { String(format: "%02x", $0) }.joined()
         return directory.appendingPathComponent("Attachments").appendingPathComponent(key).appendingPathComponent(file.name)

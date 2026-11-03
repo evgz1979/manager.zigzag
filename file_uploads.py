@@ -21,18 +21,26 @@ CHUNK = 1024 * 1024
 SLOTS = threading.BoundedSemaphore(3)
 
 
+# Обозначает конфликт изменения в этом модуле.
+# Вызывающий обработчик использует тип исключения для отказа без подмены данных.
 class UploadConflict(ValueError):
     pass
 
 
+# Обозначает превышение размера в этом модуле.
+# Вызывающий обработчик использует тип исключения для отказа без подмены данных.
 class UploadTooLarge(ValueError):
     pass
 
 
+# Обозначает занятость обработчика в этом модуле.
+# Вызывающий обработчик использует тип исключения для отказа без подмены данных.
 class UploadBusy(ValueError):
     pass
 
 
+# Проверяет доступность операции для роли и состояния цели.
+# Возвращает `False`; либо `True`.
 def available(root, relative):
     try:
         file_trash.checked(Path(root).resolve(), relative)
@@ -50,6 +58,8 @@ def available(root, relative):
     return bool(parent_order(root, relative))
 
 
+# Находит допустимую существующую цель файловой операции.
+# При недопустимом состоянии возбуждает ValueError, FileNotFoundError.
 def target(root, relative):
     if not isinstance(relative, str) or not relative or '\x00' in relative:
         raise ValueError('Открой событие или папку внутри заказа')
@@ -61,17 +71,23 @@ def target(root, relative):
     return path
 
 
+# Создаёт подписанный либо вычисляемый проверочный токен текущего контекста.
+# Возвращает `hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()`.
 def token(root, relative, folder=None):
     folder = folder or target(root, relative)
     value = [str(Path(root).resolve()), unicodedata.normalize('NFC', relative), folder_layout.identity(folder)]
     return hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
 
 
+# Возвращает ограничения и привязку формы загрузки файлов.
+# Возвращает `{'token': token(root, relative, folder), 'maxBytes': MAX_BYTES, 'maxFiles': MAX_FILES}`.
 def options(root, relative):
     folder = target(root, relative)
     return {'token': token(root, relative, folder), 'maxBytes': MAX_BYTES, 'maxFiles': MAX_FILES}
 
 
+# Проверяет имя создаваемого или переименовываемого объекта.
+# При недопустимом состоянии возбуждает ValueError.
 def filename(value):
     if not isinstance(value, str) or not value or value.startswith('.') or any(c in '/\\:' or ord(c)<32 or ord(c)==127 for c in value):
         raise ValueError('Недопустимое имя файла: скрытые имена и разделители пути не поддерживаются')
@@ -81,9 +97,13 @@ def filename(value):
     return value
 
 
+# Собирает имена, которые нельзя занять новой загрузкой.
+# Работает с таблицами sqlite_master, invoices.
 def reserved_names(db, relative):
     prefix = unicodedata.normalize('NFC', relative) + '/'
     names = set()
+    # Занимает свободное имя файла для текущей загрузки.
+    # Передаёт работу `unicodedata.normalize`, `path.startswith`, `names.add`.
     def reserve(path):
         path = unicodedata.normalize('NFC', path)
         if path.startswith(prefix):
@@ -100,6 +120,8 @@ def reserved_names(db, relative):
     return names
 
 
+# Принимает ограниченный поток файла и публикует его без перезаписи.
+# При недопустимом состоянии возбуждает ValueError, UploadTooLarge, UploadBusy.
 def receive(store, relative, expected, name, source, size):
     if not isinstance(size, int) or size < 0:
         raise ValueError('Не указан размер файла')

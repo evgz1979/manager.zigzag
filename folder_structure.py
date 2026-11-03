@@ -21,18 +21,26 @@ LABELS = {"root": "Корень документов", "client": "Клиент",
           "invalid": "Папка с некорректной датой"}
 
 
+# Распознаёт прежний корневой раздел поставщика по имени.
+# Возвращает `name.startswith('#') and name[1:].strip().casefold() == 'glass'`.
 def is_supplier_root(name):
     return name.startswith("#") and name[1:].strip().casefold() == "glass"
 
 
+# Распознаёт корень производства # work по имени папки.
+# Возвращает `name.startswith('#') and name[1:].strip().casefold() == 'work'`.
 def is_work_root(name):
     return name.startswith("#") and name[1:].strip().casefold() == "work"
 
 
+# Распознаёт финансовый корень # moneys по имени папки.
+# Возвращает `name.startswith('#') and name[1:].strip().casefold() == 'moneys'`.
 def is_moneys_root(name):
     return name.startswith("#") and name[1:].strip().casefold() == "moneys"
 
 
+# Проверяет принадлежность пути разделу самостоятельных сверок.
+# Возвращает `False`; либо `len(parts) >= 2 and is_moneys_root(parts[0]) and (unicodedata.normalize('NFC', parts[1]).lstrip('#').strip().casefold() in names)`.
 def in_reconciliations(relative, *, legacy=False):
     if not isinstance(relative, str):
         return False
@@ -41,21 +49,29 @@ def in_reconciliations(relative, *, legacy=False):
     return len(parts) >= 2 and is_moneys_root(parts[0]) and unicodedata.normalize('NFC', parts[1]).lstrip('#').strip().casefold() in names
 
 
+# Распознаёт раздел заданий печати внутри производства.
+# Возвращает `len(parts) == 2 and is_work_root(parts[0]) and parts[1].startswith('#') and (parts[1][1:].strip().casefold() == 'print')`.
 def is_print_section(relative):
     parts = Path(relative).parts
     return len(parts) == 2 and is_work_root(parts[0]) and parts[1].startswith('#') and parts[1][1:].strip().casefold() == 'print'
 
 
+# Распознаёт путь раздела фрезеровки или его задания.
+# Возвращает `len(parts) >= 2 and is_work_root(parts[0]) and parts[1].startswith('#') and (parts[1][1:].strip().casefold() == 'freza')`.
 def in_freza(relative):
     parts = Path(relative).parts
     return len(parts) >= 2 and is_work_root(parts[0]) and parts[1].startswith('#') and parts[1][1:].strip().casefold() == 'freza'
 
 
+# Распознаёт путь раздела фрезеровки или его задания.
+# Возвращает `in_freza(relative) and len(parts) == 3 and (not parts[2].startswith(('.', '#')))`.
 def is_freza_task(relative):
     parts = Path(relative).parts
     return in_freza(relative) and len(parts) == 3 and not parts[2].startswith(('.', '#'))
 
 
+# Определяет префикс раздела поставщика в относительном пути.
+# Возвращает `parts[:1]`; либо `parts[:2]`.
 def supplier_prefix(relative):
     parts = Path(relative).parts
     if parts and is_supplier_root(parts[0]):
@@ -65,6 +81,8 @@ def supplier_prefix(relative):
     return ()
 
 
+# Определяет префикс выбранного служебного раздела пути.
+# Возвращает `parts[:1]`; либо `parts[:2]`.
 def section_prefix(relative):
     parts = Path(relative).parts
     if parts and is_work_root(parts[0]) and (len(parts) == 1 or dated(parts[1])):
@@ -74,6 +92,8 @@ def section_prefix(relative):
     return supplier_prefix(relative)
 
 
+# Распознаёт служебную папку, которая не регистрируется заказом.
+# Возвращает `False`; либо `any((part.startswith('#') for part in parts[len(section_prefix(relative)):]))`.
 def is_service_folder(relative):
     parts = Path(relative).parts
     if len(parts) == 1 and (is_work_root(parts[0]) or is_moneys_root(parts[0])):
@@ -81,6 +101,8 @@ def is_service_folder(relative):
     return any(part.startswith("#") for part in parts[len(section_prefix(relative)):])
 
 
+# Проверяет принятую форму даты в названии папки.
+# Возвращает `False`; либо `day == 0`.
 def dated(name):
     match = DATE.match(name)
     if not match:
@@ -97,11 +119,15 @@ def dated(name):
         return False
 
 
+# Распознаёт числовую группу клиентов в корне документов.
+# Возвращает `bool(numbered and (not (dated(name) or DATE.match(name) or DATE_LIKE.match(name) or YEAR.fullmatch(name))))`.
 def is_catalog_group(name):
     numbered = NUMBER.match(name) or re.match(r"^[0-9]\s*[-–—](?=$|\s)", name)
     return bool(numbered and not (dated(name) or DATE.match(name) or DATE_LIKE.match(name) or YEAR.fullmatch(name)))
 
 
+# Определяет клиента с учётом корневой числовой группы.
+# Возвращает `False`; либо `not (dated(name) or DATE.match(name) or DATE_LIKE.match(name) or YEAR.fullmatch(name) or NUMBER.match(name))`.
 def grouped_client(parts):
     if len(parts) < 2 or not is_catalog_group(parts[0]):
         return False
@@ -109,11 +135,15 @@ def grouped_client(parts):
     return not (dated(name) or DATE.match(name) or DATE_LIKE.match(name) or YEAR.fullmatch(name) or NUMBER.match(name))
 
 
+# Извлекает отображаемое имя клиента из сохранённого пути.
+# Возвращает `parts[1] if grouped_client(parts) else parts[0] if parts else ''`.
 def client_name(relative):
     parts = Path(relative).parts
     return parts[1] if grouped_client(parts) else parts[0] if parts else ""
 
 
+# Определяет полный путь клиента без обращения к файловой системе.
+# Возвращает `''`; либо `Path(*parts[:2]).as_posix() if grouped_client(parts) and (not parts[1].startswith(('.', '#'))) else ''`.
 def client_path(relative):
     """Client identity by full path, without touching document storage."""
     parts = Path(relative).parts
@@ -124,6 +154,8 @@ def client_path(relative):
     return parts[0]
 
 
+# Вычисляет клиента и объект заказа только по сохранённому пути.
+# Формирует возвращаемое значение из проверенного локального состояния.
 def order_location(relative):
     """Table grouping from the stored path only; never enumerate iCloud folders."""
     parts = Path(relative).parts
@@ -143,6 +175,8 @@ def order_location(relative):
             "object_path": unicodedata.normalize("NFC", object_path)}
 
 
+# Классифицирует роль папки для выбора доступного интерфейса и операций.
+# Формирует возвращаемое значение из проверенного локального состояния.
 def folder_role(root, relative):
     parts = Path(relative).parts
     if not parts:

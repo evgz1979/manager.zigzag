@@ -18,10 +18,14 @@ import orders
 from order_todos import REFRESH_LOCK
 
 
+# Обозначает конфликт изменения в этом модуле.
+# Вызывающий обработчик использует тип исключения для отказа без подмены данных.
 class FolderRenameConflict(ValueError):
     pass
 
 
+# Проверяет доступность операции для роли и состояния цели.
+# Возвращает `False`; либо `not parts[0].startswith('#') or len(parts) > len(section_prefix(relative)) > 0`.
 def available(relative):
     parts = Path(relative).parts
     if not parts or Path(relative).is_absolute() or any(part.startswith(".") for part in parts):
@@ -29,6 +33,8 @@ def available(relative):
     return not parts[0].startswith("#") or len(parts) > len(section_prefix(relative)) > 0
 
 
+# Находит допустимую существующую цель файловой операции.
+# При недопустимом состоянии возбуждает ValueError, FileNotFoundError.
 def target(root, relative):
     if not isinstance(relative, str) or not available(relative):
         raise ValueError("Выберите обычную папку клиента, объекта, заказа или события")
@@ -38,6 +44,8 @@ def target(root, relative):
     return path
 
 
+# Готовит проверяемое предложение операции без её выполнения.
+# Формирует возвращаемое значение из проверенного локального состояния.
 def preview(store, relative):
     path = target(store.root, relative)
     event_folder_undo.guard_database(store.database, relative, include_children=True)
@@ -46,6 +54,8 @@ def preview(store, relative):
             "revision": hashlib.sha256(json.dumps(fingerprint, sort_keys=True).encode()).hexdigest(), **fingerprint}
 
 
+# Проверяет имя создаваемого или переименовываемого объекта.
+# При недопустимом состоянии возбуждает ValueError.
 def name(value):
     if not isinstance(value, str) or any(char in '/\\:' or ord(char) < 32 or ord(char) == 127 for char in value):
         raise ValueError("Имя папки должно быть в одну строку, без /, \\ и :")
@@ -55,6 +65,8 @@ def name(value):
     return value
 
 
+# Переименовывает объект без перезаписи существующего назначения.
+# Работает с таблицами orders, folder_renames.
 def rename(store, payload):
     root = store.root.resolve()
     # The handler also holds file-comments, print and folder-card locks, in the

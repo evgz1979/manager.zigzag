@@ -4,6 +4,8 @@
   const rows = new Map();
   let folder = { path: "", count: 0, error: "" }, folderLoading = false, folderOpening = false;
 
+  // Показывает доступность и количество файлов папки Inbox.
+  // Использует `$`, `Boolean`, `button.setAttribute`.
   function renderFolder() {
     const button = $("inboxFolderButton");
     $("inboxFolderCount").textContent = folder.count ?? "—";
@@ -12,6 +14,8 @@
     button.setAttribute("aria-label", "#inbox: " + (folder.count === null ? "число файлов недоступно" : "файлов " + folder.count) + ". " + button.title);
   }
 
+  // Перечитывает узкий файловый счётчик папки Inbox.
+  // Использует `/api/inbox-folder`.
   async function loadFolder() {
     if (state.view !== "orders" || folderLoading || document.hidden) return;
     folderLoading = true;
@@ -33,6 +37,8 @@
     finally { folderOpening = false; renderFolder(); }
   }));
 
+  // Строит строки текущего списка компонента.
+  // Использует `Set`, `items.map`, `ids.has`.
   function renderList(container, items) {
     const ids = new Set(items.map(item => item.id));
     for (const row of [...container.children]) if (!ids.has(row.dataset.inboxId)) row.remove();
@@ -79,6 +85,8 @@
     });
   }
 
+  // Обновляет DOM компонента из текущих данных в модуле Telegram Inbox.
+  // Использует `entries.filter`, `renderList`, `$`.
   function render() {
     const active = entries.filter(item => !item.completed), done = entries.filter(item => item.completed);
     renderList($("inboxList"), active);
@@ -89,6 +97,8 @@
     $("inboxCompletedSummary").textContent = "Выполненные · " + done.length;
   }
 
+  // Загружает сохранённые данные компонента с сервера в модуле Telegram Inbox.
+  // Использует `/api/inbox`.
   async function load() {
     if (state.view !== "orders" || loading || saving || document.hidden) return;
     const version = ++generation;
@@ -108,14 +118,20 @@
     } finally { loading = false; }
   }
 
+  // Возвращает фокус на действие конкретной задачи Inbox.
+  // Использует `rows.get`.
   function focusTask(id) {
     rows.get(id)?.querySelector("input").focus({ preventScroll: true });
   }
 
+  // Переводит фокус на доступную задачу после удаления строки.
+  // Обращается к DOM текущего документа или переданного контейнера.
   function focusRemaining() {
     ($("inboxList").querySelector("input") || (!$("inboxCompleted").hidden && $("inboxCompletedSummary")) || $("inboxTitle")).focus({ preventScroll: true });
   }
 
+  // Применяет подтверждённое частичное изменение к компоненту в модуле Telegram Inbox.
+  // Использует `/api/inbox-`.
   async function update(item, action, fields = {}) {
     if (saving) throw new Error("Дождись сохранения задачи Inbox");
     const focused = document.activeElement;
@@ -144,6 +160,8 @@
     return saved;
   }
 
+  // Сохраняет выполнение выбранной задачи Inbox с ожидаемой версией.
+  // Использует `entries.find`, `update`, `focusRemaining`.
   async function complete(id, completed) {
     const item = entries.find(entry => entry.id === id);
     if (!item) return;
@@ -152,12 +170,15 @@
     else focusTask(id);
   }
 
+  // Удаляет выбранную задачу или документ через API компонента.
+  // Использует `entries.find`, `update`, `focusRemaining`.
   async function remove(id) {
     const item = entries.find(entry => entry.id === id);
     if (!item) return;
     const removed = await update(item, "remove");
     focusRemaining();
-    notify("Задача удалена", false, { label: "Отменить", run: async () => {
+    notify("Задача удалена", false, { label: "Отменить", /* Выполняет сохранённое действие отмены или подтверждённую операцию компонента.
+     * Использует `update`, `$`, `focusTask`. */ run: async () => {
       const restored = await update(removed, "restore");
       if (restored.completed) $("inboxCompleted").open = true;
       focusTask(id);
@@ -165,6 +186,8 @@
     } });
   }
 
+  // Копирует точный текст задачи и сообщает результат пользователю.
+  // Подключает обработчики событий к существующим элементам компонента.
   async function copy(id) {
     const item = entries.find(entry => entry.id === id);
     if (!item) return;
@@ -180,6 +203,8 @@
         field.style.cssText = "position:fixed;left:-9999px;top:0";
         document.body.append(field);
         let copied = false;
+        // Копирует точный текст задачи и сообщает результат пользователю.
+        // Использует `event.clipboardData.setData`, `event.preventDefault`.
         const onCopy = event => {
           if (!event.clipboardData) return;
           event.clipboardData.setData("text/plain", item.text);
@@ -203,6 +228,8 @@
     } catch (_) { throw new Error("Не удалось скопировать текст. Выдели его и скопируй вручную"); }
   }
 
+  // Загружает задачи Telegram и файловый счётчик Inbox.
+  // Использует `Promise.all`, `load`, `loadFolder`.
   function loadAll() { return Promise.all([load(), loadFolder()]); }
   window.ManagerInbox = { load: loadAll };
   setInterval(loadAll, 5000);

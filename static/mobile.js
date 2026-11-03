@@ -1,7 +1,11 @@
 /* This panel only configures the Mac bridge; the phone is a native offline app. */
 (() => {
+  // Находит элемент интерфейса по устойчивому DOM-идентификатору.
+  // Обращается к DOM текущего документа или переданного контейнера.
   const byId = id => document.getElementById(id);
   let poll;
+  // Перечитывает данные открытого компонента по установленным правилам в модуле приостановленного обмена iPhone.
+  // Использует `/api/mobile-status`.
   async function refresh() {
     try {
       const response = await fetch('/api/mobile-status', { cache: 'no-store' });
@@ -15,6 +19,8 @@
       byId('mobileRefresh').disabled = !status.enabled || status.running;
     } catch (error) { byId('mobileStatus').textContent = error.message; }
   }
+  // Применяет подтверждённое частичное изменение к компоненту в модуле приостановленного обмена iPhone.
+  // Использует `/api/mobile-sync`.
   async function update(payload) {
     try {
       const response = await fetch('/api/mobile-sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });

@@ -10,6 +10,8 @@ TELEGRAM_CALENDAR_COMMANDS_VERSION = 1
 KIND = 'telegram_calendar_request'
 
 
+# Разбирает сохранённый строгий формат записи протокола.
+# При недопустимом состоянии возбуждает ValueError.
 def decode(row):
     data = json.loads(row['data'])
     if (not isinstance(data, dict) or type(data.get('version')) is not int or data['version'] != 1
@@ -20,6 +22,8 @@ def decode(row):
     return data
 
 
+# Сохраняет новый запрос календаря с устойчивой идентичностью сообщения.
+# Работает с таблицами metadata_records, metadata_settings.
 def enqueue(db, bot, chat, message):
     path = f"telegram-calendar:{bot}:{chat}:{message['message_id']}"
     existing = db.execute('SELECT * FROM metadata_records WHERE kind=? AND path=?', (KIND, path)).fetchone()
@@ -33,12 +37,16 @@ def enqueue(db, bot, chat, message):
     db.execute("INSERT OR REPLACE INTO metadata_settings VALUES ('telegram_calendar_commands','1')")
 
 
+# Меняет состояние существующего запроса с проверкой версии.
+# Работает с таблицами metadata_records.
 def update(db, row, data):
     audit(db, 'metadata_records')
     db.execute('UPDATE metadata_records SET data=?,revision=revision+1,updated=? WHERE id=? AND revision=?',
                (json.dumps(data, ensure_ascii=False), time.time(), row['id'], row['revision']))
 
 
+# Обрабатывает ожидающий запрос календаря без автоматического повтора sending.
+# Работает с таблицами metadata_records.
 def process(store, data_dir, sender):
     if not telegram.SEND_LOCK.acquire(blocking=False):
         return

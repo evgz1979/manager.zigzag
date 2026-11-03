@@ -12,21 +12,29 @@ from folder_structure import folder_role, section_prefix, is_print_section, in_f
 LOCK = threading.RLock()
 
 
+# Обозначает конфликт изменения в этом модуле.
+# Вызывающий обработчик использует тип исключения для отказа без подмены данных.
 class OrderFolderConflict(ValueError):
     pass
 
 
+# Проверяет допустимую клиентскую область для создания папок.
+# Возвращает `{'service_roots': [Path(*prefix).as_posix()]} if prefix else {}`.
 def layout_scope(relative):
     prefix = section_prefix(relative)
     return {"service_roots": [Path(*prefix).as_posix()]} if prefix else {}
 
 
+# Распознаёт контейнер года внутри объекта клиента.
+# Формирует возвращаемое значение из проверенного локального состояния.
 def year_container(root, relative):
     parts = Path(relative).parts
     return bool(parts and YEAR.fullmatch(parts[-1]) and folder_role(root,relative)["folderKind"]=="year"
                 and folder_role(root,Path(relative).parent.as_posix())["folderKind"]=="object")
 
 
+# Читает допустимые группы годов выбранного объекта.
+# Формирует возвращаемое значение из проверенного локального состояния.
 def year_groups(root, relative):
     parent = Path(root)/relative
     return [item.name for item in parent.iterdir() if YEAR.fullmatch(item.name)
@@ -34,6 +42,8 @@ def year_groups(root, relative):
             and folder_role(root,item.relative_to(root).as_posix())["folderKind"]=="year"]
 
 
+# Создаёт объект клиента после проверки имени и отсутствия назначения.
+# При недопустимом состоянии возбуждает ValueError, OrderFolderConflict.
 def create_object(root, relative, title):
     root = Path(root).resolve()
     if not isinstance(relative,str) or not Path(relative).parts or any(p.startswith('.') for p in Path(relative).parts):
@@ -61,6 +71,8 @@ def create_object(root, relative, title):
         return {"path":path,"name":name,"journal":session.relative_to(root).as_posix()}
 
 
+# Создаёт новый объект после проверки области и входных данных.
+# При недопустимом состоянии возбуждает ValueError, FileNotFoundError, OrderFolderConflict.
 def create(root, relative, order_date, title, *, store=None):
     root = Path(root).resolve()
     if store and store.root.resolve() != root:

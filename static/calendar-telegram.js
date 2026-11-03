@@ -1,28 +1,40 @@
 /* Capture a detached copy: sending never scrolls or focuses the live calendar. */
 (() => {
+  // Находит элемент интерфейса по устойчивому DOM-идентификатору.
+  // Обращается к DOM текущего документа или переданного контейнера.
   const get = (id) => document.getElementById(id);
   const dialog = get("calendarTelegramSettings");
   let settingsBusy = false;
+  // Читает безопасное состояние подключения Telegram для интерфейса.
+  // Использует `/api/calendar-telegram-settings`.
   async function readSettings() {
     const response = await fetch("/api/calendar-telegram-settings");
     if (!response.ok) throw new Error("Не удалось проверить настройку Telegram на M4");
     return response.json();
   }
+  // Показывает текущие параметры и ошибки настройки Telegram.
+  // Использует `get`, `dialog.showModal`.
   function showSettings(current) {
     const connected = get("calendarTelegramConnected");
     connected.hidden = !current.configured;
     connected.textContent = current.configured ? "Подключён: @" + (current.bot_username || "бот календаря") + " · чат " + current.chat_id : "";
     if (!dialog.open) dialog.showModal();
   }
+  // Открывает окно настройки бота и личного чата.
+  // Использует `showSettings`, `readSettings`, `notify`.
   async function openSettings() {
     try { showSettings(await readSettings()); }
     catch (error) { notify(error.message, true); }
   }
+  // Блокирует действия формы на время текущего запроса.
+  // Обращается к DOM текущего документа или переданного контейнера.
   function setSettingsBusy(value) {
     settingsBusy = value;
     for (const control of dialog.querySelectorAll("input, select, button")) control.disabled = value;
     dialog.setAttribute("aria-busy", String(value));
   }
+  // Отправляет запрос серверу и преобразует HTTP-ошибку в исключение интерфейса.
+  // Использует `/api/calendar-telegram-settings`.
   async function settingsRequest(action) {
     const response = await fetch("/api/calendar-telegram-settings", {
       method: "POST", headers: { "Content-Type": "application/json", "X-Manager-Calendar": "1" },

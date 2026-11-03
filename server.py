@@ -88,6 +88,8 @@ PRINT_TEXT_EXTENSIONS = {".txt", ".text", ".md", ".rtf", ".textclipping", ""}
 MAX_PRINT_BYTES = 2 * 1024 * 1024
 
 
+# Читает INI и допустимые переопределения окружения, разрешая путь корня.
+# При недопустимом состоянии возбуждает ValueError.
 def read_config(path=CONFIG_FILE):
     config = configparser.ConfigParser(interpolation=None)
     if not config.read(path, encoding="utf-8"):
@@ -134,32 +136,46 @@ TEXT_EXTENSIONS = {".txt", ".md", ".csv", ".tsv", ".json", ".ini", ".log", ".yam
 BROWSER_IMAGES = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif", ".bmp", ".svg"}
 
 
+# Получает экземпляр отдельного кеша миниатюр текущего корня.
+# Возвращает `thumbnail_cache.ThumbnailCache(root, data_dir)`.
 @lru_cache(maxsize=8)
 def _thumbnail_store(root, data_dir):
     return thumbnail_cache.ThumbnailCache(root, data_dir)
 
 
+# Получает экземпляр отдельного кеша миниатюр текущего корня.
+# Возвращает `_thumbnail_store(DATA_ROOT, DATA_DIR)`.
 def thumbnail_store():
     return _thumbnail_store(DATA_ROOT, DATA_DIR)
 
 
+# Нормализует Unicode для устойчивого сравнения имён.
+# Возвращает `unicodedata.normalize('NFC', value).casefold()`.
 def normalized(value):
     return unicodedata.normalize("NFC", value).casefold()
 
 
+# Строит нормализованное представление имени служебной папки.
+# Возвращает `normalized(name[1:].strip()) if name.startswith('#') else None`.
 def hash_folder_name(name):
     return normalized(name[1:].strip()) if name.startswith("#") else None
 
 
+# Нормализует текст для нечувствительного к регистру поиска.
+# Возвращает `re.sub('#\\s*', '#', normalized(value))`.
 def search_text(value):
     return re.sub(r"#\s*", "#", normalized(value))
 
 
+# Проверяет, относится ли папка к редактируемым заданиям печати.
+# Возвращает `len(parts) >= 2 and hash_folder_name(parts[0]) == 'work' and (hash_folder_name(parts[1]) == 'print')`.
 def is_print_folder(relative):
     parts = Path(relative).parts
     return len(parts) >= 2 and hash_folder_name(parts[0]) == "work" and hash_folder_name(parts[1]) == "print"
 
 
+# Проверяет допустимую цель задания печати и её привязку.
+# При недопустимом состоянии возбуждает ValueError, FileNotFoundError.
 def print_target(relative, file=False):
     guard_database(order_store().database, relative)
     target = safe_path(relative)
@@ -178,10 +194,14 @@ def print_target(relative, file=False):
     return target
 
 
+# Обозначает конфликт изменения в этом модуле.
+# Вызывающий обработчик использует тип исключения для отказа без подмены данных.
 class PrintConflict(ValueError):
     pass
 
 
+# Преобразует текст задания между RTF и обычным текстом.
+# Запускает внешний процесс; параметры и ограничения заданы в теле функции.
 def text_from_rtf(value):
     raw = value.encode("utf-8") if isinstance(value, str) else value
     try:
@@ -192,6 +212,8 @@ def text_from_rtf(value):
         raise ValueError("Не удалось прочитать текст задания")
 
 
+# Преобразует текст задания между RTF и обычным текстом.
+# Возвращает `'{\\rtf1\\ansi\\ansicpg1251\\uc1 ' + ''.join(escaped) + '}'`.
 def text_to_rtf(text):
     escaped = []
     units = text.encode("utf-16-le")
@@ -210,6 +232,8 @@ def text_to_rtf(text):
     return "{\\rtf1\\ansi\\ansicpg1251\\uc1 " + "".join(escaped) + "}"
 
 
+# Преобразует байты задания печати в текст или обратно в исходный формат.
+# При недопустимом состоянии возбуждает ValueError.
 def decode_print_document(target, raw):
     extension = target.suffix.lower()
     if extension == ".textclipping":
@@ -237,6 +261,8 @@ def decode_print_document(target, raw):
     return text, encoding
 
 
+# Преобразует байты задания печати в текст или обратно в исходный формат.
+# При недопустимом состоянии возбуждает ValueError.
 def encode_print_document(target, text, encoding="utf-8", original=None):
     if target.suffix.lower() == ".textclipping":
         document = plistlib.loads(original) if original else {}
@@ -250,9 +276,13 @@ def encode_print_document(target, text, encoding="utf-8", original=None):
         raise ValueError("Этот файл не поддерживает введённые символы")
 
 
+# Разбирает название, ссылку и описание задания печати.
+# Возвращает `(lines[0].strip() if header_index else '', title, '\n'.join(remaining))`; либо `(link, lines[0].strip(), '\n'.join(remaining))`.
 def split_print_text(text):
     lines = text.replace("\r\n", "\n").split("\n")
 
+    # Проверяет ссылку без использования её цели для обхода документов.
+    # Возвращает `parsed.scheme.lower() in {'http', 'https'} and bool(parsed.netloc) and (not any((char.isspace() for char in line)))`.
     def is_link(line):
         parsed = urllib.parse.urlparse(line)
         return parsed.scheme.lower() in {"http", "https"} and bool(parsed.netloc) and not any(char.isspace() for char in line)
@@ -284,6 +314,8 @@ def split_print_text(text):
     return "", "", text
 
 
+# Собирает текст выпускаемого задания из проверенных полей.
+# При недопустимом состоянии возбуждает ValueError.
 def compose_print_text(link, description, title=""):
     if not all(isinstance(value, str) for value in (link, description, title)):
         raise ValueError("Укажите название, ссылку и описание текстом")
@@ -299,11 +331,15 @@ def compose_print_text(link, description, title=""):
     return text
 
 
+# Читает задание печати из действующего хранилища или прежнего файла.
+# Возвращает `_read_print_task(relative)`.
 def read_print_task(relative):
     with PRINT_LOCK:
         return _read_print_task(relative)
 
 
+# Читает задание печати из действующего хранилища или прежнего файла.
+# При недопустимом состоянии возбуждает ValueError.
 def _read_print_task(relative):
     if DATABASE_ONLY:
         if not isinstance(relative,str) or '\x00' in relative:
@@ -332,6 +368,8 @@ def _read_print_task(relative):
             "revision": hashlib.sha256(raw).hexdigest(), "modified": target.stat().st_mtime}
 
 
+# Подбирает свободное имя нового задания печати.
+# Возвращает `filename`; либо `name`.
 def next_print_name(folder):
     if DATABASE_ONLY:
         stem = "print - "+datetime.now(ZoneInfo("Europe/Moscow")).strftime("%Y-%m-%d")
@@ -353,6 +391,8 @@ def next_print_name(folder):
     return name
 
 
+# Создаёт новый черновик задания печати в выбранном разделе.
+# При недопустимом состоянии возбуждает ValueError.
 def create_print_task(relative, link, description, title=""):
     if DATABASE_ONLY:
         folder = print_target(relative)
@@ -389,6 +429,8 @@ def create_print_task(relative, link, description, title=""):
             return read_print_task(relative_path(target))
 
 
+# Сохраняет задание печати по версии открытого редактора.
+# При недопустимом состоянии возбуждает PrintConflict, ValueError.
 def save_print_task(relative, link, description, revision, title=None):
     if DATABASE_ONLY:
         with PRINT_LOCK:
@@ -433,23 +475,33 @@ def save_print_task(relative, link, description, revision, title=None):
         return read_print_task(relative)
 
 
+# Строит ключ стабильной сортировки файлов или папок интерфейса.
+# Возвращает `[(1, int(part)) if part.isdigit() else (0, normalized(part)) for part in re.split('(\\d+)', path.name)]`.
 def sort_key(path):
     return [(1, int(part)) if part.isdigit() else (0, normalized(part)) for part in re.split(r"(\d+)", path.name)]
 
 
+# Строит ключ стабильной сортировки файлов или папок интерфейса.
+# Возвращает `(not path.name.startswith('#'), sort_key(Path(name)))`.
 def directory_sort_key(path):
     name = "#" + path.name[1:].strip() if path.name.startswith("#") else path.name
     return (not path.name.startswith("#"), sort_key(Path(name)))
 
 
+# Строит ключ стабильной сортировки файлов или папок интерфейса.
+# Возвращает `tuple((directory_sort_key(Path(part)) for part in Path(relative_folder).parts))`.
 def folder_sort_key(relative_folder):
     return tuple(directory_sort_key(Path(part)) for part in Path(relative_folder).parts)
 
 
+# Отбирает видимые пользовательские записи без служебных скрытых файлов.
+# Возвращает `not path.name.startswith('.') and (not path.is_symlink())`.
 def visible(path):
     return not path.name.startswith(".") and not path.is_symlink()
 
 
+# Проверяет границы корня, допустимую область и компоненты пути.
+# При недопустимом состоянии возбуждает ValueError.
 def safe_path(relative_path=""):
     if not isinstance(relative_path, str):
         raise ValueError("Некорректный путь")
@@ -465,10 +517,14 @@ def safe_path(relative_path=""):
     return target
 
 
+# Преобразует путь в относительный ключ корня документов.
+# Возвращает `path.relative_to(DATA_ROOT).as_posix() if path != DATA_ROOT else ''`.
 def relative_path(path):
     return path.relative_to(DATA_ROOT).as_posix() if path != DATA_ROOT else ""
 
 
+# Проверяет точный файл для просмотра или редактирования комментария.
+# При недопустимом состоянии возбуждает ValueError, FileNotFoundError.
 def comment_file(relative):
     guard_database(order_store().database, relative)
     target = safe_path(relative)
@@ -479,6 +535,8 @@ def comment_file(relative):
     return target
 
 
+# Проверяет выбранные изображения и запускает создание PDF-отчёта.
+# При недопустимом состоянии возбуждает FileNotFoundError, ValueError.
 def create_image_report(relative, selected):
     folder = safe_path(relative)
     if not folder.is_dir():
@@ -504,10 +562,14 @@ def create_image_report(relative, selected):
     return {"path": relative_path(target), "name": target.name, "imageCount": len(items), "skippedCount": skipped, "pages": pages}
 
 
+# Читает допустимые непосредственные подпапки для дерева навигации.
+# Возвращает `sorted((item for item in path.iterdir() if visible(item) and item.is_dir()), key=directory_sort_key)`.
 def directory_children(path):
     return sorted((item for item in path.iterdir() if visible(item) and item.is_dir()), key=directory_sort_key)
 
 
+# Формирует один узел дерева с ролью и сохранёнными признаками папки.
+# Возвращает `{'name': path.name, 'path': relative_path(path), 'hasChildren': has_children}`.
 def folder_node(path):
     try:
         has_children = any(visible(item) and item.is_dir() for item in path.iterdir())
@@ -516,14 +578,20 @@ def folder_node(path):
     return {"name": path.name, "path": relative_path(path), "hasChildren": has_children}
 
 
+# Строит выбранный участок дерева с учётом поиска и неактивных путей.
+# При недопустимом состоянии возбуждает FileNotFoundError.
 def read_tree(relative="", query="", show_inactive=False):
     target = safe_path(relative)
     if not target.is_dir():
         raise FileNotFoundError("Папка данных не найдена. Проверьте manager.ini")
     inactive = inactive_paths()
+    # Получает допустимых непосредственных потомков узла дерева.
+    # Возвращает `[item for item in directory_children(path) if show_inactive or not is_inactive(relative_path(item), inactive)]`.
     def children_of(path):
         return [item for item in directory_children(path)
                 if show_inactive or not is_inactive(relative_path(item), inactive)]
+    # Формирует узел текущего обхода дерева папок.
+    # Возвращает `{**folder_node(path), 'inactive': is_inactive(relative_path(path), inactive)}`.
     def node_of(path):
         return {**folder_node(path), "inactive": is_inactive(relative_path(path), inactive)}
     children = children_of(target)
@@ -536,6 +604,8 @@ def read_tree(relative="", query="", show_inactive=False):
     if query:
         needle = search_text(query.strip())
 
+        # Рекурсивно оставляет только совпавшие с поиском ветви дерева.
+        # Возвращает `node`; либо `None`.
         def matching_node(path):
             node = node_of(path)
             try:
@@ -563,10 +633,14 @@ def read_tree(relative="", query="", show_inactive=False):
             "children": nodes, "groups": groups, "auxiliary": auxiliary}
 
 
+# Определяет группу файла по поддерживаемому расширению.
+# Возвращает `next((group for (group, extensions) in EXT_GROUPS.items() if path.suffix.lower() in extensions), 'other')`.
 def file_group(path):
     return next((group for group, extensions in EXT_GROUPS.items() if path.suffix.lower() in extensions), "other")
 
 
+# Выбирает просмотрщик по расширению документа.
+# Возвращает `'spreadsheet'`; либо `'image'`.
 def preview_kind(path):
     ext = path.suffix.lower()
     if ext in spreadsheet_preview.EXTENSIONS:
@@ -584,6 +658,8 @@ def preview_kind(path):
     return "native"
 
 
+# Читает прежний app-local JSON статусов для отдельной миграции.
+# При недопустимом состоянии возбуждает ValueError.
 def load_legacy_statuses():
     if not STATUSES_FILE.exists():
         return {}
@@ -593,6 +669,8 @@ def load_legacy_statuses():
     return records
 
 
+# Находит прежнюю карточку и выполняет файловую нормализацию совместимости.
+# При недопустимом состоянии возбуждает ValueError.
 def status_document(folder):
     target = folder / STATUS_DOCUMENT_NAME
     with STATUS_LOCK:
@@ -615,6 +693,8 @@ def status_document(folder):
     return target
 
 
+# Читает поля прежней файловой карточки для совместимого сценария.
+# Возвращает `{}`; либо `result`.
 def read_status_document(folder, *, include_registration=False, include_todos=False):
     target = status_document(folder)
     if not target.exists():
@@ -629,6 +709,8 @@ def read_status_document(folder, *, include_registration=False, include_todos=Fa
     return result
 
 
+# Записывает прежнюю файловую карточку в совместимом режиме.
+# При недопустимом состоянии возбуждает ValueError.
 def write_status_document(folder, status, note, financial_status=None, todo_items=order_document.UNSET_TODOS,
                           purchase_items=order_document.UNSET_TODOS):
     with STATUS_LOCK:
@@ -653,6 +735,8 @@ def write_status_document(folder, status, note, financial_status=None, todo_item
         order_document.atomic_write(target, order_document.render(record, STATUS_LABELS))
 
 
+# Проверяет папку перед прежним прямым редактированием статуса.
+# При недопустимом состоянии возбуждает ValueError.
 def editable_status_folder(relative):
     guard_database(order_store().database, relative)
     target = safe_path(relative)
@@ -663,6 +747,8 @@ def editable_status_folder(relative):
     return target
 
 
+# Переносит известные прежние статусы по правилам действующего хранилища.
+# Возвращает `None`; либо `{'migrated': migrated, 'unresolved': unresolved, 'archive': str(archive)}`.
 def migrate_statuses():
     """Move old app-local records into readable files without replacing local edits."""
     with STATUS_LOCK:
@@ -713,28 +799,40 @@ def migrate_statuses():
         return {"migrated": migrated, "unresolved": unresolved, "archive": str(archive)}
 
 
+# Создаёт хранилище заказов текущего корня и режима сервера.
+# Возвращает `OrderStore(DATA_ROOT, DATA_DIR, STATUS_LABELS, database_only=DATABASE_ONLY)`.
 def order_store():
     return OrderStore(DATA_ROOT, DATA_DIR, STATUS_LABELS,database_only=DATABASE_ONLY)
 
 
+# Создаёт адаптер основных метаданных поверх хранилища заказов.
+# Возвращает `MetadataStore(order_store())`.
 def metadata_store():
     return MetadataStore(order_store())
 
 
+# Читает комментарий через выбранный режим хранения.
+# Возвращает `metadata_store().comment(file) if DATABASE_ONLY else file_comments.read(file)`.
 def read_file_comment(file):
     return metadata_store().comment(file) if DATABASE_ONLY else file_comments.read(file)
 
 
+# Создаёт адаптер счетов текущей базы и каталога приложения.
+# Возвращает `invoices.InvoiceStore(order_store(), APP_DIR)`.
 def invoice_store():
     return invoices.InvoiceStore(order_store(), APP_DIR)
 
 
+# Планирует старый мобильный обмен только при разрешённом режиме.
+# Координирует фоновые потоки через локальные события или блокировки.
 def schedule_mobile_sync():
     if DATABASE_ONLY:
         return
     threading.Thread(target=MobileBridge(order_store()).run, daemon=True).start()
 
 
+# Выполняет старый мобильный цикл; при SQLite-only завершается сразу.
+# Координирует фоновые потоки через локальные события или блокировки.
 def mobile_sync_worker():
     if DATABASE_ONLY:
         return
@@ -750,12 +848,16 @@ SCAN_LOCK = threading.Lock()
 SCAN_STATE = {"running": False, "folders": 0, "added": 0, "errors": []}
 
 
+# Запускает один явный фоновый поиск заказов и возвращает его состояние.
+# Координирует фоновые потоки через локальные события или блокировки.
 def discover_orders():
     with SCAN_LOCK:
         if SCAN_STATE["running"]:
             return dict(SCAN_STATE)
         SCAN_STATE.update(running=True, folders=0, added=0, errors=[])
 
+    # Выполняет фоновое обнаружение и завершает состояние задания даже при ошибке.
+    # Передаёт работу `order_store().discover`, `order_store`, `SCAN_STATE['errors'].append`.
     def work():
         try:
             order_store().discover(read_status_document, SCAN_STATE)
@@ -770,7 +872,11 @@ def discover_orders():
     return dict(SCAN_STATE)
 
 
+# Запускает фоновую обработку очередей хранилищ и документов.
+# Координирует фоновые потоки через локальные события или блокировки.
 def schedule_order_sync():
+    # Обрабатывает сохранённую очередь синхронизации или публикации.
+    # Передаёт работу `order_store().sync`, `order_store`, `folder_note_store().sync`.
     def sync():
         order_store().sync()
         folder_note_store().sync()
@@ -782,10 +888,14 @@ def schedule_order_sync():
     threading.Thread(target=sync, daemon=True).start()
 
 
+# Создаёт адаптер заметок папок с прежним подготовщиком импорта.
+# Возвращает `FolderNotes(order_store(), status_document)`.
 def folder_note_store():
     return FolderNotes(order_store(), status_document)
 
 
+# Проверяет точный эскиз, папку заказа и привязку запроса.
+# При недопустимом состоянии возбуждает FolderNoteConflict.
 def sketch_target(relative, key=None):
     folder = sketches.folder_path(relative)
     target = comment_file(relative)
@@ -795,6 +905,8 @@ def sketch_target(relative, key=None):
     return target
 
 
+# Собирает метаданные непосредственных CDR и сохранённую актуальность.
+# Возвращает `sorted(result, key=lambda item: (sort_key(Path(item['name'])), item['folder']))`.
 def read_sketches(directories, warnings):
     result = []
     thumbnail_entries = []
@@ -834,18 +946,26 @@ def read_sketches(directories, warnings):
     return sorted(result, key=lambda item: (sort_key(Path(item["name"])), item["folder"]))
 
 
+# Создаёт адаптер индекса активности нужной роли папки.
+# Возвращает `ClientActivity(order_store(), STATUS_LOCK)`.
 def client_activity_store():
     return ClientActivity(order_store(), STATUS_LOCK)
 
 
+# Создаёт адаптер индекса активности нужной роли папки.
+# Возвращает `ObjectActivity(order_store(), STATUS_LOCK)`.
 def object_activity_store():
     return ObjectActivity(order_store(), STATUS_LOCK)
 
 
+# Читает множество неактивных путей из индекса базы.
+# Возвращает `client_activity_store().inactive_paths() | object_activity_store().inactive_paths()`.
 def inactive_paths():
     return client_activity_store().inactive_paths() | object_activity_store().inactive_paths()
 
 
+# Собирает главную сводку заказов, событий, планов и задач из SQLite.
+# Формирует возвращаемое значение из проверенного локального состояния.
 def listed_orders():
     store = order_store()
     activity = client_activity_store()
@@ -862,6 +982,8 @@ def listed_orders():
             "storage":metadata_store().status() if DATABASE_ONLY else {"database_only":False}}
 
 
+# Собирает и отправляет календарь для команды бота без браузера пользователя.
+# Возвращает `telegram_calendar.send(image, start, DATA_DIR, through=through, todo_text=calendar_todos.digest(snapshot, start, through))`.
 def send_calendar_command():
     from datetime import datetime, timezone
     now = datetime.now(timezone.utc)
@@ -872,10 +994,14 @@ def send_calendar_command():
                                   todo_text=calendar_todos.digest(snapshot, start, through))
 
 
+# Собирает список заказов выбранного объекта по сохранённому каталогу.
+# Возвращает `object_orders.ObjectOrders(order_store()).read(relative, inactive=inactive_paths(), show_inactive=show_inactive)`.
 def listed_object_orders(relative, show_inactive=False):
     return object_orders.ObjectOrders(order_store()).read(relative, inactive=inactive_paths(), show_inactive=show_inactive)
 
 
+# Собирает список производственного раздела по сохранённому каталогу.
+# Возвращает `WorkOrderList(order_store()).read(relative)`.
 def listed_work_orders(relative):
     return WorkOrderList(order_store()).read(relative)
 
@@ -883,6 +1009,8 @@ def listed_work_orders(relative):
 METADATA_REFRESH = threading.Event()
 
 
+# Выполняет первоначальный импорт, восстановление намерений и резервные снимки.
+# Передаёт работу `METADATA_REFRESH.clear`, `metadata_store().backup`, `metadata_store`.
 def metadata_worker():
     if not DATABASE_ONLY:
         return
@@ -903,6 +1031,8 @@ def metadata_worker():
         refresh = METADATA_REFRESH.wait(60)
 
 
+# Обновляет индексы активности, сохраняя последние данные при ошибках.
+# Координирует фоновые потоки через локальные события или блокировки.
 def client_activity_worker():
     # File markers are authoritative once exported. Failed reads retain the index.
     while True:
@@ -919,6 +1049,8 @@ TODO_REFRESH_PATHS = set()
 TODO_REFRESH_LOCK = threading.Lock()
 
 
+# Сигнализирует фоновому работнику о явном обновлении задач.
+# Передаёт работу `TODO_REFRESH_PATHS.add`, `TODO_REFRESH.set`.
 def schedule_todo_refresh(relative=None):
     if relative:
         with TODO_REFRESH_LOCK:
@@ -926,6 +1058,8 @@ def schedule_todo_refresh(relative=None):
     TODO_REFRESH.set()
 
 
+# Обновляет каталог вложенных задач вне обработчика обычного опроса.
+# Передаёт работу `TODO_REFRESH.clear`, `tuple`, `TODO_REFRESH_PATHS.clear`.
 def order_todo_worker():
     while True:
         TODO_REFRESH.clear()
@@ -939,6 +1073,8 @@ def order_todo_worker():
         TODO_REFRESH.wait(300)
 
 
+# Повторяет обработку очередей документов с установленной паузой.
+# Координирует фоновые потоки через локальные события или блокировки.
 def order_sync_worker():
     while True:
         try:
@@ -954,6 +1090,8 @@ def order_sync_worker():
         threading.Event().wait(15)
 
 
+# Выбирает сохранённое состояние папки для текущего представления.
+# Возвращает `{**role, 'service': True, 'note': read_status_document(path).get('note', ''), 'statusSource': 'manual'}`.
 def folder_status(path, directories):
     relative = relative_path(path)
     role = folder_role(DATA_ROOT, relative)
@@ -1007,6 +1145,8 @@ def folder_status(path, directories):
             "statusSource": "manual" if record.get("status") else "auto"}
 
 
+# Лениво выбирает обложку задания фрезеровки при явном запросе.
+# При недопустимом состоянии возбуждает ValueError, FileNotFoundError.
 def freza_preview_target(relative):
     """Select a cover lazily; listing tasks never reads attachment contents."""
     parts = Path(relative).parts
@@ -1030,6 +1170,8 @@ def freza_preview_target(relative):
     raise FileNotFoundError("В задании пока нет изображения или CDR для превью")
 
 
+# Собирает представление открытой папки с учётом её роли и разрешённых чтений.
+# Работает с таблицами metadata_records.
 def read_folder(relative="", show_inactive=False):
     target = safe_path(relative)
     if not target.is_dir():
@@ -1055,6 +1197,8 @@ def read_folder(relative="", show_inactive=False):
     hide_files = files_scope != "folder"
     folder_count = len(directories) if hide_files or print_view else 0
 
+    # Сохраняет ошибку обхода, не выдавая неполный результат за полный.
+    # Передаёт работу `warnings.append`.
     def walk_error(error):
         warnings.append(f"Не удалось прочитать папку: {error.filename}")
 
@@ -1197,6 +1341,8 @@ def read_folder(relative="", show_inactive=False):
             **status}
 
 
+# Записывает статус через прежнюю файловую ветку совместимости.
+# При недопустимом состоянии возбуждает ValueError, OrderConflict.
 def save_status(relative, status, note, financial_status=None, todo_items=order_document.UNSET_TODOS,
                 purchase_items=order_document.UNSET_TODOS):
     target = editable_status_folder(relative)
@@ -1216,6 +1362,8 @@ def save_status(relative, status, note, financial_status=None, todo_items=order_
         write_status_document(target, status, note, financial_status, todo_items, purchase_items)
 
 
+# Сохраняет заметку выбранной папки через предусмотренный формат хранения.
+# При недопустимом состоянии возбуждает FolderNoteConflict, ValueError, OrderConflict.
 def save_note(relative, note):
     if folder_note_store().get(relative):
         raise FolderNoteConflict("Заметка папки теперь ведётся в базе. Обновите страницу, сохранив введённый текст")
@@ -1242,6 +1390,8 @@ def save_note(relative, note):
         order_document.atomic_write(target / STATUS_DOCUMENT_NAME, order_document.render(record, STATUS_LABELS))
 
 
+# Готовит уменьшенное представление изображения без изменения оригинала.
+# Запускает внешний процесс; параметры и ограничения заданы в теле функции.
 def image_preview(target):
     if target.suffix.lower() == ".svg":
         return target
@@ -1266,6 +1416,8 @@ def image_preview(target):
     return preview
 
 
+# Получает собранный помощник просмотра PDF.
+# При недопустимом состоянии возбуждает ValueError.
 def pdf_renderer():
     with PDF_BUILD_LOCK:
         try:
@@ -1274,11 +1426,15 @@ def pdf_renderer():
             raise ValueError("Не удалось запустить просмотр PDF. Откройте файл на Mac.") from error
 
 
+# Вычисляет ключ кеша конкретной версии PDF.
+# Возвращает `hashlib.sha256(f'{target}:{stat.st_mtime_ns}:{stat.st_size}'.encode()).hexdigest()`.
 def pdf_key(target):
     stat = target.stat()
     return hashlib.sha256(f"{target}:{stat.st_mtime_ns}:{stat.st_size}".encode()).hexdigest()
 
 
+# Преобразует сбой PDF в сообщение для интерфейса просмотра.
+# Возвращает `line.removeprefix('ZIGZAG_PDF_ERROR: ').strip() or fallback`; либо `fallback`.
 def pdf_error(stderr, fallback):
     for line in stderr.decode("utf-8", errors="replace").splitlines():
         if line.startswith("ZIGZAG_PDF_ERROR: "):
@@ -1286,6 +1442,8 @@ def pdf_error(stderr, fallback):
     return fallback
 
 
+# Проверяет источник PDF счёта для общего просмотрщика.
+# Возвращает `target`.
 def invoice_pdf_target(path, identity):
     # Always authorize through SQLite, even if these immutable bytes are cached.
     body, _ = invoice_store().pdf(path, identity)
@@ -1307,6 +1465,8 @@ def invoice_pdf_target(path, identity):
     return target
 
 
+# Читает число страниц и свойства PDF через ограниченный помощник.
+# Запускает внешний процесс; параметры и ограничения заданы в теле функции.
 def pdf_info(target):
     if target.suffix.lower() != ".pdf":
         raise ValueError("Выберите PDF")
@@ -1323,6 +1483,8 @@ def pdf_info(target):
     return PDF_INFO_CACHE[key]
 
 
+# Возвращает изображение выбранной страницы PDF из кеша или рендера.
+# Запускает внешний процесс; параметры и ограничения заданы в теле функции.
 def pdf_page(target, page):
     if not 0 <= page < pdf_info(target)["pages"]:
         raise ValueError("Страница не найдена")
@@ -1344,10 +1506,16 @@ def pdf_page(target, page):
     return preview
 
 
+# Обслуживает LAN-запросы менеджера и маршрутизирует действия приложения.
+# Основные операции: log_message, send_json, send_invoice_pdf, send_invoice_document, send_file; остальные описаны у методов.
 class ManagerHandler(BaseHTTPRequestHandler):
+    # Записывает предусмотренное диагностическое сообщение обработчика.
+    # Выполняет локальные проверки или меняет только переданные структуры данных.
     def log_message(self, format, *args):
         return
 
+    # Отправляет JSON с указанным HTTP-статусом и заголовками.
+    # Передаёт работу `json.dumps(payload, ensure_ascii=False).encode`, `json.dumps`, `self.send_response`.
     def send_json(self, payload, status=200, head=False):
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
@@ -1358,9 +1526,13 @@ class ManagerHandler(BaseHTTPRequestHandler):
         if not head:
             self.wfile.write(body)
 
+    # Выдаёт PDF счёта с проверкой владельца и режима запроса.
+    # Передаёт работу `self.send_invoice_document`.
     def send_invoice_pdf(self, body, name, head=False, download=False):
         self.send_invoice_document(body, name, 'application/pdf', head=head, download=download)
 
+    # Выдаёт байты вложения счёта с проверкой принадлежности.
+    # Передаёт работу `self.send_response`, `self.send_header`, `urllib.parse.quote`.
     def send_invoice_document(self, body, name, mime, head=False, download=False):
         self.send_response(200)
         self.send_header("Content-Type", mime)
@@ -1373,6 +1545,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
         if not head:
             self.wfile.write(body)
 
+    # Передаёт проверенный файл или статический ресурс в HTTP-ответе.
+    # При недопустимом состоянии возбуждает FileNotFoundError.
     def send_file(self, target, head=False, download=False, allow_range=False, private=False):
         if not target.is_file():
             raise FileNotFoundError("Файл не найден")
@@ -1428,6 +1602,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.wfile.write(chunk)
                 remaining -= len(chunk)
 
+    # Выбирает обработчик GET/HEAD по разобранному маршруту.
+    # При недопустимом состоянии возбуждает FileNotFoundError, ValueError.
     def handle_get(self, head=False):
         parsed = urllib.parse.urlparse(self.path)
         query = urllib.parse.parse_qs(parsed.query)
@@ -1612,12 +1788,18 @@ class ManagerHandler(BaseHTTPRequestHandler):
         except sqlite3.Error:
             self.send_json({'error': 'Локальная база временно недоступна'}, 503, head=head)
 
+    # Обслуживает GET через проверки и маршрутизацию текущего обработчика.
+    # Передаёт работу `self.handle_get`.
     def do_GET(self):
         self.handle_get()
 
+    # Обслуживает HEAD с теми же ограничениями доступа, что GET.
+    # Передаёт работу `self.handle_get`.
     def do_HEAD(self):
         self.handle_get(head=True)
 
+    # Принимает загрузку файла с привязкой к открытой папке.
+    # При недопустимом состоянии возбуждает ValueError.
     def receive_upload(self):
         self.close_connection = True
         try:
@@ -1654,6 +1836,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
         except OSError as error:
             self.send_json({'error':'Не удалось сохранить файл на M4: '+str(error)},500)
 
+    # Проверяет общий снимок календаря перед подтверждённой отправкой боту.
+    # При недопустимом состоянии возбуждает ValueError.
     def receive_calendar_telegram(self):
         self.close_connection = True
         acquired = False
@@ -1717,6 +1901,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
             if acquired:
                 telegram_calendar.SEND_LOCK.release()
 
+    # Обрабатывает проверку и сохранение настроек Telegram.
+    # При недопустимом состоянии возбуждает ValueError.
     def receive_telegram_settings(self):
         self.close_connection = True
         acquired = False
@@ -1755,6 +1941,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
             if acquired:
                 telegram_calendar.SEND_LOCK.release()
 
+    # Проверяет и маршрутизирует запрос изменения данных текущего обработчика.
+    # Запускает внешний процесс; параметры и ограничения заданы в теле функции.
     def do_POST(self):
         if urllib.parse.urlsplit(self.path).path == '/api/calendar-telegram-settings':
             self.receive_telegram_settings()
@@ -2221,6 +2409,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
             self.send_json({'error': 'Локальная база временно недоступна'}, 503)
 
 
+# Разбирает параметры запуска и выполняет основной сценарий программы.
+# Координирует фоновые потоки через локальные события или блокировки.
 def main():
     port = int(sys.argv[1]) if len(sys.argv) > 1 else SERVER_PORT
     if DATABASE_ONLY:

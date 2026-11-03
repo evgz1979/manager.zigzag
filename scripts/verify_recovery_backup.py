@@ -8,6 +8,8 @@ from pathlib import Path
 import sqlite3
 
 
+# Проверяет состав, хеши и SQLite-снимок выбранной резервной копии.
+# Работает с таблицами sqlite_master.
 def verify(directory):
     directory = Path(directory).resolve()
     manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))

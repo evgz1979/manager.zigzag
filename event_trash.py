@@ -23,6 +23,8 @@ EVENT_TRASH_VERSION = 1
 KIND = "supplier-event-trash"
 
 
+# Проверяет доступность операции для роли и состояния цели.
+# Возвращает `False`; либо `folder_rename.available(relative) and (not path.name.startswith('#')) and work_orders.supplier_order(path.parent.as_posix())`.
 def available(relative):
     if not isinstance(relative, str):
         return False
@@ -30,6 +32,8 @@ def available(relative):
     return folder_rename.available(relative) and not path.name.startswith('#') and work_orders.supplier_order(path.parent.as_posix())
 
 
+# Готовит проверяемое предложение операции без её выполнения.
+# Работает с таблицами orders.
 def preview(store, relative, db=None):
     if not available(relative):
         raise ValueError("Выбери событие внутри заказа поставщику")
@@ -41,6 +45,8 @@ def preview(store, relative, db=None):
         raise ValueError("В событии есть отдельная карточка заказа. Сначала убери её из регистрации и проверь данные")
     # Stat only: ordinary attachments are never downloaded or read for a preview.
     inventory = []
+    # Обходит разрешённые имена/метаданные для обновления фонового индекса.
+    # Передаёт работу `os.scandir`, `entry.stat`, `inventory.append`.
     def scan(directory):
         with os.scandir(directory) as entries:
             for entry in entries:
@@ -59,6 +65,8 @@ def preview(store, relative, db=None):
             'count': len(inventory), 'parent': Path(relative).parent.as_posix()}
 
 
+# Перемещает подтверждённую папку события поставщика с сохранением журнала и метаданных.
+# Работает с таблицами folder_renames.
 def remove(store, payload):
     if payload.get('confirmed') is not True:
         raise ValueError('Подтверди перенос события в корзину')
@@ -107,6 +115,8 @@ def remove(store, payload):
         return {'source': source, 'path': view['parent'], 'session': token}
 
 
+# Читает сохранённые сеансы корзины для интерфейса восстановления.
+# Работает с таблицами folder_renames.
 def list_sessions(store):
     with store.connect() as db:
         if not paths.table(db, 'folder_renames'):
@@ -120,6 +130,8 @@ def list_sessions(store):
         return sorted(result, key=lambda item: item['created'], reverse=True)
 
 
+# Возвращает папку события и связанные данные по сохранённому сеансу.
+# Работает с таблицами folder_renames.
 def restore(store, token):
     with LOCK, REFRESH_LOCK, orders.SYNC_LOCK, folder_notes.SYNC_LOCK:
         with store.connect() as db:

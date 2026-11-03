@@ -1,4 +1,4 @@
-"""Client visibility: readable folder marker, SQLite index and durable export queue."""
+"""Client visibility in SQLite, with initial legacy marker import and old export compatibility."""
 import json
 import threading
 from pathlib import Path
@@ -13,37 +13,53 @@ INACTIVE = "Неактивный"
 LOCK = threading.RLock()
 
 
+# Обозначает конфликт изменения в этом модуле.
+# Вызывающий обработчик использует тип исключения для отказа без подмены данных.
 class ClientActivityConflict(ValueError):
     pass
 
 
+# Извлекает распознанное значение состояния из исходного представления.
+# Возвращает `record.get('extra_blocks', {}).get(block)`.
 def value(record, block=BLOCK):
     return record.get("extra_blocks", {}).get(block)
 
 
+# Проверяет, соответствует ли значение известному формату состояния.
+# Возвращает `raw is None or raw.strip() in (ACTIVE, INACTIVE)`.
 def known(raw):
     return raw is None or raw.strip() in (ACTIVE, INACTIVE)
 
 
+# Поддерживает SQLite-индекс активности клиентов и совместимость прежних отметок.
+# Основные операции: __init__, connect, schema, record, matches; остальные описаны у методов.
 class ClientActivity:
     table = "client_activity"
     block = BLOCK
     entity = "клиента"
 
+    # Сохраняет зависимости и начальные параметры экземпляра.
+    # Состояние и зависимости сохраняются в полях self для последующих операций.
     def __init__(self, orders, lock=LOCK):
         self.orders = orders
         self.root = orders.root
         self.lock = lock
 
+    # Открывает соединение SQLite и управляет его временем жизни.
+    # Возвращает `self.orders.connect()`.
     def connect(self):
         return self.orders.connect()
 
+    # Создаёт отсутствующие таблицы и совместимые расширения схемы.
+    # Создаёт таблицу индекса активности с именем из доверенного cls.table.
     @classmethod
     def schema(cls, db):
         db.execute(f"""CREATE TABLE IF NOT EXISTS {cls.table} (
             path TEXT PRIMARY KEY, inactive INTEGER NOT NULL, revision INTEGER NOT NULL,
             exported_revision INTEGER NOT NULL, file_value TEXT NOT NULL, sync_error TEXT NOT NULL DEFAULT '')""")
 
+    # Преобразует строку SQLite в представление для вызывающего кода.
+    # Разбирает JSON; вызывающий код должен учитывать ошибки или неизвестный формат.
     def record(self,row):
         result = dict(row)
         result["inactive"] = bool(result["inactive"])
@@ -53,9 +69,13 @@ class ClientActivity:
             result.update(sync_pending=False,sync_error="",storage="database")
         return result
 
+    # Проверяет соответствие папки роли индексируемой сущности.
+    # Возвращает `client_path(path) == path`.
     def matches(self, path):
         return client_path(path) == path
 
+    # Находит допустимую существующую цель файловой операции.
+    # При недопустимом состоянии возбуждает ValueError, FileNotFoundError.
     def target(self, path):
         if not isinstance(path, str) or not path or "\x00" in path or Path(path).is_absolute() or Path(path).as_posix() != path or any(part.startswith(".") for part in Path(path).parts):
             raise ValueError(f"Отметка доступна только в карточке {self.entity}")
@@ -69,6 +89,8 @@ class ClientActivity:
             raise ValueError(f"Отметка доступна только в карточке {self.entity}")
         return target
 
+    # Читает сохранённую отметку активности одного пути.
+    # Возвращает `None`; либо `self.record(row) if row else None`.
     def get(self, path):
         if not self.orders.database.exists():
             return None
@@ -77,6 +99,8 @@ class ClientActivity:
             row = db.execute(f"SELECT * FROM {self.table} WHERE path=?", (path,)).fetchone()
             return self.record(row) if row else None
 
+    # Получает активность пути с допустимым первоначальным импортом отметки.
+    # Создаёт таблицу индекса активности с именем из доверенного cls.table.
     def read(self, path):
         with self.lock:
             if self.orders.database_only:
@@ -104,6 +128,8 @@ class ClientActivity:
                     (path, int(inactive), revision, revision, json.dumps(raw, ensure_ascii=False), error))
             return self.get(path)
 
+    # Сохраняет явное решение об активности клиента или объекта по версии.
+    # При недопустимом состоянии возбуждает ValueError, ClientActivityConflict.
     def save(self, payload):
         path, revision, inactive = payload.get("path"), payload.get("revision"), payload.get("inactive")
         if type(revision) is not int or type(inactive) is not bool:
@@ -125,6 +151,8 @@ class ClientActivity:
                            (int(inactive), path, revision))
         return self.get(path)
 
+    # Явно принимает файловую версию при разрешении прежнего конфликта активности.
+    # При недопустимом состоянии возбуждает ValueError, ClientActivityConflict.
     def accept_file(self, payload):
         """Explicit conflict resolution; never discard a pending decision on open."""
         if self.orders.database_only:
@@ -144,6 +172,8 @@ class ClientActivity:
                            (int(raw is not None and raw.strip() == INACTIVE), json.dumps(raw, ensure_ascii=False), path))
         return self.get(path)
 
+    # Читает множество неактивных путей из индекса базы.
+    # Возвращает `set()`; либо `{row[0] for row in db.execute(f'SELECT path FROM {self.table} WHERE inactive=1')}`.
     def inactive_paths(self):
         # Tree/list reads do not create a database or access iCloud cards.
         if not self.orders.database.exists():
@@ -152,12 +182,18 @@ class ClientActivity:
             self.schema(db)
             return {row[0] for row in db.execute(f"SELECT path FROM {self.table} WHERE inactive=1")}
 
+    # Отбирает заказы вне неактивных клиентов и объектов.
+    # Возвращает `[record for record in records if not is_inactive(record['path'], inactive)]`.
     def visible_orders(self, records):
         inactive = self.inactive_paths()
         return [record for record in records if not is_inactive(record["path"], inactive)]
 
+    # Обновляет индекс ролей папок без чтения вложений заказов.
+    # Передаёт работу `folders`, `is_catalog_group`, `candidate.relative_to(self.root).as_posix`.
     def refresh(self):
         """Only client cards, never order contents; retain index entries on read errors."""
+        # Перечисляет допустимые папки текущего ограниченного обхода.
+        # Возвращает `[item for item in parent.iterdir() if not item.name.startswith(('.', '#')) and (not item.is_symlink()) and item.is_dir()]`.
         def folders(parent):
             return [item for item in parent.iterdir() if not item.name.startswith((".", "#"))
                     and not item.is_symlink() and item.is_dir()]
@@ -174,11 +210,15 @@ class ClientActivity:
             except OSError as error:
                 print(f"Активность клиентов · {item.name}: {error}", flush=True)
 
+    # Записывает ошибку обработки для последующего показа или повтора.
+    # Передаёт работу `self.connect`, `self.schema`, `db.execute`.
     def error(self, path, problem):
         with self.connect() as db:
             self.schema(db)
             db.execute(f"UPDATE {self.table} SET sync_error=? WHERE path=?", (document.icloud_access.sync_error(problem), path))
 
+    # Обслуживает прежнюю файловую отметку только вне SQLite-only.
+    # При недопустимом состоянии возбуждает ClientActivityConflict.
     def sync(self):
         if self.orders.database_only:
             with self.connect() as db:
@@ -210,6 +250,8 @@ class ClientActivity:
                     self.error(row["path"], error)
 
 
+# Проверяет неактивность пути по границам компонентов без чтения документов.
+# Возвращает `any((path == parent or path.startswith(parent + '/') for parent in paths))`.
 def is_inactive(path, paths):
     """Проверка индекса по границам пути, без чтения документов."""
     return any(path == parent or path.startswith(parent + "/") for parent in paths)

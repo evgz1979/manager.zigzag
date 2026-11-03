@@ -21,10 +21,14 @@ HISTORY = Path('.folder-layout-history/.file-trash')
 PROTECTED = {'!.txt', '!order.txt', '!status.txt', '.order.json', 'status.txt', '.status.txt'}
 
 
+# Обозначает конфликт изменения в этом модуле.
+# Вызывающий обработчик использует тип исключения для отказа без подмены данных.
 class TrashConflict(ValueError):
     pass
 
 
+# Проверяет путь и ограничения допустимой операции.
+# При недопустимом состоянии возбуждает ValueError.
 def checked(root, relative, hidden=False):
     if not isinstance(relative, str) or '\x00' in relative:
         raise ValueError('Некорректный путь')
@@ -37,16 +41,22 @@ def checked(root, relative, hidden=False):
     return root / path
 
 
+# Вычисляет отпечаток метаданных объекта для проверки свежести.
+# Формирует возвращаемое значение из проверенного локального состояния.
 def fingerprint(path):
     value = path.lstat()
     return {'device': value.st_dev, 'inode': value.st_ino, 'kind': stat.S_IFMT(value.st_mode),
             'size': value.st_size, 'modified': value.st_mtime_ns}
 
 
+# Вычисляет версию файлового состояния для обнаружения изменений.
+# Возвращает `hashlib.sha256(json.dumps([fingerprint(path), path.lstat().st_ctime_ns], sort_keys=True).encode()).hexdigest()`.
 def revision(path):
     return hashlib.sha256(json.dumps([fingerprint(path), path.lstat().st_ctime_ns], sort_keys=True).encode()).hexdigest()
 
 
+# Сравнивает текущий объект с сохранённым отпечатком.
+# Возвращает `False`; либо `all((value[key] == expected[key] for key in keys))`.
 def same(path, expected):
     if not path.exists() or path.is_symlink():
         return False
@@ -55,6 +65,8 @@ def same(path, expected):
     return all(value[key] == expected[key] for key in keys)
 
 
+# Переименовывает объект без перезаписи существующего назначения.
+# При недопустимом состоянии возбуждает OSError.
 def rename(source, destination):
     function = ctypes.CDLL(None, use_errno=True).renamex_np
     function.argtypes = (ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint)
@@ -64,6 +76,8 @@ def rename(source, destination):
         raise OSError(error, os.strerror(error), str(destination))
 
 
+# Дописывает запись в устойчивый журнал операции.
+# Передаёт работу `datetime.now(ZoneInfo('Europe/Moscow')).isoformat`, `datetime.now`, `ZoneInfo`.
 def append(session, **record):
     record = {'time': datetime.now(ZoneInfo('Europe/Moscow')).isoformat(), **record}
     with (session / '.journal.jsonl').open('a', encoding='utf-8') as stream:
@@ -72,6 +86,8 @@ def append(session, **record):
         os.fsync(stream.fileno())
 
 
+# Сохраняет состояние плана корзины для продолжения после прерывания.
+# Передаёт работу `path.open`, `json.dump`, `os.fsync`.
 def save(path, value):
     with path.open('x', encoding='utf-8') as stream:
         json.dump(value, stream, ensure_ascii=False, indent=2)
@@ -80,6 +96,8 @@ def save(path, value):
         os.fsync(stream.fileno())
 
 
+# Готовит проверяемое предложение операции без её выполнения.
+# При недопустимом состоянии возбуждает FileNotFoundError, ValueError.
 def preview(root, folder, paths):
     root = Path(root).resolve()
     parent = checked(root, folder)
@@ -98,12 +116,16 @@ def preview(root, folder, paths):
     return {'folder': folder, 'files': items}
 
 
+# Проверяет путь конкретного сеанса журнала или корзины.
+# При недопустимом состоянии возбуждает ValueError.
 def session_path(root, token):
     if not isinstance(token, str) or not re.fullmatch('[a-f0-9]{32}', token):
         raise ValueError('Некорректный сеанс корзины')
     return checked(root, (HISTORY / ('.' + token)).as_posix(), hidden=True)
 
 
+# Читает и проверяет сохранённый план операции.
+# При недопустимом состоянии возбуждает ValueError.
 def read_plan(root, token, *, reader=None):
     session = session_path(root, token)
     plan_path = checked(root, (session.relative_to(root) / '.plan.json').as_posix(), hidden=True)
@@ -121,6 +143,8 @@ def read_plan(root, token, *, reader=None):
     return session, plan
 
 
+# Готовит краткое описание сохранённого сеанса для интерфейса.
+# Работает с таблицами metadata_file_moves.
 def describe(root, plan):
     pending = []
     removed = []
@@ -139,6 +163,8 @@ def describe(root, plan):
             'files': pending, 'count': len(pending), 'removed': removed}
 
 
+# Перепривязывает комментарии SQLite при журналируемом переносе файла.
+# Работает с таблицами metadata_file_moves, metadata_records.
 def database_move(plan, operation, *, restore=False, finish=False):
     """Durable comment relocation; also works from the standalone restore script."""
     if not plan.get('database') or operation['source']!=operation['file']:
@@ -168,6 +194,8 @@ def database_move(plan, operation, *, restore=False, finish=False):
             db.execute("UPDATE metadata_records SET path=?,revision=revision+1 WHERE kind='comment' AND path=?",(destination,source))
 
 
+# Журналируемо переносит подтверждённые файлы и связанные комментарии в корзину.
+# При недопустимом состоянии возбуждает ValueError, TrashConflict.
 def remove(root, folder, files, confirmed=False, database=None, *, token=None, invoice_id=None):
     root = Path(root).resolve()
     if confirmed is not True or not isinstance(files, list) or any(not isinstance(item, dict) for item in files):
@@ -228,6 +256,8 @@ def remove(root, folder, files, confirmed=False, database=None, *, token=None, i
         return resume(root, token)
 
 
+# Завершает подготовленный перенос после сбоя без перезаписи сторон.
+# При недопустимом состоянии возбуждает TrashConflict.
 def resume(root, token):
     """Complete a prepared move without overwriting either side after interruption."""
     root = Path(root).resolve()
@@ -272,6 +302,8 @@ def resume(root, token):
             return result
 
 
+# Восстанавливает привязку копии счёта из самостоятельного журнала корзины.
+# Работает с таблицами invoices, invoice_history.
 def restore_invoice_record(plan):
     """Also runs from the copied standalone script, without importing the app."""
     if not plan.get('invoice_id') or not plan.get('database'):
@@ -293,6 +325,8 @@ def restore_invoice_record(plan):
         db.execute('UPDATE invoices SET data=?,revision=revision+1,updated=? WHERE id=?', (json.dumps(data, ensure_ascii=False), time.time(), row[0]))
 
 
+# Читает сохранённые сеансы корзины для интерфейса восстановления.
+# Возвращает `[]`; либо `sorted(result, key=lambda record: record['created'], reverse=True)`.
 def list_sessions(root, *, reader=None, errors=None):
     root = Path(root).resolve()
     folder = checked(root, HISTORY.as_posix(), hidden=True)
@@ -317,6 +351,8 @@ def list_sessions(root, *, reader=None, errors=None):
     return sorted(result, key=lambda record: record['created'], reverse=True)
 
 
+# Проверяет сеанс и возвращает файлы и комментарии без перезаписи назначения.
+# При недопустимом состоянии возбуждает TrashConflict.
 def restore(root, token):
     root = Path(root).resolve()
     with LOCK:

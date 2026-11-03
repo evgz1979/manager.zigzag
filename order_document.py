@@ -1,4 +1,4 @@
-"""A readable, extensible order document. This file alone can rebuild an order."""
+"""Legacy card parser and SQLite block codecs; old files cannot rebuild current working metadata."""
 import hashlib
 import json
 import os
@@ -29,12 +29,16 @@ PURCHASE_SUPPLIERS_VERSION = 1
 UNSET_TODOS = object()
 
 
+# Читает независимую отметку заказа без замены неизвестного значения.
+# Возвращает `False`; либо `{'да': True, 'нет': False}.get(blocks[FAVORITE_BLOCK].strip().casefold())`.
 def read_favorite(blocks):
     if FAVORITE_BLOCK not in blocks:
         return False
     return {"да": True, "нет": False}.get(blocks[FAVORITE_BLOCK].strip().casefold())
 
 
+# Сериализует одну отметку заказа, сохраняя остальные блоки.
+# При недопустимом состоянии возбуждает ValueError.
 def write_favorite(blocks, value):
     if type(value) is not bool:
         raise ValueError("Укажите состояние избранного: вкл или выкл")
@@ -43,6 +47,8 @@ def write_favorite(blocks, value):
     return {**blocks, FAVORITE_BLOCK: "Да" if value else "Нет"}
 
 
+# Читает независимую отметку заказа без замены неизвестного значения.
+# Возвращает `False`; либо `{'да': True, 'нет': False}.get(value.strip().casefold()) if isinstance(value, str) else None`.
 def read_flag(blocks):
     if FLAG_BLOCK not in blocks:
         return False
@@ -50,6 +56,8 @@ def read_flag(blocks):
     return {"да": True, "нет": False}.get(value.strip().casefold()) if isinstance(value, str) else None
 
 
+# Сериализует одну отметку заказа, сохраняя остальные блоки.
+# При недопустимом состоянии возбуждает ValueError.
 def write_flag(blocks, value):
     if type(value) is not bool:
         raise ValueError("Укажи состояние флажка: вкл или выкл")
@@ -58,6 +66,8 @@ def write_flag(blocks, value):
     return {**blocks, FLAG_BLOCK: "Да" if value else "Нет"}
 
 
+# Читает независимую отметку заказа без замены неизвестного значения.
+# Возвращает `False`; либо `{'да': True, 'нет': False}.get(value.strip().casefold()) if isinstance(value, str) else None`.
 def read_blue_plus(blocks):
     if BLUE_PLUS_BLOCK not in blocks:
         return False
@@ -65,6 +75,8 @@ def read_blue_plus(blocks):
     return {"да": True, "нет": False}.get(value.strip().casefold()) if isinstance(value, str) else None
 
 
+# Сериализует одну отметку заказа, сохраняя остальные блоки.
+# При недопустимом состоянии возбуждает ValueError.
 def write_blue_plus(blocks, value):
     if type(value) is not bool:
         raise ValueError("Укажи состояние синего плюса: вкл или выкл")
@@ -73,6 +85,8 @@ def write_blue_plus(blocks, value):
     return {**blocks, BLUE_PLUS_BLOCK: "Да" if value else "Нет"}
 
 
+# Читает независимую отметку заказа без замены неизвестного значения.
+# Возвращает `False`; либо `{'да': True, 'нет': False}.get(value.strip().casefold()) if isinstance(value, str) else None`.
 def read_dollar(blocks):
     if DOLLAR_BLOCK not in blocks:
         return False
@@ -80,6 +94,8 @@ def read_dollar(blocks):
     return {"да": True, "нет": False}.get(value.strip().casefold()) if isinstance(value, str) else None
 
 
+# Сериализует одну отметку заказа, сохраняя остальные блоки.
+# При недопустимом состоянии возбуждает ValueError.
 def write_dollar(blocks, value):
     if type(value) is not bool:
         raise ValueError("Укажи состояние зелёного доллара: вкл или выкл")
@@ -88,6 +104,8 @@ def write_dollar(blocks, value):
     return {**blocks, DOLLAR_BLOCK: "Да" if value else "Нет"}
 
 
+# Проверяет допустимую структуру строк собственных задач.
+# При недопустимом состоянии возбуждает ValueError.
 def validate_todos(items):
     if not isinstance(items, list) or len(items) > 200:
         raise ValueError("В списке может быть не более 200 задач")
@@ -102,6 +120,8 @@ def validate_todos(items):
     return result
 
 
+# Разбирает задачи карточки, отличая пустой список от неизвестного текста.
+# Возвращает `None`; либо `validate_todos(items)`.
 def read_todos(blocks):
     body = blocks.get(TODO_BLOCK, "")
     items = []
@@ -118,12 +138,16 @@ def read_todos(blocks):
         return None
 
 
+# Сериализует задачи и сохраняет прочие дополнительные блоки.
+# Возвращает `result`.
 def write_todos(blocks, items):
     result = dict(blocks)
     result[TODO_BLOCK] = "\n".join("- [" + ("x" if item["done"] else " ") + "] " + item["text"] for item in validate_todos(items))
     return result
 
 
+# Проверяет допустимый ключ поставщика закупки.
+# Формирует возвращаемое значение из проверенного локального состояния.
 def valid_purchase_supplier(name):
     return (isinstance(name, str) and 0 < len(name) <= 200 and name == unicodedata.normalize("NFC", name).strip().casefold()
             and name not in {"etc", "—", ".", ".."} and not name.startswith(".")
@@ -131,6 +155,8 @@ def valid_purchase_supplier(name):
             and len(name.splitlines()) == 1)
 
 
+# Проверяет структуру закупок, их текст, выполнение и назначения.
+# При недопустимом состоянии возбуждает ValueError.
 def validate_purchases(items):
     result = validate_todos(items)
     for raw, item in zip(items, result):
@@ -142,6 +168,8 @@ def validate_purchases(items):
     return result
 
 
+# Разбирает закупки с сохранением признака неизвестного исходного формата.
+# Возвращает `None`; либо `validate_purchases(items)`.
 def read_purchases(blocks):
     items, has_suppliers = [], False
     for line in blocks.get(PURCHASE_BLOCK, "").splitlines():
@@ -163,6 +191,8 @@ def read_purchases(blocks):
         return None
 
 
+# Сериализует известные закупки и сохраняет прочие блоки карточки.
+# Возвращает `result`.
 def write_purchases(blocks, items):
     result = dict(blocks)
     result[PURCHASE_BLOCK] = "\n".join("- [" + ("x" if item["done"] else " ") + "] " + item["text"] +
@@ -170,12 +200,16 @@ def write_purchases(blocks, items):
     return result
 
 
+# Проверяет принадлежность закупки выбранному поставщику или etc.
+# Возвращает `not item['suppliers']`; либо `valid_purchase_supplier(supplier) and supplier in item['suppliers']`.
 def purchase_matches_supplier(item, supplier):
     if supplier == "etc":
         return not item["suppliers"]
     return valid_purchase_supplier(supplier) and supplier in item["suppliers"]
 
 
+# Меняет только исходный checkbox закупки, сохраняя формат остальных строк.
+# При недопустимом состоянии возбуждает ValueError.
 def write_purchase_done(blocks, index, text, supplier, done):
     """Change only the original checkbox; retain the rest of the stored block."""
     items = read_purchases(blocks)
@@ -197,6 +231,8 @@ def write_purchase_done(blocks, index, text, supplier, done):
     return {**blocks, PURCHASE_BLOCK: "".join(lines)}
 
 
+# Меняет текст одной закупки, сохраняя выполнение, назначения и переводы строк.
+# При недопустимом состоянии возбуждает ValueError.
 def write_purchase_text(blocks, index, text, supplier, new_text):
     """Edit one purchase's text, preserving checkboxes, suppliers and raw layout."""
     items = read_purchases(blocks)
@@ -222,10 +258,14 @@ def write_purchase_text(blocks, index, text, supplier, new_text):
     return {**blocks, PURCHASE_BLOCK: "".join(lines)}
 
 
+# Выделяет поля заметки папки из прежней смешанной карточки заказа.
+# Возвращает `{'note': record.get('note', ''), 'extra_blocks': record.get('extra_blocks', {})}`.
 def folder_note(record):
     return {"note": record.get("note", ""), "extra_blocks": record.get("extra_blocks", {})}
 
 
+# Проверяет имена и текст дополнительных блоков карточки.
+# При недопустимом состоянии возбуждает ValueError.
 def validate_blocks(blocks):
     if not isinstance(blocks, dict) or any(not isinstance(name, str) or not name
             or any(char in name for char in "[]\r\n") or name in KNOWN_BLOCKS
@@ -234,6 +274,8 @@ def validate_blocks(blocks):
     return blocks
 
 
+# Проверяет денежное поле и переводит его в целое внутреннее значение.
+# При недопустимом состоянии возбуждает ValueError.
 def money(value):
     if value is None or value == "":
         return None
@@ -248,16 +290,22 @@ def money(value):
         raise ValueError("Укажите сумму числом")
 
 
+# Форматирует сохранённое денежное значение для текстовой карточки.
+# Возвращает `'Не указано' if value is None else f'{Decimal(value) / 100:,.2f}'.replace(',', ' ').replace('.', ',') + ' ₽'`.
 def display_money(value):
     return "Не указано" if value is None else f"{Decimal(value) / 100:,.2f}".replace(",", " ").replace(".", ",") + " ₽"
 
 
+# Декодирует текст документа поддерживаемыми правилами чтения.
+# При недопустимом состоянии возбуждает ValueError.
 def read_text(path):
     if path.is_symlink() or not path.is_file() or path.stat().st_size > 1024 * 1024:
         raise ValueError(f"Некорректный файл {path.name}")
     return icloud_access.read_bytes(path).decode("utf-8-sig").replace("\r\n", "\n")
 
 
+# Сопоставляет отображаемую подпись с известным ключом статуса.
+# При недопустимом состоянии возбуждает ValueError.
 def status_key(value, labels):
     normalized = lambda item: unicodedata.normalize("NFC", item).casefold()
     if "process" in labels and normalized(value) == normalized("В работе"):
@@ -268,6 +316,8 @@ def status_key(value, labels):
     return status
 
 
+# Разделяет прежние смешанные статусы без выдумывания производственного этапа.
+# Возвращает `result`.
 def split_statuses(record, labels):
     """Read previous mixed statuses without inventing a production stage."""
     result = dict(record)
@@ -282,6 +332,8 @@ def split_statuses(record, labels):
     return result
 
 
+# Разбирает исходное содержимое, сохраняя неизвестные поля или блоки.
+# При недопустимом состоянии возбуждает ValueError.
 def parse(text, labels):
     # Old status text is accepted even when manually renamed to !.txt.
     if text.startswith("Статус: "):
@@ -300,6 +352,8 @@ def parse(text, labels):
     if "Заметка" not in blocks:
         raise ValueError(f"Проверьте раздел [Заметка] в {DOCUMENT}")
 
+    # Разбирает поля одной строки прежнего текстового формата.
+    # Возвращает `result`.
     def fields(name):
         result = {}
         for line in blocks.get(name, "").splitlines():
@@ -341,6 +395,8 @@ def parse(text, labels):
     return split_statuses(record, labels)
 
 
+# Сериализует карточку в прежний читаемый формат с сохранением дополнительных блоков.
+# При недопустимом состоянии возбуждает ValueError.
 def render(record, labels):
     record = split_statuses(record, labels)
     main = []
@@ -377,6 +433,8 @@ def render(record, labels):
     return text
 
 
+# Читает существующий источник и разбирает его поддерживаемым форматом.
+# При недопустимом состоянии возбуждает ValueError.
 def load(folder, labels):
     if (folder / DOCUMENT).exists() or (folder / DOCUMENT).is_symlink():
         return parse(read_text(folder / DOCUMENT), labels)
@@ -409,6 +467,8 @@ def load(folder, labels):
     return record
 
 
+# Записывает временный файл и атомарно заменяет предусмотренную цель.
+# При недопустимом состоянии возбуждает ValueError.
 def atomic_write(target, body):
     if target.is_symlink() or (target.exists() and not target.is_file()):
         raise ValueError(f"Вместо {target.name} должен быть обычный файл")
@@ -424,6 +484,8 @@ def atomic_write(target, body):
         temporary.unlink(missing_ok=True)
 
 
+# Сохраняет точные исходные байты карточки перед сменой формата.
+# При недопустимом состоянии возбуждает ValueError.
 def archive_current(folder):
     """Preserve the original card bytes before a format upgrade."""
     source = folder / DOCUMENT
@@ -445,6 +507,8 @@ def archive_current(folder):
         raise ValueError("Карточка изменилась во время переноса; повторите выгрузку")
 
 
+# Сохраняет прежние исходники в скрытой истории после успешной записи.
+# При недопустимом состоянии возбуждает ValueError.
 def archive_legacy(folder):
     """Keep byte-for-byte originals in hidden history after writing the unified file."""
     for name in LEGACY_DOCUMENTS:

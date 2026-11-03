@@ -1,4 +1,4 @@
-"""Заметки папок внутри заказа: отдельные записи SQLite и устойчивая выгрузка."""
+"""Карточки произвольных папок в SQLite; прежняя выгрузка сохранена для совместимости."""
 import hashlib
 import json
 import threading
@@ -16,10 +16,14 @@ from folder_structure import folder_role, is_service_folder
 SYNC_LOCK = threading.Lock()
 
 
+# Обозначает конфликт изменения в этом модуле.
+# Вызывающий обработчик использует тип исключения для отказа без подмены данных.
 class FolderNoteConflict(ValueError):
     pass
 
 
+# Определяет родительскую папку или заказ по допустимому пути.
+# Возвращает `parent`; либо `None`.
 def parent_order(root, relative):
     parts = Path(relative).parts
     for index in range(1, len(parts)):
@@ -31,6 +35,8 @@ def parent_order(root, relative):
     return None
 
 
+# Проверяет путь и ограничения допустимой операции.
+# При недопустимом состоянии возбуждает ValueError.
 def checked_path(root, relative):
     if not isinstance(relative, str) or not relative or "\x00" in relative:
         raise ValueError("Выберите папку внутри заказа")
@@ -40,6 +46,8 @@ def checked_path(root, relative):
     return Path(root) / path
 
 
+# Вычисляет версию прежней карточки папки по файловому состоянию.
+# Возвращает `digest.hexdigest() if found else 'missing'`.
 def file_revision(folder):
     digest = hashlib.sha256()
     found = False
@@ -56,6 +64,8 @@ def file_revision(folder):
     return digest.hexdigest() if found else "missing"
 
 
+# Создаёт отсутствующие таблицы и совместимые расширения схемы.
+# Работает с таблицами folder_notes.
 def schema(db):
     db.execute("""CREATE TABLE IF NOT EXISTS folder_notes (
         path TEXT PRIMARY KEY, id TEXT NOT NULL UNIQUE, parent_order TEXT NOT NULL,
@@ -63,17 +73,25 @@ def schema(db):
         file_revision TEXT NOT NULL, updated REAL NOT NULL, sync_error TEXT NOT NULL DEFAULT '')""")
 
 
+# Хранит заметки и блоки папок отдельно от зарегистрированных заказов.
+# Основные операции: __init__, connect, record, get, target; остальные описаны у методов.
 class FolderNotes:
+    # Сохраняет зависимости и начальные параметры экземпляра.
+    # Состояние и зависимости сохраняются в полях self для последующих операций.
     def __init__(self, store, prepare=None):
         self.store = store
         self.prepare = prepare
 
+    # Открывает соединение SQLite и управляет его временем жизни.
+    # Передаёт ресурс через yield; освобождение выполняется при выходе из контекста.
     @contextmanager
     def connect(self):
         with self.store.connect() as db:
             schema(db)
             yield db
 
+    # Преобразует строку SQLite в представление для вызывающего кода.
+    # Разбирает JSON; вызывающий код должен учитывать ошибки или неизвестный формат.
     def record(self,row):
         if row is None:
             return None
@@ -88,6 +106,8 @@ class FolderNotes:
                 "file_exists": value["file_revision"] != "missing",
                 "parent_order": value["parent_order"]}
 
+    # Читает сохранённую карточку папки непосредственно из SQLite.
+    # Работает с таблицами folder_notes.
     def get(self, relative):
         self.path(relative)
         if not self.store.database.exists():
@@ -96,6 +116,8 @@ class FolderNotes:
             assert_unlocked(db, relative)
             return self.record(db.execute("SELECT * FROM folder_notes WHERE path=?", (relative,)).fetchone())
 
+    # Находит допустимую существующую цель файловой операции.
+    # При недопустимом состоянии возбуждает ValueError, FileNotFoundError.
     def target(self, relative):
         target = self.path(relative)
         for index in range(1, len(Path(relative).parts) + 1):
@@ -105,17 +127,23 @@ class FolderNotes:
             raise FileNotFoundError("Папка недоступна; данные сохранены в базе, выгрузка будет повторена")
         return target
 
+    # Проверяет относительный путь внутри допустимой области.
+    # Возвращает `self.store.root`; либо `checked_path(self.store.root, relative)`.
     def path(self, relative):
         if self.store.database_only and relative=="":
             return self.store.root
         return checked_path(self.store.root,relative)
 
+    # Читает карточку папки с блокировкой и допустимым первоначальным импортом.
+    # Возвращает `self._read(relative)`.
     def read(self, relative):
         if self.store.database_only:
             with SYNC_LOCK:
                 return self._read(relative)
         return self._read(relative)
 
+    # Импортирует отсутствующую заметку, сохраняя преимущество прежней записи SQLite.
+    # Работает с таблицами folder_notes.
     def _read(self, relative):
         previous = self.get(relative)
         if self.store.database_only and previous:
@@ -157,6 +185,8 @@ class FolderNotes:
                            (json.dumps(body, ensure_ascii=False), revision, time.time(), relative))
             return self.record(db.execute("SELECT * FROM folder_notes WHERE path=?", (relative,)).fetchone())
 
+    # Сохраняет заметку и задачи папки с проверкой идентичности и revision.
+    # Работает с таблицами orders, folder_notes.
     def save(self, payload):
         relative, note = payload.get("path"), payload.get("note")
         self.path(relative)
@@ -194,6 +224,8 @@ class FolderNotes:
                        (json.dumps(body, ensure_ascii=False), time.time(), relative))
             return self.record(db.execute("SELECT * FROM folder_notes WHERE path=?", (relative,)).fetchone())
 
+    # Читает актуальность событий из SQLite без обхода документов.
+    # Работает с таблицами folder_notes, orders.
     def event_relevances(self, owner):
         """Обновление переключателей из SQLite, без чтения документов."""
         checked_path(self.store.root, owner)
@@ -208,6 +240,8 @@ class FolderNotes:
                         "Эта папка ещё зарегистрирована как отдельный заказ" if row["path"] in registered else "")
             return result
 
+    # Сохраняет только актуальность выбранного события папки.
+    # Работает с таблицами folder_notes, orders.
     def save_relevance(self, payload):
         relative, value = payload.get("path"), payload.get("value")
         checked_path(self.store.root, relative)
@@ -230,6 +264,8 @@ class FolderNotes:
                        (json.dumps(body, ensure_ascii=False), time.time(), relative))
             return self.record(db.execute("SELECT * FROM folder_notes WHERE path=?", (relative,)).fetchone())
 
+    # Сохраняет только актуальность выбранного эскиза CorelDRAW.
+    # Работает с таблицами folder_notes.
     def save_sketch_relevance(self, payload):
         import file_comments
         relative = payload.get("path")
@@ -253,6 +289,8 @@ class FolderNotes:
                        (json.dumps(body, ensure_ascii=False), time.time(), folder))
             return self.record(db.execute("SELECT * FROM folder_notes WHERE path=?", (folder,)).fetchone())
 
+    # Читает актуальность эскизов из сохранённых карточек базы.
+    # Работает с таблицами folder_notes.
     def sketch_relevances(self, owner):
         checked_path(self.store.root, owner)
         with self.connect() as db:
@@ -263,6 +301,8 @@ class FolderNotes:
                     result[row["path"]] = sketches.group_info(self.record(row))
             return result
 
+    # Обрабатывает старую выгрузку карточек только в разрешённом режиме хранения.
+    # Работает с таблицами folder_notes.
     def sync(self):
         if self.store.database_only:
             with self.connect() as db:

@@ -12,6 +12,8 @@ from folder_structure import in_reconciliations
 KIND = "order_creation"
 
 
+# Досоздаёт только собственные отсутствующие служебные папки заказа.
+# При недопустимом состоянии возбуждает ValueError.
 def complete_service_folders(store, path, session, plan, journal):
     """Finish only our missing mkdir steps after the order folder is proven owned."""
     completed = {item['id']: item for item in journal if item['phase'] == 'commit'}
@@ -35,6 +37,8 @@ def complete_service_folders(store, path, session, plan, journal):
         layout.append(session, {'phase': 'complete', 'operations': len(plan['operations'])})
 
 
+# Создаёт подготовленное состояние операции до её применения.
+# Работает с таблицами orders, sqlite_master, metadata_records.
 def prepare(store, path, title, session):
     data = {"state": "pending", "title": title, "order_id": str(uuid.uuid4()),
             "session": str(session.resolve()), "error": ""}
@@ -60,6 +64,8 @@ def prepare(store, path, title, session):
             (str(uuid.uuid4()), KIND, path, json.dumps(data, ensure_ascii=False), time.time()))
 
 
+# Регистрирует подготовленную папку заказа с сохранением устойчивого UUID.
+# Работает с таблицами metadata_records, reconciliations, orders, metadata_imports.
 def register(store, path):
     with store.connect() as db:
         db.execute("BEGIN IMMEDIATE")
@@ -105,6 +111,8 @@ def register(store, path):
         db.execute("DELETE FROM metadata_imports WHERE kind=? AND path=?", (KIND, path))
 
 
+# Сохраняет диагностический результат неудачного фонового обхода.
+# Работает с таблицами metadata_records.
 def failed(store, path, error):
     """Keep a retry only when this journal proves ownership of the new folder."""
     with store.connect() as db:
@@ -123,6 +131,8 @@ def failed(store, path, error):
                    (json.dumps(data, ensure_ascii=False), time.time(), KIND, path))
 
 
+# Завершает допустимые незавершённые намерения создания после перезапуска.
+# Работает с таблицами metadata_records.
 def recover(store):
     import order_folders
     if not store.database.exists():
@@ -139,6 +149,8 @@ def recover(store):
                 local_metadata.MetadataStore(store).error(KIND, path, error)
 
 
+# Явно завершает создание прежнего заказа с тем же UUID.
+# Работает с таблицами metadata_records.
 def retry_one(store, path):
     """An explicit Add action finishes our pending creation with the same UUID."""
     import order_folders

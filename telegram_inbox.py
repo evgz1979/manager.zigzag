@@ -16,6 +16,8 @@ POLL_LOCK = threading.Lock()
 STATUS = {"error": "", "checked_at": None}
 
 
+# Разбирает сохранённый строгий формат записи протокола.
+# При недопустимом состоянии возбуждает ValueError.
 def decode(row):
     data = json.loads(row["data"])
     if (not isinstance(data, dict) or type(data.get("version")) is not int or data["version"] != 1
@@ -29,6 +31,8 @@ def decode(row):
     return {**data, "id": row["id"], "revision": row["revision"]}
 
 
+# Читает сохранённые элементы очереди или каталога модуля.
+# Работает с таблицами metadata_records.
 def items(store):
     with MetadataStore(store).connect() as db:
         result = [decode(row) for row in db.execute(
@@ -37,14 +41,20 @@ def items(store):
                   key=lambda item: (item["created_at"], item["message_id"], item["line"], item["id"]))
 
 
+# Меняет выполнение задачи Inbox по её UUID и ожидаемой версии.
+# Возвращает `change(store, payload, 'completed', payload.get('completed'))`.
 def complete(store, payload):
     return change(store, payload, "completed", payload.get("completed"))
 
 
+# Меняет признак корзины, сохраняя саму запись и её историю.
+# Возвращает `change(store, payload, 'deleted', deleted)`.
 def set_deleted(store, payload, deleted):
     return change(store, payload, "deleted", deleted)
 
 
+# Применяет частичное изменение задачи Inbox с проверкой UUID и версии.
+# Работает с таблицами metadata_records, metadata_settings.
 def change(store, payload, field, value):
     identity, revision = (payload.get(key) for key in ("id", "revision"))
     if (not isinstance(identity, str) or type(revision) is not int or revision < 1
@@ -72,6 +82,8 @@ def change(store, payload, field, value):
         return decode(db.execute("SELECT * FROM metadata_records WHERE kind=? AND id=?", (KIND, identity)).fetchone())
 
 
+# Читает сохранённую позицию получения сообщений Telegram.
+# Работает с таблицами metadata_settings.
 def cursor(db, bot):
     row = db.execute("SELECT value FROM metadata_settings WHERE key=?", ("telegram_inbox_offset:" + bot,)).fetchone()
     if row is None:
@@ -85,6 +97,8 @@ def cursor(db, bot):
         raise ValueError("Неизвестный формат позиции Inbox. Данные сохранены без изменений") from None
 
 
+# Фиксирует полученные сообщения и курсор в одной транзакции без дублей.
+# Работает с таблицами metadata_records, metadata_settings.
 def ingest(store, bot, chat, updates):
     if (not isinstance(updates, list) or any(not isinstance(update, dict)
             or type(update.get("update_id")) is not int or update["update_id"] < 0 for update in updates)):
@@ -135,6 +149,8 @@ def ingest(store, bot, chat, updates):
         return added
 
 
+# Получает следующую порцию сообщений Telegram и передаёт их устойчивому приёму.
+# Возвращает `added`.
 def poll(store, data_dir):
     with POLL_LOCK:
         token, chat = telegram.settings(data_dir)
@@ -151,10 +167,14 @@ def poll(store, data_dir):
         return added
 
 
+# Собирает текущее наблюдаемое состояние для проверки или показа.
+# Возвращает `{'items': items(store), **telegram.status(data_dir), **STATUS}`.
 def snapshot(store, data_dir):
     return {"items": items(store), **telegram.status(data_dir), **STATUS}
 
 
+# Выполняет фоновый цикл обработки с контролем остановки или паузами.
+# Передаёт работу `stop.is_set`, `telegram.status`, `poll`.
 def worker(store, data_dir, stop, calendar_sender=None):
     while not stop.is_set():
         try:

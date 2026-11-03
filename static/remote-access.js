@@ -2,7 +2,11 @@
 (() => {
   const fetchOriginal = window.fetch.bind(window);
   let notice;
+  // Строит безопасный адрес входа с возвратом к текущей странице.
+  // Использует `encodeURIComponent`.
   const loginUrl = () => '/_auth/login?next=' + encodeURIComponent(location.pathname + location.search + location.hash);
+  // Показывает необходимость входа в отдельной вкладке, сохраняя текущую форму.
+  // Использует `document.createElement`, `notice.setAttribute`, `notice.append`.
   function requireLogin() {
     if (notice || !document.body) return;
     notice = document.createElement('div');

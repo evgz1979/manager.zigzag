@@ -20,6 +20,8 @@ from pathlib import Path, PurePosixPath
 LABEL = "local.zigzag.manager"
 
 
+# Записывает временный файл и атомарно заменяет предусмотренную цель.
+# Передаёт работу `path.with_name`, `temporary.open`, `os.fsync`.
 def atomic_write(path, body):
     temporary = path.with_name(path.name + ".tmp")
     with temporary.open("wb") as stream:
@@ -29,14 +31,20 @@ def atomic_write(path, body):
     temporary.replace(path)
 
 
+# Атомарно записывает JSON состояния релиза с переводом строки в конце.
+# Передаёт работу `atomic_write`, `(json.dumps(value, ensure_ascii=False, indent=2) + '\n').encode`, `json.dumps`.
 def write_json(path, value):
     atomic_write(path, (json.dumps(value, ensure_ascii=False, indent=2) + "\n").encode())
 
 
+# Вычисляет имя SQLite по ключу абсолютного корня документов.
+# Возвращает `'orders-' + hashlib.sha256(str(documents).encode()).hexdigest()[:16] + '.sqlite3'`.
 def database_name(documents):
     return "orders-" + hashlib.sha256(str(documents).encode()).hexdigest()[:16] + ".sqlite3"
 
 
+# Создаёт согласованный проверенный снимок перед переключением релиза.
+# При недопустимом состоянии возбуждает RuntimeError.
 def backup_database(source, destination):
     if destination.exists():
         raise RuntimeError("Снимок базы уже существует")
@@ -51,6 +59,8 @@ def backup_database(source, destination):
             raise RuntimeError("Проверка снимка SQLite не прошла")
 
 
+# Распаковывает проверенный пакет исходников в подготовленный каталог релиза.
+# При недопустимом состоянии возбуждает RuntimeError.
 def unpack(stream, destination, release):
     with tarfile.open(fileobj=stream, mode="r|gz") as archive:
         names = set()
@@ -76,6 +86,8 @@ def unpack(stream, destination, release):
     return manifest
 
 
+# Устанавливает только явно переданный первоначальный снимок базы.
+# Работает с таблицами sqlite_master.
 def install_database(release_dir, history, data, documents, manifest):
     initial = manifest.get("initial_database")
     if not initial:
@@ -107,14 +119,20 @@ def install_database(release_dir, history, data, documents, manifest):
     temporary.unlink()
 
 
+# Выполняет предусмотренную команду пользовательского launchd.
+# Запускает внешний процесс; параметры и ограничения заданы в теле функции.
 def launchctl(*arguments, check=True):
     return subprocess.run(["/bin/launchctl", *arguments], check=check, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
 
+# Проверяет регистрацию пользовательского сервиса launchd.
+# Возвращает `launchctl('print', domain + '/' + LABEL, check=False).returncode == 0`.
 def service_loaded(domain):
     return launchctl("print", domain + "/" + LABEL, check=False).returncode == 0
 
 
+# Останавливает пользовательский сервис перед предусмотренной операцией.
+# При недопустимом состоянии возбуждает RuntimeError.
 def stop(domain):
     if service_loaded(domain):
         launchctl("bootout", domain + "/" + LABEL)
@@ -125,6 +143,8 @@ def stop(domain):
         raise RuntimeError("Прежний сервис не остановился")
 
 
+# Проверяет и выбирает целевой сохранённый релиз для запуска.
+# Передаёт работу `temporary.unlink`, `temporary.symlink_to`, `Path`.
 def select_release(root, release):
     temporary = root / ".current.tmp"
     temporary.unlink(missing_ok=True)
@@ -132,6 +152,8 @@ def select_release(root, release):
     temporary.replace(root / "current")
 
 
+# Готовит запуск сервиса с параметрами текущей установки M4.
+# Запускает внешний процесс; параметры и ограничения заданы в теле функции.
 def prepare_launcher(release_dir, root, documents):
     source = release_dir / "scripts/manager_launcher.c"
     digest = hashlib.sha256(source.read_bytes()).hexdigest()[:16]
@@ -154,6 +176,8 @@ def prepare_launcher(release_dir, root, documents):
     return binary
 
 
+# Проверяет ответ запускаемого сервера перед завершением переключения.
+# При недопустимом состоянии возбуждает RuntimeError.
 def health(port, release=None):
     with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/health", timeout=3) as response:
         value = json.load(response)
@@ -162,6 +186,8 @@ def health(port, release=None):
     return value
 
 
+# Заранее собирает обязательные Swift-помощники до переключения кода.
+# Запускает внешний процесс; параметры и ограничения заданы в теле функции.
 def prepare_renderers(settings, release_dir):
     command = [settings["python"], "-c", "import server, image_reports, icloud_access, invoices, thumbnail_cache, calendar_delivery; server.pdf_renderer(); image_reports.renderer(server.APP_DIR, server.DATA_DIR); icloud_access.renderer(); invoices.renderer(server.APP_DIR, server.DATA_DIR); thumbnail_cache.renderer(server.DATA_DIR); calendar_delivery.renderer(server.APP_DIR, server.DATA_DIR)"]
     result = subprocess.run(command, cwd=release_dir, capture_output=True, text=True, timeout=180)
@@ -169,6 +195,8 @@ def prepare_renderers(settings, release_dir):
         raise RuntimeError("Не удалось подготовить помощники PDF и iCloud до переключения сервера:\n" + result.stderr[-6000:])
 
 
+# Проверяет профиль и запускает отдельный loopback-слушатель внешнего входа.
+# При недопустимом состоянии возбуждает RuntimeError.
 def start(domain, agent, port, release, documents):
     launchctl("enable", domain + "/" + LABEL)
     launchctl("bootstrap", domain, str(agent))
@@ -187,6 +215,8 @@ def start(domain, agent, port, release, documents):
     raise RuntimeError("Сервис не прошёл проверку запуска; см. ~/Library/Logs/ZigzagManager/server-error.log")
 
 
+# Проверяет наличие обязательного защищённого входа в целевом релизе.
+# При недопустимом состоянии возбуждает RuntimeError.
 def check_remote_access_compatibility(config, release_dir):
     if config.getboolean('remote_access', 'enabled', fallback=False):
         source = release_dir / 'remote_access.py'
@@ -196,6 +226,8 @@ def check_remote_access_compatibility(config, release_dir):
             raise RuntimeError('Настроен внешний вход с паролем. Старый код не поддерживает его; откат заблокирован')
 
 
+# Проверяет поддержку незавершённых переименований целевым релизом.
+# Работает с таблицами sqlite_master, metadata_settings, invoices, event_renames, folder_renames.
 def check_event_rename_compatibility(database, release_dir):
     if not database.exists():
         return
@@ -330,6 +362,8 @@ def check_event_rename_compatibility(database, release_dir):
             raise RuntimeError("Есть прерванное переименование папки. Завершите откат перед переключением на старый код")
 
 
+# Подготавливает и переключает проверенный релиз, сохраняя рабочую базу.
+# При недопустимом состоянии возбуждает RuntimeError.
 def deploy(settings, action, release):
     root = Path(settings["directory"])
     documents = Path(settings["documents"]).expanduser().resolve()

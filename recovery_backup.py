@@ -24,11 +24,15 @@ FORMAT_VERSION = 1
 TIMEZONE = ZoneInfo("Europe/Moscow")
 
 
+# Вычисляет локальный путь состояния резервного копирования.
+# Возвращает `database.parent / (database.stem + '-recovery-backup.json')`.
 def state_path(database):
     database = Path(database)
     return database.parent / (database.stem + "-recovery-backup.json")
 
 
+# Возвращает состояние обработки и сохранённые ошибки.
+# При недопустимом состоянии возбуждает ValueError.
 def status(database):
     try:
         value = json.loads(state_path(database).read_text(encoding="utf-8"))
@@ -41,6 +45,8 @@ def status(database):
         return {"error": str(error)}
 
 
+# Атомарно сохраняет локальное состояние создания резервной копии.
+# Передаёт работу `state_path`, `path.with_name`, `uuid.uuid4`.
 def save_status(database, value):
     path = state_path(database)
     temporary = path.with_name("." + path.name + "-" + uuid.uuid4().hex)
@@ -55,12 +61,16 @@ def save_status(database, value):
         temporary.unlink(missing_ok=True)
 
 
+# Сохраняет ошибку резервного копирования для следующего повтора и интерфейса.
+# Передаёт работу `status`, `value.update`, `datetime.now(TIMEZONE).isoformat`.
 def failure(database, error):
     value = status(database)
     value.update(error=str(error), attempted_at=datetime.now(TIMEZONE).isoformat())
     save_status(database, value)
 
 
+# Проверяет необходимость очередной ежедневной копии по Москве.
+# Формирует возвращаемое значение из проверенного локального состояния.
 def due(database, root, now=None):
     now = now or datetime.now(TIMEZONE)
     value = status(database)
@@ -69,6 +79,8 @@ def due(database, root, now=None):
             or value.get("format") != FORMAT_VERSION or bool(value.get("error")))
 
 
+# Собирает только исходники приложения без обхода рабочих документов и data.
+# При недопустимом состоянии возбуждает ValueError.
 def source_files(app):
     """Only application sources; never recurse into data or document folders."""
     names = {"README.md", "AGENTS.md", "PROJECT_NOTES", "deploy.ini", "launcher.json",
@@ -122,6 +134,8 @@ RESTORE = """Восстановление «Менеджера заказов З
 """
 
 
+# Создаёт и проверяет ZIP со снимком SQLite, исходниками и инструкцией восстановления.
+# Работает с таблицами sqlite_master.
 def create(database, root, app, *, now=None, force=False):
     database, root, app = Path(database).resolve(), Path(root).resolve(), Path(app).resolve()
     now = (now or datetime.now(TIMEZONE)).astimezone(TIMEZONE)
@@ -215,6 +229,8 @@ def create(database, root, app, *, now=None, force=False):
                 pending.unlink(missing_ok=True)
 
 
+# Вычисляет SHA-256 файла резервной копии потоковым чтением.
+# Возвращает `value.hexdigest()`.
 def digest(path):
     value = hashlib.sha256()
     with Path(path).open("rb") as stream:
@@ -223,6 +239,8 @@ def digest(path):
     return value.hexdigest()
 
 
+# Выполняет фоновый цикл обработки с контролем остановки или паузами.
+# Запускает внешний процесс; параметры и ограничения заданы в теле функции.
 def worker(database, root, app):
     while True:
         try:
@@ -240,6 +258,8 @@ def worker(database, root, app):
         threading.Event().wait(60)
 
 
+# Разбирает параметры запуска и выполняет основной сценарий программы.
+# Передаёт работу `argparse.ArgumentParser`, `parser.add_argument`, `Path(__file__).resolve`.
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--database", type=Path, required=True)

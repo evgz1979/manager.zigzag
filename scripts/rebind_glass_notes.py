@@ -15,6 +15,8 @@ import sys
 from zoneinfo import ZoneInfo
 
 
+# Дописывает запись в устойчивый журнал операции.
+# Передаёт работу `datetime.now(ZoneInfo('Europe/Moscow')).isoformat`, `datetime.now`, `ZoneInfo`.
 def append_journal(session, record):
     record = {"time": datetime.now(ZoneInfo("Europe/Moscow")).isoformat(), **record}
     with (Path(session) / ".journal.jsonl").open("a", encoding="utf-8") as stream:
@@ -23,10 +25,14 @@ def append_journal(session, record):
         os.fsync(stream.fileno())
 
 
+# Проверяет принадлежность пути указанной области по границам компонентов.
+# Возвращает `path == prefix or path.startswith(prefix + '/')`.
 def inside(path, prefix):
     return path == prefix or path.startswith(prefix + "/")
 
 
+# Проверяет точную существующую папку ручной операции.
+# При недопустимом состоянии возбуждает ValueError.
 def checked_folder(root, relative):
     path = Path(relative)
     if path.is_absolute() or not path.parts or any(part.startswith(".") for part in path.parts):
@@ -40,6 +46,8 @@ def checked_folder(root, relative):
     return target
 
 
+# Проверяет целостность и совместимость рабочей SQLite.
+# Работает с таблицами orders, sqlite_master.
 def check_database(db, source, destination):
     if any(inside(row[0], prefix) for row in db.execute("SELECT path FROM orders") for prefix in (source, destination)):
         raise ValueError("В поддереве есть регистрация заказа; требуется отдельный перенос базы")
@@ -51,6 +59,8 @@ def check_database(db, source, destination):
                     raise ValueError("Сначала завершите прерванное переименование")
 
 
+# Перепривязывает проверенную существующую запись к подтверждённому пути.
+# Работает с таблицами folder_notes.
 def rebind(notes, source="# glass", destination="# work/# glass", *, perform=False):
     if notes.store.database_only:
         raise ValueError("Прежняя перепривязка по !.txt отключена. Нужен перенос всех связанных путей SQLite")
@@ -121,6 +131,8 @@ def rebind(notes, source="# glass", destination="# work/# glass", *, perform=Fal
     return {**preview, "journal": str(session)}
 
 
+# Выполняет сохранённые обратные операции после проверки текущего состояния.
+# Работает с таблицами folder_notes.
 def undo(session, *, perform=False):
     session = Path(session)
     before = json.loads((session / ".before.json").read_text())

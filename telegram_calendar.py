@@ -20,14 +20,20 @@ SEND_LOCK = threading.Lock()
 PURPOSE = "manager-calendar"
 
 
+# Обозначает ошибку выполнения в этом модуле.
+# Вызывающий обработчик использует тип исключения для отказа без подмены данных.
 class TelegramError(RuntimeError):
     """A safe error that can be shown in the browser."""
 
 
+# Вычисляет закрытый локальный путь настроек Telegram.
+# Возвращает `Path(os.environ.get('MANAGER_TELEGRAM_SETTINGS') or Path(data_dir) / 'telegram.ini')`.
 def settings_path(data_dir):
     return Path(os.environ.get("MANAGER_TELEGRAM_SETTINGS") or Path(data_dir) / "telegram.ini")
 
 
+# Читает конфигурацию Telegram без вывода секретов.
+# Возвращает `config`.
 def read_ini(path):
     config = configparser.ConfigParser(interpolation=None)
     with path.open(encoding="utf-8") as source:
@@ -35,6 +41,8 @@ def read_ini(path):
     return config
 
 
+# Проверяет допустимую форму токена Telegram перед использованием.
+# При недопустимом состоянии возбуждает ValueError, TelegramError.
 def validate_token(token, data_dir):
     if not isinstance(token, str) or not re.fullmatch(r"\d+:[A-Za-z0-9_-]{20,}", token):
         raise ValueError("Проверь токен нового бота из BotFather")
@@ -52,6 +60,8 @@ def validate_token(token, data_dir):
     return token
 
 
+# Читает и проверяет настройки функции без раскрытия секретов вызывающему коду.
+# При недопустимом состоянии возбуждает ValueError, TelegramError.
 def settings(data_dir):
     # An old actu INI without purpose must never be used as a fallback.
     try:
@@ -68,6 +78,8 @@ def settings(data_dir):
         raise TelegramError("Подключи отдельного бота в настройке Telegram менеджера") from None
 
 
+# Возвращает состояние обработки и сохранённые ошибки.
+# Возвращает `{'configured': True, 'chat_id': chat, 'bot_username': config.get('telegram', 'bot_username', fallback='')}`; либо `{'configured': False}`.
 def status(data_dir):
     try:
         _, chat = settings(data_dir)
@@ -77,6 +89,8 @@ def status(data_dir):
         return {"configured": False}
 
 
+# Выполняет ограниченный запрос Bot API и проверяет ответ.
+# При недопустимом состоянии возбуждает TelegramError.
 def api_request(request, timeout=15):
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
@@ -97,12 +111,16 @@ def api_request(request, timeout=15):
         raise TelegramError("Нет подтверждения от Telegram. Проверь чат перед повтором отправки") from None
 
 
+# Создаёт запрос к нужному методу Bot API без раскрытия токена в ошибках.
+# Возвращает `api_request(request)`.
 def bot_api(token, method, payload=None):
     request = urllib.request.Request(f"https://api.telegram.org/bot{token}/{method}",
         data=json.dumps(payload or {}).encode(), headers={"Content-Type": "application/json"}, method="POST")
     return api_request(request)
 
 
+# Проверяет подключённого бота методом getMe.
+# При недопустимом состоянии возбуждает TelegramError.
 def bot_info(token, data_dir):
     validate_token(token, data_dir)
     bot = bot_api(token, "getMe")
@@ -112,6 +130,8 @@ def bot_info(token, data_dir):
     return bot
 
 
+# Получает допустимые личные чаты для явной настройки отправки.
+# При недопустимом состоянии возбуждает TelegramError.
 def chats(token, data_dir):
     bot = bot_info(token, data_dir)
     updates = bot_api(token, "getUpdates", {"timeout": 0, "limit": 100})
@@ -131,6 +151,8 @@ def chats(token, data_dir):
     return {"bot_username": bot["username"], "chats": list(found.values())}
 
 
+# Проверяет и сохраняет настройки функции с учётом режима хранения.
+# При недопустимом состоянии возбуждает ValueError, TelegramError.
 def configure(payload, data_dir):
     token = payload.get("bot_token", "")
     if not isinstance(token, str):
@@ -173,6 +195,8 @@ def configure(payload, data_dir):
     return {"configured": True, "chat_id": chat, "bot_username": bot["username"]}
 
 
+# Проверяет байты PNG и допустимые ограничения общего снимка.
+# При недопустимом состоянии возбуждает ValueError.
 def validate_image(image):
     if not 33 <= len(image) <= MAX_IMAGE_BYTES or image[:16] != b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR":
         raise ValueError("Передай снимок календаря в формате PNG, до 10 МБ")
@@ -181,11 +205,15 @@ def validate_image(image):
         raise ValueError("Слишком большой снимок календаря")
 
 
+# Определяет понедельник текущей недели по Москве.
+# Возвращает `today - timedelta(days=today.weekday())`.
 def current_week(now=None):
     today = (now or datetime.now(ZoneInfo("Europe/Moscow"))).astimezone(ZoneInfo("Europe/Moscow")).date()
     return today - timedelta(days=today.weekday())
 
 
+# Отправляет общий PNG и последующие тексты с последовательными подтверждениями.
+# При недопустимом состоянии возбуждает ValueError, TelegramError.
 def send(image, start, data_dir, *, now=None, todo_text='', through=None):
     validate_image(image)
     week = current_week(now)

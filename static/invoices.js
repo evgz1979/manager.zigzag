@@ -6,27 +6,43 @@
   const statusSaving = new Set();
   const listStatusLabels = { active: "Актуально", inactive: "Неактуально", later: "Позже", sent: "Отправлен", paid: "Оплачен" };
   const planLabels = { invoice: 'Запланирована выписка счёта', incoming: 'Запланировано получение оплаты', outgoing: 'Запланирован платёж' };
+  // Формирует отображаемое название счёта или плана.
+  // Результат вычисляется из переданных аргументов и текущего состояния компонента.
   const invoiceLabel = (record) => record.state === 'planned' ? planLabels[record.data.operation || 'invoice'] || 'Запланировано' : record.state === 'external' ? record.data.original_name : (record.data.kind === 'contract' ? 'Счёт-договор' : 'Счёт') + ' № ' + record.number;
+  // Форматирует сохранённую дату для показа пользователю.
+  // Использует `value.split('-').reverse().join`, `value.split('-').reverse`, `value.split`.
   const displayDate = (value) => typeof value === 'string' ? value.split('-').reverse().join('.') : 'Дата не распознана';
+  // Форматирует сохранённую дату для показа пользователю.
+  // Использует `Date`, `Number.isNaN`, `end.getTime`.
   const displayPlanDate = (record) => {
     const start = record.data.date, end = new Date(start + 'T00:00:00Z');
     if (record.data.period !== 'week' || Number.isNaN(end.getTime())) return displayDate(start);
     end.setUTCDate(end.getUTCDate() + 6);
     return 'Неделя ' + displayDate(start) + ' — ' + displayDate(end.toISOString().slice(0, 10));
   };
+  // Выбирает сохранённую сумму плана для формы и списка.
+  // Использует `['incoming', 'outgoing'].includes`, `Number.isSafeInteger`, `cash`.
   const planAmount = (record) => ['incoming', 'outgoing'].includes(record.data.operation) && Number.isSafeInteger(record.data.amount) ? (record.data.operation === 'incoming' ? '+' : '−') + cash(record.data.amount) : '';
   const fields = { kind: "invoiceKind", number: "invoiceNumber", date: "invoiceDate", due_date: "invoiceDue",
     buyer_name: "invoiceBuyer", buyer_inn: "invoiceBuyerInn", buyer_kpp: "invoiceBuyerKpp", buyer_address: "invoiceBuyerAddress",
     note: "invoiceNote", work_start: "invoiceWorkStart", work_end: "invoiceWorkEnd", terms: "invoiceTerms" };
   const sellerFields = { name: "Исполнитель", inn: "ИНН", kpp: "КПП", address: "Адрес", bank: "Банк",
     bik: "БИК", account: "Расчётный счёт", correspondent: "Корреспондентский счёт", signer: "Подписант" };
+  // Форматирует денежное значение для соответствующего компонента.
+  // Использует `Intl.NumberFormat`.
   const cash = (cents) => new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(cents / 100);
+  // Собирает URL запроса с безопасным кодированием параметров.
+  // Использует `/api/invoice-preview`, `/api/invoice-pdf`.
   const pdfUrl = (record, preview = false) => apiUrl(preview ? "/api/invoice-preview" : "/api/invoice-pdf", record.path, { id: record.id });
+  // Показывает сообщение пользователю и предусмотренное действие отмены.
+  // Использует `$`, `$("invoiceEditorState").classList.toggle`.
   const message = (text, error = false) => {
     $("invoiceEditorState").textContent = text;
     $("invoiceEditorState").classList.toggle("error", error);
   };
 
+  // Показывает счета, планы и состояние документов текущего заказа.
+  // Обращается к DOM текущего документа или переданного контейнера.
   function renderInvoiceList(records) {
     // Keep the input alive while the native file picker is open or cancelled.
     const picker = document.activeElement;
@@ -92,11 +108,15 @@
     $("invoiceList").invoiceRecords = records;
   }
 
+  // Возвращает фокус на статус выбранной строки счёта.
+  // Обращается к DOM текущего документа или переданного контейнера.
   function focusStatusButton(key) {
     [...$("invoiceList").querySelectorAll('[data-invoice-status]')].find((button) =>
       button.dataset.invoiceStatus === key.id && button.dataset.value === key.value)?.focus({ preventScroll: true });
   }
 
+  // Сохраняет изменение статуса строки счёта.
+  // Использует `/api/invoice-list-status`.
   async function toggleListStatus(record, value) {
     if (statusSaving.has(record.id)) return;
     const focusKey = { id: record.id, value };
@@ -121,6 +141,8 @@
     }
   }
 
+  // Перечитывает счета из SQLite с учётом открытых редакторов.
+  // Использует `/api/invoices`.
   async function refreshList(force = false) {
     const folder = state.folder;
     const visible = Boolean(folder?.order) && !isWorkOrderPath(folder.path);
@@ -164,6 +186,8 @@
     }
   }
 
+  // Показывает найденные ещё не прикреплённые PDF из # bills.
+  // Использует `/api/file`.
   function renderCandidates() {
     const list = $("invoiceCandidates"), focused = document.activeElement?.dataset.invoiceCandidate;
     const markup = folderCandidates.map((item) => '<div class="invoice-row invoice-candidate"><div class="invoice-row-content"><a class="invoice-row-name" href="' +
@@ -176,6 +200,8 @@
       .find((button) => button.dataset.invoiceCandidate === focused)?.focus({ preventScroll: true });
   }
 
+  // Явно запрашивает проверку непосредственных файлов # bills.
+  // Использует `/api/invoice-folder-candidates`.
   async function checkInvoiceFolder() {
     const path = state.folder?.path;
     if (!state.folder?.order || isWorkOrderPath(path)) return;
@@ -194,6 +220,8 @@
     } finally { if (version === candidateLoading) $("checkInvoiceFolder").disabled = false; }
   }
 
+  // Создаёт новый UUID клиентского намерения для защиты от повтора.
+  // Использует `crypto.getRandomValues`, `Uint8Array`, `[...bytes].map((b) => b.toString(16).padStart(2, "0")).join`.
   function newIdentity() {
     // crypto.randomUUID is unavailable on HTTP LAN origins.
     const bytes = crypto.getRandomValues(new Uint8Array(16)); bytes[6] = (bytes[6] & 15) | 64; bytes[8] = (bytes[8] & 63) | 128;
@@ -201,6 +229,8 @@
     return hex.slice(0, 8) + "-" + hex.slice(8, 12) + "-" + hex.slice(12, 16) + "-" + hex.slice(16, 20) + "-" + hex.slice(20);
   }
 
+  // Открывает редактор самостоятельного или связанного плана платежа.
+  // Использует `Intl.DateTimeFormat`, `Date`.
   function showPlan(record = null, options = {}) {
     if ((record && !record.plan_editable) || (!record && !options.calendar && !state.folder?.order)) return;
     const path = record ? record.path : options.source?.path || (options.calendar ? '' : state.folder.path);
@@ -230,16 +260,22 @@
     if (options.source) readPlanSource(planning);
   }
 
+  // Закрывает форму плана и очищает её локальное состояние.
+  // Использует `$("planInvoiceDialog").close`, `$`.
   function closePlan() {
     if (planning?.busy) return;
     planning = null; $("planInvoiceDialog").close();
   }
 
+  // Собирает текущие значения формы плана платежа.
+  // Использует `$`.
   function planValues() {
     return { path: planning?.path,
       date: $("planInvoiceDate").value, period: $("planInvoicePeriod").value, operation: $("planInvoiceOperation").value, amount: $("planInvoiceAmount").value, text: $("planInvoiceText").value };
   }
 
+  // Нормализует дату плана относительно дневного или недельного периода.
+  // Использует `$`, `Date`, `Number.isNaN`.
   function normalizePlanDate() {
     const weekly = $("planInvoicePeriod").value === 'week';
     $("planInvoiceDateCaption").textContent = weekly ? 'Неделя с' : 'День';
@@ -252,6 +288,8 @@
     $("planInvoiceWeekHint").textContent = displayPlanDate({ data: { date: $("planInvoiceDate").value, period: 'week' } });
   }
 
+  // Обновляет доступность и подписи зависимых полей плана.
+  // Обращается к DOM текущего документа или переданного контейнера.
   function updatePlanFields() {
     const payment = $("planInvoiceOperation").value !== 'invoice';
     $("planInvoiceAmountLabel").hidden = !payment;
@@ -261,6 +299,8 @@
     invoiceOption.hidden = invoiceOption.disabled = Boolean(planning?.calendar || planning?.source || planning?.record?.data.invoice_id);
   }
 
+  // Читает выбранный источник плана из текущей формы.
+  // Использует `/api/invoice-plan-source`.
   async function readPlanSource(current, preserveInput = false) {
     if (!current || current.sourceLoading) return;
     const previous = $("planInvoiceAmount").value;
@@ -291,6 +331,8 @@
     }
   }
 
+  // Сохраняет план платежа с UUID и ожидаемой версией.
+  // Использует `/api/invoice-plan`.
   async function savePlan() {
     const current = planning;
     if (!current || current.busy || current.conflict || current.sourceLoading) return;
@@ -320,6 +362,8 @@
     }
   }
 
+  // Помещает выбранный план платежа в корзину.
+  // Использует `$`, `removeCalendarRecord`, `closePlan`.
   async function deletePlan() {
     const current = planning;
     if (!current?.record || current.record.path || current.busy || current.conflict) return;
@@ -344,6 +388,8 @@
     }
   }
 
+  // Перечитывает источник плана после конфликта без автоматического повтора.
+  // Использует `/api/invoice`.
   async function checkPlan() {
     const current = planning;
     if (!current || current.busy) return;
@@ -362,6 +408,8 @@
     finally { button.disabled = false; }
   }
 
+  // Открывает форму прикрепления внешнего PDF к заказу.
+  // Использует `newIdentity`, `$`, `$("externalInvoiceDialog").classList.remove`.
   function showExternal(record = null, candidate = null) {
     const path = record?.path || state.folder?.path;
     if (!path || !state.folder?.order) return;
@@ -383,12 +431,16 @@
     (record || candidate ? $("externalInvoiceComment") : $("externalInvoiceFile")).focus();
   }
 
+  // Закрывает форму внешнего PDF и освобождает выбранный файл.
+  // Использует `$("externalInvoiceDialog").close`, `$`.
   function closeExternal() {
     if (attachment?.busy) return;
     attachment = null;
     $("externalInvoiceDialog").close();
   }
 
+  // Проверяет выбранный файл внешнего PDF в браузере.
+  // Использует `$`, `/\.pdf$/i.test`, `status.classList.add`.
   function selectExternalFile(file) {
     if (!attachment || attachment.busy || attachment.record || attachment.candidate) return;
     const status = $("externalInvoiceState");
@@ -401,6 +453,8 @@
     status.textContent = ""; status.classList.remove("error");
   }
 
+  // Передаёт проверенный внешний PDF и комментарий серверу.
+  // Использует `/api/invoice-folder-attach`, `/api/invoice-upload`, `/api/invoice-comment`.
   async function saveExternal() {
     const current = attachment;
     if (!current || current.busy) return;
@@ -441,11 +495,15 @@
     }
   }
 
+  // Строит строку позиции редактируемого счёта.
+  // Экранирует значения полей и задаёт допустимую длину ввода каждой позиции.
   function itemMarkup(item) {
     return '<tr>' + [["name", "Наименование", 500], ["quantity", "Количество", 30], ["unit", "Единица", 16], ["price", "Цена", 30]].map(([key, label, limit]) =>
       '<td><input data-field="' + key + '" aria-label="' + label + '" maxlength="' + limit + '" value="' + escapeHtml(item[key]) + '"' + (["quantity", "price"].includes(key) ? ' inputmode="decimal"' : '') + '></td>').join("") + '<td class="invoice-item-total"></td><td><button class="icon-button" type="button" data-invoice-remove aria-label="Удалить позицию">✕</button></td></tr>';
   }
 
+  // Собирает значения полей редактора счёта для сохранения.
+  // Использует `Object.fromEntries`, `Object.entries(fields).map`, `Object.entries`.
   function collect() {
     const data = Object.fromEntries(Object.entries(fields).map(([field, id]) => [field, $(id).value]));
     data.seller = Object.fromEntries(Object.keys(sellerFields).map((key) => [key, $("invoiceSeller-" + key).value]));
@@ -453,8 +511,12 @@
     return data;
   }
 
+  // Вычисляет отображаемые итоги позиций счёта.
+  // Обращается к DOM текущего документа или переданного контейнера.
   function totals() {
     let total = 0n;
+    // Преобразует десятичное значение в масштабированное целое для расчёта.
+    // Использует `value.replace(/[\s\u00a0]/g, "").replace`, `value.replace`, `new RegExp("^\\d+(?:\\.\\d{0," + places + "})?$").test`.
     const scaled = (value, places) => {
       value = value.replace(/[\s\u00a0]/g, "").replace(",", ".");
       if (!new RegExp("^\\d+(?:\\.\\d{0," + places + "})?$").test(value) || value.length > 20) throw new Error();
@@ -474,6 +536,8 @@
     $("invoiceTitle").textContent = ($("invoiceKind").value === "contract" ? "Счёт-договор" : "Счёт") + " № " + $("invoiceNumber").value;
   }
 
+  // Обновляет доступность действий открытого редактора в модуле счетов и планов платежей.
+  // Обращается к DOM текущего документа или переданного контейнера.
   function controls() {
     if (!editor) return;
     const issued = editor.record.state === "issued";
@@ -486,6 +550,8 @@
     $("invoiceDraftHint").textContent = issued ? "Выпущен · для изменений создай новый на основе этого" : "Черновик сохраняется автоматически · одна страница";
   }
 
+  // Показывает компонент по полученным данным и текущему состоянию в модуле счетов и планов платежей.
+  // Использует `$`, `Object.entries`.
   function show(record) {
     editor = { record, dirty: false, saving: null, issuing: false, timer: null };
     $("invoiceTitle").textContent = (record.data.kind === "contract" ? "Счёт-договор" : "Счёт") + " № " + record.number;
@@ -501,6 +567,8 @@
     $("invoiceBuyer").focus();
   }
 
+  // Сохраняет данные открытой формы с ожидаемой версией.
+  // Использует `/api/invoice-save`.
   async function save() {
     const current = editor;
     if (!current || current.record.state === "issued") return;
@@ -524,6 +592,8 @@
     if (current.dirty) return save();
   }
 
+  // Закрывает компонент и освобождает его временное состояние в модуле счетов и планов платежей.
+  // Управляет отложенным обновлением через таймер или кадр браузера.
   async function close() {
     if (editor?.issuing) return;
     await save();
@@ -531,6 +601,8 @@
     editor = null; $("invoiceDialog").close(); refreshList(true);
   }
 
+  // Создаёт новый черновик счёта по выбранному действию.
+  // Использует `/api/invoice-create`.
   async function create(source) {
     const path = state.folder?.path;
     if (!path || !state.folder.order) return;
@@ -546,12 +618,16 @@
     } finally { $("newInvoice").disabled = false; }
   }
 
+  // Маршрутизирует выбранное действие пользователя внутри компонента.
+  // Использует `Promise.resolve().then(work).catch`, `Promise.resolve().then`, `Promise.resolve`.
   function action(work) {
     return Promise.resolve().then(work).catch((error) => {
       if (editor) message(error.message + " Ввод остался в форме.", true);
       else notify(error.message, true);
     });
   }
+  // Помечает редактор изменённым и обновляет зависимые поля.
+  // Управляет отложенным обновлением через таймер или кадр браузера.
   function changed() {
     if (!editor || editor.record.state !== "draft") return;
     editor.dirty = JSON.stringify(collect()) !== editor.saved || $("invoiceRememberSeller").checked;
@@ -559,7 +635,9 @@
     clearTimeout(editor.timer);
     if (editor.dirty) { message("Есть несохранённые изменения…"); editor.timer = setTimeout(() => action(save), 900); }
   }
-  InvoiceDocuments.init({ render: renderInvoiceList, refresh: () => refreshList(true), accept: (saved) => {
+  InvoiceDocuments.init({ render: renderInvoiceList, /* Перечитывает данные открытого компонента по установленным правилам в модуле счетов и планов платежей.
+   * Использует `refreshList`. */ refresh: () => refreshList(true), /* Принимает подтверждённые данные счёта в локальный редактор.
+   * Использует `renderInvoiceList`, `($("invoiceList").invoiceRecords || []).map`, `$`. */ accept: (saved) => {
     if (state.folder?.path !== saved.path) return;
     ++loading;
     renderInvoiceList(($("invoiceList").invoiceRecords || []).map((record) => record.id === saved.id && record.revision <= saved.revision ? saved : record));

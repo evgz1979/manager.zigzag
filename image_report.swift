@@ -3,11 +3,15 @@ import CoreGraphics
 import CoreText
 import ImageIO
 
+// Описывает входное изображение PDF-отчёта и его комментарий.
+// Decodable разбирает поля из JSON, переданного процессу через stdin.
 struct Item: Decodable {
     let path: String
     let comment: String
 }
 
+// Завершает помощник с диагностикой в stderr и ненулевым кодом.
+// Вызывающий Python получает отказ вместо частичного успешного результата.
 func fail(_ message: String) -> Never {
     FileHandle.standardError.write(Data((message + "\n").utf8))
     exit(1)
@@ -35,6 +39,8 @@ let attributes: [NSAttributedString.Key: Any] = [
 ]
 var pages = 0
 var slot = 4
+// Выбирает следующую область изображения на странице PDF-отчёта.
+// При заполнении страницы начинает следующую и обновляет позицию сетки.
 func nextCell() -> CGRect {
     if slot == 4 {
         if pages > 0 { context.endPDFPage() }
@@ -52,6 +58,8 @@ func nextCell() -> CGRect {
                   width: cellWidth, height: cellHeight)
 }
 
+// Читает изображение и подготавливает CGImage для PDF-отчёта.
+// Ошибка декодирования завершает помощник через fail.
 func reportImage(_ path: String) -> CGImage {
     guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil),
           let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, [

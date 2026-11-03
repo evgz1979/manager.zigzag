@@ -1,4 +1,4 @@
-"""Object visibility with the same versioned marker and export rules as clients."""
+"""Object visibility using the shared SQLite activity index and legacy marker compatibility."""
 import os
 from pathlib import Path
 
@@ -8,16 +8,24 @@ from folder_structure import folder_role
 BLOCK = "Активность объекта"
 
 
+# Объединяет операции модуля: индекс неактивности объектов на основе механизма активности клиента.
+# Основные операции: matches, refresh.
 class ObjectActivity(ClientActivity):
     table = "object_activity"
     block = BLOCK
     entity = "объекта"
 
+    # Проверяет соответствие папки роли индексируемой сущности.
+    # Возвращает `folder_role(self.root, path)['folderKind'] == 'object'`.
     def matches(self, path):
         return folder_role(self.root, path)["folderKind"] == "object"
 
+    # Обновляет индекс из разрешённого источника данных.
+    # Передаёт работу `os.walk`, `Path`, `name.startswith`.
     def refresh(self):
         # Только контейнеры и карточки объектов; в заказы, #… и ссылки не входим.
+        # Сохраняет ошибку обхода, не выдавая неполный результат за полный.
+        # Передаёт работу `print`.
         def on_error(error):
             print(f"Активность объектов: {error}", flush=True)
 

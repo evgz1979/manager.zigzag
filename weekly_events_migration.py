@@ -16,6 +16,8 @@ from event_folder_undo import assert_unlocked
 MARKER = 'weekly_events_unified'
 
 
+# Проверяет весь план объединения недельных полей до первой записи.
+# Работает с таблицами sqlite_master.
 def changes(db):
     """Validate the whole plan before changing any row."""
     result = []
@@ -46,6 +48,8 @@ def changes(db):
     return result
 
 
+# Считает строки таблиц для проверки сохранности миграции.
+# Работает с таблицами sqlite_master.
 def table_counts(db):
     names = [row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")]
     return {name: db.execute('SELECT count(*) FROM "'+name.replace('"', '""')+'"').fetchone()[0] for name in names}
@@ -79,6 +83,8 @@ print('Исходные поля восстановлены, версии и и�
 '''
 
 
+# Переносит только допустимые прежние данные с сохранением исходников и истории.
+# Работает с таблицами metadata_settings.
 def migrate(database, output):
     database = Path(database).resolve()
     with closing(sqlite3.connect(database.as_uri()+'?mode=rw', uri=True, timeout=30)) as db:
@@ -135,6 +141,8 @@ def migrate(database, output):
             raise
 
 
+# Разбирает параметры запуска и выполняет основной сценарий программы.
+# Передаёт работу `argparse.ArgumentParser`, `parser.add_argument`, `parser.parse_args`.
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--database', type=Path, required=True)

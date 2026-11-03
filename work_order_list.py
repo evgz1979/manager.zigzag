@@ -8,6 +8,8 @@ from object_orders import ObjectOrders, LOCK, canonical
 import work_orders
 
 
+# Определяет область текущего списка поставщика.
+# Формирует возвращаемое значение из проверенного локального состояния.
 def supplier_scope(relative):
     parts = Path(relative).parts
     return not is_print_section(relative) and not in_freza(relative) and (
@@ -15,10 +17,14 @@ def supplier_scope(relative):
         (len(parts) == 2 and is_work_root(parts[0]) and not dated(parts[1]) and not parts[1].startswith(".")))
 
 
+# Объединяет операции модуля: sqlite-каталог производственных заказов и поставщиков.
+# Основные операции: path, sections, allowed_paths, refresh, read.
 class WorkOrderList(ObjectOrders):
     scope_kind = "work_orders_scope"
     folder_kind = "work_order_folder"
 
+    # Проверяет относительный путь внутри допустимой области.
+    # При недопустимом состоянии возбуждает ValueError.
     def path(self, relative):
         relative = canonical(self.store.path(relative))
         if not (len(Path(relative).parts) == 1 and is_work_root(relative)) and not supplier_scope(relative):
@@ -26,6 +32,8 @@ class WorkOrderList(ObjectOrders):
         guard_database(self.store.database, relative, include_children=True)
         return relative
 
+    # Читает сохранённые разделы производственного каталога.
+    # Возвращает `[{'path': relative}]`.
     def sections(self, relative):
         if supplier_scope(relative):
             return [{"path": relative}]
@@ -33,11 +41,15 @@ class WorkOrderList(ObjectOrders):
         return sorted((row for row in records.values() if row["is_favorite"] is True and not is_print_section(row["path"])),
                       key=lambda row: (work_orders.is_etc_section(row["path"]), row["position"], row["path"]))
 
+    # Вычисляет допустимые пути текущего списка из сохранённого каталога.
+    # Возвращает `lambda path: canonical(Path(path).parent.as_posix()) == relative and (not Path(path).name.startswith(('.', '#')))`; либо `allowed`.
     def allowed_paths(self, relative, inactive=(), show_inactive=False):
         if supplier_scope(relative):
             return lambda path: (canonical(Path(path).parent.as_posix()) == relative and
                                  not Path(path).name.startswith((".", "#")))
         sections = {row["path"] for row in self.sections(relative)}
+        # Проверяет допустимость одной папки в текущем каталоге.
+        # Возвращает `False`; либо `len(parts) == 2 and dated(parts[1]) or (len(parts) == 3 and Path(path).parent.as_posix() in sections)`.
         def allowed(path):
             path = canonical(path)
             parts = Path(path).parts
@@ -46,6 +58,8 @@ class WorkOrderList(ObjectOrders):
             return (len(parts) == 2 and dated(parts[1])) or (len(parts) == 3 and Path(path).parent.as_posix() in sections)
         return allowed
 
+    # Обновляет разрешённый каталог непосредственных производственных заказов.
+    # При недопустимом состоянии возбуждает ValueError.
     def refresh(self, relative):
         source = self.store.path(relative)
         relative = self.path(source)
@@ -79,6 +93,8 @@ class WorkOrderList(ObjectOrders):
                 errors.append(str(error))
             self.save_catalog(relative, found, errors, allowed=allowed)
 
+    # Собирает список производства, группы и статусы из SQLite.
+    # Работает с таблицами metadata_history.
     def read(self, relative, **kwargs):
         result = super().read(relative, **kwargs)
         with self.store.connect() as db:

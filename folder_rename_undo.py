@@ -8,18 +8,26 @@ import sqlite3
 import unicodedata
 
 
+# Проверяет принадлежность пути указанной области по границам компонентов.
+# Возвращает `path == prefix or path.startswith(prefix + '/')`.
 def inside(path, prefix):
     return path == prefix or path.startswith(prefix + "/")
 
 
+# Проверяет наличие таблицы SQLite перед совместимой перепривязкой.
+# Работает с таблицами sqlite_master.
 def table(db, name):
     return bool(db.execute("SELECT 1 FROM sqlite_master WHERE name=?", (name,)).fetchone())
 
 
+# Заменяет только совпадающий префикс пути с учётом границ папок.
+# Возвращает `destination + path[len(source):] if inside(path, source) else path`.
 def remap(path, source, destination):
     return destination + path[len(source):] if inside(path, source) else path
 
 
+# Вычисляет затрагиваемые пути SQLite для самостоятельного отката.
+# Работает с таблицами folder_renames, metadata_file_moves, metadata_publications.
 def metadata_paths(db, source, destination, *, apply=False):
     """Self-contained: this module is copied into standalone restoration journals."""
     source,destination = (unicodedata.normalize("NFC",value) for value in (source,destination))
@@ -51,6 +59,8 @@ def metadata_paths(db, source, destination, *, apply=False):
 
 
 
+# Проверяет предпосылки безопасного выполнения операции.
+# Работает с таблицами orders, mobile_operations.
 def check(db, source, destination, session=None):
     metadata_paths(db,source,destination)
     for name in ("event_renames", "folder_renames"):
@@ -72,6 +82,8 @@ def check(db, source, destination, session=None):
         raise ValueError("Сначала завершите подготовленную операцию iPhone")
 
 
+# Переписывает связанные пути SQLite в одной внешней транзакции.
+# Работает с таблицами reconciliations, orders, folder_notes, todo_missing_folders, mobile_files.
 def rewrite(db, source, destination):
     """Called inside one transaction; preserve every field and pending export."""
     metadata_paths(db,source,destination,apply=True)
@@ -114,6 +126,8 @@ def rewrite(db, source, destination):
                            (remap(path, source, destination), identity))
 
 
+# Выполняет сохранённые обратные операции после проверки текущего состояния.
+# Работает с таблицами folder_renames.
 def undo(session, perform=False):
     session = Path(session)
     meta = json.loads((session / ".folder-paths.json").read_text(encoding="utf-8"))

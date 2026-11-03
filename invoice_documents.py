@@ -16,6 +16,8 @@ BLOCK = '_closing_documents'
 MIMES = {'application/pdf', 'image/png', 'image/jpeg', 'application/octet-stream'}
 
 
+# Создаёт отсутствующие таблицы и совместимые расширения схемы.
+# Работает с таблицами invoice_documents.
 def schema(db):
     db.execute('''CREATE TABLE IF NOT EXISTS invoice_documents (
         id TEXT PRIMARY KEY, invoice_id TEXT NOT NULL, version INTEGER NOT NULL,
@@ -30,6 +32,8 @@ def schema(db):
     db.execute('CREATE INDEX IF NOT EXISTS invoice_documents_invoice ON invoice_documents(invoice_id)')
 
 
+# Проверяет или вычисляет устойчивую идентичность объекта.
+# При недопустимом состоянии возбуждает ValueError.
 def identity(value):
     try:
         if not isinstance(value, str) or str(uuid.UUID(value)) != value:
@@ -39,6 +43,8 @@ def identity(value):
     return value
 
 
+# Проверяет имя создаваемого или переименовываемого объекта.
+# При недопустимом состоянии возбуждает ValueError.
 def filename(value):
     if not isinstance(value, str) or not value or value.startswith('.') or any(c in '/\\:' or ord(c) < 32 or ord(c) == 127 for c in value):
         raise ValueError('Некорректное имя закрывающего документа')
@@ -48,6 +54,8 @@ def filename(value):
     return value
 
 
+# Разбирает строгий блок назначенных счёту закрывающих документов.
+# Возвращает `[]`; либо `None`.
 def read(data):
     if BLOCK not in data:
         return []
@@ -75,10 +83,14 @@ def read(data):
     return items
 
 
+# Возвращает метаданные документа без передачи его полного содержимого.
+# Возвращает `{**{key: row[key] for key in ('id', 'name', 'mime', 'size', 'sha256')}, 'deleted': False}`.
 def metadata(row):
     return {**{key: row[key] for key in ('id', 'name', 'mime', 'size', 'sha256')}, 'deleted': False}
 
 
+# Подбирает имя публикуемой копии без замены существующих файлов.
+# Возвращает `stem + suffix`.
 def copy_name(name, key):
     suffix = ' - ' + key + Path(name).suffix
     stem = Path(name).stem
@@ -87,6 +99,8 @@ def copy_name(name, key):
     return stem + suffix
 
 
+# Добавляет состояние публикации копии к данным документа.
+# Работает с таблицами invoice_documents.
 def with_copy_status(db, record):
     copies = {row['id']: dict(row) for row in db.execute('SELECT id,filename,exported,sync_error FROM invoice_documents WHERE invoice_id=?', (record['id'],))}
     for field in ('closing_documents', 'closing_documents_trash'):
@@ -94,6 +108,8 @@ def with_copy_status(db, record):
     return record
 
 
+# Определяет родительскую папку или заказ по допустимому пути.
+# При недопустимом состоянии возбуждает ValueError.
 def parent(store, db, path, invoice_id, *, write=False):
     row = store.current(db, path, invoice_id)
     if write:
@@ -107,6 +123,8 @@ def parent(store, db, path, invoice_id, *, write=False):
     return row, data, items
 
 
+# Сохраняет новый список вложений счёта вместе с invoice_history и revision.
+# Работает с таблицами invoice_history, invoices.
 def save(store, db, row, data, items):
     data[BLOCK] = {'version': VERSION, 'items': items}
     db.execute('INSERT INTO invoice_history VALUES (?,?,?,?)', (row['id'], row['revision'], row['data'], time.time()))
@@ -115,6 +133,8 @@ def save(store, db, row, data, items):
     return store.record(store.current(db, row['path'], row['id']))
 
 
+# Принимает проверенный документ и сохраняет его содержимое.
+# Работает с таблицами invoice_documents.
 def upload(store, payload):
     from invoices import InvoiceConflict
     key, name = identity(payload.get('document_id')), filename(payload.get('name'))
@@ -151,6 +171,8 @@ def upload(store, payload):
         return save(store, db, row, data, [*items, item])
 
 
+# Меняет признак корзины, сохраняя саму запись и её историю.
+# Работает с таблицами invoice_documents.
 def set_deleted(store, payload, deleted):
     from invoices import InvoiceConflict
     key = identity(payload.get('document_id'))
@@ -170,6 +192,8 @@ def set_deleted(store, payload, deleted):
         return save(store, db, row, data, [{**item, 'deleted': deleted} if item['id'] == key else item for item in items])
 
 
+# Читает сохранённые байты документа после проверки владельца.
+# Работает с таблицами invoice_documents.
 def content(store, path, invoice_id, document_id):
     key = identity(document_id)
     with store.connect() as db:
@@ -186,6 +210,8 @@ def content(store, path, invoice_id, document_id):
         return body, document['name'], document['mime']
 
 
+# Публикует ожидающие BLOB-вложения в папки без подмены существующих копий.
+# Работает с таблицами invoice_documents, invoices.
 def sync(store):
     import orders
     with store.connect() as db:

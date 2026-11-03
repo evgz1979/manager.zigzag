@@ -1,17 +1,25 @@
 import Foundation
 
 /// Runs on its own actor. Coordination/download waits never block local editing.
+// Изолирует координацию iCloud в отдельном Swift actor.
+// Ожидание файлов не выполняется в локальном редакторе PhoneStore.
 actor DriveTransport {
+    // Передаёт результат одного цикла файлового обмена.
+    // Содержит опубликованные UUID и полученные байты каталога Mac.
     struct SyncResult: Sendable {
         var sent: Set<String>
         var catalogData: Data
     }
 
+    // Разрешает сохранённый bookmark в URL выбранного корня.
+    // Неверное разрешение передаётся вызывающему коду через throws.
     func resolve(_ bookmark: Data) throws -> URL {
         var stale = false
         return try URL(resolvingBookmarkData: bookmark, options: [], relativeTo: nil, bookmarkDataIsStale: &stale)
     }
 
+    // Проверяет готовность iCloud-файла к согласованному чтению.
+    // При незавершённой загрузке инициирует скачивание и сообщает о необходимости повтора.
     func available(_ url: URL) throws {
         let values = try url.resourceValues(forKeys: [.isUbiquitousItemKey, .ubiquitousItemDownloadingStatusKey])
         if values.isUbiquitousItem == true && values.ubiquitousItemDownloadingStatus != .current {
@@ -20,6 +28,8 @@ actor DriveTransport {
         }
     }
 
+    // Читает ограниченный файл через NSFileCoordinator.
+    // Ошибки координации, недоступность и превышение размера передаются через throws.
     func read(_ url: URL, limit: Int = 32 * 1024 * 1024) throws -> Data {
         try available(url)
         var coordinationError: NSError?
@@ -35,6 +45,8 @@ actor DriveTransport {
         return try result.get()
     }
 
+    // Выполняет один цикл обмена через выбранную папку iCloud.
+    // Публикация операции и подтверждение её применения различаются; Mac-обмен отложен.
     func sync(bookmark: Data, operations: [QueuedOperation], rootID: String?) throws -> SyncResult {
         let root = try resolve(bookmark)
         let access = root.startAccessingSecurityScopedResource()
@@ -73,6 +85,8 @@ actor DriveTransport {
         return SyncResult(sent: sent, catalogData: catalogData)
     }
 
+    // Сохраняет выбранный оригинал для автономного просмотра на телефоне.
+    // Проверяет допустимость файла и сохраняет в отдельный локальный каталог вложений.
     func cache(bookmark: Data, file: PhoneFile, destination: URL) throws {
         guard file.size <= 100 * 1024 * 1024 else { throw PhoneError.message("Для автономного просмотра пока доступны файлы до 100 МБ") }
         let root = try resolve(bookmark)

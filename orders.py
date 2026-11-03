@@ -1,4 +1,4 @@
-"""Local order register and durable, retryable exports to document folders."""
+"""SQLite order register with partial revisions, legacy imports and export compatibility."""
 import hashlib
 import json
 import os
@@ -23,11 +23,17 @@ CARD = document.DOCUMENT
 SYNC_LOCK = threading.Lock()
 
 
+# Обозначает конфликт изменения в этом модуле.
+# Вызывающий обработчик использует тип исключения для отказа без подмены данных.
 class OrderConflict(ValueError):
     pass
 
 
+# Хранит реестр заказов и предоставляет версионные частичные операции.
+# Основные операции: __init__, connect, path, target, record; остальные описаны у методов.
 class OrderStore:
+    # Сохраняет зависимости и начальные параметры экземпляра.
+    # Состояние и зависимости сохраняются в полях self для последующих операций.
     def __init__(self, root, data_dir, labels, *, database_only=True):
         self.root = Path(root)
         self.database_only = database_only
@@ -36,6 +42,8 @@ class OrderStore:
         self.database = Path(data_dir) / f"orders-{key}.sqlite3"
         self.labels = labels
 
+    # Открывает соединение SQLite и управляет его временем жизни.
+    # Работает с таблицами orders.
     @contextmanager
     def connect(self):
         self.database.parent.mkdir(parents=True, exist_ok=True)
@@ -75,6 +83,8 @@ class OrderStore:
         finally:
             db.close()
 
+    # Проверяет относительный путь внутри допустимой области.
+    # При недопустимом состоянии возбуждает ValueError.
     def path(self, relative):
         if not isinstance(relative, str) or not relative or relative == ".":
             raise ValueError("Выберите папку заказа")
@@ -85,6 +95,8 @@ class OrderStore:
             raise ValueError("Служебные папки с # не являются заказами")
         return Path(*parts).as_posix()
 
+    # Находит допустимую существующую цель файловой операции.
+    # При недопустимом состоянии возбуждает ValueError, FileNotFoundError.
     def target(self, relative):
         relative = self.path(relative)
         guard_database(self.database, relative)
@@ -95,6 +107,8 @@ class OrderStore:
             raise FileNotFoundError("Папка заказа недоступна. Данные сохранены в базе; проверьте iCloud и путь заказа.")
         return target
 
+    # Собирает API-карточку заказа из SQL-строки, блоков и вычисляемых признаков.
+    # Разбирает JSON; вызывающий код должен учитывать ошибки или неизвестный формат.
     def record(self,row,db):
         if row is None:
             return None
@@ -137,6 +151,8 @@ class OrderStore:
             result.update(sync_pending=False,sync_error="",storage="database")
         return result
 
+    # Читает сохранённый заказ по пути без импорта его файлов.
+    # Работает с таблицами orders.
     def get(self, relative, *, include_unregistered=False):
         if is_service_folder(relative) or in_reconciliations(relative, legacy=True) or not self.database.exists():
             return None
@@ -145,6 +161,8 @@ class OrderStore:
             row = db.execute("SELECT * FROM orders WHERE path=?", (relative,)).fetchone()
             return self.record(row, db) if row and (include_unregistered or row["registered"]) else None
 
+    # Читает реестр заказов с учётом выбора снятых регистраций.
+    # Работает с таблицами orders.
     def list(self, *, include_unregistered=False):
         if not self.database.exists():
             return []
@@ -154,10 +172,14 @@ class OrderStore:
                     and not in_reconciliations(row['path'], legacy=True)
                     and not is_service_folder(row["path"]) and (include_unregistered or row["registered"])]
 
+    # Возвращает сохранённые записи со снятой регистрацией.
+    # Формирует возвращаемое значение из проверенного локального состояния.
     def pending_unregistrations(self):
         return [{"path": record["path"], "sync_error": record["sync_error"]}
                 for record in self.list(include_unregistered=True) if not record["registered"] and record["sync_pending"]]
 
+    # Убирает прежние тестовые регистрации служебных папок в файловом режиме.
+    # Работает с таблицами orders.
     def discard_service_orders(self):
         """Service-folder registrations were test data; folder files are authoritative."""
         if not self.database.exists():
@@ -167,6 +189,8 @@ class OrderStore:
             db.executemany("DELETE FROM orders WHERE path=?", [(path,) for path in paths])
         return len(paths)
 
+    # Добавляет регистрацию заказа с проверкой существующей записи и UUID.
+    # Работает с таблицами orders.
     def add(self, relative, initial):
         relative = self.path(relative)
         self.target(relative)
@@ -194,12 +218,16 @@ class OrderStore:
                 order_links.mark_status_contract(db)
         return self.get(relative)
 
+    # Проверяет, что путь соответствует допустимой папке заказа.
+    # При недопустимом состоянии возбуждает ValueError.
     def require_order_folder(self, relative):
         role = folder_role(self.root, relative)
         if not role["canRegisterOrder"]:
             raise ValueError(role["registrationHint"])
         return role
 
+    # Сохраняет проверенные поля карточки заказа по UUID и ожидаемой revision.
+    # Работает с таблицами orders, sqlite_master, mobile_tasks.
     def save(self, payload):
         relative = self.path(payload.get("path"))
         status, note, title = payload.get("status"), payload.get("note"), payload.get("title")
@@ -248,6 +276,8 @@ class OrderStore:
                 order_links.mark_status_contract(db)
         return self.get(relative)
 
+    # Меняет только производственный статус по версии, показанной в списке.
+    # Работает с таблицами orders.
     def save_status(self, payload):
         """Change only production status using the version shown in the list."""
         relative = self.path(payload.get("path"))
@@ -267,30 +297,46 @@ class OrderStore:
                 order_links.mark_status_contract(db)
         return self.get(relative)
 
+    # Меняет одну неделю срока без изменения даты сортировки заказа.
+    # Формирует возвращаемое значение из проверенного локального состояния.
     def save_deadline_week(self, payload):
         """Change one week's mark without moving the order in the sorted list."""
         return self._save_extra_block(payload, lambda blocks: order_deadlines.write(blocks, payload.get("week"), payload.get("selected")), update_time=False)
 
+    # Меняет текст общего недельного события заказа.
+    # Формирует возвращаемое значение из проверенного локального состояния.
     def save_deadline_comment(self, payload):
         return self._save_extra_block(payload, lambda blocks: order_deadlines.write_comment(blocks, payload.get("week"), payload.get("comment")), update_time=False)
 
+    # Меняет только отметку мелкого заказа с проверкой UUID и версии.
+    # Формирует возвращаемое значение из проверенного локального состояния.
     def save_calendar_compact(self, payload):
         return self._save_extra_block(payload, lambda blocks: calendar_layout.write_compact(blocks, payload.get("calendar_compact")), update_time=False)
 
+    # Меняет одну независимую отметку заказа без замены остальных полей.
+    # Возвращает `self._save_extra_block(payload, lambda blocks: document.write_flag(blocks, payload.get('is_flagged')), update_time=False)`.
     def save_flag(self, payload):
         return self._save_extra_block(payload, lambda blocks: document.write_flag(blocks, payload.get("is_flagged")), update_time=False)
 
+    # Меняет одну независимую отметку заказа без замены остальных полей.
+    # Возвращает `self._save_extra_block(payload, lambda blocks: document.write_blue_plus(blocks, payload.get('is_blue_plus')), update_time=False)`.
     def save_blue_plus(self, payload):
         return self._save_extra_block(payload, lambda blocks: document.write_blue_plus(blocks, payload.get("is_blue_plus")), update_time=False)
 
+    # Меняет одну независимую отметку заказа без замены остальных полей.
+    # Возвращает `self._save_extra_block(payload, lambda blocks: document.write_dollar(blocks, payload.get('is_dollar')), update_time=False)`.
     def save_dollar(self, payload):
         return self._save_extra_block(payload, lambda blocks: document.write_dollar(blocks, payload.get("is_dollar")), update_time=False)
 
+    # Меняет самостоятельный статус заказа поставщика.
+    # При недопустимом состоянии возбуждает ValueError.
     def save_supplier_status(self, payload):
         if not work_orders.status_order(self.path(payload.get("path"))):
             raise ValueError("Выбери заказ поставщику")
         return self._save_extra_block(payload, lambda blocks: work_orders.write_status(blocks, payload.get("supplier_status")), update_time=False)
 
+    # Меняет выполнение исходной закупки с проверкой строки и версии.
+    # При недопустимом состоянии возбуждает ValueError.
     def save_purchase_done(self, payload, supplier):
         relative = self.path(payload.get("path"))
         if not client_path(relative):
@@ -298,6 +344,8 @@ class OrderStore:
         return self._save_extra_block(payload, lambda blocks: document.write_purchase_done(
             blocks, payload.get("index"), payload.get("text"), supplier, payload.get("done")), update_time=False)
 
+    # Меняет текст исходной закупки с проверкой строки и версии.
+    # При недопустимом состоянии возбуждает ValueError.
     def save_purchase_text(self, payload, supplier):
         relative = self.path(payload.get("path"))
         if not client_path(relative):
@@ -305,35 +353,55 @@ class OrderStore:
         return self._save_extra_block(payload, lambda blocks: document.write_purchase_text(
             blocks, payload.get("index"), payload.get("text"), supplier, payload.get("new_text")), update_time=False)
 
+    # Сохраняет текст выбранного дневного или недельного события заказа.
+    # Формирует возвращаемое значение из проверенного локального состояния.
     def save_calendar_event(self, payload):
         return self._save_extra_block(payload, lambda blocks: order_calendar.write(blocks, payload.get("date"), payload.get("text"), payload.get("period", "day")), update_time=False)
 
+    # Удаляет выбранное событие и связанные с ним отметки.
+    # Формирует возвращаемое значение из проверенного локального состояния.
     def remove_calendar_event(self, payload):
         return self._save_extra_block(payload, lambda blocks: order_calendar.remove(blocks, payload.get('date'), payload.get('period', 'day')), update_time=False)
 
+    # Восстанавливает удалённое событие вместе с его прежними отметками.
+    # Формирует возвращаемое значение из проверенного локального состояния.
     def restore_calendar_event(self, payload):
         return self._save_extra_block(payload, lambda blocks: order_calendar.restore(blocks, payload.get('date'), payload.get('text'), payload.get('is_inactive'), payload.get('period', 'day'), payload.get('color'), payload.get('is_completed', False), payload.get('is_trip', False), payload.get('is_watch_todos', None if order_calendar.WATCH_TODOS_BLOCK in blocks else False)), update_time=False)
 
+    # Меняет цвет выбранного события заказа с проверкой версии.
+    # При недопустимом состоянии возбуждает ValueError.
     def save_calendar_color(self, payload):
         if work_orders.supplier_name(self.path(payload.get("path"))):
             raise ValueError("У событий поставщиков фиксированный цвет поставщика")
         return self._save_extra_block(payload, lambda blocks: order_calendar.set_color(blocks, payload.get("date"), payload.get("color"), payload.get("period", "day")), update_time=False)
 
+    # Меняет только неактуальность выбранного события заказа.
+    # Формирует возвращаемое значение из проверенного локального состояния.
     def save_calendar_inactive(self, payload):
         return self._save_extra_block(payload, lambda blocks: order_calendar.set_inactive(blocks, payload.get("date"), payload.get("is_inactive"), payload.get("period", "day")), update_time=False)
 
+    # Меняет только выполнение выбранного события заказа.
+    # Формирует возвращаемое значение из проверенного локального состояния.
     def save_calendar_completed(self, payload):
         return self._save_extra_block(payload, lambda blocks: order_calendar.set_completed(blocks, payload.get("date"), payload.get("is_completed"), payload.get("period", "day")), update_time=False)
 
+    # Меняет только отметку выезда выбранного события заказа.
+    # Формирует возвращаемое значение из проверенного локального состояния.
     def save_calendar_trip(self, payload):
         return self._save_extra_block(payload, lambda blocks: order_calendar.set_trip(blocks, payload.get("date"), payload.get("is_trip"), payload.get("period", "day")), update_time=False)
 
+    # Меняет только отметку показа задач выбранного события заказа.
+    # Формирует возвращаемое значение из проверенного локального состояния.
     def save_calendar_watch_todos(self, payload):
         return self._save_extra_block(payload, lambda blocks: order_calendar.set_watch_todos(blocks, payload.get("date"), payload.get("is_watch_todos"), payload.get("period", "day")), update_time=False)
 
+    # Переносит событие заказа вместе с его независимыми отметками.
+    # Формирует возвращаемое значение из проверенного локального состояния.
     def move_calendar_event(self, payload):
         return self._save_extra_block(payload, lambda blocks: order_calendar.move(blocks, payload.get("date"), payload.get("days"), payload.get("period", "day")), update_time=False)
 
+    # Применяет частичную правку блока заказа внутри версионной транзакции.
+    # Работает с таблицами orders, metadata_settings.
     def _save_extra_block(self, payload, write, *, update_time=True):
         relative = self.path(payload.get("path"))
         revision = payload.get("revision")
@@ -369,6 +437,8 @@ class OrderStore:
                 (json.dumps(blocks, ensure_ascii=False), update_time, time.time(), relative, identity, revision))
         return self.get(relative)
 
+    # Меняет только избранное без чтения документов и замены полей карточки.
+    # Работает с таблицами orders.
     def save_favorite(self, payload):
         """Change just the star, without reading documents or replacing card fields."""
         relative = self.path(payload.get("path"))
@@ -388,6 +458,8 @@ class OrderStore:
                 (json.dumps(blocks, ensure_ascii=False), time.time(), relative, revision))
         return self.get(relative)
 
+    # Читает сохранённую подборку заказов поставщиков текущего заказа.
+    # Работает с таблицами orders.
     def work_links(self, relative):
         relative = self.path(relative)
         if not work_orders.direct_order(relative):
@@ -408,6 +480,8 @@ class OrderStore:
                 for identity in identities or [] if identity not in rows or not work_orders.archived(rows[identity])]
             return {"path": relative, "revision": parent["revision"], "linked_ids": identities, "items": items, "candidates": candidates}
 
+    # Сохраняет UUID подборки заказов поставщиков с проверкой версии.
+    # Работает с таблицами orders.
     def save_work_links(self, payload):
         relative = self.path(payload.get("path"))
         identities = work_orders.checked_ids(payload.get("order_ids"))
@@ -438,6 +512,8 @@ class OrderStore:
                 (json.dumps(updated, ensure_ascii=False), time.time(), relative, revision))
         return self.get(relative)
 
+    # Снимает регистрацию заказа, сохраняя карточку и пользовательскую папку.
+    # Работает с таблицами orders, folder_notes.
     def remove(self, payload):
         if payload.get("confirmed") is not True:
             raise ValueError("Подтвердите снятие регистрации заказа")
@@ -461,9 +537,13 @@ class OrderStore:
                     (relative,str(uuid.uuid4()),"",json.dumps(body,ensure_ascii=False),time.time()))
         return self.get(relative, include_unregistered=True)
 
+    # Записывает временный файл и атомарно заменяет предусмотренную цель.
+    # Передаёт работу `document.atomic_write`.
     def atomic_write(self, target, body):
         document.atomic_write(target, body)
 
+    # Подтверждает версии SQLite либо обслуживает прежнюю файловую выгрузку.
+    # Работает с таблицами orders.
     def sync(self):
         if self.database_only:
             with self.connect() as db:
@@ -501,12 +581,16 @@ class OrderStore:
         finally:
             SYNC_LOCK.release()
 
+    # Первоначально импортирует карточку папки, сохраняя уже существующие данные.
+    # Возвращает `self._import_folder(relative, fallback)`.
     def import_folder(self, relative, fallback=None):
         if self.database_only:
             with SYNC_LOCK:
                 return self._import_folder(relative,fallback)
         return self._import_folder(relative,fallback)
 
+    # Первоначально импортирует карточку папки, сохраняя уже существующие данные.
+    # Работает с таблицами folder_notes, orders.
     def _import_folder(self, relative, fallback=None):
         folder = self.target(relative)
         self.require_order_folder(relative)
@@ -552,6 +636,8 @@ class OrderStore:
             self.add(relative, initial)
         return self.get(relative)
 
+    # Импортирует только отсутствующие записи; существующая база имеет приоритет.
+    # Работает с таблицами sqlite_master, order_duplicate_archive, orders.
     def restore(self, relative, snapshot):
         """Import only missing records. Existing database values always win."""
         relative = self.path(relative)
@@ -606,6 +692,8 @@ class OrderStore:
             if self.database_only and status == 'related':
                 order_links.mark_status_contract(db)
 
+    # Выполняет явный поиск зарегистрированных карточек без чтения вложений.
+    # При недопустимом состоянии возбуждает FileNotFoundError.
     def discover(self, read_status, progress):
         """Explicit background scan: directory names and metadata, never attachments."""
         if not self.root.is_dir():

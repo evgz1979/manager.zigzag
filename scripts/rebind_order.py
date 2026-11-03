@@ -17,14 +17,20 @@ import sys
 from zoneinfo import ZoneInfo
 
 
+# Проверяет принадлежность пути указанной области по границам компонентов.
+# Возвращает `path == prefix or path.startswith(prefix + '/')`.
 def inside(path, prefix):
     return path == prefix or path.startswith(prefix + "/")
 
 
+# Проверяет наличие таблицы SQLite перед совместимой перепривязкой.
+# Работает с таблицами sqlite_master.
 def table(db, name):
     return db.execute("SELECT 1 FROM sqlite_master WHERE name=?", (name,)).fetchone() is not None
 
 
+# Проверяет точную существующую папку ручной операции.
+# При недопустимом состоянии возбуждает ValueError.
 def checked_folder(root, relative):
     path = Path(relative)
     if path.is_absolute() or not path.parts or any(part.startswith(".") for part in path.parts):
@@ -38,6 +44,8 @@ def checked_folder(root, relative):
     return target
 
 
+# Дописывает запись в устойчивый журнал операции.
+# Передаёт работу `datetime.now(ZoneInfo('Europe/Moscow')).isoformat`, `datetime.now`, `ZoneInfo`.
 def append(session, phase):
     row = {"time": datetime.now(ZoneInfo("Europe/Moscow")).isoformat(), "phase": phase}
     with (Path(session) / ".journal.jsonl").open("a", encoding="utf-8") as output:
@@ -46,6 +54,8 @@ def append(session, phase):
         os.fsync(output.fileno())
 
 
+# Проверяет согласованность связанных записей до перепривязки заказа.
+# Работает с таблицами orders, folder_notes, todo_missing_folders, todo_catalog, mobile_operations.
 def check_links(db, source, destination, identity):
     prefixes = (source, destination)
     for row in db.execute("SELECT id,path FROM orders"):
@@ -73,6 +83,8 @@ def check_links(db, source, destination, identity):
                 raise ValueError("Сначала завершите подготовленную мобильную операцию")
 
 
+# Переписывает подтверждённые связанные пути в одной транзакции.
+# Работает с таблицами orders, invoices, todo_catalog, mobile_files.
 def update_paths(db, source, destination, identity):
     db.execute("UPDATE orders SET path=?,revision=revision+1,sync_error='' WHERE id=?", (destination, identity))
     if table(db, "invoices"):
@@ -83,6 +95,8 @@ def update_paths(db, source, destination, identity):
         db.execute("UPDATE mobile_files SET scanned=0 WHERE order_id=?", (identity,))
 
 
+# Перепривязывает проверенную существующую запись к подтверждённому пути.
+# Работает с таблицами orders.
 def rebind(store, source, destination, *, perform=False):
     if store.database_only:
         raise ValueError("Прежняя перепривязка по !.txt отключена. Нужен перенос всех связанных путей SQLite")
@@ -142,6 +156,8 @@ def rebind(store, source, destination, *, perform=False):
     return {**preview, "journal": str(session)}
 
 
+# Выполняет сохранённые обратные операции после проверки текущего состояния.
+# Работает с таблицами orders.
 def undo(session, *, perform=False):
     session = Path(session)
     before = json.loads((session / ".before.json").read_text())

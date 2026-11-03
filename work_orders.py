@@ -1,4 +1,4 @@
-"""Supplier-order selections stored as stable identities in the parent card."""
+"""Production roles, supplier statuses, palettes, favorite sections and UUID selections."""
 import json
 import time
 import unicodedata
@@ -25,16 +25,22 @@ SUPPLIER_PALETTE = {
 }
 
 
+# Обозначает конфликт изменения в этом модуле.
+# Вызывающий обработчик использует тип исключения для отказа без подмены данных.
 class SupplierFavoriteConflict(ValueError):
     pass
 
 
+# Выделяет корень производства или реальный раздел поставщика по пути.
+# При недопустимом состоянии возбуждает ValueError.
 def supplier_root_path(relative):
     if not isinstance(relative, str) or len(Path(relative).parts) != 1 or not is_work_root(relative):
         raise ValueError("Выбери корень # work")
     return unicodedata.normalize("NFC", relative)
 
 
+# Выделяет корень производства или реальный раздел поставщика по пути.
+# При недопустимом состоянии возбуждает ValueError.
 def supplier_section_path(relative):
     if not isinstance(relative, str):
         raise ValueError("Выбери раздел производства с #")
@@ -44,11 +50,15 @@ def supplier_section_path(relative):
     return unicodedata.normalize("NFC", Path(*parts).as_posix())
 
 
+# Распознаёт сводку закупок без выбранного поставщика.
+# Возвращает `len(parts) == 2 and is_work_root(parts[0]) and (parts[1].removeprefix('#').strip().casefold() == 'etc')`.
 def is_etc_section(relative):
     parts = Path(relative).parts
     return len(parts) == 2 and is_work_root(parts[0]) and parts[1].removeprefix("#").strip().casefold() == "etc"
 
 
+# Читает сохранённую звезду производственного раздела.
+# Разбирает JSON; вызывающий код должен учитывать ошибки или неизвестный формат.
 def supplier_favorite_record(row):
     try:
         data = json.loads(row["data"])
@@ -63,6 +73,8 @@ def supplier_favorite_record(row):
             "position": data.get("position") if valid else None, "editable": valid}
 
 
+# Однократно инициализирует и читает избранные разделы корня.
+# Работает с таблицами metadata_records.
 def supplier_favorites(db, root, paths):
     """Initialize once per root; later sections start without a star."""
     from local_metadata import schema, audit
@@ -97,6 +109,8 @@ def supplier_favorites(db, root, paths):
     return result
 
 
+# Возвращает список избранных производственных разделов из SQLite.
+# Работает с таблицами metadata_records.
 def read_supplier_favorites(store, root):
     root = supplier_root_path(root)
     with store.connect() as db:
@@ -108,6 +122,8 @@ def read_supplier_favorites(store, root):
                 if Path(row["path"]).parent.as_posix() == root}
 
 
+# Меняет звезду одного раздела с проверкой актуального состояния.
+# Работает с таблицами metadata_records.
 def save_supplier_favorite(store, payload):
     from local_metadata import schema, audit
     path = supplier_section_path(payload.get("path"))
@@ -138,21 +154,29 @@ def save_supplier_favorite(store, payload):
         return supplier_favorite_record(db.execute("SELECT * FROM metadata_records WHERE id=?", (row["id"],)).fetchone())
 
 
+# Читает строки настроек избранных разделов из текущего соединения.
+# Работает с таблицами metadata_records.
 def read_favorite_rows(db, root):
     return [supplier_favorite_record(row) for row in db.execute("SELECT * FROM metadata_records WHERE kind=?", (SUPPLIER_FAVORITE_KIND,))
             if Path(row["path"]).parent.as_posix() == root]
 
 
+# Проверяет принадлежность пути производственному дереву # work.
+# Возвращает `bool(parts and is_work_root(parts[0]))`.
 def in_work(relative):
     parts = Path(relative).parts
     return bool(parts and is_work_root(parts[0]))
 
 
+# Распознаёт непосредственный заказ раздела поставщика.
+# Возвращает `len(parts) == 2 and is_work_root(parts[0]) and dated(parts[1])`.
 def direct_order(relative):
     parts = Path(relative).parts
     return len(parts) == 2 and is_work_root(parts[0]) and dated(parts[1])
 
 
+# Определяет подпись реального раздела поставщика по пути.
+# Возвращает `''`; либо `parts[1][1:].strip() if parts[1].startswith('#') else parts[1]`.
 def supplier_name(relative):
     """Actual #work section, without inspecting folders or assigning a root order."""
     parts = Path(relative).parts
@@ -161,6 +185,8 @@ def supplier_name(relative):
     return parts[1][1:].strip() if parts[1].startswith('#') else parts[1]
 
 
+# Выбирает наименее занятый оттенок только для нового поставщика.
+# Работает с таблицами metadata_records.
 def new_supplier_hue(db, name):
     """Choose the least occupied hue; only the new supplier gets this color."""
     used = list(SUPPLIER_PALETTE.values())
@@ -178,6 +204,8 @@ def new_supplier_hue(db, name):
     return max(candidates, key=lambda hue: min(min((hue - other) % 360, (other - hue) % 360) for other in used))
 
 
+# Читает или однократно назначает устойчивый цвет раздела поставщика.
+# Работает с таблицами sqlite_master, metadata_records.
 def supplier_color(db, relative):
     """Persist a distinct palette per section, with a one-time v1 conversion."""
     parts = Path(relative).parts
@@ -214,6 +242,8 @@ def supplier_color(db, relative):
     return {"hue": data["hue"], "neutral": data["neutral"]}
 
 
+# Определяет принадлежность записи заказам поставщиков.
+# Возвращает `False`; либо `len(parts) == 3 and is_work_root(parts[0]) and (not dated(parts[1])) or (len(parts) == 2 and is_supplier_root(parts[0]))`.
 def supplier_order(relative):
     parts = Path(relative).parts
     if is_service_folder(relative) or is_print_section(Path(relative).parent.as_posix()):
@@ -222,10 +252,14 @@ def supplier_order(relative):
         len(parts) == 2 and is_supplier_root(parts[0]))
 
 
+# Проверяет применимость самостоятельного статуса поставщика к пути.
+# Возвращает `direct_order(relative) or (supplier_order(relative) and (not in_freza(relative)))`.
 def status_order(relative):
     return direct_order(relative) or (supplier_order(relative) and not in_freza(relative))
 
 
+# Извлекает принятую дату заказа из названия папки.
+# Возвращает `None`; либо `f'{year:04d}-{month:02d}-{day:02d}'`.
 def folder_date(relative):
     name = Path(relative).name
     if not dated(name):
@@ -237,12 +271,16 @@ def folder_date(relative):
     return f"{year:04d}-{month:02d}-{day:02d}"
 
 
+# Читает самостоятельный статус поставщика из известного блока.
+# Возвращает `'work'`; либо `next((key for (key, label) in STATUS_LABELS.items() if blocks[STATUS_BLOCK] == label), None)`.
 def read_status(blocks):
     if STATUS_BLOCK not in blocks:
         return "work"
     return next((key for key, label in STATUS_LABELS.items() if blocks[STATUS_BLOCK] == label), None)
 
 
+# Сериализует самостоятельный статус поставщика без изменения остальных блоков.
+# При недопустимом состоянии возбуждает ValueError.
 def write_status(blocks, status):
     if not isinstance(status, str) or status not in STATUS_LABELS:
         raise ValueError("Выбери статус заказа поставщику")
@@ -256,6 +294,8 @@ def write_status(blocks, status):
     return updated
 
 
+# Читает сохранённое время перемещения заказа в архивную группу.
+# Возвращает `None`; либо `stamp.timestamp() if stamp.tzinfo is not None else None`.
 def archive_time(blocks):
     value = blocks.get(ARCHIVED_AT_BLOCK)
     if not isinstance(value, str):
@@ -267,10 +307,14 @@ def archive_time(blocks):
         return None
 
 
+# Проверяет попадание производственного заказа в архив по сохранённым данным.
+# Возвращает `status_order(order['path']) and read_status(order.get('extra_blocks', {})) == 'archived'`.
 def archived(order):
     return status_order(order["path"]) and read_status(order.get("extra_blocks", {})) == "archived"
 
 
+# Проверяет UUID и уникальность списка связанных сущностей.
+# При недопустимом состоянии возбуждает ValueError.
 def checked_ids(value):
     if not isinstance(value, list) or len(value) > MAX_LINKS or any(
             not isinstance(item, str) or not item or len(item) > 100 for item in value):
@@ -280,6 +324,8 @@ def checked_ids(value):
     return value
 
 
+# Читает строгий список UUID связанной подборки заказов поставщиков.
+# Разбирает JSON; вызывающий код должен учитывать ошибки или неизвестный формат.
 def read_links(blocks):
     if LINKS_BLOCK not in blocks:
         return []
@@ -292,12 +338,16 @@ def read_links(blocks):
         return None
 
 
+# Сохраняет проверенные UUID связанной подборки в дополнительном блоке.
+# При недопустимом состоянии возбуждает ValueError.
 def write_links(blocks, identities):
     if read_links(blocks) is None:
         raise ValueError("Неизвестный раздел связанных заказов сохранён без изменений")
     return {**blocks, LINKS_BLOCK: json.dumps({"version": 1, "order_ids": checked_ids(identities)}, ensure_ascii=False)}
 
 
+# Формирует сводное представление производственного заказа.
+# Формирует возвращаемое значение из проверенного локального состояния.
 def summary(row):
     return {key: row[key] for key in ("id", "path", "title", "status", "registered")} | {
         "supplier": Path(row["path"]).parts[-2]} | (

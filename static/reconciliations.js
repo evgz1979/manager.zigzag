@@ -2,9 +2,15 @@
 const ReconciliationUI = (() => {
   let assignment = null, refreshVersion = 0, tableMarkup = null, tablePath = null, listMarkup = null, listPath = null;
   const links = new Map();
+  // Форматирует денежное значение для соответствующего компонента.
+  // Использует `Number.isSafeInteger`, `rubles`.
   const money = value => Number.isSafeInteger(value) ? rubles(value) : '—';
+  // Форматирует сохранённую дату для показа пользователю.
+  // Использует `/^\d{4}-\d{2}-\d{2}$/.test`, `value.split('-').reverse().join`, `value.split('-').reverse`.
   const date = value => /^\d{4}-\d{2}-\d{2}$/.test(value || '') ? value.split('-').reverse().join('.') : '—';
 
+  // Строит строки текущего списка компонента.
+  // Обращается к DOM текущего документа или переданного контейнера.
   function renderList(folder, records) {
     const byPath = new Map(records.map(item => [item.path.normalize('NFC'), item]));
     const rows = folder.directories.filter(item => !item.name.startsWith('#'));
@@ -26,6 +32,8 @@ const ReconciliationUI = (() => {
     $('reconciliationListState').textContent = rows.length ? '' : 'Создай первую сверку кнопкой «Создать сверку».';
   }
 
+  // Строит кнопку действия компонента с текущим состоянием записи.
+  // Использует `links.set`, `links.get`, `escapeHtml`.
   function button(invoice) {
     if (invoice.reconciliation) links.set(invoice.id, invoice.reconciliation);
     const link = links.get(invoice.id);
@@ -33,6 +41,8 @@ const ReconciliationUI = (() => {
     return '<button type="button" class="secondary-button invoice-reconciliation-button" data-invoice-reconciliation="' + escapeHtml(invoice.id) + '" title="' + escapeHtml(label) + '">' + escapeHtml(label) + '</button>';
   }
 
+  // Показывает назначенные сверке счета с их состоянием и источником.
+  // Использует `/api/invoice-pdf`.
   function renderTable(record) {
     const rows = record.invoices || [];
     $('reconciliationInvoiceCount').textContent = rows.length || '';
@@ -55,6 +65,8 @@ const ReconciliationUI = (() => {
     $('reconciliationInvoiceRows').invoiceRecords = rows;
   }
 
+  // Перечитывает данные открытого компонента по установленным правилам в модуле самостоятельных сверок.
+  // Использует `/api/reconciliations`, `/api/reconciliation`.
   async function refresh() {
     const folder = state.view === 'folder' ? state.folder : null;
     const list = folder?.folderKind === 'reconciliations_root';
@@ -95,10 +107,14 @@ const ReconciliationUI = (() => {
     }
   }
 
+  // Обновляет доступность действий открытого редактора в модуле самостоятельных сверок.
+  // Использует `$`.
   function controls(busy) {
     for (const id of ['invoiceReconciliationSelect', 'saveInvoiceReconciliation', 'refreshInvoiceReconciliations', 'cancelInvoiceReconciliation']) $(id).disabled = busy;
   }
 
+  // Загружает допустимые сверки и текущее назначение счёта.
+  // Использует `/api/reconciliations`, `/api/invoice`.
   async function loadAssignment(current, preserve = false) {
     const selected = preserve ? $('invoiceReconciliationSelect').value : null;
     current.loading = true; controls(true);
@@ -119,6 +135,8 @@ const ReconciliationUI = (() => {
     }
   }
 
+  // Открывает компонент и загружает его исходные данные в модуле самостоятельных сверок.
+  // Использует `$`, `$('invoiceReconciliationDialog').showModal`, `loadAssignment`.
   async function open(invoice) {
     const current = assignment = { invoice, items: [], ready: false, loading: false, busy: false };
     $('invoiceReconciliationName').textContent = invoice.state === 'external' ? invoice.data.original_name : 'Счёт № ' + invoice.number;
@@ -128,6 +146,8 @@ const ReconciliationUI = (() => {
     if (assignment === current) $('invoiceReconciliationSelect').focus();
   }
 
+  // Закрывает компонент и освобождает его временное состояние в модуле самостоятельных сверок.
+  // Использует `$('invoiceReconciliationDialog').close`, `$`.
   function close() {
     if (assignment?.busy || assignment?.loading) return;
     assignment = null; $('invoiceReconciliationDialog').close();

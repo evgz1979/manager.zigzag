@@ -14,10 +14,14 @@ from folder_structure import in_reconciliations, is_moneys_root
 RECONCILIATIONS_VERSION = 1
 
 
+# Обозначает конфликт изменения в этом модуле.
+# Вызывающий обработчик использует тип исключения для отказа без подмены данных.
 class ReconciliationConflict(ValueError):
     pass
 
 
+# Создаёт отсутствующие таблицы и совместимые расширения схемы.
+# Работает с таблицами reconciliations, reconciliation_invoices.
 def schema(db):
     # Собственные записи и связи не меняют карточки и версии исходных счетов.
     local_metadata.schema(db)
@@ -30,10 +34,14 @@ def schema(db):
         local_metadata.audit(db, table)
 
 
+# Фиксирует в настройках базы использование несовместимого со старым кодом формата.
+# Работает с таблицами metadata_settings.
 def mark(db):
     db.execute("INSERT OR REPLACE INTO metadata_settings VALUES ('reconciliations','1')")
 
 
+# Проверяет путь и ограничения допустимой операции.
+# При недопустимом состоянии возбуждает ValueError.
 def checked_path(path):
     if not isinstance(path, str) or Path(path).is_absolute() or any(p.startswith('.') for p in Path(path).parts):
         raise ValueError('Выбери сверку в разделе reconciliations')
@@ -43,6 +51,8 @@ def checked_path(path):
     return path
 
 
+# Проверяет точный версионный формат самостоятельной сверки.
+# При недопустимом состоянии возбуждает ValueError.
 def checked_data(data):
     # Неизвестные форматы не заменяются; дополнительные поля сохраняются.
     if not isinstance(data, dict) or type(data.get('version')) is not int or data['version'] != 1:
@@ -57,11 +67,15 @@ def checked_data(data):
     return data
 
 
+# Преобразует строку SQLite в представление для вызывающего кода.
+# Разбирает JSON; вызывающий код должен учитывать ошибки или неизвестный формат.
 def record(row):
     data = checked_data(json.loads(row['data']))
     return {**data, 'id': row['id'], 'path': row['path'], 'revision': row['revision'], 'updated': row['updated']}
 
 
+# Добавляет проверенную запись в текущую транзакцию SQLite.
+# Работает с таблицами reconciliations.
 def insert(db, path, title, identity=None, data=None):
     data = checked_data(data or {'version': 1, 'title': title, 'client': '', 'note': '', 'todo_items': []})
     db.execute('INSERT INTO reconciliations VALUES (?,?,?,1,?)',
@@ -69,6 +83,8 @@ def insert(db, path, title, identity=None, data=None):
     mark(db)
 
 
+# Читает сохранённое назначение счёта самостоятельной сверке.
+# Работает с таблицами reconciliation_invoices, reconciliations.
 def invoice_link(db, identity):
     row = db.execute('SELECT * FROM reconciliation_invoices WHERE id=?', (identity,)).fetchone()
     target = db.execute('SELECT * FROM reconciliations WHERE id=?', (row['reconciliation_id'],)).fetchone() if row and row['reconciliation_id'] else None
@@ -76,6 +92,8 @@ def invoice_link(db, identity):
             'title': record(target)['title'] if target else '', 'path': target['path'] if target else ''}
 
 
+# Распознаёт только нетронутую пустую заметку прежнего фонового импорта.
+# Работает с таблицами metadata_history.
 def untouched_empty_note(db, row, data):
     # Прежний фоновый импорт создавал {} по новому пути ещё до открытия сверки.
     return (data == {} and row['revision'] == 1 and row['exported_revision'] == 1
@@ -83,10 +101,16 @@ def untouched_empty_note(db, row, data):
             and not db.execute("SELECT 1 FROM metadata_history WHERE entity='folder_notes' AND identity=? LIMIT 1", (row['id'],)).fetchone())
 
 
+# Хранит собственные сверки и версионные назначения счетов.
+# Основные операции: __init__, connect, source, open, catalog; остальные описаны у методов.
 class Reconciliations:
+    # Сохраняет зависимости и начальные параметры экземпляра.
+    # Состояние и зависимости сохраняются в полях self для последующих операций.
     def __init__(self, store):
         self.store = store
 
+    # Открывает соединение SQLite и управляет его временем жизни.
+    # Передаёт ресурс через yield; освобождение выполняется при выходе из контекста.
     @contextmanager
     def connect(self):
         with self.store.connect() as db:
@@ -94,6 +118,8 @@ class Reconciliations:
             db.commit()
             yield db
 
+    # Проверяет прежние источники перед явным переходом карточки в сверку.
+    # Работает с таблицами sqlite_master, orders, folder_notes, reconciliations.
     def source(self, db, path):
         # Разрешённое пользователем переименование report(s): только одна прежняя ветка.
         parts = Path(path).parts
@@ -138,6 +164,8 @@ class Reconciliations:
             raise ReconciliationConflict('Прежняя запись уже перенесена в другую сверку. Проверь её путь, не создавая дубль')
         return found[0] if found else None
 
+    # Явно открывает сверку и выполняет безопасный переход прежних записей.
+    # Работает с таблицами reconciliations.
     def open(self, path):
         # Вызывается только явным открытием папки, обычный опрос не читает iCloud.
         path = checked_path(path)
@@ -156,11 +184,15 @@ class Reconciliations:
                 insert(db, path, Path(path).name, data=self.source(db, path))
         return self.get(path)
 
+    # Собирает доступный каталог сущностей из сохранённых индексов.
+    # Работает с таблицами reconciliations.
     def catalog(self):
         with self.connect() as db:
             return [{key: item[key] for key in ('id', 'path', 'title', 'client', 'note', 'revision')}
                     for item in (record(row) for row in db.execute('SELECT * FROM reconciliations ORDER BY path'))]
 
+    # Дополняет данные сущности её сохранёнными назначениями счетов.
+    # Работает с таблицами reconciliation_invoices.
     def with_links(self, items):
         # Дополняем HTTP-представление только сохранёнными назначениями, планы прежние.
         with self.connect() as db:
@@ -168,6 +200,8 @@ class Reconciliations:
                     if db.execute('SELECT 1 FROM reconciliation_invoices WHERE id=?', (item['id'],)).fetchone()
                     else item for item in items]
 
+    # Читает существующую сверку по нормализованному пути из SQLite.
+    # Работает с таблицами reconciliations, sqlite_master, invoices, reconciliation_invoices, orders.
     def get(self, path):
         path = checked_path(path)
         with self.connect() as db:
@@ -191,6 +225,8 @@ class Reconciliations:
                     'order_title': owner['title'] if owner else invoice['path'], 'trash': bool(data.get('_trash'))})
             return result
 
+    # Сохраняет клиента, заметку и To-do сверки по UUID и revision.
+    # Работает с таблицами reconciliations.
     def save(self, payload):
         path = checked_path(payload.get('path'))
         with self.connect() as db:
@@ -207,6 +243,8 @@ class Reconciliations:
                        (json.dumps(data, ensure_ascii=False), time.time(), row['id']))
         return self.get(path)
 
+    # Переназначает счёт одной сверке с проверкой актуального состояния.
+    # Работает с таблицами reconciliations, reconciliation_invoices.
     def assign(self, invoices, payload):
         # Версии счёта, назначения и выбранной сверки проверяются одной транзакцией.
         target_id = payload.get('reconciliation_id')

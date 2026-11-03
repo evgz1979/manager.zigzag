@@ -17,6 +17,8 @@ MIGRATION_LOCK = threading.Lock()
 PUBLICATION_LOCK = threading.Lock()
 
 
+# Создаёт отсутствующие таблицы и совместимые расширения схемы.
+# Работает с таблицами metadata_settings, metadata_records, metadata_history, legacy_documents, metadata_imports.
 def schema(db):
     db.execute("CREATE TABLE IF NOT EXISTS metadata_settings (key TEXT PRIMARY KEY,value TEXT NOT NULL)")
     if not db.execute("SELECT 1 FROM metadata_settings WHERE key='storage_version'").fetchone():
@@ -38,6 +40,8 @@ def schema(db):
         PRIMARY KEY(session,source))""")
 
 
+# Создаёт триггеры истории до изменения и удаления записей SQLite.
+# Работает с таблицами metadata_history.
 def audit(db, table):
     """Triggers also preserve edits made by standalone rename/restore tools."""
     columns = [row[1] for row in db.execute(f"PRAGMA table_info({table})")]
@@ -52,11 +56,17 @@ def audit(db, table):
             VALUES ('{table}',OLD.{identity},{payload},strftime('%s','now')); END""")
 
 
+# Хранит типизированные SQLite-метаданные, импорт исходников и очередь публикаций.
+# Основные операции: __init__, key, connect, record, get; остальные описаны у методов.
 class MetadataStore:
+    # Сохраняет зависимости и начальные параметры экземпляра.
+    # Состояние и зависимости сохраняются в полях self для последующих операций.
     def __init__(self, store):
         self.store = store
         self.root = store.root
 
+    # Вычисляет нормализованный ключ для обращения к данным.
+    # При недопустимом состоянии возбуждает ValueError.
     def key(self, file):
         # Lexical path normalization does not require iCloud or the original file.
         root = Path(os.path.abspath(self.root))
@@ -67,12 +77,16 @@ class MetadataStore:
             raise ValueError("Путь за пределами папки документов")
         return unicodedata.normalize("NFC", relative)
 
+    # Открывает соединение SQLite и управляет его временем жизни.
+    # Передаёт ресурс через yield; освобождение выполняется при выходе из контекста.
     @contextmanager
     def connect(self):
         with self.store.connect() as db:
             schema(db)
             yield db
 
+    # Преобразует строку SQLite в представление для вызывающего кода.
+    # Разбирает JSON; вызывающий код должен учитывать ошибки или неизвестный формат.
     @staticmethod
     def record(row):
         if row is None:
@@ -80,6 +94,8 @@ class MetadataStore:
         return {**json.loads(row["data"]), "revision": f"{row['id']}:{row['revision']}",
                 "updated": row["updated"], "path": row["path"]}
 
+    # Читает запись kind/path, проверяя незавершённые переносы её пути.
+    # Работает с таблицами metadata_file_moves, metadata_records.
     def get(self, kind, path):
         path = unicodedata.normalize("NFC",path)
         with self.connect() as db:
@@ -88,6 +104,8 @@ class MetadataStore:
                 raise ValueError("Перенос файла прерван. Восстанови операцию через корзину")
             return self.record(db.execute("SELECT * FROM metadata_records WHERE kind=? AND path=?", (kind,path)).fetchone())
 
+    # Создаёт или меняет запись базы с предусмотренной проверкой текущего состояния.
+    # Работает с таблицами metadata_file_moves, metadata_records.
     def put(self, kind, path, data, revision):
         path = unicodedata.normalize("NFC",path)
         from file_comments import FileCommentConflict
@@ -107,6 +125,8 @@ class MetadataStore:
                 db.execute("INSERT INTO metadata_records VALUES (?,?,?,?,1,?)", (str(uuid.uuid4()),kind,path,json.dumps(data,ensure_ascii=False),time.time()))
             return self.record(db.execute("SELECT * FROM metadata_records WHERE kind=? AND path=?", (kind,path)).fetchone())
 
+    # Сохраняет исходные байты или снимок до миграции/архивирования.
+    # Работает с таблицами legacy_documents.
     def archive(self, file):
         raw = icloud_access.read_bytes(file)
         path = self.key(file)
@@ -114,19 +134,27 @@ class MetadataStore:
             db.execute("INSERT OR IGNORE INTO legacy_documents VALUES (?,?,?,?)", (path,hashlib.sha256(raw).hexdigest(),raw,time.time()))
         return raw
 
+    # Записывает ошибку обработки для последующего показа или повтора.
+    # Работает с таблицами metadata_imports.
     def error(self, kind, path, error):
         path = unicodedata.normalize("NFC",path)
         with self.connect() as db:
             db.execute("INSERT OR REPLACE INTO metadata_imports VALUES (?,?,?,?)", (kind,path,str(error),time.time()))
 
+    # Фиксирует успешное завершение первоначального импорта записи.
+    # Передаёт работу `self.error`.
     def imported(self, kind, path):
         self.error(kind,path,"")
 
+    # Проверяет завершение импорта либо меняет выполнение задачи по контракту модуля.
+    # Работает с таблицами metadata_imports.
     def complete(self,kind,path):
         path = unicodedata.normalize("NFC",path)
         with self.connect() as db:
             return bool(db.execute("SELECT 1 FROM metadata_imports WHERE kind=? AND path=? AND error=''",(kind,path)).fetchone())
 
+    # Создаёт согласованный SQLite-снимок и проверяет quick_check до публикации.
+    # При недопустимом состоянии возбуждает ValueError.
     def backup(self,reason="daily"):
         folder = self.store.database.parent/"backups"
         folder.mkdir(exist_ok=True)
@@ -145,11 +173,15 @@ class MetadataStore:
             temporary.unlink(missing_ok=True)
         return target
 
+    # Читает комментарий, при необходимости однократно импортируя прежний файл.
+    # Возвращает `self._comment(file)`.
     def comment(self, file):
         import file_comments
         with file_comments.LOCK:
             return self._comment(file)
 
+    # Читает комментарий, при необходимости однократно импортируя прежний файл.
+    # Работает с таблицами metadata_imports.
     def _comment(self,file):
         import file_comments
         path = self.key(file)
@@ -176,11 +208,15 @@ class MetadataStore:
             self.error("comment",path,error)
             raise
 
+    # Сохраняет текст комментария с проверкой ожидаемой версии.
+    # Возвращает `self._save_comment(file, comment, revision)`.
     def save_comment(self, file, comment, revision):
         import file_comments
         with file_comments.LOCK:
             return self._save_comment(file,comment,revision)
 
+    # Сохраняет текст комментария с проверкой ожидаемой версии.
+    # При недопустимом состоянии возбуждает ValueError.
     def _save_comment(self,file,comment,revision):
         from file_comments import MAX_COMMENT
         if not isinstance(comment,str) or len(comment)>MAX_COMMENT or "\x00" in comment:
@@ -189,6 +225,8 @@ class MetadataStore:
         saved = self.put("comment",self.key(file),{"comment":comment.replace("\r\n","\n").replace("\r","\n")},revision)
         return {"comment":saved["comment"],"revision":saved["revision"]}
 
+    # Архивирует исходные карточки и передаёт их существующему парсеру.
+    # Возвращает `document.load(folder, self.store.labels)`.
     def card(self, folder):
         """Archive source bytes before the normal parsers import a folder card."""
         import order_document as document
@@ -198,6 +236,8 @@ class MetadataStore:
                 self.archive(file)
         return document.load(folder,self.store.labels)
 
+    # Возвращает состояние обработки и сохранённые ошибки.
+    # Работает с таблицами metadata_imports, metadata_publications.
     def status(self):
         import recovery_backup
         with self.connect() as db:
@@ -207,6 +247,8 @@ class MetadataStore:
                     "errors":errors,"pending_documents":db.execute("SELECT count(*) FROM metadata_publications WHERE published=0").fetchone()[0],
                     "document_errors":[dict(r) for r in db.execute("SELECT path,error FROM metadata_publications WHERE error!=''")]}
 
+    # Добавляет неизменяемый документ в устойчивую очередь публикации.
+    # Работает с таблицами metadata_publications.
     def publish(self, source, revision, folder, filename, body):
         path = self.key(folder/filename)
         with self.connect() as db:
@@ -216,11 +258,15 @@ class MetadataStore:
                 row = db.execute("SELECT * FROM metadata_publications WHERE source=? AND revision=?",(source,revision)).fetchone()
             return {"path":row["path"],"pending":not row["published"],"error":row["error"]}
 
+    # Сериализует выпуск ожидающих неизменяемых документов через общую блокировку.
+    # Передаёт работу `self._sync`.
     def sync(self):
         import order_folders
         with PUBLICATION_LOCK, order_folders.LOCK:
             self._sync()
 
+    # Обрабатывает сохранённую очередь синхронизации или публикации.
+    # Работает с таблицами metadata_publications.
     def _sync(self):
         from folder_layout import rename_exclusive
         with self.connect() as db:
@@ -254,6 +300,8 @@ class MetadataStore:
             with self.connect() as db:
                 db.execute("UPDATE metadata_publications SET published=?,error=? WHERE id=?",(int(not error),error,row["id"]))
 
+    # Переносит только допустимые прежние данные с сохранением исходников и истории.
+    # При недопустимом состоянии возбуждает ValueError.
     def migrate(self, app):
         if not MIGRATION_LOCK.acquire(blocking=False):
             return
@@ -325,6 +373,8 @@ class MetadataStore:
         finally:
             MIGRATION_LOCK.release()
 
+    # Обновляет прежние рецепты отката для сохранения новых полей SQLite.
+    # Работает с таблицами sqlite_master.
     def upgrade_restoration(self):
         """Old portable undo recipes must also preserve new SQLite-only fields."""
         import order_document
@@ -352,6 +402,8 @@ class MetadataStore:
                 except (OSError,ValueError) as error:
                     self.error("restore-helper",path,error)
 
+    # Проверяет, относится ли путь к выпущенному неизменяемому документу.
+    # Работает с таблицами metadata_publications.
     def is_publication(self,path):
         with self.connect() as db:
             return bool(db.execute("SELECT 1 FROM metadata_publications WHERE path=?",(path,)).fetchone())

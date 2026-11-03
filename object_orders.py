@@ -17,22 +17,32 @@ FOLDER = "object_order_folder"
 LOCK = threading.Lock()
 
 
+# Проверяет принадлежность пути указанной области по границам компонентов.
+# Возвращает `path.startswith(scope + '/')`.
 def inside(path, scope):
     return path.startswith(scope + "/")
 
 
+# Приводит путь к каноническому виду для сопоставления записей.
+# Возвращает `unicodedata.normalize('NFC', path)`.
 def canonical(path):
     return unicodedata.normalize("NFC", path)
 
 
+# Поддерживает каталог заказов объекта отдельно от регистрации заказов.
+# Основные операции: __init__, path, put, refresh, save_catalog; остальные описаны у методов.
 class ObjectOrders:
     scope_kind = SCOPE
     folder_kind = FOLDER
 
+    # Сохраняет зависимости и начальные параметры экземпляра.
+    # Состояние и зависимости сохраняются в полях self для последующих операций.
     def __init__(self, store):
         self.store = store
         self.meta = MetadataStore(store)
 
+    # Проверяет относительный путь внутри допустимой области.
+    # При недопустимом состоянии возбуждает ValueError.
     def path(self, relative):
         relative = canonical(self.store.path(relative))
         if any(part.startswith("#") for part in Path(relative).parts):
@@ -40,6 +50,8 @@ class ObjectOrders:
         guard_database(self.store.database, relative, include_children=True)
         return relative
 
+    # Создаёт или меняет запись базы с предусмотренной проверкой текущего состояния.
+    # При недопустимом состоянии возбуждает ValueError.
     def put(self, kind, path, body):
         try:
             current = self.meta.get(kind, path)
@@ -52,6 +64,8 @@ class ObjectOrders:
             return
         self.meta.put(kind, path, body, current["revision"] if current else "missing")
 
+    # Перечитывает только имена подпапок объекта и контейнеров годов.
+    # При недопустимом состоянии возбуждает ValueError.
     def refresh(self, relative):
         """Read directory names only; never import cards or enter an order's contents."""
         source = self.store.path(relative)
@@ -82,6 +96,8 @@ class ObjectOrders:
                     errors.append(str(error))
             self.save_catalog(relative, found, errors)
 
+    # Сохраняет перечень известных папок без регистрации новых заказов.
+    # Работает с таблицами metadata_records.
     def save_catalog(self, relative, found, errors, *, allowed=None):
         with self.meta.connect() as db:
             previous = [row["path"] for row in db.execute("SELECT path FROM metadata_records WHERE kind=?", (self.folder_kind,))
@@ -99,14 +115,20 @@ class ObjectOrders:
                     errors.append(str(error))
         self.put(self.scope_kind, relative, {"version": 1, "checked": time.time(), "error": " · ".join(errors[:5])})
 
+    # Вычисляет допустимые пути текущего списка из сохранённого каталога.
+    # Возвращает `allowed`.
     def allowed_paths(self, relative, inactive, show_inactive):
         hidden = [canonical(path) for path in inactive if canonical(path) != relative and not inside(relative, canonical(path))]
+        # Проверяет допустимость одной папки в текущем каталоге.
+        # Формирует возвращаемое значение из проверенного локального состояния.
         def allowed(path):
             path = canonical(path)
             return inside(path, relative) and not any(part.startswith((".", "#")) for part in Path(path).parts) and (
                 show_inactive or not any(path == item or inside(path, item) for item in hidden))
         return allowed
 
+    # Собирает список заказов объекта по каталогу и текущим данным SQLite.
+    # Работает с таблицами metadata_records, sqlite_master, folder_notes.
     def read(self, relative, *, inactive=(), show_inactive=False):
         relative = self.path(relative)
         try:

@@ -11,6 +11,8 @@ from orders import OrderConflict
 COLORS = order_calendar.COLORS
 
 
+# Создаёт отсутствующие таблицы и совместимые расширения схемы.
+# Работает с таблицами calendar_events.
 def schema(db):
     local_metadata.schema(db)
     db.execute("""CREATE TABLE IF NOT EXISTS calendar_events (
@@ -36,16 +38,24 @@ def schema(db):
     local_metadata.audit(db, "calendar_events")
 
 
+# Хранит свободные дневные и недельные события с UUID/revision и историей.
+# Основные операции: __init__, connect, identity, record, validate; остальные описаны у методов.
 class CalendarEvents:
+    # Сохраняет зависимости и начальные параметры экземпляра.
+    # Состояние и зависимости сохраняются в полях self для последующих операций.
     def __init__(self, store):
         self.store = store
 
+    # Открывает соединение SQLite и управляет его временем жизни.
+    # Передаёт ресурс через yield; освобождение выполняется при выходе из контекста.
     @contextmanager
     def connect(self):
         with self.store.connect() as db:
             schema(db)
             yield db
 
+    # Проверяет или вычисляет устойчивую идентичность объекта.
+    # При недопустимом состоянии возбуждает ValueError.
     @staticmethod
     def identity(payload):
         identity, revision = payload.get("id"), payload.get("revision")
@@ -58,10 +68,14 @@ class CalendarEvents:
             raise ValueError("Нужна версия события")
         return identity, revision
 
+    # Преобразует строку SQLite в представление для вызывающего кода.
+    # Возвращает `dict(row) if row is not None else None`.
     @staticmethod
     def record(row):
         return dict(row) if row is not None else None
 
+    # Проверяет период, реальную дату, текст и цвет свободного события.
+    # При недопустимом состоянии возбуждает ValueError.
     @staticmethod
     def validate(row):
         if row["version"] != 1 or row["color"] not in COLORS or row["is_inactive"] not in (0, 1) or row['is_completed'] not in (0, 1) or row['is_trip'] not in (0, 1):
@@ -71,11 +85,15 @@ class CalendarEvents:
         if not order_calendar.validate_text(row["text"]):
             raise ValueError("Введи название события")
 
+    # Читает все неудалённые свободные события из SQLite.
+    # Работает с таблицами calendar_events.
     def list(self):
         with self.connect() as db:
             return [self.record(row) for row in db.execute(
                 "SELECT * FROM calendar_events WHERE deleted=0 ORDER BY created,id")]
 
+    # Находит свободное событие по UUID в текущей транзакции.
+    # Работает с таблицами calendar_events.
     def get(self, identity):
         self.identity({"id": identity, "revision": 0})
         with self.connect() as db:
@@ -84,6 +102,8 @@ class CalendarEvents:
                 raise FileNotFoundError("Событие больше не найдено")
             return self.record(row)
 
+    # Создаёт или меняет свободное событие с проверкой ожидаемой версии.
+    # Работает с таблицами calendar_events.
     def save(self, payload):
         identity, revision = self.identity(payload)
         period = payload.get("period")
@@ -115,6 +135,8 @@ class CalendarEvents:
                     order_calendar.mark_relevance_contract(db)
             return self.record(db.execute("SELECT * FROM calendar_events WHERE id=?", (identity,)).fetchone())
 
+    # Меняет признак корзины, сохраняя саму запись и её историю.
+    # Работает с таблицами calendar_events.
     def set_deleted(self, payload, deleted):
         identity, revision = self.identity(payload)
         with self.connect() as db:
@@ -131,6 +153,8 @@ class CalendarEvents:
                        (int(deleted), time.time(), identity))
             return self.record(db.execute('SELECT * FROM calendar_events WHERE id=?', (identity,)).fetchone())
 
+    # Переносит объект или событие с проверкой исходного и целевого состояния.
+    # Работает с таблицами calendar_events.
     def move(self, payload):
         identity, revision = self.identity(payload)
         days = payload.get("days")
@@ -151,6 +175,8 @@ class CalendarEvents:
                        (target, time.time(), identity))
             return self.record(db.execute("SELECT * FROM calendar_events WHERE id=?", (identity,)).fetchone())
 
+    # Меняет выбранный цвет события, сохраняя остальные признаки.
+    # Работает с таблицами calendar_events.
     def color(self, payload):
         identity, revision = self.identity(payload)
         color = payload.get("color")
@@ -166,15 +192,23 @@ class CalendarEvents:
                        (color, time.time(), identity))
             return self.record(db.execute("SELECT * FROM calendar_events WHERE id=?", (identity,)).fetchone())
 
+    # Меняет только независимую отметку неактуальности события.
+    # Возвращает `self._set_flag(payload, 'is_inactive')`.
     def set_inactive(self, payload):
         return self._set_flag(payload, 'is_inactive')
 
+    # Меняет только независимую отметку выполнения события.
+    # Возвращает `self._set_flag(payload, 'is_completed')`.
     def set_completed(self, payload):
         return self._set_flag(payload, 'is_completed')
 
+    # Меняет только независимую отметку выезда события.
+    # Возвращает `self._set_flag(payload, 'is_trip')`.
     def set_trip(self, payload):
         return self._set_flag(payload, 'is_trip')
 
+    # Обрабатывает общий контракт независимой отметки календаря.
+    # Работает с таблицами calendar_events.
     def _set_flag(self, payload, field):
         identity, revision = self.identity(payload)
         value = payload.get(field)

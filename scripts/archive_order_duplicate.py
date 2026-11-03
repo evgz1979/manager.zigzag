@@ -15,14 +15,20 @@ import sys
 import time
 
 
+# Проверяет наличие таблицы SQLite перед совместимой перепривязкой.
+# Работает с таблицами sqlite_master.
 def table(db, name):
     return bool(db.execute("SELECT 1 FROM sqlite_master WHERE name=?", (name,)).fetchone())
 
 
+# Проверяет принадлежность пути указанной области по границам компонентов.
+# Возвращает `path == prefix or path.startswith(prefix + '/')`.
 def inside(path, prefix):
     return path == prefix or path.startswith(prefix + "/")
 
 
+# Дописывает запись в устойчивый журнал операции.
+# Передаёт работу `(Path(session) / '.journal.jsonl').open`, `Path`, `output.write`.
 def append(session, phase):
     with (Path(session) / ".journal.jsonl").open("a", encoding="utf-8") as output:
         output.write(json.dumps({"time": time.time(), "phase": phase}) + "\n")
@@ -30,6 +36,8 @@ def append(session, phase):
         os.fsync(output.fileno())
 
 
+# Доказывает отсутствие прежнего источника перед ручной перепривязкой.
+# При недопустимом состоянии возбуждает ValueError.
 def source_absent(root, source):
     # Distinguish confirmed absence from an unreadable directory or symlink.
     parts = Path(source).parts
@@ -44,6 +52,8 @@ def source_absent(root, source):
     raise ValueError("Исходная папка существует; архивирование не разрешено")
 
 
+# Проверяет согласованность связанных записей до перепривязки заказа.
+# Работает с таблицами folder_notes, orders, todo_missing_folders, invoices, mobile_operations.
 def check_links(db, source, identity):
     if table(db, "folder_notes"):
         if any(inside(row[0], source) or inside(row[1], source)
@@ -67,6 +77,8 @@ def check_links(db, source, identity):
             raise ValueError("Сначала завершите прерванное переименование")
 
 
+# Доказывает, что дубль не содержит уникальной заметки, денег, задач или блоков.
+# При недопустимом состоянии возбуждает ValueError.
 def covered(source, current):
     """Do not silently discard unique text, money, tasks or unknown sections."""
     if source["note"] and source["note"] != current["note"]:
@@ -89,6 +101,8 @@ def covered(source, current):
             raise ValueError("Дополнительный раздел различается: " + key)
 
 
+# Сохраняет исходные байты или снимок до миграции/архивирования.
+# Работает с таблицами orders, todo_catalog, order_duplicate_archive.
 def archive(store, source, destination, evidence, *, perform=False):
     if store.database_only:
         raise ValueError("Прежний разбор дублей по !.txt отключён. Нужна проверка всех связанных данных SQLite")
@@ -171,6 +185,8 @@ def archive(store, source, destination, evidence, *, perform=False):
     return {**preview, "journal": str(session)}
 
 
+# Выполняет сохранённые обратные операции после проверки текущего состояния.
+# Работает с таблицами order_duplicate_archive, orders, todo_catalog.
 def undo(session, *, perform=False):
     session = Path(session)
     before = json.loads((session / ".before.json").read_text(encoding="utf-8"))

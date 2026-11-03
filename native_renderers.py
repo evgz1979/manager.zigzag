@@ -5,6 +5,8 @@ import tempfile
 from pathlib import Path
 
 
+# Собирает Swift-исходник по хешу и атомарно публикует готовый бинарный файл.
+# Запускает внешний процесс; параметры и ограничения заданы в теле функции.
 def build(source, data_dir, name, timeout):
     source = Path(source).resolve()
     data_dir = Path(data_dir).resolve()

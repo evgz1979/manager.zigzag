@@ -2,6 +2,8 @@ import AppKit
 import PDFKit
 import Vision
 
+// Завершает помощник с диагностикой в stderr и ненулевым кодом.
+// Вызывающий Python получает отказ вместо частичного успешного результата.
 func fail(_ message: String) -> Never {
     FileHandle.standardError.write(Data(("ZIGZAG_PDF_ERROR: " + message + "\n").utf8))
     exit(1)

@@ -8,14 +8,20 @@ from contextlib import closing
 from pathlib import Path
 
 
+# Обозначает незавершённость операции в этом модуле.
+# Вызывающий обработчик использует тип исключения для отказа без подмены данных.
 class EventRenamePending(ValueError):
     pass
 
 
+# Проверяет принадлежность пути указанной области по границам компонентов.
+# Возвращает `path == prefix or path.startswith(prefix + '/')`.
 def inside(path, prefix):
     return path == prefix or path.startswith(prefix + "/")
 
 
+# Блокирует работу с путём, затронутым незавершённым переименованием.
+# Работает с таблицами sqlite_master.
 def assert_unlocked(db, path, *, include_children=False):
     for name in ("event_renames", "folder_renames"):
         if not db.execute("SELECT 1 FROM sqlite_master WHERE name=?", (name,)).fetchone():
@@ -26,6 +32,8 @@ def assert_unlocked(db, path, *, include_children=False):
                 raise EventRenamePending("Переименование прервано. Данные сохранены; выполните откат из журнала: " + session)
 
 
+# Блокирует работу с путём, затронутым незавершённым переименованием.
+# При недопустимом состоянии возбуждает ValueError.
 def guard_database(database, path, *, include_children=False):
     if not isinstance(path, str):
         raise ValueError("Укажите путь папки")
@@ -34,6 +42,8 @@ def guard_database(database, path, *, include_children=False):
             assert_unlocked(db, path, include_children=include_children)
 
 
+# Вычисляет затрагиваемые пути SQLite для самостоятельного отката.
+# Работает с таблицами metadata_file_moves, metadata_publications.
 def metadata_paths(db, source, destination, *, apply=False):
     """Self-contained: this module is copied into standalone restoration journals."""
     source,destination = (unicodedata.normalize("NFC",value) for value in (source,destination))
@@ -58,6 +68,8 @@ def metadata_paths(db, source, destination, *, apply=False):
                 db.execute("UPDATE metadata_publications SET source=? WHERE rowid=?", (destination+row[2][len(source):],row[0]))
 
 
+# Создаёт отсутствующие таблицы и совместимые расширения схемы.
+# Работает с таблицами event_renames.
 def schema(db):
     db.execute("CREATE TABLE IF NOT EXISTS event_renames (session TEXT PRIMARY KEY,state TEXT NOT NULL,mappings TEXT NOT NULL,paths_applied INTEGER NOT NULL DEFAULT 0)")
     if "paths_applied" not in {row[1] for row in db.execute("PRAGMA table_info(event_renames)")}:
@@ -65,6 +77,8 @@ def schema(db):
         db.execute("UPDATE event_renames SET paths_applied=1 WHERE state='complete'")
 
 
+# Выполняет сохранённые обратные операции после проверки текущего состояния.
+# Работает с таблицами event_renames, sqlite_master, orders, folder_notes.
 def undo(session, perform=False):
     session = Path(session)
     meta = json.loads((session / ".event-paths.json").read_text())

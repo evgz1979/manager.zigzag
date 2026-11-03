@@ -22,12 +22,16 @@ COLORS_BLOCK = "Цвета событий календаря"
 COLORS = {"gray", "red", "orange", "yellow", "green", "blue", "purple"}
 
 
+# Выбирает имя блока карточки для дневных или недельных событий.
+# При недопустимом состоянии возбуждает ValueError.
 def block_name(period):
     if period not in ("day", "week"):
         raise ValueError("Некорректный период события")
     return WEEK_BLOCK if period == "week" else BLOCK
 
 
+# Проверяет ключ события с учётом выбранного периода.
+# При недопустимом состоянии возбуждает ValueError.
 def validate_key(value, period):
     value = validate_date(value)
     if period == "week" and date.fromisoformat(value).weekday() != 0:
@@ -35,6 +39,8 @@ def validate_key(value, period):
     return value
 
 
+# Проверяет реальную календарную дату и канонический формат ключа.
+# При недопустимом состоянии возбуждает ValueError.
 def validate_date(value):
     if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
         raise ValueError("Укажи дату события в формате ГГГГ-ММ-ДД")
@@ -45,6 +51,8 @@ def validate_date(value):
     return value
 
 
+# Проверяет длину и допустимость текста события.
+# При недопустимом состоянии возбуждает ValueError.
 def validate_text(value):
     if not isinstance(value, str) or len(value) > 1000 or any(char in value for char in "\r\n\0"):
         raise ValueError("Событие — одна строка до 1000 символов")
@@ -53,6 +61,8 @@ def validate_text(value):
     return value
 
 
+# Разбирает строгий JSON-блок календарных текстов выбранного периода.
+# Разбирает JSON; вызывающий код должен учитывать ошибки или неизвестный формат.
 def _read(blocks, period="day"):
     block = block_name(period)
     if block not in blocks:
@@ -73,6 +83,8 @@ def _read(blocks, period="day"):
         return None
 
 
+# Объединяет известные прежние недельные записи без подмены разных текстов.
+# При недопустимом состоянии возбуждает ValueError.
 def unify_weekly_blocks(blocks):
     """Convert known legacy comments without overwriting different texts."""
     if order_deadlines.COMMENTS_BLOCK not in blocks:
@@ -95,6 +107,8 @@ def unify_weekly_blocks(blocks):
     return result
 
 
+# Нормализует известные недельные блоки при первоначальном импорте.
+# Возвращает `unify_weekly_blocks(blocks)`; либо `blocks`.
 def normalize_weekly_blocks(blocks):
     """New imports convert known data; unknown legacy blocks remain intact."""
     try:
@@ -103,6 +117,8 @@ def normalize_weekly_blocks(blocks):
         return blocks
 
 
+# Читает дневные или недельные события из дополнительных блоков заказа.
+# Возвращает `None`; либо `_read(blocks, period)`.
 def read(blocks, period="day"):
     if period == "week":
         try:
@@ -112,22 +128,32 @@ def read(blocks, period="day"):
     return _read(blocks, period)
 
 
+# Читает независимые отметки неактуальности дневных и недельных событий.
+# Возвращает `_read_flags(blocks, INACTIVE_BLOCK)`.
 def read_inactive(blocks):
     return _read_flags(blocks, INACTIVE_BLOCK)
 
 
+# Читает независимые отметки выполнения дневных и недельных событий.
+# Возвращает `_read_flags(blocks, COMPLETED_BLOCK)`.
 def read_completed(blocks):
     return _read_flags(blocks, COMPLETED_BLOCK)
 
 
+# Читает независимые отметки выездов дневных и недельных событий.
+# Возвращает `_read_flags(blocks, TRIP_BLOCK)`.
 def read_trip(blocks):
     return _read_flags(blocks, TRIP_BLOCK)
 
 
+# Читает независимые отметки показа задач у событий заказа.
+# Возвращает `_read_flags(blocks, WATCH_TODOS_BLOCK)`.
 def read_watch_todos(blocks):
     return _read_flags(blocks, WATCH_TODOS_BLOCK)
 
 
+# Разбирает строгие массивы независимых отметок календаря.
+# Разбирает JSON; вызывающий код должен учитывать ошибки или неизвестный формат.
 def _read_flags(blocks, block):
     if block not in blocks:
         return {"day": [], "week": []}
@@ -144,6 +170,8 @@ def _read_flags(blocks, block):
         return None
 
 
+# Читает или сериализует строгий блок индивидуальных цветов событий.
+# Разбирает JSON; вызывающий код должен учитывать ошибки или неизвестный формат.
 def read_colors(blocks):
     if COLORS_BLOCK not in blocks:
         return {"day": {}, "week": {}}
@@ -164,10 +192,14 @@ def read_colors(blocks):
         return None
 
 
+# Читает или сериализует строгий блок индивидуальных цветов событий.
+# Возвращает `{**blocks, COLORS_BLOCK: json.dumps({'version': 1, **colors, period: entries}, ensure_ascii=False)}`.
 def _write_colors(blocks, colors, period, entries):
     return {**blocks, COLORS_BLOCK: json.dumps({"version": 1, **colors, period: entries}, ensure_ascii=False)}
 
 
+# Меняет выбранный цвет события, сохраняя остальные признаки.
+# При недопустимом состоянии возбуждает ValueError.
 def set_color(blocks, day, color, period="day"):
     block_name(period)
     day = validate_key(day, period)
@@ -184,24 +216,32 @@ def set_color(blocks, day, color, period="day"):
     return _write_colors(blocks, colors, period, entries)
 
 
+# Записывает использование версионного контракта актуальности календаря.
+# Работает с таблицами metadata_settings.
 def mark_relevance_contract(db):
     import local_metadata
     local_metadata.schema(db)
     db.execute("INSERT INTO metadata_settings VALUES ('calendar_event_relevance','1') ON CONFLICT(key) DO UPDATE SET value=excluded.value")
 
 
+# Записывает использование версионного контракта выполнения календаря.
+# Работает с таблицами metadata_settings.
 def mark_completion_contract(db):
     import local_metadata
     local_metadata.schema(db)
     db.execute("INSERT INTO metadata_settings VALUES ('calendar_event_completion','1') ON CONFLICT(key) DO UPDATE SET value=excluded.value")
 
 
+# Записывает использование версионного контракта выездов календаря.
+# Работает с таблицами metadata_settings.
 def mark_trip_contract(db):
     import local_metadata
     local_metadata.schema(db)
     db.execute("INSERT INTO metadata_settings VALUES ('calendar_event_trip','1') ON CONFLICT(key) DO UPDATE SET value=excluded.value")
 
 
+# Обрабатывает общий контракт независимой отметки календаря.
+# Передаёт работу `{'is_completed': mark_completion_contract, 'is_inactive': mark_relevance_contract, 'is_trip': mark_trip_contract, 'is_watch_todos': mark_watch_todos_contract, 'is_carryover': calendar_layout.mark_contract}[field]`.
 def mark_flag_contract(db, field):
     import calendar_layout
     {"is_completed": mark_completion_contract, "is_inactive": mark_relevance_contract,
@@ -209,12 +249,16 @@ def mark_flag_contract(db, field):
      "is_carryover": calendar_layout.mark_contract}[field](db)
 
 
+# Записывает использование контракта показа задач календаря.
+# Работает с таблицами metadata_settings.
 def mark_watch_todos_contract(db):
     import local_metadata
     local_metadata.schema(db)
     db.execute("INSERT INTO metadata_settings VALUES ('calendar_watch_todos','1') ON CONFLICT(key) DO UPDATE SET value=excluded.value")
 
 
+# Меняет только отметку показа задач у события заказа.
+# При недопустимом состоянии возбуждает ValueError.
 def set_watch_todos(blocks, day, marked, period="day"):
     block_name(period)
     if period == "week":
@@ -237,6 +281,8 @@ def set_watch_todos(blocks, day, marked, period="day"):
     return {**blocks, WATCH_TODOS_BLOCK: json.dumps({"version": 1, **flags, period: sorted(selected)}, ensure_ascii=False)}
 
 
+# Меняет только независимую отметку выезда события.
+# При недопустимом состоянии возбуждает ValueError.
 def set_trip(blocks, day, trip, period="day"):
     block_name(period)
     if period == "week":
@@ -259,6 +305,8 @@ def set_trip(blocks, day, trip, period="day"):
     return {**blocks, TRIP_BLOCK: json.dumps({"version": 1, **flags, period: sorted(selected)}, ensure_ascii=False)}
 
 
+# Меняет только независимую отметку выполнения события.
+# При недопустимом состоянии возбуждает ValueError.
 def set_completed(blocks, day, completed, period="day"):
     block_name(period)
     if period == "week":
@@ -281,6 +329,8 @@ def set_completed(blocks, day, completed, period="day"):
     return {**blocks, COMPLETED_BLOCK: json.dumps({"version": 1, **flags, period: sorted(selected)}, ensure_ascii=False)}
 
 
+# Меняет только независимую отметку неактуальности события.
+# При недопустимом состоянии возбуждает ValueError.
 def set_inactive(blocks, day, inactive, period="day"):
     block_name(period)
     if period == "week":
@@ -304,6 +354,8 @@ def set_inactive(blocks, day, inactive, period="day"):
     return {**blocks, INACTIVE_BLOCK: json.dumps({"version": 1, **flags}, ensure_ascii=False)}
 
 
+# Меняет текст одной календарной даты без замены других событий и отметок.
+# При недопустимом состоянии возбуждает ValueError.
 def write(blocks, day, text, period="day"):
     block = block_name(period)
     if period == "week":
@@ -322,17 +374,23 @@ def write(blocks, day, text, period="day"):
     return {**blocks, block: json.dumps({"version": 1, "events": events}, ensure_ascii=False)}
 
 
+# Удаляет дневное событие и соответствующие независимые отметки.
+# При недопустимом состоянии возбуждает ValueError.
 def remove(blocks, day, period="day"):
     if period != 'day':
         raise ValueError('Удалять можно только события на день')
     return _remove_entry(blocks, day, period)
 
 
+# Явно очищает общее недельное событие при сохранении пустого комментария.
+# Возвращает `_remove_entry(unify_weekly_blocks(blocks), week, 'week', missing_ok=True)`.
 def clear_week_comment(blocks, week):
     """An empty card comment explicitly clears the shared weekly event."""
     return _remove_entry(unify_weekly_blocks(blocks), week, 'week', missing_ok=True)
 
 
+# Удаляет выбранную запись из известного блока без замены остальных.
+# При недопустимом состоянии возбуждает ValueError.
 def _remove_entry(blocks, day, period, *, missing_ok=False):
     day = validate_key(day, period)
     events, flags, colors = read(blocks, period), read_inactive(blocks), read_colors(blocks)
@@ -357,6 +415,8 @@ def _remove_entry(blocks, day, period, *, missing_ok=False):
     return result
 
 
+# Возвращает удалённый текст вместе с его отметками, не занимая чужую дату.
+# При недопустимом состоянии возбуждает ValueError.
 def restore(blocks, day, text, inactive, period="day", color=None, completed=False, trip=False, watch_todos=False):
     if period != 'day':
         raise ValueError('Восстановление удаления доступно только для событий на день')
@@ -378,6 +438,8 @@ def restore(blocks, day, text, inactive, period="day", color=None, completed=Fal
     return set_color(result, day, color) if color is not None else result
 
 
+# Переносит объект или событие с проверкой исходного и целевого состояния.
+# При недопустимом состоянии возбуждает ValueError.
 def move(blocks, day, days, period="day"):
     block = block_name(period)
     if period == "week":

@@ -1,4 +1,4 @@
-"""Versioned deadline marks, weekly comments and the rolling Moscow calendar."""
+"""Versioned Moscow deadline weeks; weekly comments share the order-calendar event field."""
 import json
 import re
 from datetime import date, datetime, timedelta
@@ -9,6 +9,8 @@ COMMENTS_BLOCK = "Комментарии к срокам"
 MOSCOW = ZoneInfo("Europe/Moscow")
 
 
+# Проверяет дату понедельника, используемую как ключ срока заказа.
+# При недопустимом состоянии возбуждает ValueError.
 def validate_week(value):
     if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
         raise ValueError("Укажи дату понедельника недели")
@@ -22,6 +24,8 @@ def validate_week(value):
     return value
 
 
+# Читает отсортированные уникальные понедельники сроков либо признак неизвестного блока.
+# Разбирает JSON; вызывающий код должен учитывать ошибки или неизвестный формат.
 def read(blocks):
     if BLOCK not in blocks:
         return []
@@ -38,6 +42,8 @@ def read(blocks):
         return None
 
 
+# Ставит или снимает одну неделю срока, сохраняя прочие блоки карточки.
+# При недопустимом состоянии возбуждает ValueError.
 def write(blocks, week, selected):
     week = validate_week(week)
     if type(selected) is not bool:
@@ -55,6 +61,8 @@ def write(blocks, week, selected):
     return {**blocks, BLOCK: json.dumps({"version": 1, "weeks": sorted(weeks)}, ensure_ascii=False)}
 
 
+# Читает прежний отдельный блок недельных комментариев для совместимости.
+# Разбирает JSON; вызывающий код должен учитывать ошибки или неизвестный формат.
 def read_legacy_comments(blocks):
     if COMMENTS_BLOCK not in blocks:
         return {}
@@ -73,18 +81,24 @@ def read_legacy_comments(blocks):
         return None
 
 
+# Проверяет текст недельного комментария перед изменением общего события.
+# При недопустимом состоянии возбуждает ValueError.
 def validate_comment(comment):
     if not isinstance(comment, str) or len(comment) > 1000 or any(char in comment for char in "\r\n\0"):
         raise ValueError("Комментарий к неделе — одна строка до 1000 символов")
     return comment
 
 
+# Предоставляет совместимое имя чтения действующих недельных событий.
+# Возвращает `order_calendar.read(blocks, 'week')`.
 def read_comments(blocks):
     """Compatibility alias; weekly calendar events are the only live field."""
     import order_calendar
     return order_calendar.read(blocks, "week")
 
 
+# Сохраняет комментарий недели в общем поле недельного события.
+# Возвращает `order_calendar.clear_week_comment(blocks, week)`; либо `order_calendar.write(blocks, week, comment, 'week')`.
 def write_comment(blocks, week, comment):
     import order_calendar
     week = validate_week(week)
@@ -93,6 +107,8 @@ def write_comment(blocks, week, comment):
     return order_calendar.write(blocks, week, comment, "week")
 
 
+# Строит последовательность недель относительно понедельника Москвы.
+# Возвращает `result`.
 def week_options(now=None):
     today = (now or datetime.now(MOSCOW)).astimezone(MOSCOW).date()
     monday = today - timedelta(days=today.weekday())

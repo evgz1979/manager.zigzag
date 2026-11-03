@@ -4,11 +4,15 @@ import ImageIO
 import PDFKit
 import QuickLookThumbnailing
 
+// Завершает помощник с диагностикой в stderr и ненулевым кодом.
+// Вызывающий Python получает отказ вместо частичного успешного результата.
 func fail(_ message: String) -> Never {
     FileHandle.standardError.write(Data(("ZIGZAG_THUMBNAIL_ERROR: " + message + "\n").utf8))
     exit(1)
 }
 
+// Кодирует подготовленное изображение в JPEG-файл превью.
+// Ошибка ImageIO передаётся как throws и не подменяет исходный документ.
 func jpeg(_ image: CGImage, to output: URL) throws {
     let bitmap = NSBitmapImageRep(cgImage: image)
     guard let data = bitmap.representation(using: .jpeg, properties: [.compressionFactor: 0.82]) else {

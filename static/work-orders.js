@@ -1,8 +1,12 @@
 /* A direct #work order may link supplier orders without moving their folders. */
 (() => {
   let model = null, key = null, loading = 0, markup = null, selection = null, saving = false, editingFolder = null;
+  // Проверяет, относится ли открытая папка к области текущего компонента.
+  // Использует `folder.path.split`, `/^#\s*work$/i.test`.
   const visible = (folder) => folder?.order?.can_group_supplier_orders || (folder?.folderKind === "order" && folder.path.split("/").length === 2 && /^#\s*work$/i.test(folder.path.split("/")[0]));
 
+  // Обновляет DOM компонента из текущих данных в модуле подборки заказов поставщиков.
+  // Использует `$`, `items.map`.
   function render() {
     const items = model?.items || [];
     $("workLinksCount").textContent = items.length || "";
@@ -18,6 +22,8 @@
     $("workLinksState").textContent = model?.linked_ids === null ? "Неизвестный раздел связанных заказов сохранён без изменений." : items.length ? "Папки заказов остаются у поставщиков." : "Можно оставить обычным заказом с событиями или собрать здесь заказы поставщиков.";
   }
 
+  // Перечитывает данные открытого компонента по установленным правилам в модуле подборки заказов поставщиков.
+  // Использует `/api/work-order-links`.
   async function refresh(force = false) {
     const folder = state.folder;
     $("workLinksSection").hidden = state.view === "orders" || !visible(folder);
@@ -41,6 +47,8 @@
     }
   }
 
+  // Строит варианты заказов поставщиков для связанной подборки.
+  // Использует `model.items.filter`, `normalize`, `$("workLinksSearch").value.trim`.
   function renderOptions() {
     const options = [...model.candidates, ...model.items.filter((item) => !model.candidates.some((candidate) => candidate.id === item.id))];
     const query = normalize($("workLinksSearch").value.trim());

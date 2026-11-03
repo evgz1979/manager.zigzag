@@ -9,10 +9,14 @@ const HomeCalendar = (() => {
     { field: "is_flagged", name: "flag", label: "Флажок", content: '<svg viewBox="0 0 24 24"><path d="M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0Z"/><path d="M5 3v18" fill="none"/></svg>' },
     { field: "is_favorite", name: "favorite", label: "Избранное", content: '★' },
   ];
+  // Добавляет или снимает значок выезда у события календаря.
+  // Использует `element.classList.toggle`, `element.insertAdjacentHTML`.
   function showTripMark(element, marked) {
     element.classList.toggle("calendar-trip", marked);
     if (marked) element.insertAdjacentHTML("afterbegin", '<svg class="calendar-trip-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 10 2-6h10l2 6M5 10h14a2 2 0 0 1 2 2v6H3v-6a2 2 0 0 1 2-2ZM5 18v3M19 18v3M7 14h.01M17 14h.01"/></svg>');
   }
+  // Добавляет или снимает значок просмотра задач у события заказа.
+  // Использует `element.classList.toggle`, `element.setAttribute`, `element.insertAdjacentHTML`.
   function showTodoMark(element, marked, path) {
     element.classList.toggle("calendar-watch-todos", marked);
     if (marked) {
@@ -24,20 +28,36 @@ const HomeCalendar = (() => {
       element.removeAttribute("aria-keyshortcuts");
     }
   }
+  // Формирует ключ гражданской даты YYYY-MM-DD.
+  // Использует `date.toISOString().slice`, `date.toISOString`.
   const dateKey = (date) => date.toISOString().slice(0, 10);
+  // Сдвигает гражданскую UTC-дату на заданное число суток.
+  // Использует `Date`, `date.getTime`.
   const shiftDays = (date, days) => new Date(date.getTime() + days * DAY);
+  // Возвращает понедельник недели переданной гражданской даты.
+  // Использует `shiftDays`, `date.getUTCDay`.
   const monday = (date) => shiftDays(date, -((date.getUTCDay() + 6) % 7));
+  // Вычисляет ISO-номер недели через её четверг.
+  // Использует `shiftDays`, `monday`, `Math.ceil`.
   const weekNumber = (date) => {
     const thursday = shiftDays(monday(date), 3);
     return Math.ceil(((thursday - new Date(Date.UTC(thursday.getUTCFullYear(), 0, 1))) / DAY + 1) / 7);
   };
+  // Преобразует текущее время в гражданскую дату Москвы.
+  // Использует `Intl.DateTimeFormat`, `Date`.
   const moscowDate = (now) => {
     const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now);
+    // Извлекает форматированное значение ячейки или части даты.
+    // Использует `Number`, `parts.find`.
     const value = (name) => Number(parts.find((part) => part.type === name).value);
     return new Date(Date.UTC(value("year"), value("month") - 1, value("day")));
   };
+  // Отбирает дни событий без выполнения и неактуальности.
+  // Использует `Object.keys(order.calendar_events || {}).filter`, `Object.keys`.
   const activeOrderDays = (order) => Object.keys(order.calendar_events || {}).filter((day) =>
     !order.calendar_inactive?.day?.includes(day) && !order.calendar_completed?.day?.includes(day));
+  // Вычисляет недели видимых строк заказа по срокам и состоянию событий.
+  // Использует `activeOrderDays(order).map`, `activeOrderDays`, `Set`.
   function visibleOrderWeeks(order, today) {
     if (!order.path || order.registered === false) return [];
     const eventWeeks = order.calendar_compact === true ? [] : activeOrderDays(order).map((day) => dateKey(monday(new Date(day + "T00:00:00Z"))));
@@ -55,9 +75,13 @@ const HomeCalendar = (() => {
       });
     });
   }
+  // Расширяет диапазон календаря по сохранённым срокам и видимым событиям.
+  // Использует `moscowDate`, `monday`, `shiftDays`.
   function calendarRange(now = new Date(), calendarOrders = [], freeEvents = [], plans = []) {
     const today = moscowDate(now);
     let start = monday(today), end = shiftDays(start, VISIBLE_WEEKS * 7 - 1);
+    // Добавляет корректную дату или неделю в вычисляемый диапазон.
+    // Использует `/^\d{4}-\d{2}-\d{2}$/.test`, `Date`, `Number.isFinite`.
     const include = (key, period = "day") => {
       if (typeof key !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(key)) return;
       const date = new Date(key + "T00:00:00Z");
@@ -80,24 +104,34 @@ const HomeCalendar = (() => {
   let range, builtFor = "", initialized = false, frame = 0, weekTops = [], weekHeights = [], orders = [], events = [], invoicePlans = [];
   let scrollAnchor = { index: 0, offset: 0 };
   let layoutHidden = false;
+  // Находит элемент интерфейса по устойчивому DOM-идентификатору.
+  // Обращается к DOM текущего документа или переданного контейнера.
   const get = (id) => document.getElementById(id);
   const monthName = new Intl.DateTimeFormat("ru-RU", { month: "long", timeZone: "UTC" });
   const fullDate = new Intl.DateTimeFormat("ru-RU", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+  // Вычисляет максимальную прокрутку календарного контейнера.
+  // Использует `Math.max`, `Math.min`, `get`.
   const maxScroll = () => Math.max(0, Math.min(get("calendarViewport").scrollHeight - get("calendarViewport").clientHeight,
     weekTops[Math.max(0, weekTops.length - VISIBLE_WEEKS)] || 0));
 
+  // Измеряет текущие высоты недель и их положения.
+  // Использует `[...get("calendarWeeks").children].map`, `get`, `weekHeights.map`.
   function measureWeeks() {
     weekHeights = [...get("calendarWeeks").children].map((row) => row.getBoundingClientRect().height);
     let top = 0;
     weekTops = weekHeights.map((height) => { const value = top; top += height; return value; });
   }
 
+  // Находит неделю, соответствующую текущей позиции прокрутки.
+  // Использует `Math.min`, `Math.max`.
   function weekIndex(top) {
     let index = 0;
     while (index + 1 < weekTops.length && weekTops[index + 1] <= top + 1) index++;
     return Math.min(index, Math.max(0, weekTops.length - VISIBLE_WEEKS));
   }
 
+  // Подгоняет высоту окна календаря под две полные недели.
+  // Использует `weekHeights.slice(index, index + VISIBLE_WEEKS).reduce`, `weekHeights.slice`, `get`.
   function fitViewport(index) {
     const height = weekHeights.slice(index, index + VISIBLE_WEEKS).reduce((sum, value) => sum + value, 0);
     const viewport = get("calendarViewport"), weeks = get("calendarWeeks");
@@ -110,6 +144,8 @@ const HomeCalendar = (() => {
     weeks.style.paddingBottom = padding;
   }
 
+  // Прокручивает календарь к началу выбранной недели.
+  // Использует `Math.max`, `Math.min`, `fitViewport`.
   function scrollToIndex(index) {
     index = Math.max(0, Math.min(index, weekTops.length - VISIBLE_WEEKS));
     fitViewport(index);
@@ -117,6 +153,8 @@ const HomeCalendar = (() => {
     updateHeading();
   }
 
+  // Обновляет заголовок и доступность навигации календаря.
+  // Использует `get`, `[...get("calendarWeeks").children].some`, `maxScroll`.
   function updateHeading() {
     frame = 0;
     const viewport = get("calendarViewport");
@@ -137,10 +175,14 @@ const HomeCalendar = (() => {
     get("calendarLater").disabled = viewport.scrollTop >= maxScroll() - 1;
   }
 
+  // Находит неделю по ключу и показывает её в окне календаря.
+  // Использует `scrollToIndex`, `Math.round`, `monday`.
   function scrollToWeek(date) {
     scrollToIndex(Math.round((monday(date) - range.start) / (7 * DAY)));
   }
 
+  // Строит обычные строки заказов и их события выбранной недели.
+  // Обращается к DOM текущего документа или переданного контейнера.
   function renderWeekOrders() {
     const byWeek = new Map();
     for (const order of orders) {
@@ -246,6 +288,8 @@ const HomeCalendar = (() => {
     }
   }
 
+  // Строит синие ссылки мелких заказов в первой колонке недели.
+  // Использует `Map`, `[...container.children].map`, `Set`.
   function renderCompactOrders(container, compact) {
     const existing = new Map([...container.children].map(link => [link.dataset.calendarOrder, link]));
     const retained = new Set();
@@ -267,6 +311,8 @@ const HomeCalendar = (() => {
     if (focused && document.activeElement === document.body) get("calendarViewport").focus({ preventScroll: true });
   }
 
+  // Строит свободные дневные и недельные события.
+  // Обращается к DOM текущего документа или переданного контейнера.
   function renderFreeEvents() {
     for (const row of get("calendarWeeks").children) {
       const area = row.querySelector(".calendar-free-events"), week = new Date(row.dataset.week + "T00:00:00Z");
@@ -318,6 +364,8 @@ const HomeCalendar = (() => {
     }
   }
 
+  // Строит приходы и расходы календаря с сохранёнными отметками.
+  // Обращается к DOM текущего документа или переданного контейнера.
   function renderInvoicePlans() {
     const byDate = new Map();
     for (const plan of invoicePlans) {
@@ -379,6 +427,8 @@ const HomeCalendar = (() => {
     sizeInvoicePlanHeaders();
   }
 
+  // Выравнивает высоту шапки оплат по наполнению недель.
+  // Обращается к DOM текущего документа или переданного контейнера.
   function sizeInvoicePlanHeaders() {
     const viewport = get('calendarViewport');
     if (!viewport.clientWidth) { layoutHidden = true; return; }
@@ -411,6 +461,8 @@ const HomeCalendar = (() => {
     updateHeading();
   }
 
+  // Строит область планов или ручных переносов платежей.
+  // Использует `document.createElement`, `fullDate.format`, `shiftDays`.
   function planHeader(date, label, period = 'day') {
     const controls = document.createElement('div');
     controls.className = 'calendar-payment-add';
@@ -438,6 +490,8 @@ const HomeCalendar = (() => {
     return plans;
   }
 
+  // Строит область планов или ручных переносов платежей.
+  // Использует `document.createElement`, `dateKey`, `area.setAttribute`.
   function carryoverHeader(week) {
     const area = document.createElement("div"), payments = document.createElement("div");
     area.className = "calendar-invoice-plans calendar-carryover-plans";
@@ -452,6 +506,8 @@ const HomeCalendar = (() => {
     area.append(payments); return area;
   }
 
+  // Показывает компонент по полученным данным и текущему состоянию в модуле календарной сетки.
+  // Подключает обработчики событий к существующим элементам компонента.
   function show(nextOrders, nextEvents, nextInvoicePlans, now = new Date()) {
     if (Array.isArray(nextOrders)) orders = nextOrders;
     if (Array.isArray(nextEvents)) events = nextEvents;
@@ -553,6 +609,8 @@ const HomeCalendar = (() => {
     const observer = new ResizeObserver(sizeInvoicePlanHeaders);
     observer.observe(get("calendarWeeks"));
   }
+  // Выбирает две или три недели общего снимка по видимому наполнению.
+  // Использует `moscowDate`, `monday`, `dateKey`.
   function snapshotRange(now = new Date(), calendarOrders = orders, freeEvents = events, plans = invoicePlans) {
     const today = moscowDate(now), current = monday(today), previous = dateKey(shiftDays(current, -7));
     const hasPrevious = calendarOrders.some(order => visibleOrderWeeks(order, today).includes(previous)) ||
@@ -560,6 +618,8 @@ const HomeCalendar = (() => {
     const start = hasPrevious ? shiftDays(current, -7) : current, end = shiftDays(current, 13);
     return { start, end, count: hasPrevious ? 3 : 2 };
   }
+  // Создаёт отдельный DOM календаря для рендера общего PNG.
+  // Обращается к DOM текущего документа или переданного контейнера.
   function createSnapshot(now = new Date()) {
     const { start, end, count } = snapshotRange(now);
     const snapshot = document.createElement("section");

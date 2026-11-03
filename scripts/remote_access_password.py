@@ -16,6 +16,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import remote_access
 
 
+# Создаёт настройки рабочей установки из проверенных параметров развёртывания.
+# При недопустимом состоянии возбуждает ValueError.
 def setup_server(path, port=18766):
     path = Path(path).expanduser()
     if path.exists() or path.is_symlink():
@@ -24,14 +26,22 @@ def setup_server(path, port=18766):
     done = threading.Event()
     write_lock = threading.Lock()
 
+    # Объединяет операции модуля: временная loopback-форма первоначального задания пароля владельцем.
+    # Основные операции: setup, log_message, reply, allowed, page; остальные описаны у методов.
     class Handler(BaseHTTPRequestHandler):
+        # Настраивает ограничения соединения перед обработкой защищённого запроса.
+        # Передаёт работу `super().setup`, `super`, `self.connection.settimeout`.
         def setup(self):
             super().setup()
             self.connection.settimeout(20)
 
+        # Записывает предусмотренное диагностическое сообщение обработчика.
+        # Выполняет локальные проверки или меняет только переданные структуры данных.
         def log_message(self, *_):
             pass
 
+        # Отправляет локальный ответ защищённого обработчика с нужным статусом.
+        # Передаёт работу `body.encode`, `self.send_response`, `self.send_header`.
         def reply(self, status, body):
             body = body.encode()
             self.send_response(status)
@@ -42,14 +52,20 @@ def setup_server(path, port=18766):
             self.end_headers()
             self.wfile.write(body)
 
+        # Проверяет допустимость одной папки в текущем каталоге.
+        # Возвращает `self.headers.get_all('Host', []) == ['127.0.0.1:' + str(self.server.server_port)]`.
         def allowed(self):
             return self.headers.get_all('Host', []) == ['127.0.0.1:' + str(self.server.server_port)]
 
+        # Формирует страницу временного локального ввода пароля.
+        # Формирует возвращаемое значение из проверенного локального состояния.
         def page(self, error=''):
             return f'''<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Пароль для внешнего входа · Зигзаг</title>
 <style>body{{font:15px -apple-system,sans-serif;color:#263738;background:#f7f9f8;margin:0;padding:24px}}main{{box-sizing:border-box;max-width:400px;margin:8vh auto;background:white;border:1px solid #dce5e0;border-radius:14px;padding:26px}}h1{{font-size:23px}}label{{display:block;margin:18px 0}}input{{box-sizing:border-box;width:100%;padding:12px;margin-top:7px;border:1px solid #bbcfc5;border-radius:8px;font:16px -apple-system,sans-serif}}button{{width:100%;padding:13px;border:0;background:#167a65;color:white;border-radius:8px;font:16px -apple-system,sans-serif}}p{{line-height:1.5}}.error{{color:#b13535}}</style>
 <main><h1>Пароль для внешнего входа</h1><p>Дома менеджер открывается как прежде. Этот пароль понадобится для входа через интернет.</p><form method="post" action="/"><input type="hidden" name="csrf" value="{csrf}"><label>Новый пароль<input name="password" type="password" minlength="12" maxlength="1024" autocomplete="new-password" required autofocus></label><label>Повтори пароль<input name="confirmation" type="password" minlength="12" maxlength="1024" autocomplete="new-password" required></label><p class="error" role="alert">{html.escape(error)}</p><button>Сохранить пароль</button></form></main></html>'''
 
+        # Обслуживает GET через проверки и маршрутизацию текущего обработчика.
+        # Передаёт работу `self.allowed`, `self.reply`, `done.is_set`.
         def do_GET(self):
             if not self.allowed() or self.path != '/':
                 self.reply(403, 'Недоступно')
@@ -58,6 +74,8 @@ def setup_server(path, port=18766):
             else:
                 self.reply(200, self.page())
 
+        # Проверяет и маршрутизирует запрос изменения данных текущего обработчика.
+        # При недопустимом состоянии возбуждает ValueError.
         def do_POST(self):
             origin = 'http://127.0.0.1:' + str(self.server.server_port)
             if not self.allowed() or self.path != '/' or self.headers.get_all('Origin', []) != [origin]:
@@ -88,6 +106,8 @@ def setup_server(path, port=18766):
     return server
 
 
+# Разбирает параметры запуска и выполняет основной сценарий программы.
+# При недопустимом состоянии возбуждает ValueError.
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--credentials-file', type=Path, default=remote_access.DEFAULT_CREDENTIALS)

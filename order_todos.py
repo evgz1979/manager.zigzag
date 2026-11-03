@@ -12,11 +12,15 @@ from folder_notes import FolderNotes, parent_order
 REFRESH_LOCK = threading.Lock()
 
 
+# Вычисляет нормализованный ключ для обращения к данным.
+# Формирует возвращаемое значение из проверенного локального состояния.
 def path_key(path):
     return [(not name.startswith("#"), [int(part) if part.isdigit() else part
              for part in re.split(r"([0-9]+)", unicodedata.normalize("NFC", name).casefold())]) for name in Path(path).parts]
 
 
+# Группирует проверенные записи или папки в предусмотренные категории.
+# Возвращает `None`; либо `{'path': path, 'label': label, 'items': items, 'legacy_text': legacy, **metadata}`.
 def group(path, label, items, blocks, *, include_completed=False, **metadata):
     legacy = blocks.get(document.TODO_BLOCK, "") if items is None else ""
     if items is not None and not include_completed:
@@ -26,12 +30,18 @@ def group(path, label, items, blocks, *, include_completed=False, **metadata):
     return {"path": path, "label": label, "items": items, "legacy_text": legacy, **metadata}
 
 
+# Объединяет операции модуля: сводки собственных и вложенных задач заказа из локальной базы.
+# Основные операции: __init__, attach, scope, in_order, refresh.
 class OrderTodos:
+    # Сохраняет зависимости и начальные параметры экземпляра.
+    # Состояние и зависимости сохраняются в полях self для последующих операций.
     def __init__(self, store):
         self.store = store
         # Фоновое чтение не переносит прежние служебные файлы и не переписывает карточки.
         self.notes = FolderNotes(store)
 
+    # Привязывает существующие данные к выбранной сущности или сводке.
+    # Работает с таблицами folder_notes, sqlite_master, todo_missing_folders, todo_catalog.
     def attach(self, orders, *, include_missing=False, include_completed=False):
         if not orders:
             return orders
@@ -71,11 +81,15 @@ class OrderTodos:
                 by_path[owner]["todo_groups"].append(item)
         return [by_path[order["path"]] for order in orders]
 
+    # Вычисляет область видимости и допустимых связей текущей сущности.
+    # Возвращает `{'path': relative, 'todo_items': [], 'extra_blocks': {}, 'sync_pending': False, 'sync_error': ''}`.
     @staticmethod
     def scope(relative):
         # Незарегистрированный заказ тоже может иметь заметки вложенных папок.
         return {"path": relative, "todo_items": [], "extra_blocks": {}, "sync_pending": False, "sync_error": ""}
 
+    # Собирает все вложенные задачи для страницы заказа из SQLite.
+    # Формирует возвращаемое значение из проверенного локального состояния.
     def in_order(self, relative):
         """Все вложенные задачи для страницы заказа; только локальная база."""
         relative = self.store.path(relative)
@@ -93,6 +107,8 @@ class OrderTodos:
                 "todo_index": {"checked": min(checked) if len(checked) == len(indexes) else None,
                                "error": " · ".join(dict.fromkeys(index["error"] for index in indexes if index["error"]))}}
 
+    # Обновляет индекс из разрешённого источника данных.
+    # Работает с таблицами todo_catalog, todo_missing_folders.
     def refresh(self, extra_paths=()):
         if not REFRESH_LOCK.acquire(blocking=False):
             return
@@ -119,6 +135,8 @@ class OrderTodos:
                     if relative in extra_scopes:
                         self.store.require_order_folder(relative)
                     target = self.store.target(relative)
+                    # Сохраняет ошибку обхода, не выдавая неполный результат за полный.
+                    # Передаёт работу `errors.append`.
                     def on_error(error):
                         errors.append(str(error))
                     for current, dirs, _ in os.walk(target, followlinks=False, onerror=on_error):

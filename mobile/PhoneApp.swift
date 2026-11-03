@@ -4,6 +4,8 @@ import UniformTypeIdentifiers
 import QuickLook
 
 @MainActor
+// Связывает SwiftUI с локальным хранилищем и транспортом телефона.
+// Изменения сначала сохраняются локально; серверный обмен сейчас приостановлен.
 final class PhoneModel: ObservableObject {
     let store: PhoneStore
     let drive = DriveTransport()
@@ -14,6 +16,8 @@ final class PhoneModel: ObservableObject {
     @Published var downloading: Set<String> = []
     @Published var localError = ""
 
+    // Инициализирует зависимости и состояние экземпляра.
+    // Конкретные параметры и правила загрузки определены в теле и полях типа.
     init() {
         let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("ZigzagPhone")
         store = PhoneStore(directory: directory)
@@ -24,14 +28,20 @@ final class PhoneModel: ObservableObject {
 
     var waiting: Int { store.waiting }
     var conflicts: Int { state.queue.filter { $0.receipt?.status == "conflict" }.count }
+    // Возвращает карточку заказа с наложенными ожидающими действиями телефона.
+    // Неподтверждённые операции остаются видимыми до получения receipt Mac.
     func order(_ id: String) -> PhoneOrder? { store.order(id) }
 
+    // Сохраняет текущие текстовые черновики из модели на локальный диск.
+    // Ошибка сохранения не должна превращать введённый текст в пустое состояние.
     func flushDrafts() throws {
         var next = store.state
         next.drafts = drafts
         try store.persist(next)
     }
 
+    // Читает или сохраняет текстовый черновик по устойчивому ключу.
+    // SwiftUI Binding и PhoneStore используют один ключ локального состояния.
     func draft(_ key: String) -> Binding<String> {
         Binding(get: { self.drafts[key] ?? "" }, set: { value in
             self.drafts[key] = value
@@ -40,6 +50,8 @@ final class PhoneModel: ObservableObject {
         })
     }
 
+    // Ставит текстовое действие пользователя в устойчивую очередь телефона.
+    // Черновик очищается после успешного локального сохранения операции.
     func submit(orderID: String, kind: String, key: String, file: PhoneFile? = nil) {
         do {
             try flushDrafts()
@@ -52,6 +64,8 @@ final class PhoneModel: ObservableObject {
         } catch { localError = error.localizedDescription }
     }
 
+    // Ставит изменение выполнения задачи в локальную очередь телефона.
+    // Передаёт исходные идентификатор, текст и версию для проверки на Mac.
     func toggle(orderID: String, task: PhoneTask) {
         do {
             try flushDrafts()
@@ -62,6 +76,8 @@ final class PhoneModel: ObservableObject {
         } catch { localError = error.localizedDescription }
     }
 
+    // Сохраняет bookmark выбранного пользователем корня документов.
+    // Доступ выдаётся системным выбором папки с security-scoped разрешением.
     func selectFolder(_ url: URL) {
         let access = url.startAccessingSecurityScopedResource()
         defer { if access { url.stopAccessingSecurityScopedResource() } }
@@ -73,6 +89,8 @@ final class PhoneModel: ObservableObject {
         } catch { localError = error.localizedDescription }
     }
 
+    // Выполняет один цикл обмена через выбранную папку iCloud.
+    // Публикация операции и подтверждение её применения различаются; Mac-обмен отложен.
     func sync() async {
         guard !syncing, let bookmark = state.bookmark else { return }
         syncing = true
@@ -90,6 +108,8 @@ final class PhoneModel: ObservableObject {
         }
     }
 
+    // Сохраняет выбранный оригинал для автономного просмотра на телефоне.
+    // Проверяет допустимость файла и сохраняет в отдельный локальный каталог вложений.
     func cache(_ file: PhoneFile) async {
         guard let bookmark = state.bookmark, !downloading.contains(file.id) else { return }
         downloading.insert(file.id)
@@ -100,10 +120,14 @@ final class PhoneModel: ObservableObject {
         } catch { message = error.localizedDescription }
     }
 
+    // Проверяет наличие сохранённой автономной копии вложения.
+    // Путь вычисляется по имени, исходному пути и токену версии файла.
     func isCached(_ file: PhoneFile) -> Bool { FileManager.default.fileExists(atPath: store.cachedURL(file).path) }
 }
 
 @main
+// Объявляет точку входа сохранённого приложения iPhone.
+// Создаёт модель и корневое SwiftUI-представление приложения.
 struct ZigzagPhoneApp: App {
     @StateObject private var model = PhoneModel()
     @Environment(\.scenePhase) private var scenePhase
@@ -117,6 +141,8 @@ struct ZigzagPhoneApp: App {
     }
 }
 
+// Собирает вкладки сохранённого приложения iPhone.
+// Передаёт общую PhoneModel дочерним экранам через окружение.
 struct RootView: View {
     @EnvironmentObject private var model: PhoneModel
     var body: some View {
@@ -143,6 +169,8 @@ struct RootView: View {
     }
 }
 
+// Показывает состояние локального каталога и обмена телефона.
+// Данные берутся из сохранённого PhoneStore и текущей модели.
 struct SyncSummary: View {
     @EnvironmentObject private var model: PhoneModel
     var body: some View {
@@ -156,6 +184,8 @@ struct SyncSummary: View {
     }
 }
 
+// Показывает каталог заказов телефона с поиском.
+// Использует последнюю принятую локальную копию каталога.
 struct OrderListView: View {
     @EnvironmentObject private var model: PhoneModel
     @State private var search = ""
@@ -198,9 +228,13 @@ struct OrderListView: View {
     }
 }
 
+// Показывает карточку заказа, задачи и вложения телефона.
+// Локальные действия проходят через PhoneModel и устойчивую очередь.
 struct OrderView: View {
     @EnvironmentObject private var model: PhoneModel
     let orderID: String
+    // Форматирует денежное значение для PDF или карточки телефона.
+    // Использует сохранённое числовое значение; расчёты базы этим не изменяются.
     func money(_ value: Int64?) -> String {
         guard let value else { return "Не указано" }
         return (Double(value) / 100).formatted(.currency(code: "RUB"))
@@ -263,6 +297,8 @@ struct OrderView: View {
     }
 }
 
+// Показывает поле текстового действия и кнопку добавления.
+// Черновик связан с устойчивым ключом локального хранилища.
 struct Composer: View {
     @EnvironmentObject private var model: PhoneModel
     let orderID: String
@@ -279,6 +315,8 @@ struct Composer: View {
     }
 }
 
+// Показывает сведения файла и действия автономного просмотра.
+// Оригинал копируется только по явному действию пользователя.
 struct FileView: View {
     @EnvironmentObject private var model: PhoneModel
     let orderID: String
@@ -316,6 +354,8 @@ struct FileView: View {
     }
 }
 
+// Показывает ожидающие и подтверждённые операции телефона.
+// Сохранённые конфликты доступны для чтения и ручного разбора.
 struct QueueView: View {
     @EnvironmentObject private var model: PhoneModel
     var body: some View {
@@ -347,6 +387,8 @@ struct QueueView: View {
     }
 }
 
+// Показывает выбор папки и состояние настроек телефона.
+// Системный picker выдаёт доступ к выбранному корню iCloud.
 struct SettingsView: View {
     @EnvironmentObject private var model: PhoneModel
     @State private var picker = false
@@ -370,37 +412,67 @@ struct SettingsView: View {
     }
 }
 
+// Оборачивает системный выбор папки в SwiftUI.
+// Координатор передаёт выбранный URL обработчику модели.
 struct FolderPicker: UIViewControllerRepresentable {
     var selected: (URL) -> Void
+    // Создаёт объект делегата для системного UIKit-контроллера.
+    // SwiftUI удерживает координатор на время жизни представления.
     func makeCoordinator() -> Coordinator { Coordinator(selected: selected) }
+    // Создаёт системный контроллер выбора папки или Quick Look.
+    // Тип контроллера и его делегат определены окружающим представлением.
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
         let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.folder], asCopy: false)
         picker.delegate = context.coordinator
         return picker
     }
+    // Реализует обязательный хук обновления UIKit-представления.
+    // Тело пусто: текущему обёрнутому контроллеру не требуется дополнительное обновление.
     func updateUIViewController(_ controller: UIDocumentPickerViewController, context: Context) {}
+    // Связывает делегат системного контроллера с SwiftUI-обёрткой.
+    // Хранит выбранный URL либо обработчик получения папки.
     final class Coordinator: NSObject, UIDocumentPickerDelegate {
         let selected: (URL) -> Void
+        // Инициализирует зависимости и состояние экземпляра.
+        // Конкретные параметры и правила загрузки определены в теле и полях типа.
         init(selected: @escaping (URL) -> Void) { self.selected = selected }
+        // Принимает выбранный системным диалогом URL папки.
+        // Передаёт первый допустимый результат обработчику выбранного корня.
         func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
             if let url = urls.first { selected(url) }
         }
     }
 }
 
+// Открывает локально сохранённое вложение через Quick Look.
+// Использует URL автономной копии, а не запись в исходный документ.
 struct LocalPreview: UIViewControllerRepresentable {
     let url: URL
+    // Создаёт объект делегата для системного UIKit-контроллера.
+    // SwiftUI удерживает координатор на время жизни представления.
     func makeCoordinator() -> Coordinator { Coordinator(url) }
+    // Создаёт системный контроллер выбора папки или Quick Look.
+    // Тип контроллера и его делегат определены окружающим представлением.
     func makeUIViewController(context: Context) -> QLPreviewController {
         let controller = QLPreviewController()
         controller.dataSource = context.coordinator
         return controller
     }
+    // Реализует обязательный хук обновления UIKit-представления.
+    // Тело пусто: текущему обёрнутому контроллеру не требуется дополнительное обновление.
     func updateUIViewController(_ controller: QLPreviewController, context: Context) {}
+    // Связывает делегат системного контроллера с SwiftUI-обёрткой.
+    // Хранит выбранный URL либо обработчик получения папки.
     final class Coordinator: NSObject, QLPreviewControllerDataSource {
         let url: URL
+        // Инициализирует зависимости и состояние экземпляра.
+        // Конкретные параметры и правила загрузки определены в теле и полях типа.
         init(_ url: URL) { self.url = url }
+        // Возвращает количество документов текущего Quick Look.
+        // Для этой обёртки доступен ровно один локальный файл.
         func numberOfPreviewItems(in controller: QLPreviewController) -> Int { 1 }
+        // Возвращает выбранный локальный URL как документ Quick Look.
+        // Приведение к NSURL реализует ожидаемый QLPreviewItem.
         func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem { url as NSURL }
     }
 }

@@ -1,8 +1,10 @@
-"""Read-only To-do digest for the same two weeks shown in the calendar PNG."""
+"""Read-only To-do digest for the same two or three weeks as the calendar PNG."""
 from datetime import date, timedelta
 from calendar_delivery import order_visible
 
 
+# Собирает тексты только видимых отмеченных событий и актуальных задач их заказов.
+# Возвращает `''`; либо `'\n\n'.join(sections)`.
 def digest(snapshot, start, through=None):
     first = date.fromisoformat(start)
     last = date.fromisoformat(through) if through else first + timedelta(days=13)
@@ -71,6 +73,8 @@ def digest(snapshot, start, through=None):
     return '\n\n'.join(sections)
 
 
+# Делит текст Telegram по лимиту UTF-16 без потери текста и emoji.
+# Последовательно выдаёт элементы через yield без потери оставшегося содержимого.
 def message_parts(text, limit=4000):
     """Keep all text; allow for Telegram's UTF-16 entity offsets and emoji."""
     while text:
