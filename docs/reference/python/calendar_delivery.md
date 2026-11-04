@@ -39,9 +39,9 @@ False
 def period(snapshot, now=None):
 ```
 
-Выбирает две или три недели снимка относительно текущей даты Москвы.
+Выбирает две или три недели снимка независимо от просмотра истории в браузере.
 
-Возвращает `(previous, (current + timedelta(days=13)).isoformat())`; либо `(previous if has_previous else current_key, (current + timedelta(days=13)).isoformat())`.
+Предыдущую неделю удерживают только видимые актуальные невыполненные события.
 
 Непосредственные вызовы: `current_week`, `(current - timedelta(days=7)).isoformat`, `timedelta`, `current.isoformat`, `snapshot.get`, `order.get`, `any`, `(order.get('calendar_completed') or {}).get`, `(order.get('calendar_inactive') or {}).get`, `order_visible`, `(current + timedelta(days=13)).isoformat`, `item.get`.
 
@@ -54,7 +54,7 @@ def period(snapshot, now=None):
 
 ## renderer
 
-[calendar_delivery.py:55](../../../calendar_delivery.py#L55) · `function`.
+[calendar_delivery.py:57](../../../calendar_delivery.py#L57) · `function`.
 
 ```python
 def renderer(app_dir, data_dir):
@@ -74,7 +74,7 @@ native_renderers.build(Path(app_dir) / 'calendar_renderer.swift', data_dir, 'cal
 
 ## html
 
-[calendar_delivery.py:61](../../../calendar_delivery.py#L61) · `function`.
+[calendar_delivery.py:63](../../../calendar_delivery.py#L63) · `function`.
 
 ```python
 def html(snapshot, app_dir, now):
@@ -94,7 +94,7 @@ f"""<!doctype html><html><head><meta charset="utf-8"><style>{css}</style></head>
 
 ## render
 
-[calendar_delivery.py:94](../../../calendar_delivery.py#L94) · `function`.
+[calendar_delivery.py:96](../../../calendar_delivery.py#L96) · `function`.
 
 ```python
 def render(snapshot, app_dir, data_dir, now):

@@ -5,7 +5,7 @@
     "python": [
       {
         "path": "calendar_delivery.py",
-        "sha256": "9b75bcbc0a249373c56d59caad51f4a088c263d0bd9eadd1e14608389d953271",
+        "sha256": "0576e55912452f79ec30c69a83cd80c96c75ae98f8f0bcf64717896d873be10e",
         "symbols": [
           {
             "name": "order_visible",
@@ -19,17 +19,17 @@
           },
           {
             "name": "renderer",
-            "line": 55,
+            "line": 57,
             "type": "function"
           },
           {
             "name": "html",
-            "line": 61,
+            "line": 63,
             "type": "function"
           },
           {
             "name": "render",
-            "line": 94,
+            "line": 96,
             "type": "function"
           }
         ]
@@ -5726,7 +5726,7 @@
       },
       {
         "path": "static/home-calendar.js",
-        "sha256": "bf6aa15f24bff86feb3a642a512f2da73f6f288c2be40f05e731cf8281e88e6b",
+        "sha256": "0c78a624fa0bc462e8d5b85ef7e546e2f8aaf10c9cacbbc9482493939fcd0253",
         "symbols": [
           {
             "name": "showTripMark",
@@ -5779,103 +5779,108 @@
             "type": "FunctionDeclaration"
           },
           {
+            "name": "pendingRecord",
+            "line": 82,
+            "type": "ArrowFunctionExpression"
+          },
+          {
             "name": "calendarRange",
-            "line": 80,
+            "line": 85,
             "type": "FunctionDeclaration"
           },
           {
             "name": "include",
-            "line": 85,
+            "line": 91,
             "type": "ArrowFunctionExpression"
           },
           {
             "name": "get",
-            "line": 109,
+            "line": 120,
             "type": "ArrowFunctionExpression"
           },
           {
             "name": "maxScroll",
-            "line": 114,
+            "line": 125,
             "type": "ArrowFunctionExpression"
           },
           {
             "name": "measureWeeks",
-            "line": 119,
+            "line": 130,
             "type": "FunctionDeclaration"
           },
           {
             "name": "weekIndex",
-            "line": 127,
+            "line": 138,
             "type": "FunctionDeclaration"
           },
           {
             "name": "fitViewport",
-            "line": 135,
+            "line": 146,
             "type": "FunctionDeclaration"
           },
           {
             "name": "scrollToIndex",
-            "line": 149,
+            "line": 160,
             "type": "FunctionDeclaration"
           },
           {
             "name": "updateHeading",
-            "line": 158,
+            "line": 169,
             "type": "FunctionDeclaration"
           },
           {
             "name": "scrollToWeek",
-            "line": 180,
+            "line": 191,
             "type": "FunctionDeclaration"
           },
           {
             "name": "renderWeekOrders",
-            "line": 186,
+            "line": 198,
             "type": "FunctionDeclaration"
           },
           {
             "name": "renderCompactOrders",
-            "line": 293,
+            "line": 305,
             "type": "FunctionDeclaration"
           },
           {
             "name": "renderFreeEvents",
-            "line": 316,
+            "line": 328,
             "type": "FunctionDeclaration"
           },
           {
             "name": "renderInvoicePlans",
-            "line": 369,
+            "line": 381,
             "type": "FunctionDeclaration"
           },
           {
             "name": "sizeInvoicePlanHeaders",
-            "line": 432,
+            "line": 444,
             "type": "FunctionDeclaration"
           },
           {
             "name": "planHeader",
-            "line": 466,
+            "line": 478,
             "type": "FunctionDeclaration"
           },
           {
             "name": "carryoverHeader",
-            "line": 495,
+            "line": 507,
             "type": "FunctionDeclaration"
           },
           {
             "name": "show",
-            "line": 511,
+            "line": 523,
             "type": "FunctionDeclaration"
           },
           {
             "name": "snapshotRange",
-            "line": 614,
+            "line": 634,
             "type": "FunctionDeclaration"
           },
           {
             "name": "createSnapshot",
-            "line": 623,
+            "line": 643,
             "type": "FunctionDeclaration"
           }
         ]
@@ -7104,11 +7109,11 @@
     "embedded": [
       {
         "path": "calendar_delivery.py",
-        "sha256": "9b75bcbc0a249373c56d59caad51f4a088c263d0bd9eadd1e14608389d953271",
+        "sha256": "0576e55912452f79ec30c69a83cd80c96c75ae98f8f0bcf64717896d873be10e",
         "symbols": [
           {
             "name": "makeCalendar",
-            "line": 78,
+            "line": 80,
             "type": "embedded JavaScript"
           }
         ]

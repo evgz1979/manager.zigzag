@@ -10,7 +10,7 @@ JavaScript внутри автономного HTML-шаблона; контек
 
 ## makeCalendar
 
-[calendar_delivery.py:78](../../../calendar_delivery.py#L78) · `embedded JavaScript`.
+[calendar_delivery.py:80](../../../calendar_delivery.py#L80) · `embedded JavaScript`.
 
 ```javascript
 async function makeCalendar()

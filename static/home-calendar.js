@@ -56,15 +56,17 @@ const HomeCalendar = (() => {
   // Использует `Object.keys(order.calendar_events || {}).filter`, `Object.keys`.
   const activeOrderDays = (order) => Object.keys(order.calendar_events || {}).filter((day) =>
     !order.calendar_inactive?.day?.includes(day) && !order.calendar_completed?.day?.includes(day));
-  // Вычисляет недели видимых строк заказа по срокам и состоянию событий.
-  // Использует `activeOrderDays(order).map`, `activeOrderDays`, `Set`.
-  function visibleOrderWeeks(order, today) {
+  // Вычисляет недели строк заказа; просмотр истории возвращает закрытые прошлые записи.
+  // Не меняет сроки и отметки; снятые недельные тексты доступны только в прошлой истории.
+  function visibleOrderWeeks(order, today, history = false) {
     if (!order.path || order.registered === false) return [];
-    const eventWeeks = order.calendar_compact === true ? [] : activeOrderDays(order).map((day) => dateKey(monday(new Date(day + "T00:00:00Z"))));
-    const weeks = [...new Set([...(order.deadline_weeks || []), ...eventWeeks])];
     const currentWeek = dateKey(monday(today));
+    const eventDays = history ? [...new Set([...activeOrderDays(order), ...Object.keys(order.calendar_events || {}).filter(day => day < currentWeek)])] : activeOrderDays(order);
+    const eventWeeks = order.calendar_compact === true ? [] : eventDays.map((day) => dateKey(monday(new Date(day + "T00:00:00Z"))));
+    const oldWeekly = history && order.calendar_compact !== true ? Object.keys(order.calendar_week_events || {}).filter(week => week < currentWeek) : [];
+    const weeks = [...new Set([...(order.deadline_weeks || []), ...eventWeeks, ...oldWeekly])];
     return weeks.filter((week) => {
-      if (order.calendar_compact === true || week >= currentWeek) return true;
+      if (history || order.calendar_compact === true || week >= currentWeek) return true;
       const end = dateKey(shiftDays(new Date(week + "T00:00:00Z"), 7));
       return [["week", order.calendar_week_events], ["day", order.calendar_events]].some(([period, entries]) => {
         // Unknown event text must remain reachable rather than look like an empty week.
@@ -75,11 +77,15 @@ const HomeCalendar = (() => {
       });
     });
   }
-  // Расширяет диапазон календаря по сохранённым срокам и видимым событиям.
-  // Использует `moscowDate`, `monday`, `shiftDays`.
-  function calendarRange(now = new Date(), calendarOrders = [], freeEvents = [], plans = []) {
+  // Проверяет отсутствие явных отметок выполнения и неактуальности свободной записи/плана.
+  // Поддерживает SQLite 0/1 и JSON boolean; неизвестные значения не скрывают запись.
+  const pendingRecord = (event) => ![true, 1].includes(event.is_completed) && ![true, 1].includes(event.is_inactive);
+  // Выбирает недели календаря; прошлые без открытых событий доступны только в истории.
+  // Текущая и будущие недели непрерывны; пустые промежутки прошлого пропускаются.
+  function calendarRange(now = new Date(), calendarOrders = [], freeEvents = [], plans = [], history = false) {
     const today = moscowDate(now);
-    let start = monday(today), end = shiftDays(start, VISIBLE_WEEKS * 7 - 1);
+    const current = monday(today), currentKey = dateKey(current), past = new Set();
+    let start = current, end = shiftDays(start, VISIBLE_WEEKS * 7 - 1);
     // Добавляет корректную дату или неделю в вычисляемый диапазон.
     // Использует `/^\d{4}-\d{2}-\d{2}$/.test`, `Date`, `Number.isFinite`.
     const include = (key, period = "day") => {
@@ -87,23 +93,28 @@ const HomeCalendar = (() => {
       const date = new Date(key + "T00:00:00Z");
       if (!Number.isFinite(date.getTime()) || dateKey(date) !== key || (period === "week" && date.getUTCDay() !== 1)) return;
       const week = monday(date), last = shiftDays(week, 6);
-      if (week < start) start = week;
+      if (week < current) { past.add(dateKey(week)); if (week < start) start = week; }
       if (last > end) end = last;
     };
     for (const order of calendarOrders) {
       if (!order.path || order.registered === false) continue;
-      for (const week of order.deadline_weeks || []) include(week, "week");
-      if (order.calendar_compact !== true) for (const date of activeOrderDays(order)) include(date);
+      for (const week of visibleOrderWeeks(order, today, history)) {
+        if (history || week >= currentKey || order.calendar_compact !== true) include(week, "week");
+      }
     }
     for (const event of [...freeEvents, ...plans]) {
-      if (!event.deleted && ["day", "week"].includes(event.period || "day")) include(event.date, event.period);
+      if (!event.deleted && ["day", "week"].includes(event.period || "day") &&
+          (history || event.date >= currentKey || pendingRecord(event))) include(event.date, event.period);
     }
-    return { today, from: start, through: end, start, end };
+    const weeks = history ? [] : [...past].sort();
+    for (let week = history ? start : current; week <= end; week = shiftDays(week, 7)) weeks.push(dateKey(week));
+    return { today, from: start, through: end, start, end, weeks };
   }
 
   let range, builtFor = "", initialized = false, frame = 0, weekTops = [], weekHeights = [], orders = [], events = [], invoicePlans = [];
   let scrollAnchor = { index: 0, offset: 0 };
   let layoutHidden = false;
+  let showHistory = false;
   // Находит элемент интерфейса по устойчивому DOM-идентификатору.
   // Обращается к DOM текущего документа или переданного контейнера.
   const get = (id) => document.getElementById(id);
@@ -166,7 +177,7 @@ const HomeCalendar = (() => {
     const index = weekIndex(viewport.scrollTop);
     fitViewport(index);
     scrollAnchor = { index, offset: viewport.scrollTop - (weekTops[index] || 0) };
-    const first = shiftDays(range.start, index * 7), last = shiftDays(first, VISIBLE_WEEKS * 7 - 1);
+    const first = new Date(range.weeks[index] + "T00:00:00Z"), last = shiftDays(new Date(range.weeks[Math.min(index + VISIBLE_WEEKS - 1, range.weeks.length - 1)] + "T00:00:00Z"), 6);
     viewport.setAttribute("aria-label", "Две недели календаря: " + fullDate.format(first) + " — " + fullDate.format(last) + " Прокручивай вверх и вниз; Home — начало, End — конец.");
     const sameMonth = first.getUTCMonth() === last.getUTCMonth() && first.getUTCFullYear() === last.getUTCFullYear();
     get("calendarTitle").textContent = sameMonth ? monthName.format(first) + " " + first.getUTCFullYear() :
@@ -175,10 +186,11 @@ const HomeCalendar = (() => {
     get("calendarLater").disabled = viewport.scrollTop >= maxScroll() - 1;
   }
 
-  // Находит неделю по ключу и показывает её в окне календаря.
-  // Использует `scrollToIndex`, `Math.round`, `monday`.
+  // Показывает заданную неделю или ближайшую следующую сохранившуюся неделю.
+  // Поиск по ключам поддерживает пропущенные закрытые недели прошлого.
   function scrollToWeek(date) {
-    scrollToIndex(Math.round((monday(date) - range.start) / (7 * DAY)));
+    const key = dateKey(monday(date)), index = range.weeks.findIndex(week => week >= key);
+    scrollToIndex(index < 0 ? range.weeks.length - VISIBLE_WEEKS : index);
   }
 
   // Строит обычные строки заказов и их события выбранной недели.
@@ -186,7 +198,7 @@ const HomeCalendar = (() => {
   function renderWeekOrders() {
     const byWeek = new Map();
     for (const order of orders) {
-      for (const week of visibleOrderWeeks(order, range.today)) {
+      for (const week of visibleOrderWeeks(order, range.today, showHistory)) {
         if (!byWeek.has(week)) byWeek.set(week, []);
         byWeek.get(week).push(order);
       }
@@ -512,19 +524,21 @@ const HomeCalendar = (() => {
     if (Array.isArray(nextOrders)) orders = nextOrders;
     if (Array.isArray(nextEvents)) events = nextEvents;
     if (Array.isArray(nextInvoicePlans)) invoicePlans = nextInvoicePlans;
-    const nextRange = calendarRange(now, orders, events, invoicePlans);
-    if (builtFor !== dateKey(nextRange.today) || !range || +range.start !== +nextRange.start || +range.end !== +nextRange.end) {
+    const nextRange = calendarRange(now, orders, events, invoicePlans, showHistory);
+    if (builtFor !== dateKey(nextRange.today) || !range || range.weeks.join() !== nextRange.weeks.join()) {
       const viewport = get("calendarViewport"), index = weekIndex(viewport.scrollTop);
-      const visibleWeek = range ? shiftDays(range.start, index * 7) : nextRange.today;
+      const visibleWeek = range ? new Date(range.weeks[index] + "T00:00:00Z") : nextRange.today;
       const offset = range ? viewport.scrollTop - (weekTops[index] || 0) : 0;
       range = nextRange;
       builtFor = dateKey(range.today);
       const weeks = get("calendarWeeks"), existing = new Map([...weeks.children].map((row) => [row.dataset.week, row]));
       const focused = weeks.contains(document.activeElement) ? document.activeElement : null;
-      for (const [key, row] of existing) if (key < dateKey(range.start) || key > dateKey(range.end)) row.remove();
+      const retained = new Set(range.weeks);
+      for (const [key, row] of existing) if (!retained.has(key)) row.remove();
       let before = weeks.firstElementChild;
-      for (let week = range.start; week <= range.end; week = shiftDays(week, 7)) {
-        let row = existing.get(dateKey(week));
+      for (const key of range.weeks) {
+        const week = new Date(key + "T00:00:00Z");
+        let row = existing.get(key);
         if (!row) {
           row = document.createElement("div");
           row.className = "calendar-week";
@@ -598,6 +612,12 @@ const HomeCalendar = (() => {
     get("calendarToday").addEventListener("click", () => { show(); scrollToWeek(range.today); });
     get("calendarEarlier").addEventListener("click", () => { scrollToIndex(weekIndex(viewport.scrollTop) - 1); });
     get("calendarLater").addEventListener("click", () => { scrollToIndex(weekIndex(viewport.scrollTop) + 1); });
+    const history = get("calendarHistory");
+    if (history) history.addEventListener("change", () => {
+      showHistory = history.checked;
+      history.parentElement.title = showHistory ? "Скрыть прошедшие недели без актуальных невыполненных событий" : "Показать старые недели, включая выполненные и неактуальные записи";
+      show();
+    });
     viewport.addEventListener("scroll", () => { if (!frame) frame = requestAnimationFrame(updateHeading); }, { passive: true });
     viewport.addEventListener("keydown", (event) => {
       if (event.key === "Home" || event.key === "End") {
@@ -609,12 +629,12 @@ const HomeCalendar = (() => {
     const observer = new ResizeObserver(sizeInvoicePlanHeaders);
     observer.observe(get("calendarWeeks"));
   }
-  // Выбирает две или три недели общего снимка по видимому наполнению.
-  // Использует `moscowDate`, `monday`, `dateKey`.
+  // Выбирает две или три недели снимка независимо от просмотра истории.
+  // Предыдущую неделю удерживает только видимое актуальное невыполненное событие.
   function snapshotRange(now = new Date(), calendarOrders = orders, freeEvents = events, plans = invoicePlans) {
     const today = moscowDate(now), current = monday(today), previous = dateKey(shiftDays(current, -7));
-    const hasPrevious = calendarOrders.some(order => visibleOrderWeeks(order, today).includes(previous)) ||
-      [...freeEvents, ...plans].some(event => !event.deleted && event.date >= previous && event.date < dateKey(current));
+    const hasPrevious = calendarOrders.some(order => order.calendar_compact !== true && visibleOrderWeeks(order, today).includes(previous)) ||
+      [...freeEvents, ...plans].some(event => !event.deleted && pendingRecord(event) && event.date >= previous && event.date < dateKey(current));
     const start = hasPrevious ? shiftDays(current, -7) : current, end = shiftDays(current, 13);
     return { start, end, count: hasPrevious ? 3 : 2 };
   }
@@ -633,7 +653,10 @@ const HomeCalendar = (() => {
       const key = dateKey(shiftDays(start, index * 7));
       const row = [...get("calendarWeeks").children].find((item) => item.dataset.week === key);
       if (!row) throw new Error("Обнови календарь перед отправкой нужных недель");
-      snapshot.append(row.cloneNode(true));
+      const clone = row.cloneNode(true);
+      const visible = new Set(orders.filter(order => visibleOrderWeeks(order, moscowDate(now)).includes(key)).map(order => JSON.stringify([order.id, order.path])));
+      for (const item of clone.querySelectorAll(".calendar-order-row")) if (!visible.has(item.dataset.orderKey)) item.remove();
+      snapshot.append(clone);
     }
     for (const element of snapshot.querySelectorAll("[id]")) element.removeAttribute("id");
     return { element: snapshot, start: dateKey(start), through: dateKey(end) };

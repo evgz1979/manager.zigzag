@@ -139,32 +139,46 @@ const activeOrderDays = (order) =>
 [static/home-calendar.js:61](../../../static/home-calendar.js#L61) · `FunctionDeclaration`.
 
 ```javascript
-function visibleOrderWeeks(order, today)
+function visibleOrderWeeks(order, today, history = false)
 ```
 
-Вычисляет недели видимых строк заказа по срокам и состоянию событий.
+Вычисляет недели строк заказа; просмотр истории возвращает закрытые прошлые записи.
 
-Использует `activeOrderDays(order).map`, `activeOrderDays`, `Set`.
+Не меняет сроки и отметки; снятые недельные тексты доступны только в прошлой истории.
 
-Непосредственные вызовы: `activeOrderDays(order).map`, `activeOrderDays`, `Set`, `dateKey`, `monday`, `weeks.filter`.
+Непосредственные вызовы: `dateKey`, `monday`, `Set`, `activeOrderDays`, `Object.keys(order.calendar_events || {}).filter`, `Object.keys`, `eventDays.map`, `Object.keys(order.calendar_week_events || {}).filter`, `weeks.filter`.
+
+## pendingRecord
+
+[static/home-calendar.js:82](../../../static/home-calendar.js#L82) · `ArrowFunctionExpression`.
+
+```javascript
+const pendingRecord = (event) =>
+```
+
+Проверяет отсутствие явных отметок выполнения и неактуальности свободной записи/плана.
+
+Поддерживает SQLite 0/1 и JSON boolean; неизвестные значения не скрывают запись.
+
+Непосредственные вызовы: `[true, 1].includes`.
 
 ## calendarRange
 
-[static/home-calendar.js:80](../../../static/home-calendar.js#L80) · `FunctionDeclaration`.
+[static/home-calendar.js:85](../../../static/home-calendar.js#L85) · `FunctionDeclaration`.
 
 ```javascript
-function calendarRange(now = new Date(), calendarOrders = [], freeEvents = [], plans = [])
+function calendarRange(now = new Date(), calendarOrders = [], freeEvents = [], plans = [], history = false)
 ```
 
-Расширяет диапазон календаря по сохранённым срокам и видимым событиям.
+Выбирает недели календаря; прошлые без открытых событий доступны только в истории.
 
-Использует `moscowDate`, `monday`, `shiftDays`.
+Текущая и будущие недели непрерывны; пустые промежутки прошлого пропускаются.
 
-Непосредственные вызовы: `moscowDate`, `monday`, `shiftDays`, `include`, `activeOrderDays`, `["day", "week"].includes`.
+Непосредственные вызовы: `moscowDate`, `monday`, `dateKey`, `Set`, `shiftDays`, `visibleOrderWeeks`, `include`, `["day", "week"].includes`, `pendingRecord`, `[...past].sort`, `weeks.push`.
 
 ## include
 
-[static/home-calendar.js:85](../../../static/home-calendar.js#L85) · `ArrowFunctionExpression`.
+[static/home-calendar.js:91](../../../static/home-calendar.js#L91) · `ArrowFunctionExpression`.
 
 ```javascript
 const include = (key, period = "day") =>
@@ -174,11 +188,11 @@ const include = (key, period = "day") =>
 
 Использует `/^\d{4}-\d{2}-\d{2}$/.test`, `Date`, `Number.isFinite`.
 
-Непосредственные вызовы: `/^\d{4}-\d{2}-\d{2}$/.test`, `Date`, `Number.isFinite`, `date.getTime`, `dateKey`, `date.getUTCDay`, `monday`, `shiftDays`.
+Непосредственные вызовы: `/^\d{4}-\d{2}-\d{2}$/.test`, `Date`, `Number.isFinite`, `date.getTime`, `dateKey`, `date.getUTCDay`, `monday`, `shiftDays`, `past.add`.
 
 ## get
 
-[static/home-calendar.js:109](../../../static/home-calendar.js#L109) · `ArrowFunctionExpression`.
+[static/home-calendar.js:120](../../../static/home-calendar.js#L120) · `ArrowFunctionExpression`.
 
 ```javascript
 const get = (id) =>
@@ -192,7 +206,7 @@ const get = (id) =>
 
 ## maxScroll
 
-[static/home-calendar.js:114](../../../static/home-calendar.js#L114) · `ArrowFunctionExpression`.
+[static/home-calendar.js:125](../../../static/home-calendar.js#L125) · `ArrowFunctionExpression`.
 
 ```javascript
 const maxScroll = () =>
@@ -206,7 +220,7 @@ const maxScroll = () =>
 
 ## measureWeeks
 
-[static/home-calendar.js:119](../../../static/home-calendar.js#L119) · `FunctionDeclaration`.
+[static/home-calendar.js:130](../../../static/home-calendar.js#L130) · `FunctionDeclaration`.
 
 ```javascript
 function measureWeeks()
@@ -220,7 +234,7 @@ function measureWeeks()
 
 ## weekIndex
 
-[static/home-calendar.js:127](../../../static/home-calendar.js#L127) · `FunctionDeclaration`.
+[static/home-calendar.js:138](../../../static/home-calendar.js#L138) · `FunctionDeclaration`.
 
 ```javascript
 function weekIndex(top)
@@ -234,7 +248,7 @@ function weekIndex(top)
 
 ## fitViewport
 
-[static/home-calendar.js:135](../../../static/home-calendar.js#L135) · `FunctionDeclaration`.
+[static/home-calendar.js:146](../../../static/home-calendar.js#L146) · `FunctionDeclaration`.
 
 ```javascript
 function fitViewport(index)
@@ -250,7 +264,7 @@ function fitViewport(index)
 
 ## scrollToIndex
 
-[static/home-calendar.js:149](../../../static/home-calendar.js#L149) · `FunctionDeclaration`.
+[static/home-calendar.js:160](../../../static/home-calendar.js#L160) · `FunctionDeclaration`.
 
 ```javascript
 function scrollToIndex(index)
@@ -264,7 +278,7 @@ function scrollToIndex(index)
 
 ## updateHeading
 
-[static/home-calendar.js:158](../../../static/home-calendar.js#L158) · `FunctionDeclaration`.
+[static/home-calendar.js:169](../../../static/home-calendar.js#L169) · `FunctionDeclaration`.
 
 ```javascript
 function updateHeading()
@@ -274,27 +288,27 @@ function updateHeading()
 
 Использует `get`, `[...get("calendarWeeks").children].some`, `maxScroll`.
 
-Непосредственные вызовы: `get`, `[...get("calendarWeeks").children].some`, `maxScroll`, `weekIndex`, `fitViewport`, `shiftDays`, `viewport.setAttribute`, `fullDate.format`, `first.getUTCMonth`, `last.getUTCMonth`, `first.getUTCFullYear`, `last.getUTCFullYear`, `monthName.format`.
+Непосредственные вызовы: `get`, `[...get("calendarWeeks").children].some`, `maxScroll`, `weekIndex`, `fitViewport`, `Date`, `shiftDays`, `Math.min`, `viewport.setAttribute`, `fullDate.format`, `first.getUTCMonth`, `last.getUTCMonth`, `first.getUTCFullYear`, `last.getUTCFullYear`, `monthName.format`.
 
 Прямые присваивания полям/свойствам: `viewport.scrollTop`, `get("calendarTitle").textContent`, `get("calendarEarlier").disabled`, `get("calendarLater").disabled`.
 
 ## scrollToWeek
 
-[static/home-calendar.js:180](../../../static/home-calendar.js#L180) · `FunctionDeclaration`.
+[static/home-calendar.js:191](../../../static/home-calendar.js#L191) · `FunctionDeclaration`.
 
 ```javascript
 function scrollToWeek(date)
 ```
 
-Находит неделю по ключу и показывает её в окне календаря.
+Показывает заданную неделю или ближайшую следующую сохранившуюся неделю.
 
-Использует `scrollToIndex`, `Math.round`, `monday`.
+Поиск по ключам поддерживает пропущенные закрытые недели прошлого.
 
-Непосредственные вызовы: `scrollToIndex`, `Math.round`, `monday`.
+Непосредственные вызовы: `dateKey`, `monday`, `range.weeks.findIndex`, `scrollToIndex`.
 
 ## renderWeekOrders
 
-[static/home-calendar.js:186](../../../static/home-calendar.js#L186) · `FunctionDeclaration`.
+[static/home-calendar.js:198](../../../static/home-calendar.js#L198) · `FunctionDeclaration`.
 
 ```javascript
 function renderWeekOrders()
@@ -310,7 +324,7 @@ function renderWeekOrders()
 
 ## renderCompactOrders
 
-[static/home-calendar.js:293](../../../static/home-calendar.js#L293) · `FunctionDeclaration`.
+[static/home-calendar.js:305](../../../static/home-calendar.js#L305) · `FunctionDeclaration`.
 
 ```javascript
 function renderCompactOrders(container, compact)
@@ -326,7 +340,7 @@ function renderCompactOrders(container, compact)
 
 ## renderFreeEvents
 
-[static/home-calendar.js:316](../../../static/home-calendar.js#L316) · `FunctionDeclaration`.
+[static/home-calendar.js:328](../../../static/home-calendar.js#L328) · `FunctionDeclaration`.
 
 ```javascript
 function renderFreeEvents()
@@ -342,7 +356,7 @@ function renderFreeEvents()
 
 ## renderInvoicePlans
 
-[static/home-calendar.js:369](../../../static/home-calendar.js#L369) · `FunctionDeclaration`.
+[static/home-calendar.js:381](../../../static/home-calendar.js#L381) · `FunctionDeclaration`.
 
 ```javascript
 function renderInvoicePlans()
@@ -358,7 +372,7 @@ function renderInvoicePlans()
 
 ## sizeInvoicePlanHeaders
 
-[static/home-calendar.js:432](../../../static/home-calendar.js#L432) · `FunctionDeclaration`.
+[static/home-calendar.js:444](../../../static/home-calendar.js#L444) · `FunctionDeclaration`.
 
 ```javascript
 function sizeInvoicePlanHeaders()
@@ -374,7 +388,7 @@ function sizeInvoicePlanHeaders()
 
 ## planHeader
 
-[static/home-calendar.js:466](../../../static/home-calendar.js#L466) · `FunctionDeclaration`.
+[static/home-calendar.js:478](../../../static/home-calendar.js#L478) · `FunctionDeclaration`.
 
 ```javascript
 function planHeader(date, label, period = 'day')
@@ -390,7 +404,7 @@ function planHeader(date, label, period = 'day')
 
 ## carryoverHeader
 
-[static/home-calendar.js:495](../../../static/home-calendar.js#L495) · `FunctionDeclaration`.
+[static/home-calendar.js:507](../../../static/home-calendar.js#L507) · `FunctionDeclaration`.
 
 ```javascript
 function carryoverHeader(week)
@@ -406,7 +420,7 @@ function carryoverHeader(week)
 
 ## show
 
-[static/home-calendar.js:511](../../../static/home-calendar.js#L511) · `FunctionDeclaration`.
+[static/home-calendar.js:523](../../../static/home-calendar.js#L523) · `FunctionDeclaration`.
 
 ```javascript
 function show(nextOrders, nextEvents, nextInvoicePlans, now = new Date())
@@ -416,27 +430,27 @@ function show(nextOrders, nextEvents, nextInvoicePlans, now = new Date())
 
 Подключает обработчики событий к существующим элементам компонента.
 
-Непосредственные вызовы: `Array.isArray`, `calendarRange`, `dateKey`, `get`, `weekIndex`, `shiftDays`, `Map`, `[...weeks.children].map`, `weeks.contains`, `row.remove`, `existing.get`, `document.createElement`, `orderCell.append`, `carryoverHeader`, `list.setAttribute`, `fullDate.format`, `spacer.setAttribute`, `free.append`, `cell.append`, `content.append`, `row.append`, `weekNumber`, `weekLabel.setAttribute`, `weekCell.append`, `planHeader`, `label.setAttribute`, `String`, `date.getUTCDate`, `row.querySelectorAll`, `label.classList.toggle`, `label.removeAttribute`, `weeks.insertBefore`, `viewport.focus`, `measureWeeks`, `scrollToWeek`, `Math.max`, `Math.min`, `maxScroll`, `updateHeading`, `renderWeekOrders`, `renderFreeEvents`, `renderInvoicePlans`, `get("calendarToday").addEventListener`, `get("calendarEarlier").addEventListener`, `get("calendarLater").addEventListener`, `viewport.addEventListener`, `ResizeObserver`, `observer.observe`.
+Непосредственные вызовы: `Array.isArray`, `calendarRange`, `dateKey`, `range.weeks.join`, `nextRange.weeks.join`, `get`, `weekIndex`, `Date`, `Map`, `[...weeks.children].map`, `weeks.contains`, `Set`, `retained.has`, `row.remove`, `existing.get`, `document.createElement`, `orderCell.append`, `carryoverHeader`, `list.setAttribute`, `fullDate.format`, `shiftDays`, `spacer.setAttribute`, `free.append`, `cell.append`, `content.append`, `row.append`, `weekNumber`, `weekLabel.setAttribute`, `weekCell.append`, `planHeader`, `label.setAttribute`, `String`, `date.getUTCDate`, `row.querySelectorAll`, `label.classList.toggle`, `label.removeAttribute`, `weeks.insertBefore`, `viewport.focus`, `measureWeeks`, `scrollToWeek`, `Math.max`, `Math.min`, `maxScroll`, `updateHeading`, `renderWeekOrders`, `renderFreeEvents`, `renderInvoicePlans`, `get("calendarToday").addEventListener`, `get("calendarEarlier").addEventListener`, `get("calendarLater").addEventListener`, `history.addEventListener`, `viewport.addEventListener`, `ResizeObserver`, `observer.observe`.
 
 Прямые присваивания полям/свойствам: `row.className`, `row.dataset.week`, `orderCell.className`, `orderCell.style.gridArea`, `content.className`, `list.className`, `free.className`, `spacer.className`, `cell.className`, `add.type`, `add.className`, `add.dataset.calendarEvent`, `add.dataset.calendarFree`, `add.textContent`, `weekCell.className`, `weekCell.style.gridArea`, `weekLabel.className`, `weekLabel.textContent`, `cell.style.gridArea`, `label.dateTime`, `label.textContent`, `viewport.scrollTop`.
 
 ## snapshotRange
 
-[static/home-calendar.js:614](../../../static/home-calendar.js#L614) · `FunctionDeclaration`.
+[static/home-calendar.js:634](../../../static/home-calendar.js#L634) · `FunctionDeclaration`.
 
 ```javascript
 function snapshotRange(now = new Date(), calendarOrders = orders, freeEvents = events, plans = invoicePlans)
 ```
 
-Выбирает две или три недели общего снимка по видимому наполнению.
+Выбирает две или три недели снимка независимо от просмотра истории.
 
-Использует `moscowDate`, `monday`, `dateKey`.
+Предыдущую неделю удерживает только видимое актуальное невыполненное событие.
 
 Непосредственные вызовы: `moscowDate`, `monday`, `dateKey`, `shiftDays`, `calendarOrders.some`, `[...freeEvents, ...plans].some`.
 
 ## createSnapshot
 
-[static/home-calendar.js:623](../../../static/home-calendar.js#L623) · `FunctionDeclaration`.
+[static/home-calendar.js:643](../../../static/home-calendar.js#L643) · `FunctionDeclaration`.
 
 ```javascript
 function createSnapshot(now = new Date())
@@ -446,6 +460,6 @@ function createSnapshot(now = new Date())
 
 Обращается к DOM текущего документа или переданного контейнера.
 
-Непосредственные вызовы: `snapshotRange`, `document.createElement`, `snapshot.setAttribute`, `fullDate.format`, `snapshot.append`, `get("homeCalendar").querySelector(".calendar-weekdays").cloneNode`, `get("homeCalendar").querySelector`, `get`, `dateKey`, `shiftDays`, `[...get("calendarWeeks").children].find`, `Error`, `row.cloneNode`, `snapshot.querySelectorAll`, `element.removeAttribute`.
+Непосредственные вызовы: `snapshotRange`, `document.createElement`, `snapshot.setAttribute`, `fullDate.format`, `snapshot.append`, `get("homeCalendar").querySelector(".calendar-weekdays").cloneNode`, `get("homeCalendar").querySelector`, `get`, `dateKey`, `shiftDays`, `[...get("calendarWeeks").children].find`, `Error`, `row.cloneNode`, `Set`, `orders.filter(order => visibleOrderWeeks(order, moscowDate(now)).includes(key)).map`, `orders.filter`, `clone.querySelectorAll`, `visible.has`, `item.remove`, `snapshot.querySelectorAll`, `element.removeAttribute`.
 
 Прямые присваивания полям/свойствам: `snapshot.className`, `snapshot.inert`, `title.textContent`.

@@ -27,15 +27,15 @@ def order_visible(order, week, now=None):
     return False
 
 
-# Выбирает две или три недели снимка относительно текущей даты Москвы.
-# Возвращает `(previous, (current + timedelta(days=13)).isoformat())`; либо `(previous if has_previous else current_key, (current + timedelta(days=13)).isoformat())`.
+# Выбирает две или три недели снимка независимо от просмотра истории в браузере.
+# Предыдущую неделю удерживают только видимые актуальные невыполненные события.
 def period(snapshot, now=None):
     current = current_week(now)
     previous = (current - timedelta(days=7)).isoformat()
     current_key = current.isoformat()
     orders = snapshot.get('orders', []) + snapshot.get('calendar_supplier_orders', [])
     for order in orders:
-        if not order.get('path') or order.get('registered') is False:
+        if not order.get('path') or order.get('registered') is False or order.get('calendar_compact') is True:
             continue
         eligible = previous in (order.get('deadline_weeks') or [])
         if order.get('calendar_compact') is not True:
@@ -46,7 +46,9 @@ def period(snapshot, now=None):
         if eligible and order_visible(order, previous, now):
             return previous, (current + timedelta(days=13)).isoformat()
     records = snapshot.get('calendar_events', []) + snapshot.get('calendar_invoice_plans', [])
-    has_previous = any(not item.get('deleted') and previous <= item['date'] < current_key for item in records)
+    has_previous = any(not item.get('deleted') and previous <= item['date'] < current_key
+                       and item.get('is_completed') not in (True, 1)
+                       and item.get('is_inactive') not in (True, 1) for item in records)
     return (previous if has_previous else current_key), (current + timedelta(days=13)).isoformat()
 
 

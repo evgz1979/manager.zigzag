@@ -550,6 +550,12 @@ h2 { font-size: 13px; font-weight: 600; }
 .calendar-draft { font-size: 11px; color: #a1a1a1; }
 .calendar-navigation { display: flex; gap: 5px; margin-left: auto; }
 .calendar-navigation button { min-width: 30px; height: 26px; border-color: #dedede; padding: 2px 9px; border-radius: 5px; color: #6b6b6b; font-size: 12px; }
+.calendar-history-toggle { display: inline-flex; align-items: center; gap: 4px; padding: 0 3px; color: #6b6b6b; font-size: 11px; white-space: nowrap; cursor: pointer; }
+.calendar-history-toggle input { appearance: none; position: relative; width: 24px; height: 14px; margin: 0; border: 1px solid #c9cdd2; border-radius: 8px; background: #e5e7ea; cursor: pointer; }
+.calendar-history-toggle input::before { content: ""; position: absolute; width: 10px; height: 10px; top: 1px; left: 1px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px #0002; }
+.calendar-history-toggle input:checked { background: #557fc5; border-color: #557fc5; }
+.calendar-history-toggle input:checked::before { transform: translateX(10px); }
+.calendar-history-toggle input:focus-visible { outline: 2px solid #557fc5; outline-offset: 2px; }
 .calendar-snapshot { position: fixed; left: -100000px; top: 0; padding: 12px; margin: 0; background: #fff; }
 .calendar-snapshot > h2 { margin: 0 0 10px; font-size: 18px; font-weight: 500; }
 .calendar-snapshot .calendar-week-content { overflow: hidden; }

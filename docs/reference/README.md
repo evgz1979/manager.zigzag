@@ -75,7 +75,7 @@
 
 ## JavaScript
 
-19 файлов; 403 именованных объявлений.
+19 файлов; 404 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
@@ -83,7 +83,7 @@
 | [static/calendar-snapshot.js](javascript/static-calendar-snapshot.md) | 4 |
 | [static/calendar-telegram.js](javascript/static-calendar-telegram.md) | 6 |
 | [static/hidden-orders.js](javascript/static-hidden-orders.md) | 10 |
-| [static/home-calendar.js](javascript/static-home-calendar.md) | 30 |
+| [static/home-calendar.js](javascript/static-home-calendar.md) | 31 |
 | [static/inbox.js](javascript/static-inbox.md) | 14 |
 | [static/invoice-documents.js](javascript/static-invoice-documents.md) | 17 |
 | [static/invoices.js](javascript/static-invoices.md) | 40 |

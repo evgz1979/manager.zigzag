@@ -63,3 +63,45 @@ const boundary = { ...base, deadline_weeks: ["2026-12-28", "2027-01-04"] };
 assert.deepEqual(weeksAt(boundary, "2027-01-03T20:59:59Z"), ["2026-12-28", "2027-01-04"]);
 assert.deepEqual(weeksAt(boundary, "2027-01-03T21:00:00Z"), ["2027-01-04"]);
 assert.deepEqual(weeksAt({ ...base, registered: false }, monday), []);
+
+// A past week needs open visible work. Selected deadlines, compact links and
+// closed free events/payments do not keep it in either the grid or the PNG.
+const nowMonday = new Date(monday);
+const freeClosed = [
+  { date: "2026-10-27", period: "day", text: "Done", is_completed: 1 },
+  { date: week, period: "week", text: "Old", is_inactive: 1 },
+];
+const plansClosed = [
+  { date: "2026-10-28", period: "day", is_completed: true },
+  { date: week, period: "week", is_inactive: true, is_carryover: true },
+];
+const saved = JSON.stringify([closed, freeClosed, plansClosed]);
+range = context.calendar.calendarRange(nowMonday, [closed, { ...base, calendar_compact: true }], freeClosed, plansClosed);
+assert.deepEqual(Array.from(range.weeks), [next, "2026-11-09"]);
+assert.equal(context.calendar.snapshotRange(nowMonday, [closed, { ...base, calendar_compact: true }], freeClosed, plansClosed).count, 2);
+for (const event of [...freeClosed, ...plansClosed]) {
+  const open = { ...event, is_completed: false, is_inactive: 0 };
+  range = context.calendar.calendarRange(nowMonday, [closed], [open]);
+  assert.equal(range.weeks[0], week);
+  assert.equal(context.calendar.snapshotRange(nowMonday, [closed], [open]).count, 3);
+  assert.equal(context.calendar.snapshotRange(nowMonday, [closed], [{ ...open, deleted: 1 }]).count, 2);
+}
+range = context.calendar.calendarRange(nowMonday, [closed], freeClosed, plansClosed, true);
+assert.equal(range.weeks[0], week);
+assert.equal(range.start.toISOString().slice(0, 10), week);
+assert.deepEqual(Array.from(context.calendar.visibleOrderWeeks(closed, context.calendar.moscowDate(nowMonday), true)), [week, next]);
+const unselected = { ...finished, deadline_weeks: [] };
+assert.deepEqual(Array.from(context.calendar.visibleOrderWeeks(unselected, context.calendar.moscowDate(nowMonday), true)), [week]);
+assert.equal(JSON.stringify([closed, freeClosed, plansClosed]), saved);
+
+// An earlier open week must not bring back closed weeks between it and today.
+const older = { ...base, deadline_weeks: ["2026-10-12"], calendar_week_events: { "2026-10-12": "Pending" } };
+range = context.calendar.calendarRange(nowMonday, [closed, older], freeClosed, plansClosed);
+assert.deepEqual(Array.from(range.weeks), ["2026-10-12", next, "2026-11-09"]);
+range = context.calendar.calendarRange(nowMonday, [closed, older], freeClosed, plansClosed, true);
+assert.deepEqual(Array.from(range.weeks), ["2026-10-12", "2026-10-19", week, next, "2026-11-09"]);
+assert.equal(context.calendar.snapshotRange(nowMonday, [closed, older], freeClosed, plansClosed).count, 2);
+assert.equal(context.calendar.calendarRange(nowMonday, [{ ...base, calendar_events: { "2026-10-27": "  " } }]).weeks[0], next);
+assert.equal(context.calendar.calendarRange(nowMonday, [{ ...base, calendar_events: null }]).weeks[0], week);
+assert.equal(context.calendar.calendarRange(nowMonday, [base], [{ date: week, period: "week", is_completed: "unknown" }]).weeks[0], week);
+assert.equal(context.calendar.calendarRange(new Date(sunday), [closed], freeClosed, plansClosed).weeks[0], week);

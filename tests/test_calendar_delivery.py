@@ -43,11 +43,22 @@ class CalendarDeliveryTests(unittest.TestCase):
                  self.snapshot(calendar_invoice_plans=[{'date': '2026-10-19', 'period': 'week', 'is_carryover': True}]),
                  self.snapshot(orders=[self.order(deadline_weeks=['2026-10-12'], calendar_week_events={'2026-10-12':'Older'})]),
                  self.snapshot(orders=[{**empty, 'calendar_events': None}])]
-        expected = [('2026-10-19' if index in {2,3,5,6,7,9} else '2026-10-26', '2026-11-08') for index in range(len(cases))]
+        expected = [('2026-10-19' if index in {2,3,6,7,9} else '2026-10-26', '2026-11-08') for index in range(len(cases))]
+        for group in ['calendar_events', 'calendar_invoice_plans']:
+            for period in ['day', 'week']:
+                for flags, retained in [({'is_completed': 1}, False), ({'is_inactive': 1}, False),
+                                        ({'is_completed': True}, False), ({'is_inactive': True}, False),
+                                        ({'is_completed': False, 'is_inactive': 0}, True),
+                                        ({'is_completed': None, 'is_inactive': 'unknown'}, True),
+                                        ({'deleted': 1}, False)]:
+                    cases.append(self.snapshot(**{group: [{'date': '2026-10-19', 'period': period, **flags}]}))
+                    expected.append(('2026-10-19' if retained else '2026-10-26', '2026-11-08'))
+        before = json.dumps(cases, sort_keys=True)
         self.assertEqual([delivery.period(case, NOW) for case in cases], expected)
         raw = subprocess.run(['node', str(Path(__file__).with_name('calendar-delivery.cjs'))],
                              input=json.dumps([{'snapshot': case, 'now': NOW.isoformat()} for case in cases]), text=True, capture_output=True, check=True)
         self.assertEqual(json.loads(raw.stdout), [list(value) for value in expected])
+        self.assertEqual(json.dumps(cases, sort_keys=True), before)
 
     def test_previous_digest_includes_only_visible_marked_rows_and_keeps_next_week(self):
         order = self.order(calendar_week_events={'2026-10-19': 'Прошлая', '2026-11-02': 'Следующая'},
