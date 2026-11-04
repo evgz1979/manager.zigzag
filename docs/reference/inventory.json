@@ -977,7 +977,7 @@
       },
       {
         "path": "hidden_orders.py",
-        "sha256": "0eb3378027928234dee94fe28b7d02225a18ca4656d0293f0917873eef9fa7d9",
+        "sha256": "36f69808f9f8242f3867c7870a69511d8199305845240ab07dc43172967931bd",
         "symbols": [
           {
             "name": "canonical",
@@ -2043,7 +2043,7 @@
       },
       {
         "path": "order_document.py",
-        "sha256": "3c8c8012798a15016c0dde829c6728c9ce103b27d64ce298a998c4458e6ea6ce",
+        "sha256": "7e1da48511a3c805262d0fe1b86c270c507d98704b6d71ce5eea03d835fb9406",
         "symbols": [
           {
             "name": "read_favorite",
@@ -2167,42 +2167,42 @@
           },
           {
             "name": "split_statuses",
-            "line": 321,
+            "line": 323,
             "type": "function"
           },
           {
             "name": "parse",
-            "line": 337,
+            "line": 339,
             "type": "function"
           },
           {
             "name": "parse.fields",
-            "line": 357,
+            "line": 359,
             "type": "function"
           },
           {
             "name": "render",
-            "line": 400,
+            "line": 402,
             "type": "function"
           },
           {
             "name": "load",
-            "line": 438,
+            "line": 440,
             "type": "function"
           },
           {
             "name": "atomic_write",
-            "line": 472,
+            "line": 474,
             "type": "function"
           },
           {
             "name": "archive_current",
-            "line": 489,
+            "line": 491,
             "type": "function"
           },
           {
             "name": "archive_legacy",
-            "line": 512,
+            "line": 514,
             "type": "function"
           }
         ]
@@ -3344,7 +3344,7 @@
       },
       {
         "path": "server.py",
-        "sha256": "4568deeac368bbbdf3bbca82c76f12f2bdee03d2109cbad3d918fad2cd3e7c1a",
+        "sha256": "d6cf651f1dc8e089f480e6988c3575760032e0a15e85e79df9e4d3ca36177f92",
         "symbols": [
           {
             "name": "read_config",
@@ -4457,7 +4457,7 @@
     "javascript": [
       {
         "path": "static/app.js",
-        "sha256": "e305643971439661dc0438b2c8b18db7382bbf5e49b97cde8faf5e730af7f898",
+        "sha256": "89296c95a35ee99ba5e76ae6958fba9b02e47813d62af0a4ee14c028f8904f15",
         "symbols": [
           {
             "name": "$",

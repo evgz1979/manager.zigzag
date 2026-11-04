@@ -113,7 +113,7 @@ STATUS_LABELS = {
     "new": "Новый", "measure": "Замеры", "process": "Расчеты", "awaiting_client": "Жду от клиента", "awaiting_payment": "На оплате", "waiting": "Жду", "offer_later": "Предложить позже",
     "workshop": "В цех", "install": "Монтаж", "rework": "Переделка/доделка",
     "finishing": "Завершение/добивка", "related": "Связанный", "deferred": "Отложен/возможно",
-    "done": "Готово", "done_but": "Готово, но…", "cancelled": "Отменён",
+    "done": "Готово и оплачено", "done_but": "Готово, но…", "cancelled": "Отменён",
     "personal_work": "Личное/в работе", "personal_done": "Личное/готово",
 }
 FINANCIAL_STATUS_LABELS = order_document.FINANCIAL_STATUS_LABELS

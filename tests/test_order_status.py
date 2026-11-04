@@ -77,7 +77,7 @@ class OrderStatusTests(unittest.TestCase):
         self.assertEqual((listed[0]["status"], listed[0]["revision"]), ("offer_later", saved["revision"]))
 
     def test_added_stages_are_independent_and_survive_document_round_trip(self):
-        for production in ("awaiting_client", "awaiting_payment", "related"):
+        for production in ("awaiting_client", "awaiting_payment", "related", "done"):
             for financial in manager.FINANCIAL_STATUS_LABELS:
                 with self.subTest(status=production, financial_status=financial):
                     record = {**self.order, "financial_status": financial}

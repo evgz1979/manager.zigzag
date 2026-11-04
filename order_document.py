@@ -305,11 +305,13 @@ def read_text(path):
 
 
 # Сопоставляет отображаемую подпись с известным ключом статуса.
-# При недопустимом состоянии возбуждает ValueError.
+# Прежние названия сохраняют ключ; неизвестный статус вызывает ValueError.
 def status_key(value, labels):
     normalized = lambda item: unicodedata.normalize("NFC", item).casefold()
     if "process" in labels and normalized(value) == normalized("В работе"):
         return "process"  # Previous readable cards keep the same production stage.
+    if "done" in labels and normalized(value) == normalized("Готово"):
+        return "done"
     status = next((key for key, label in labels.items() if normalized(label) == normalized(value)), value)
     if status not in labels:
         raise ValueError("Неизвестный статус в карточке заказа")

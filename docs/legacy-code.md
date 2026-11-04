@@ -27,7 +27,7 @@
 
 | Формат/ветка | Где находится | Действующее назначение |
 | --- | --- | --- |
-| `!.txt`, `!order.txt`, прежние status-файлы, `.order.json` | [load](../order_document.py#L438), `LEGACY_DOCUMENTS`, `parse` | Первоначальный импорт и сохранение неизвестных блоков; это не актуальная выгрузка SQLite |
+| `!.txt`, `!order.txt`, прежние status-файлы, `.order.json` | [load](../order_document.py#L440), `LEGACY_DOCUMENTS`, `parse` | Первоначальный импорт и сохранение неизвестных блоков; это не актуальная выгрузка SQLite |
 | `.file-comments` | [read](../file_comments.py#L44), [MetadataStore._comment](../local_metadata.py#L185) | Однократный импорт с архивом исходных байтов и отметкой успешного переноса |
 | Прежние карточки активности | [ClientActivity.read](../client_activity.py#L104), `refresh` | Начальное получение индекса; существующая SQLite сохраняет преимущество |
 | Отдельные комментарии недель | [read_legacy_comments](../order_deadlines.py#L66), [unify_weekly_blocks](../order_calendar.py#L88) | Объединение известных данных без затирания разных текстов |

@@ -1,7 +1,7 @@
 // Находит элемент интерфейса по устойчивому DOM-идентификатору.
 // Обращается к DOM текущего документа или переданного контейнера.
 const $ = (id) => document.getElementById(id);
-const statusLabels = { new: "Новый", measure: "Замеры", process: "Расчеты", awaiting_client: "Жду от клиента", awaiting_payment: "На оплате", related: "Связанный", waiting: "Жду", offer_later: "Предложить позже", workshop: "В цех", install: "Монтаж", rework: "Переделка/доделка", finishing: "Завершение/добивка", deferred: "Отложен/возможно", done: "Готово", done_but: "Готово, но…", cancelled: "Отменён", unspecified: "Не указан", personal_work: "Личное/в работе", personal_done: "Личное/готово" };
+const statusLabels = { new: "Новый", measure: "Замеры", process: "Расчеты", awaiting_client: "Жду от клиента", awaiting_payment: "На оплате", related: "Связанный", waiting: "Жду", offer_later: "Предложить позже", workshop: "В цех", install: "Монтаж", rework: "Переделка/доделка", finishing: "Завершение/добивка", deferred: "Отложен/возможно", done: "Готово и оплачено", done_but: "Готово, но…", cancelled: "Отменён", unspecified: "Не указан", personal_work: "Личное/в работе", personal_done: "Личное/готово" };
 const supplierStatusLabels = { work: "В работе", cancelled: "Отменён", archived: "В архив" };
 const orderStatusGroups = [
   { key: "preparation", statuses: ["new", "measure", "process"] },

@@ -8,7 +8,7 @@ from folder_structure import client_name, is_service_folder, is_supplier_root, i
 
 HIDDEN_STATUSES = frozenset({"done", "cancelled"})
 REASONS = {
-    "done": "Готово", "cancelled": "Отменён",
+    "done": "Готово и оплачено", "cancelled": "Отменён",
     "inactive_client": "Неактивный клиент", "inactive_object": "Неактивный объект",
     "unregistered": "Не добавлен",
 }

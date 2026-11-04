@@ -510,7 +510,7 @@ def status_key(value, labels):
 
 Сопоставляет отображаемую подпись с известным ключом статуса.
 
-При недопустимом состоянии возбуждает ValueError.
+Прежние названия сохраняют ключ; неизвестный статус вызывает ValueError.
 
 Непосредственные вызовы: `normalized`, `next`, `labels.items`, `ValueError`.
 
@@ -520,12 +520,13 @@ def status_key(value, labels):
 
 ```python
 'process'
+'done'
 status
 ```
 
 ## split_statuses
 
-[order_document.py:321](../../../order_document.py#L321) · `function`.
+[order_document.py:323](../../../order_document.py#L323) · `function`.
 
 ```python
 def split_statuses(record, labels):
@@ -545,7 +546,7 @@ result
 
 ## parse
 
-[order_document.py:337](../../../order_document.py#L337) · `function`.
+[order_document.py:339](../../../order_document.py#L339) · `function`.
 
 ```python
 def parse(text, labels):
@@ -568,7 +569,7 @@ split_statuses(record, labels)
 
 ## parse.fields
 
-[order_document.py:357](../../../order_document.py#L357) · `function`.
+[order_document.py:359](../../../order_document.py#L359) · `function`.
 
 ```python
 def fields(name):
@@ -588,7 +589,7 @@ result
 
 ## render
 
-[order_document.py:400](../../../order_document.py#L400) · `function`.
+[order_document.py:402](../../../order_document.py#L402) · `function`.
 
 ```python
 def render(record, labels):
@@ -610,7 +611,7 @@ text
 
 ## load
 
-[order_document.py:438](../../../order_document.py#L438) · `function`.
+[order_document.py:440](../../../order_document.py#L440) · `function`.
 
 ```python
 def load(folder, labels):
@@ -634,7 +635,7 @@ record
 
 ## atomic_write
 
-[order_document.py:472](../../../order_document.py#L472) · `function`.
+[order_document.py:474](../../../order_document.py#L474) · `function`.
 
 ```python
 def atomic_write(target, body):
@@ -650,7 +651,7 @@ def atomic_write(target, body):
 
 ## archive_current
 
-[order_document.py:489](../../../order_document.py#L489) · `function`.
+[order_document.py:491](../../../order_document.py#L491) · `function`.
 
 ```python
 def archive_current(folder):
@@ -666,7 +667,7 @@ def archive_current(folder):
 
 ## archive_legacy
 
-[order_document.py:512](../../../order_document.py#L512) · `function`.
+[order_document.py:514](../../../order_document.py#L514) · `function`.
 
 ```python
 def archive_legacy(folder):
