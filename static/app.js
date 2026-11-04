@@ -3191,7 +3191,7 @@ function freeCalendarIdentity() {
 }
 
 // Открывает контекстное меню с действиями для точного вида события.
-// Обращается к DOM текущего документа или переданного контейнера.
+// Для дневной записи показывает следующие семь гражданских дат независимо от часового пояса браузера.
 function openCalendarEventMenu(slot, x, y) {
   closeCalendarTodoPreview();
   const free = slot.dataset.calendarFree, plan = slot.dataset.invoicePlan, date = slot.dataset.calendarDate;
@@ -3220,6 +3220,15 @@ function openCalendarEventMenu(slot, x, y) {
   const menu = $("calendarEventMenu");
   $("calendarEventMenuName").textContent = text;
   $("calendarEventDayMoves").hidden = period === "week";
+  $("calendarEventNextDays").hidden = period === "week";
+  $("calendarEventNextDays").querySelectorAll("[data-calendar-move]").forEach((button) => {
+    const target = new Date(date + "T00:00:00Z");
+    target.setUTCDate(target.getUTCDate() + Number(button.dataset.calendarMove));
+    button.textContent = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"][target.getUTCDay()];
+    const label = "Перенести на " + target.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+    button.title = label;
+    button.setAttribute("aria-label", label);
+  });
   $("calendarEventMoveDivider").hidden = false;
   $("calendarEventInactive").setAttribute("aria-checked", String(inactive));
   $("calendarEventCompleted").setAttribute("aria-checked", String(completed));
@@ -3240,7 +3249,7 @@ function openCalendarEventMenu(slot, x, y) {
   [...menu.querySelectorAll("button")].find((button) => button.getClientRects().length).focus({ preventScroll: true });
 }
 
-// Сохраняет перенос события или плана на день/неделю.
+// Сохраняет перенос события или плана на выбранное число дней либо неделю.
 // Использует `/api/invoice-plan-calendar-move`, `/api/calendar-move`, `/api/order-calendar-move`.
 async function moveCalendarEvent(days) {
   const menu = state.calendarMenu;

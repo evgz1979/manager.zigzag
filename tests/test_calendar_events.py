@@ -116,6 +116,27 @@ class FreeCalendarTests(unittest.TestCase):
         leap = self.events.save(self.payload(date='2028-02-28'))
         self.assertEqual(self.events.move({**self.payload(leap), 'days': 1})['date'], '2028-02-29')
 
+    def test_next_seven_days_move_once_preserving_flags_and_reject_stale_requests(self):
+        for days in range(1, 8):
+            with self.subTest(days=days):
+                saved = self.events.save(self.payload(date='2026-12-31'))
+                saved = self.events.color({**self.payload(saved), 'color': 'purple'})
+                saved = self.events.set_completed({**self.payload(saved), 'is_completed': True})
+                saved = self.events.set_trip({**self.payload(saved), 'is_trip': True})
+                saved = self.events.set_inactive({**self.payload(saved), 'is_inactive': True})
+                request = {**self.payload(saved), 'days': days}
+                moved = self.events.move(request)
+                self.assertEqual(moved['date'], f'2027-01-{days:02d}')
+                self.assertEqual(moved['revision'], saved['revision'] + 1)
+                for field in saved.keys() - {'date', 'revision', 'updated'}:
+                    self.assertEqual(moved[field], saved[field], field)
+                with self.assertRaises(OrderConflict):
+                    self.events.move(request)
+                for invalid in (-2, 0, 8, True, '2'):
+                    with self.assertRaises(ValueError):
+                        self.events.move({**self.payload(moved), 'days': invalid})
+                self.assertEqual(self.events.get(moved['id']), moved)
+
     def test_validation_and_unknown_formats_leave_records_unchanged(self):
         saved = self.events.save(self.payload())
         for changes in [{'revision': None}, {'revision': True}, {'id': '../outside'}, {'period': 'month'},

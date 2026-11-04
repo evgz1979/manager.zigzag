@@ -79,7 +79,7 @@ class InvoicePlanTests(unittest.TestCase):
             db.execute("UPDATE invoices SET state='issued',pdf=? WHERE id=?", (b'%PDF-immutable', source['id']))
         source = self.store.get(self.path, source['id'])
         for path, operation in [('', 'incoming'), ('', 'outgoing'), (self.path, 'incoming'), (self.path, 'outgoing'), (self.path, 'invoice')]:
-            for days in (-7, -1, 1, 7):
+            for days in (-7, -1, 1, 2, 3, 4, 5, 6, 7):
                 with self.subTest(path=path, operation=operation, days=days):
                     payload = self.payload(path=path, operation=operation, amount='123,45', text='Сохранить комментарий')
                     if path and operation != 'invoice':
@@ -119,7 +119,7 @@ class InvoicePlanTests(unittest.TestCase):
             self.assertEqual(moved['data'], {**record['data'], 'date': '2027-01-04'})
             invalid = [({}, 409), ({'revision': moved['revision']}, 409),
                        ({'revision': moved['revision'], 'date': '2027-01-04', 'period': 'day'}, 409)]
-            for days in (-1, 1, 0, 14, True, '7', None):
+            for days in (-1, 1, 2, 3, 4, 5, 6, 0, 14, True, '7', None):
                 invalid.append(({'revision': moved['revision'], 'date': '2027-01-04', 'days': days}, 400))
             for changes, expected in invalid:
                 with self.subTest(path=path, changes=changes):
@@ -132,7 +132,7 @@ class InvoicePlanTests(unittest.TestCase):
     def test_calendar_move_rejects_unknown_deleted_nonplan_wrong_identity_and_date_overflow(self):
         record = self.store.plan(self.payload(operation='incoming', amount='5'))
         payload = {'path': self.path, 'id': record['id'], 'revision': record['revision'], 'date': record['data']['date'], 'days': 1}
-        for changes in ({'path': ''}, {'path': self.path + ' другой'}, {'id': str(uuid.uuid4())}, {'revision': True}, {'date': '2026-10-28'}, {'period': 'week'}, {'days': 2}):
+        for changes in ({'path': ''}, {'path': self.path + ' другой'}, {'id': str(uuid.uuid4())}, {'revision': True}, {'date': '2026-10-28'}, {'period': 'week'}, {'days': 8}):
             with self.subTest(changes=changes), self.assertRaises(ValueError):
                 self.store.move_calendar_plan({**payload, **changes})
             self.assertEqual(self.store.get(self.path, record['id']), record)

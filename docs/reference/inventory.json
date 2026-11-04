@@ -36,7 +36,7 @@
       },
       {
         "path": "calendar_events.py",
-        "sha256": "e1f3b41c3a68046f79cd00f3afc0745c2c50924c9707ec6248eb4b5b0454140d",
+        "sha256": "a89fe65fa66ecc2e986d18f36dc4884421b3a2cca37b31cc7818adc4d141185b",
         "symbols": [
           {
             "name": "schema",
@@ -1183,7 +1183,7 @@
       },
       {
         "path": "invoices.py",
-        "sha256": "60299af85ad70eac8d0f74d70ca29b036ee5ff9bad210200527c5b09cd178c5d",
+        "sha256": "dd6c6d7766f6875d05d31e9d5c377736d720193b7077f5225407eb9a5edf66e1",
         "symbols": [
           {
             "name": "InvoiceConflict",
@@ -1800,7 +1800,7 @@
       },
       {
         "path": "order_calendar.py",
-        "sha256": "0c3fab61e4933a46e6e14bc7da12a5f2637be3b54936fef5eb0020f0c05b2ad8",
+        "sha256": "531e5db0f5a5719d4223d497889e74021121f2c1253a4dd6b21e2263cb2bdcf5",
         "symbols": [
           {
             "name": "block_name",
@@ -4457,7 +4457,7 @@
     "javascript": [
       {
         "path": "static/app.js",
-        "sha256": "89296c95a35ee99ba5e76ae6958fba9b02e47813d62af0a4ee14c028f8904f15",
+        "sha256": "ae1ed4a770afc28396e268265047f27fa88813bade3163661c240708878ddf51",
         "symbols": [
           {
             "name": "$",
@@ -5411,197 +5411,197 @@
           },
           {
             "name": "moveCalendarEvent",
-            "line": 3245,
+            "line": 3254,
             "type": "FunctionDeclaration"
           },
           {
             "name": "toggleCalendarEventFlag",
-            "line": 3276,
+            "line": 3285,
             "type": "FunctionDeclaration"
           },
           {
             "name": "applyCalendarDeletion",
-            "line": 3306,
+            "line": 3315,
             "type": "FunctionDeclaration"
           },
           {
             "name": "restoreCalendarDeletion",
-            "line": 3319,
+            "line": 3328,
             "type": "FunctionDeclaration"
           },
           {
             "name": "removeCalendarRecord",
-            "line": 3337,
+            "line": 3346,
             "type": "FunctionDeclaration"
           },
           {
             "name": "run",
-            "line": 3353,
+            "line": 3362,
             "type": "ArrowFunctionExpression"
           },
           {
             "name": "deleteCalendarEventFromMenu",
-            "line": 3363,
+            "line": 3372,
             "type": "FunctionDeclaration"
           },
           {
             "name": "deleteCalendarEventFromDialog",
-            "line": 3378,
+            "line": 3387,
             "type": "FunctionDeclaration"
           },
           {
             "name": "colorCalendarEvent",
-            "line": 3398,
+            "line": 3407,
             "type": "FunctionDeclaration"
           },
           {
             "name": "openCalendarEvent",
-            "line": 3421,
+            "line": 3430,
             "type": "FunctionDeclaration"
           },
           {
             "name": "closeCalendarEvent",
-            "line": 3452,
+            "line": 3461,
             "type": "FunctionDeclaration"
           },
           {
             "name": "saveCalendarEvent",
-            "line": 3460,
+            "line": 3469,
             "type": "FunctionDeclaration"
           },
           {
             "name": "refreshCalendarEvent",
-            "line": 3488,
+            "line": 3497,
             "type": "FunctionDeclaration"
           },
           {
             "name": "renderWorkOrders",
-            "line": 3533,
+            "line": 3542,
             "type": "FunctionDeclaration"
           },
           {
             "name": "renderWorkArchive",
-            "line": 3554,
+            "line": 3563,
             "type": "FunctionDeclaration"
           },
           {
             "name": "restoreWorkArchive",
-            "line": 3571,
+            "line": 3580,
             "type": "FunctionDeclaration"
           },
           {
             "name": "renderOrders",
-            "line": 3601,
+            "line": 3610,
             "type": "FunctionDeclaration"
           },
           {
             "name": "showOrders",
-            "line": 3687,
+            "line": 3696,
             "type": "FunctionDeclaration"
           },
           {
             "name": "openLocation",
-            "line": 3735,
+            "line": 3744,
             "type": "FunctionDeclaration"
           },
           {
             "name": "navigate",
-            "line": 3742,
+            "line": 3751,
             "type": "FunctionDeclaration"
           },
           {
             "name": "loadOrderFiles",
-            "line": 3829,
+            "line": 3838,
             "type": "FunctionDeclaration"
           },
           {
             "name": "openNative",
-            "line": 3853,
+            "line": 3862,
             "type": "FunctionDeclaration"
           },
           {
             "name": "renderFolderRename",
-            "line": 3859,
+            "line": 3868,
             "type": "FunctionDeclaration"
           },
           {
             "name": "openFolderRename",
-            "line": 3866,
+            "line": 3875,
             "type": "FunctionDeclaration"
           },
           {
             "name": "submitFolderRename",
-            "line": 3882,
+            "line": 3891,
             "type": "FunctionDeclaration"
           },
           {
             "name": "moved",
-            "line": 3903,
+            "line": 3912,
             "type": "ArrowFunctionExpression"
           },
           {
             "name": "showPreview",
-            "line": 3914,
+            "line": 3923,
             "type": "FunctionDeclaration"
           },
           {
             "name": "showInvoicePreview",
-            "line": 3991,
+            "line": 4000,
             "type": "FunctionDeclaration"
           },
           {
             "name": "renderFileComment",
-            "line": 4022,
+            "line": 4031,
             "type": "FunctionDeclaration"
           },
           {
             "name": "loadFileComment",
-            "line": 4037,
+            "line": 4046,
             "type": "FunctionDeclaration"
           },
           {
             "name": "saveFileComment",
-            "line": 4063,
+            "line": 4072,
             "type": "FunctionDeclaration"
           },
           {
             "name": "closePreview",
-            "line": 4097,
+            "line": 4106,
             "type": "FunctionDeclaration"
           },
           {
             "name": "showPdfPages",
-            "line": 4104,
+            "line": 4113,
             "type": "FunctionDeclaration"
           },
           {
             "name": "changePage",
-            "line": 4131,
+            "line": 4140,
             "type": "FunctionDeclaration"
           },
           {
             "name": "previewUnavailable",
-            "line": 4152,
+            "line": 4161,
             "type": "FunctionDeclaration"
           },
           {
             "name": "setPreviewExpanded",
-            "line": 4171,
-            "type": "FunctionDeclaration"
-          },
-          {
-            "name": "stepPreview",
             "line": 4180,
             "type": "FunctionDeclaration"
           },
           {
-            "name": "run",
+            "name": "stepPreview",
             "line": 4189,
             "type": "FunctionDeclaration"
           },
           {
+            "name": "run",
+            "line": 4198,
+            "type": "FunctionDeclaration"
+          },
+          {
             "name": "askRemoveOrder",
-            "line": 4598,
+            "line": 4607,
             "type": "FunctionDeclaration"
           }
         ]

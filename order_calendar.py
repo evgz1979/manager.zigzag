@@ -445,10 +445,10 @@ def move(blocks, day, days, period="day"):
     if period == "week":
         blocks = unify_weekly_blocks(blocks)
     day = validate_key(day, period)
-    if type(days) is not int or days not in ({-7, 7} if period == "week" else {-7, -1, 1, 7}):
+    if type(days) is not int or days not in ({-7, 7} if period == "week" else {-7, -1, 1, 2, 3, 4, 5, 6, 7}):
         if period == "week":
             raise ValueError("Недельное событие можно сдвинуть на неделю вперёд или назад")
-        raise ValueError("Событие можно сдвинуть на один день или неделю вперёд или назад")
+        raise ValueError("Событие можно сдвинуть на 1–7 дней вперёд, день или неделю назад")
     events = read(blocks, period)
     if events is None:
         raise ValueError("События календаря имеют неизвестный формат и оставлены без изменений")

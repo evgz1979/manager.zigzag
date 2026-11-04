@@ -616,6 +616,8 @@ h2 { font-size: 13px; font-weight: 600; }
 .calendar-event-moves { display: flex; align-items: center; gap: 8px; }
 .calendar-event-move-group { display: grid; grid-template-columns: 28px minmax(0, 1fr) 28px; align-items: center; flex: 1; min-width: 0; max-width: calc((100% - 8px) / 2); text-align: center; font-size: 12px; }
 .calendar-event-menu .calendar-event-move-group button { width: 28px; padding: 5px 0; text-align: center; font-size: 16px; line-height: 20px; }
+.calendar-event-next-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--line); }
+.calendar-event-menu .calendar-event-next-days button { padding: 5px 0; text-align: center; font-size: 11px; line-height: 18px; }
 .calendar-order-link:hover { text-decoration: underline; }
 .calendar-order-link:focus-visible { outline-offset: -1px; }
 .calendar-order-title { display: inline; font-weight: 550; }

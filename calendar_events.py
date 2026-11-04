@@ -164,9 +164,9 @@ class CalendarEvents:
             if row is None or row["deleted"] or revision != row["revision"]:
                 raise OrderConflict("Событие изменилось или удалено в другом окне. Обнови календарь")
             self.validate(row)
-            allowed = {-7, 7} if row["period"] == "week" else {-7, -1, 1, 7}
+            allowed = {-7, 7} if row["period"] == "week" else {-7, -1, 1, 2, 3, 4, 5, 6, 7}
             if type(days) is not int or days not in allowed:
-                raise ValueError("Дневное событие можно сдвинуть на день или неделю; недельное — на неделю")
+                raise ValueError("Дневное событие можно сдвинуть на 1–7 дней вперёд, день или неделю назад; недельное — на неделю")
             try:
                 target = (date.fromisoformat(row["date"]) + timedelta(days=days)).isoformat()
             except (ValueError, OverflowError):

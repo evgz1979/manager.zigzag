@@ -15,6 +15,11 @@ class CalendarFormatTests(unittest.TestCase):
         for period, source, days, target, week in (
             ("day", "2026-11-01", 1, "2026-11-02", "2026-11-02"),
             ("day", "2026-11-02", -1, "2026-11-01", "2026-10-26"),
+            ("day", "2026-11-01", 2, "2026-11-03", "2026-11-02"),
+            ("day", "2026-11-01", 3, "2026-11-04", "2026-11-02"),
+            ("day", "2026-11-01", 4, "2026-11-05", "2026-11-02"),
+            ("day", "2026-11-01", 5, "2026-11-06", "2026-11-02"),
+            ("day", "2026-11-01", 6, "2026-11-07", "2026-11-02"),
             ("day", "2026-10-27", 7, "2026-11-03", "2026-11-02"),
             ("day", "2026-11-03", -7, "2026-10-27", "2026-10-26"),
             ("week", "2026-10-26", 7, "2026-11-02", "2026-11-02"),
@@ -24,11 +29,19 @@ class CalendarFormatTests(unittest.TestCase):
                 blocks = order_deadlines.write({"Особое": "Сохранить"}, "2026-10-19", True)
                 blocks = order_calendar.write(blocks, source, '  Монтаж "ЛавФиш"  ', period)
                 blocks = order_calendar.set_inactive(blocks, source, True, period)
+                blocks = order_calendar.set_completed(blocks, source, True, period)
+                blocks = order_calendar.set_trip(blocks, source, True, period)
+                blocks = order_calendar.set_watch_todos(blocks, source, True, period)
+                blocks = order_calendar.set_color(blocks, source, "purple", period)
                 before = dict(blocks)
                 moved = order_calendar.move(blocks, source, days, period)
                 self.assertEqual(order_deadlines.read(moved), sorted(["2026-10-19", week]))
                 self.assertEqual(order_calendar.read(moved, period), {target: '  Монтаж "ЛавФиш"  '})
                 self.assertEqual(order_calendar.read_inactive(moved)[period], [target])
+                self.assertEqual(order_calendar.read_completed(moved)[period], [target])
+                self.assertEqual(order_calendar.read_trip(moved)[period], [target])
+                self.assertEqual(order_calendar.read_watch_todos(moved)[period], [target])
+                self.assertEqual(order_calendar.read_colors(moved)[period], {target: "purple"})
                 self.assertEqual(moved["Особое"], blocks["Особое"])
                 self.assertEqual(blocks, before)
                 selected = order_deadlines.write(blocks, week, True)
@@ -86,7 +99,7 @@ class CalendarFormatTests(unittest.TestCase):
         self.assertEqual(moved["Особое"], "Сохранить")
         leap = order_calendar.write({}, "2028-02-28", "Монтаж")
         self.assertEqual(order_calendar.read(order_calendar.move(leap, "2028-02-28", 1)), {"2028-02-29": "Монтаж"})
-        for days in (None, True, "1", 0, 2, 14):
+        for days in (None, True, "1", 0, -2, 8, 14):
             with self.subTest(days=days), self.assertRaises(ValueError):
                 order_calendar.move(blocks, "2026-12-31", days)
         for day, days in (("0001-01-01", -1), ("9999-12-31", 7)):
@@ -280,7 +293,7 @@ class CalendarApiTests(unittest.TestCase):
             schedule.assert_called_once()
             for changes in ({}, {"id": "Чужой UUID"}):
                 self.assertEqual(self.http("/api/order-calendar-move", "POST", json.dumps(self.payload(saved, days=1, **changes)))[0], 409)
-            for changes in ({"revision": True}, {"days": True}, {"days": 2}, {"date": "2026-02-30"}):
+            for changes in ({"revision": True}, {"days": True}, {"days": 8}, {"date": "2026-02-30"}):
                 data = {**self.payload(moved, date="2026-10-26", days=1), **changes}
                 self.assertEqual(self.http("/api/order-calendar-move", "POST", json.dumps(data))[0], 400)
         self.assertEqual(self.store.get(self.path), moved)

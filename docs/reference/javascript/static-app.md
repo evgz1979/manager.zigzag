@@ -3018,21 +3018,21 @@ function openCalendarEventMenu(slot, x, y)
 
 Открывает контекстное меню с действиями для точного вида события.
 
-Обращается к DOM текущего документа или переданного контейнера.
+Для дневной записи показывает следующие семь гражданских дат независимо от часового пояса браузера.
 
-Непосредственные вызовы: `closeCalendarTodoPreview`, `state.calendarInvoicePlans.find`, `state.calendarEvents.find`, `findListOrder`, `slot.getAttribute`, `calendarEventEntries`, `state.calendarMoving.has`, `orderRowSaving`, `[0, 1].includes`, `notify`, `closeCalendarEventMenu`, `Boolean`, `order.calendar_inactive?.[period]?.includes`, `order.calendar_completed?.[period]?.includes`, `order.calendar_trip?.[period]?.includes`, `order.calendar_watch_todos?.[period]?.includes`, `$`, `$("calendarEventInactive").setAttribute`, `String`, `$("calendarEventCompleted").setAttribute`, `$("calendarEventTrip").setAttribute`, `$("calendarEventWatchTodos").setAttribute`, `["incoming", "outgoing"].includes`, `$("calendarEventCarryover").setAttribute`, `menu.querySelectorAll("[data-calendar-color]").forEach`, `menu.querySelectorAll`, `menu.getBoundingClientRect`, `Math.max`, `Math.min`, `[...menu.querySelectorAll("button")].find((button) => button.getClientRects().length).focus`, `[...menu.querySelectorAll("button")].find`.
+Непосредственные вызовы: `closeCalendarTodoPreview`, `state.calendarInvoicePlans.find`, `state.calendarEvents.find`, `findListOrder`, `slot.getAttribute`, `calendarEventEntries`, `state.calendarMoving.has`, `orderRowSaving`, `[0, 1].includes`, `notify`, `closeCalendarEventMenu`, `Boolean`, `order.calendar_inactive?.[period]?.includes`, `order.calendar_completed?.[period]?.includes`, `order.calendar_trip?.[period]?.includes`, `order.calendar_watch_todos?.[period]?.includes`, `$`, `$("calendarEventNextDays").querySelectorAll("[data-calendar-move]").forEach`, `$("calendarEventNextDays").querySelectorAll`, `$("calendarEventInactive").setAttribute`, `String`, `$("calendarEventCompleted").setAttribute`, `$("calendarEventTrip").setAttribute`, `$("calendarEventWatchTodos").setAttribute`, `["incoming", "outgoing"].includes`, `$("calendarEventCarryover").setAttribute`, `menu.querySelectorAll("[data-calendar-color]").forEach`, `menu.querySelectorAll`, `menu.getBoundingClientRect`, `Math.max`, `Math.min`, `[...menu.querySelectorAll("button")].find((button) => button.getClientRects().length).focus`, `[...menu.querySelectorAll("button")].find`.
 
-Прямые присваивания полям/свойствам: `state.calendarMenu`, `$("calendarEventMenuName").textContent`, `$("calendarEventDayMoves").hidden`, `$("calendarEventMoveDivider").hidden`, `$("calendarEventWatchTodos").hidden`, `$("calendarEventWatchTodos").disabled`, `$("calendarEventCarryover").hidden`, `$("calendarEventCarryover").disabled`, `$("calendarEventDelete").hidden`, `$("calendarEventColors").hidden`, `menu.hidden`, `menu.style.left`, `menu.style.top`.
+Прямые присваивания полям/свойствам: `state.calendarMenu`, `$("calendarEventMenuName").textContent`, `$("calendarEventDayMoves").hidden`, `$("calendarEventNextDays").hidden`, `$("calendarEventMoveDivider").hidden`, `$("calendarEventWatchTodos").hidden`, `$("calendarEventWatchTodos").disabled`, `$("calendarEventCarryover").hidden`, `$("calendarEventCarryover").disabled`, `$("calendarEventDelete").hidden`, `$("calendarEventColors").hidden`, `menu.hidden`, `menu.style.left`, `menu.style.top`.
 
 ## moveCalendarEvent
 
-[static/app.js:3245](../../../static/app.js#L3245) · `FunctionDeclaration`.
+[static/app.js:3254](../../../static/app.js#L3254) · `FunctionDeclaration`.
 
 ```javascript
 async function moveCalendarEvent(days)
 ```
 
-Сохраняет перенос события или плана на день/неделю.
+Сохраняет перенос события или плана на выбранное число дней либо неделю.
 
 Использует `/api/invoice-plan-calendar-move`, `/api/calendar-move`, `/api/order-calendar-move`.
 
@@ -3042,7 +3042,7 @@ async function moveCalendarEvent(days)
 
 ## toggleCalendarEventFlag
 
-[static/app.js:3276](../../../static/app.js#L3276) · `FunctionDeclaration`.
+[static/app.js:3285](../../../static/app.js#L3285) · `FunctionDeclaration`.
 
 ```javascript
 async function toggleCalendarEventFlag(flag)
@@ -3058,7 +3058,7 @@ async function toggleCalendarEventFlag(flag)
 
 ## applyCalendarDeletion
 
-[static/app.js:3306](../../../static/app.js#L3306) · `FunctionDeclaration`.
+[static/app.js:3315](../../../static/app.js#L3315) · `FunctionDeclaration`.
 
 ```javascript
 function applyCalendarDeletion(entry, saved, deleted)
@@ -3074,7 +3074,7 @@ function applyCalendarDeletion(entry, saved, deleted)
 
 ## restoreCalendarDeletion
 
-[static/app.js:3319](../../../static/app.js#L3319) · `FunctionDeclaration`.
+[static/app.js:3328](../../../static/app.js#L3328) · `FunctionDeclaration`.
 
 ```javascript
 async function restoreCalendarDeletion(entry, revision)
@@ -3090,7 +3090,7 @@ async function restoreCalendarDeletion(entry, revision)
 
 ## removeCalendarRecord
 
-[static/app.js:3337](../../../static/app.js#L3337) · `FunctionDeclaration`.
+[static/app.js:3346](../../../static/app.js#L3346) · `FunctionDeclaration`.
 
 ```javascript
 async function removeCalendarRecord(entry)
@@ -3106,7 +3106,7 @@ async function removeCalendarRecord(entry)
 
 ## run
 
-[static/app.js:3353](../../../static/app.js#L3353) · `ArrowFunctionExpression`.
+[static/app.js:3362](../../../static/app.js#L3362) · `ArrowFunctionExpression`.
 
 ```javascript
 run: () =>
@@ -3120,7 +3120,7 @@ run: () =>
 
 ## deleteCalendarEventFromMenu
 
-[static/app.js:3363](../../../static/app.js#L3363) · `FunctionDeclaration`.
+[static/app.js:3372](../../../static/app.js#L3372) · `FunctionDeclaration`.
 
 ```javascript
 async function deleteCalendarEventFromMenu()
@@ -3134,7 +3134,7 @@ async function deleteCalendarEventFromMenu()
 
 ## deleteCalendarEventFromDialog
 
-[static/app.js:3378](../../../static/app.js#L3378) · `FunctionDeclaration`.
+[static/app.js:3387](../../../static/app.js#L3387) · `FunctionDeclaration`.
 
 ```javascript
 async function deleteCalendarEventFromDialog()
@@ -3150,7 +3150,7 @@ async function deleteCalendarEventFromDialog()
 
 ## colorCalendarEvent
 
-[static/app.js:3398](../../../static/app.js#L3398) · `FunctionDeclaration`.
+[static/app.js:3407](../../../static/app.js#L3407) · `FunctionDeclaration`.
 
 ```javascript
 async function colorCalendarEvent(color)
@@ -3166,7 +3166,7 @@ async function colorCalendarEvent(color)
 
 ## openCalendarEvent
 
-[static/app.js:3421](../../../static/app.js#L3421) · `FunctionDeclaration`.
+[static/app.js:3430](../../../static/app.js#L3430) · `FunctionDeclaration`.
 
 ```javascript
 function openCalendarEvent(slot)
@@ -3182,7 +3182,7 @@ function openCalendarEvent(slot)
 
 ## closeCalendarEvent
 
-[static/app.js:3452](../../../static/app.js#L3452) · `FunctionDeclaration`.
+[static/app.js:3461](../../../static/app.js#L3461) · `FunctionDeclaration`.
 
 ```javascript
 function closeCalendarEvent()
@@ -3198,7 +3198,7 @@ function closeCalendarEvent()
 
 ## saveCalendarEvent
 
-[static/app.js:3460](../../../static/app.js#L3460) · `FunctionDeclaration`.
+[static/app.js:3469](../../../static/app.js#L3469) · `FunctionDeclaration`.
 
 ```javascript
 async function saveCalendarEvent()
@@ -3214,7 +3214,7 @@ async function saveCalendarEvent()
 
 ## refreshCalendarEvent
 
-[static/app.js:3488](../../../static/app.js#L3488) · `FunctionDeclaration`.
+[static/app.js:3497](../../../static/app.js#L3497) · `FunctionDeclaration`.
 
 ```javascript
 async function refreshCalendarEvent()
@@ -3230,7 +3230,7 @@ async function refreshCalendarEvent()
 
 ## renderWorkOrders
 
-[static/app.js:3533](../../../static/app.js#L3533) · `FunctionDeclaration`.
+[static/app.js:3542](../../../static/app.js#L3542) · `FunctionDeclaration`.
 
 ```javascript
 function renderWorkOrders(orders, options)
@@ -3258,7 +3258,7 @@ function renderWorkOrders(orders, options)
 
 ## renderWorkArchive
 
-[static/app.js:3554](../../../static/app.js#L3554) · `FunctionDeclaration`.
+[static/app.js:3563](../../../static/app.js#L3563) · `FunctionDeclaration`.
 
 ```javascript
 function renderWorkArchive()
@@ -3279,7 +3279,7 @@ function renderWorkArchive()
 
 ## restoreWorkArchive
 
-[static/app.js:3571](../../../static/app.js#L3571) · `FunctionDeclaration`.
+[static/app.js:3580](../../../static/app.js#L3580) · `FunctionDeclaration`.
 
 ```javascript
 async function restoreWorkArchive(button)
@@ -3295,7 +3295,7 @@ async function restoreWorkArchive(button)
 
 ## renderOrders
 
-[static/app.js:3601](../../../static/app.js#L3601) · `FunctionDeclaration`.
+[static/app.js:3610](../../../static/app.js#L3610) · `FunctionDeclaration`.
 
 ```javascript
 function renderOrders({ force = false } = {})
@@ -3317,7 +3317,7 @@ function renderOrders({ force = false } = {})
 
 ## showOrders
 
-[static/app.js:3687](../../../static/app.js#L3687) · `FunctionDeclaration`.
+[static/app.js:3696](../../../static/app.js#L3696) · `FunctionDeclaration`.
 
 ```javascript
 async function showOrders({ history = true } = {})
@@ -3333,7 +3333,7 @@ async function showOrders({ history = true } = {})
 
 ## openLocation
 
-[static/app.js:3735](../../../static/app.js#L3735) · `FunctionDeclaration`.
+[static/app.js:3744](../../../static/app.js#L3744) · `FunctionDeclaration`.
 
 ```javascript
 function openLocation()
@@ -3347,7 +3347,7 @@ function openLocation()
 
 ## navigate
 
-[static/app.js:3742](../../../static/app.js#L3742) · `FunctionDeclaration`.
+[static/app.js:3751](../../../static/app.js#L3751) · `FunctionDeclaration`.
 
 ```javascript
 async function navigate(path, { history = true } = {})
@@ -3363,7 +3363,7 @@ async function navigate(path, { history = true } = {})
 
 ## loadOrderFiles
 
-[static/app.js:3829](../../../static/app.js#L3829) · `FunctionDeclaration`.
+[static/app.js:3838](../../../static/app.js#L3838) · `FunctionDeclaration`.
 
 ```javascript
 async function loadOrderFiles(path, navigation)
@@ -3379,7 +3379,7 @@ async function loadOrderFiles(path, navigation)
 
 ## openNative
 
-[static/app.js:3853](../../../static/app.js#L3853) · `FunctionDeclaration`.
+[static/app.js:3862](../../../static/app.js#L3862) · `FunctionDeclaration`.
 
 ```javascript
 async function openNative(path, reveal = false)
@@ -3393,7 +3393,7 @@ async function openNative(path, reveal = false)
 
 ## renderFolderRename
 
-[static/app.js:3859](../../../static/app.js#L3859) · `FunctionDeclaration`.
+[static/app.js:3868](../../../static/app.js#L3868) · `FunctionDeclaration`.
 
 ```javascript
 function renderFolderRename()
@@ -3409,7 +3409,7 @@ function renderFolderRename()
 
 ## openFolderRename
 
-[static/app.js:3866](../../../static/app.js#L3866) · `FunctionDeclaration`.
+[static/app.js:3875](../../../static/app.js#L3875) · `FunctionDeclaration`.
 
 ```javascript
 async function openFolderRename()
@@ -3425,7 +3425,7 @@ async function openFolderRename()
 
 ## submitFolderRename
 
-[static/app.js:3882](../../../static/app.js#L3882) · `FunctionDeclaration`.
+[static/app.js:3891](../../../static/app.js#L3891) · `FunctionDeclaration`.
 
 ```javascript
 async function submitFolderRename()
@@ -3441,7 +3441,7 @@ async function submitFolderRename()
 
 ## moved
 
-[static/app.js:3903](../../../static/app.js#L3903) · `ArrowFunctionExpression`.
+[static/app.js:3912](../../../static/app.js#L3912) · `ArrowFunctionExpression`.
 
 ```javascript
 const moved = (path) =>
@@ -3455,7 +3455,7 @@ const moved = (path) =>
 
 ## showPreview
 
-[static/app.js:3914](../../../static/app.js#L3914) · `FunctionDeclaration`.
+[static/app.js:3923](../../../static/app.js#L3923) · `FunctionDeclaration`.
 
 ```javascript
 async function showPreview(path)
@@ -3471,7 +3471,7 @@ async function showPreview(path)
 
 ## showInvoicePreview
 
-[static/app.js:3991](../../../static/app.js#L3991) · `FunctionDeclaration`.
+[static/app.js:4000](../../../static/app.js#L4000) · `FunctionDeclaration`.
 
 ```javascript
 async function showInvoicePreview(record)
@@ -3487,7 +3487,7 @@ async function showInvoicePreview(record)
 
 ## renderFileComment
 
-[static/app.js:4022](../../../static/app.js#L4022) · `FunctionDeclaration`.
+[static/app.js:4031](../../../static/app.js#L4031) · `FunctionDeclaration`.
 
 ```javascript
 function renderFileComment()
@@ -3503,7 +3503,7 @@ function renderFileComment()
 
 ## loadFileComment
 
-[static/app.js:4037](../../../static/app.js#L4037) · `FunctionDeclaration`.
+[static/app.js:4046](../../../static/app.js#L4046) · `FunctionDeclaration`.
 
 ```javascript
 async function loadFileComment(path, version)
@@ -3519,7 +3519,7 @@ async function loadFileComment(path, version)
 
 ## saveFileComment
 
-[static/app.js:4063](../../../static/app.js#L4063) · `FunctionDeclaration`.
+[static/app.js:4072](../../../static/app.js#L4072) · `FunctionDeclaration`.
 
 ```javascript
 async function saveFileComment()
@@ -3535,7 +3535,7 @@ async function saveFileComment()
 
 ## closePreview
 
-[static/app.js:4097](../../../static/app.js#L4097) · `FunctionDeclaration`.
+[static/app.js:4106](../../../static/app.js#L4106) · `FunctionDeclaration`.
 
 ```javascript
 async function closePreview()
@@ -3549,7 +3549,7 @@ async function closePreview()
 
 ## showPdfPages
 
-[static/app.js:4104](../../../static/app.js#L4104) · `FunctionDeclaration`.
+[static/app.js:4113](../../../static/app.js#L4113) · `FunctionDeclaration`.
 
 ```javascript
 function showPdfPages(file, pages, version)
@@ -3565,7 +3565,7 @@ function showPdfPages(file, pages, version)
 
 ## changePage
 
-[static/app.js:4131](../../../static/app.js#L4131) · `FunctionDeclaration`.
+[static/app.js:4140](../../../static/app.js#L4140) · `FunctionDeclaration`.
 
 ```javascript
 function changePage(page)
@@ -3581,7 +3581,7 @@ function changePage(page)
 
 ## previewUnavailable
 
-[static/app.js:4152](../../../static/app.js#L4152) · `FunctionDeclaration`.
+[static/app.js:4161](../../../static/app.js#L4161) · `FunctionDeclaration`.
 
 ```javascript
 function previewUnavailable(message)
@@ -3597,7 +3597,7 @@ function previewUnavailable(message)
 
 ## setPreviewExpanded
 
-[static/app.js:4171](../../../static/app.js#L4171) · `FunctionDeclaration`.
+[static/app.js:4180](../../../static/app.js#L4180) · `FunctionDeclaration`.
 
 ```javascript
 function setPreviewExpanded(expanded)
@@ -3613,7 +3613,7 @@ function setPreviewExpanded(expanded)
 
 ## stepPreview
 
-[static/app.js:4180](../../../static/app.js#L4180) · `FunctionDeclaration`.
+[static/app.js:4189](../../../static/app.js#L4189) · `FunctionDeclaration`.
 
 ```javascript
 function stepPreview(direction)
@@ -3627,7 +3627,7 @@ function stepPreview(direction)
 
 ## run
 
-[static/app.js:4189](../../../static/app.js#L4189) · `FunctionDeclaration`.
+[static/app.js:4198](../../../static/app.js#L4198) · `FunctionDeclaration`.
 
 ```javascript
 function run(action)
@@ -3641,7 +3641,7 @@ function run(action)
 
 ## askRemoveOrder
 
-[static/app.js:4598](../../../static/app.js#L4598) · `FunctionDeclaration`.
+[static/app.js:4607](../../../static/app.js#L4607) · `FunctionDeclaration`.
 
 ```javascript
 function askRemoveOrder(path)

@@ -507,8 +507,8 @@ class InvoiceStore:
             if payload.get('date') != data['date'] or payload.get('period', 'day') != period:
                 raise InvoiceConflict('Дата или период плана изменились. Проверь календарь перед повтором переноса')
             days = payload.get('days')
-            if type(days) is not int or days not in ({-7, 7} if period == 'week' else {-7, -1, 1, 7}):
-                raise ValueError('Дневной план можно сдвинуть на день или неделю; недельный — на неделю')
+            if type(days) is not int or days not in ({-7, 7} if period == 'week' else {-7, -1, 1, 2, 3, 4, 5, 6, 7}):
+                raise ValueError('Дневной план можно сдвинуть на 1–7 дней вперёд, день или неделю назад; недельный — на неделю')
             try:
                 target = (date.fromisoformat(data['date']) + timedelta(days=days)).isoformat()
             except (ValueError, OverflowError):
