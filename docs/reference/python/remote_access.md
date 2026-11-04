@@ -6,13 +6,25 @@
 
 Password gate on a separate loopback listener; the LAN handler is unchanged.
 
-Импорты Python, включая локальные: `collections`, `configparser`, `hashlib`, `hmac`, `html`, `http.server`, `json`, `math`, `os`, `pathlib`, `re`, `secrets`, `stat`, `threading`, `time`, `urllib.parse`.
+Импорты Python, включая локальные: `collections`, `configparser`, `hashlib`, `hmac`, `html`, `http.server`, `ipaddress`, `json`, `math`, `os`, `pathlib`, `re`, `secrets`, `stat`, `tempfile`, `threading`, `time`, `urllib.parse`.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+## PasswordSettingsConflict
+
+[remote_access.py:35](../../../remote_access.py#L35) · `class`.
+
+```python
+class PasswordSettingsConflict(ValueError):
+```
+
+Обозначает устаревшую форму смены пароля.
+
+Конфликт не разрешается повторной записью без открытия новых настроек.
+
 ## password_document
 
-[remote_access.py:31](../../../remote_access.py#L31) · `function`.
+[remote_access.py:41](../../../remote_access.py#L41) · `function`.
 
 ```python
 def password_document(password):
@@ -34,7 +46,7 @@ def password_document(password):
 
 ## save_password
 
-[remote_access.py:42](../../../remote_access.py#L42) · `function`.
+[remote_access.py:52](../../../remote_access.py#L52) · `function`.
 
 ```python
 def save_password(path, password):
@@ -50,7 +62,7 @@ def save_password(path, password):
 
 ## settings
 
-[remote_access.py:59](../../../remote_access.py#L59) · `function`.
+[remote_access.py:69](../../../remote_access.py#L69) · `function`.
 
 ```python
 def settings(config_file):
@@ -73,7 +85,7 @@ None
 
 ## PasswordGate
 
-[remote_access.py:78](../../../remote_access.py#L78) · `class`.
+[remote_access.py:88](../../../remote_access.py#L88) · `class`.
 
 ```python
 class PasswordGate:
@@ -85,7 +97,7 @@ class PasswordGate:
 
 ## PasswordGate.__init__
 
-[remote_access.py:81](../../../remote_access.py#L81) · `function`.
+[remote_access.py:91](../../../remote_access.py#L91) · `function`.
 
 ```python
 def __init__(self, path, public_host, clock=time.time):
@@ -101,7 +113,7 @@ def __init__(self, path, public_host, clock=time.time):
 
 ## PasswordGate.document
 
-[remote_access.py:91](../../../remote_access.py#L91) · `function`.
+[remote_access.py:101](../../../remote_access.py#L101) · `function`.
 
 ```python
 def document(self):
@@ -123,7 +135,7 @@ value
 
 ## PasswordGate.key
 
-[remote_access.py:109](../../../remote_access.py#L109) · `function`.
+[remote_access.py:119](../../../remote_access.py#L119) · `function`.
 
 ```python
 def key(self, document):
@@ -143,7 +155,7 @@ hmac.digest(bytes.fromhex(document['signing_key']), bytes.fromhex(document['dige
 
 ## PasswordGate.token
 
-[remote_access.py:115](../../../remote_access.py#L115) · `function`.
+[remote_access.py:125](../../../remote_access.py#L125) · `function`.
 
 ```python
 def token(self, document, kind, lifetime):
@@ -163,7 +175,7 @@ value + '.' + hmac.new(self.key(document), value.encode(), hashlib.sha256).hexdi
 
 ## PasswordGate.valid
 
-[remote_access.py:122](../../../remote_access.py#L122) · `function`.
+[remote_access.py:132](../../../remote_access.py#L132) · `function`.
 
 ```python
 def valid(self, document, token, kind):
@@ -182,9 +194,31 @@ False
 hmac.compare_digest(expected, signature)
 ```
 
+## PasswordGate.change_password
+
+[remote_access.py:148](../../../remote_access.py#L148) · `function`.
+
+```python
+def change_password(self, payload, require_current):
+```
+
+Атомарно меняет проверенный профиль с закрытой копией прежнего.
+
+Проверяет версию формы и текущий пароль внешнего сеанса под общей блокировкой.
+
+Непосредственные вызовы: `self.document`, `self.valid`, `payload.get`, `PasswordSettingsConflict`, `isinstance`, `len`, `hmac.compare_digest`, `password.encode`, `confirmation.encode`, `ValueError`, `hashlib.pbkdf2_hmac`, `current.encode`, `bytes.fromhex`, `digest.hex`, `password_document`, `parent.is_symlink`, `parent.stat`, `backups.mkdir`, `backups.is_symlink`, `backups.stat`, `str`, `int`, `self.clock`, `secrets.token_hex`, `os.open`, `os.fdopen`, `json.dump`, `stream.flush`, `os.fsync`, `stream.fileno`, `tempfile.mkstemp`, `os.replace`, `os.path.exists`, `os.unlink`.
+
+Явные исключения: `PasswordSettingsConflict`, `ValueError`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+replacement
+```
+
 ## PasswordGate.retry_after
 
-[remote_access.py:138](../../../remote_access.py#L138) · `function`.
+[remote_access.py:194](../../../remote_access.py#L194) · `function`.
 
 ```python
 def retry_after(self):
@@ -205,7 +239,7 @@ max(1, math.ceil(60 - (now - self.attempts[0])))
 
 ## cookie
 
-[remote_access.py:152](../../../remote_access.py#L152) · `function`.
+[remote_access.py:208](../../../remote_access.py#L208) · `function`.
 
 ```python
 def cookie(handler, name):
@@ -225,7 +259,7 @@ matches[0] if len(matches) == 1 else ''
 
 ## safe_next
 
-[remote_access.py:164](../../../remote_access.py#L164) · `function`.
+[remote_access.py:220](../../../remote_access.py#L220) · `function`.
 
 ```python
 def safe_next(value):
@@ -246,7 +280,7 @@ urllib.parse.quote(value, safe='/%?&#=:+,;@!$()*-._~')
 
 ## cookie_header
 
-[remote_access.py:174](../../../remote_access.py#L174) · `function`.
+[remote_access.py:230](../../../remote_access.py#L230) · `function`.
 
 ```python
 def cookie_header(name, value, lifetime=None):
@@ -264,7 +298,7 @@ result if lifetime is None else result + f'; Max-Age={lifetime}'
 
 ## RemoteHTTPServer
 
-[remote_access.py:181](../../../remote_access.py#L181) · `class`.
+[remote_access.py:237](../../../remote_access.py#L237) · `class`.
 
 ```python
 class RemoteHTTPServer(ThreadingHTTPServer):
@@ -276,7 +310,7 @@ class RemoteHTTPServer(ThreadingHTTPServer):
 
 ## RemoteHTTPServer.__init__
 
-[remote_access.py:187](../../../remote_access.py#L187) · `function`.
+[remote_access.py:243](../../../remote_access.py#L243) · `function`.
 
 ```python
 def __init__(self, *args, **kwargs):
@@ -292,7 +326,7 @@ def __init__(self, *args, **kwargs):
 
 ## RemoteHTTPServer.process_request
 
-[remote_access.py:193](../../../remote_access.py#L193) · `function`.
+[remote_access.py:249](../../../remote_access.py#L249) · `function`.
 
 ```python
 def process_request(self, request, client_address):
@@ -306,7 +340,7 @@ def process_request(self, request, client_address):
 
 ## RemoteHTTPServer.process_request_thread
 
-[remote_access.py:205](../../../remote_access.py#L205) · `function`.
+[remote_access.py:261](../../../remote_access.py#L261) · `function`.
 
 ```python
 def process_request_thread(self, request, client_address):
@@ -318,9 +352,61 @@ def process_request_thread(self, request, client_address):
 
 Непосредственные вызовы: `super().process_request_thread`, `super`, `self.slots.release`.
 
+## settings_request_allowed
+
+[remote_access.py:270](../../../remote_access.py#L270) · `function`.
+
+```python
+def settings_request_allowed(handler, post=False):
+```
+
+Проверяет адрес настроек локального менеджера или защищённого слушателя.
+
+Локально принимает только loopback, частный IP или .local с фактическим портом сервера.
+
+Непосредственные вызовы: `handler.headers.get_all`, `len`, `getattr`, `handler.same_origin`, `urllib.parse.urlsplit`, `name.endswith`, `ipaddress.ip_address`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+False
+handler.same_origin() if post else True
+not post or handler.headers.get_all('Origin', []) in (['http://' + host], ['https://' + host])
+```
+
+## serve_settings
+
+[remote_access.py:295](../../../remote_access.py#L295) · `function`.
+
+```python
+def serve_settings(handler, head=False):
+```
+
+Выдаёт состояние внешнего входа и короткий токен формы настроек.
+
+Не выдаёт профиль или его хеш; неверный адрес и неизвестный профиль закрывают действие.
+
+Непосредственные вызовы: `settings_request_allowed`, `handler.send_json`, `getattr`, `gate.document`, `bool`, `gate.token`.
+
+## serve_password_change
+
+[remote_access.py:315](../../../remote_access.py#L315) · `function`.
+
+```python
+def serve_password_change(handler):
+```
+
+Принимает явную смену пароля из настроек и обновляет текущий внешний сеанс.
+
+Требует свою страницу, JSON, токен профиля и текущий пароль при внешнем входе.
+
+Непосредственные вызовы: `getattr`, `settings_request_allowed`, `handler.headers.get_all`, `handler.send_json`, `bool`, `gate.retry_after`, `gate.verifying.acquire`, `handler.headers.get_content_type`, `len`, `re.fullmatch`, `int`, `handler.headers.get`, `ValueError`, `json.loads`, `handler.rfile.read(int(lengths[0])).decode`, `handler.rfile.read`, `isinstance`, `cookie`, `max`, `old_session.split`, `gate.clock`, `gate.change_password`, `gate.token`, `old_session.rsplit`, `hmac.new(gate.key(document), value.encode(), hashlib.sha256).hexdigest`, `hmac.new`, `gate.key`, `value.encode`, `handler.reply`, `json.dumps(result).encode`, `json.dumps`, `cookie_header`, `str`, `gate.verifying.release`.
+
+Явные исключения: `ValueError`.
+
 ## handler_class
 
-[remote_access.py:214](../../../remote_access.py#L214) · `function`.
+[remote_access.py:362](../../../remote_access.py#L362) · `function`.
 
 ```python
 def handler_class(base_handler):
@@ -338,7 +424,7 @@ RemoteHandler
 
 ## handler_class.RemoteHandler
 
-[remote_access.py:217](../../../remote_access.py#L217) · `class`.
+[remote_access.py:365](../../../remote_access.py#L365) · `class`.
 
 ```python
 class RemoteHandler(base_handler):
@@ -350,7 +436,7 @@ class RemoteHandler(base_handler):
 
 ## handler_class.RemoteHandler.setup
 
-[remote_access.py:222](../../../remote_access.py#L222) · `function`.
+[remote_access.py:371](../../../remote_access.py#L371) · `function`.
 
 ```python
 def setup(self):
@@ -364,21 +450,21 @@ def setup(self):
 
 ## handler_class.RemoteHandler.end_headers
 
-[remote_access.py:228](../../../remote_access.py#L228) · `function`.
+[remote_access.py:377](../../../remote_access.py#L377) · `function`.
 
 ```python
 def end_headers(self):
 ```
 
-Добавляет обязательные заголовки перед завершением HTTP-ответа.
+Добавляет защитные заголовки и политику ссылок внешнего ответа.
 
-Передаёт работу `self.send_header`, `super().end_headers`, `super`.
+same-origin сохраняет Origin собственной формы и скрывает Referer от других сайтов.
 
 Непосредственные вызовы: `self.send_header`, `super().end_headers`, `super`.
 
 ## handler_class.RemoteHandler.reply
 
-[remote_access.py:239](../../../remote_access.py#L239) · `function`.
+[remote_access.py:388](../../../remote_access.py#L388) · `function`.
 
 ```python
 def reply(self, status, body=b'', content_type='text/html; charset=utf-8', headers=()):
@@ -394,7 +480,7 @@ def reply(self, status, body=b'', content_type='text/html; charset=utf-8', heade
 
 ## handler_class.RemoteHandler.context
 
-[remote_access.py:252](../../../remote_access.py#L252) · `function`.
+[remote_access.py:401](../../../remote_access.py#L401) · `function`.
 
 ```python
 def context(self):
@@ -415,7 +501,7 @@ None
 
 ## handler_class.RemoteHandler.same_origin
 
-[remote_access.py:267](../../../remote_access.py#L267) · `function`.
+[remote_access.py:416](../../../remote_access.py#L416) · `function`.
 
 ```python
 def same_origin(self):
@@ -435,7 +521,7 @@ len(origins) == 1 and origins[0] in {'https://' + host, 'https://' + host + ':44
 
 ## handler_class.RemoteHandler.authenticated
 
-[remote_access.py:274](../../../remote_access.py#L274) · `function`.
+[remote_access.py:423](../../../remote_access.py#L423) · `function`.
 
 ```python
 def authenticated(self, gate, document):
@@ -455,7 +541,7 @@ gate.valid(document, cookie(self, SESSION_COOKIE), 'session')
 
 ## handler_class.RemoteHandler.denied
 
-[remote_access.py:279](../../../remote_access.py#L279) · `function`.
+[remote_access.py:428](../../../remote_access.py#L428) · `function`.
 
 ```python
 def denied(self):
@@ -469,7 +555,7 @@ def denied(self):
 
 ## handler_class.RemoteHandler.login_page
 
-[remote_access.py:288](../../../remote_access.py#L288) · `function`.
+[remote_access.py:437](../../../remote_access.py#L437) · `function`.
 
 ```python
 def login_page(self, gate, document, error='', status=200, retry=0):
@@ -483,7 +569,7 @@ def login_page(self, gate, document, error='', status=200, retry=0):
 
 ## handler_class.RemoteHandler.get_remote
 
-[remote_access.py:305](../../../remote_access.py#L305) · `function`.
+[remote_access.py:454](../../../remote_access.py#L454) · `function`.
 
 ```python
 def get_remote(self):
@@ -497,7 +583,7 @@ def get_remote(self):
 
 ## handler_class.RemoteHandler.do_GET
 
-[remote_access.py:330](../../../remote_access.py#L330) · `function`.
+[remote_access.py:479](../../../remote_access.py#L479) · `function`.
 
 ```python
 def do_GET(self):
@@ -511,7 +597,7 @@ def do_GET(self):
 
 ## handler_class.RemoteHandler.do_HEAD
 
-[remote_access.py:335](../../../remote_access.py#L335) · `function`.
+[remote_access.py:484](../../../remote_access.py#L484) · `function`.
 
 ```python
 def do_HEAD(self):
@@ -525,7 +611,7 @@ def do_HEAD(self):
 
 ## handler_class.RemoteHandler.send_file
 
-[remote_access.py:340](../../../remote_access.py#L340) · `function`.
+[remote_access.py:489](../../../remote_access.py#L489) · `function`.
 
 ```python
 def send_file(self, target, head=False, download=False, allow_range=False, private=False):
@@ -539,7 +625,7 @@ def send_file(self, target, head=False, download=False, allow_range=False, priva
 
 ## handler_class.RemoteHandler.do_POST
 
-[remote_access.py:349](../../../remote_access.py#L349) · `function`.
+[remote_access.py:498](../../../remote_access.py#L498) · `function`.
 
 ```python
 def do_POST(self):
@@ -555,7 +641,7 @@ def do_POST(self):
 
 ## start
 
-[remote_access.py:415](../../../remote_access.py#L415) · `function`.
+[remote_access.py:564](../../../remote_access.py#L564) · `function`.
 
 ```python
 def start(base_handler, config_file):

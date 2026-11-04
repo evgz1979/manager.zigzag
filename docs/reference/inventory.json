@@ -2775,171 +2775,196 @@
       },
       {
         "path": "remote_access.py",
-        "sha256": "8afde9262b319520793145ff32c8134d2647744ab74ee0d14b8a5808ead711de",
+        "sha256": "f096da8d0030510b6b44a8762f76bbb111e3d1cb2a168375677c576dbefb55b8",
         "symbols": [
           {
+            "name": "PasswordSettingsConflict",
+            "line": 35,
+            "type": "class"
+          },
+          {
             "name": "password_document",
-            "line": 31,
+            "line": 41,
             "type": "function"
           },
           {
             "name": "save_password",
-            "line": 42,
+            "line": 52,
             "type": "function"
           },
           {
             "name": "settings",
-            "line": 59,
+            "line": 69,
             "type": "function"
           },
           {
             "name": "PasswordGate",
-            "line": 78,
+            "line": 88,
             "type": "class"
           },
           {
             "name": "PasswordGate.__init__",
-            "line": 81,
-            "type": "function"
-          },
-          {
-            "name": "PasswordGate.document",
             "line": 91,
             "type": "function"
           },
           {
+            "name": "PasswordGate.document",
+            "line": 101,
+            "type": "function"
+          },
+          {
             "name": "PasswordGate.key",
-            "line": 109,
+            "line": 119,
             "type": "function"
           },
           {
             "name": "PasswordGate.token",
-            "line": 115,
+            "line": 125,
             "type": "function"
           },
           {
             "name": "PasswordGate.valid",
-            "line": 122,
+            "line": 132,
+            "type": "function"
+          },
+          {
+            "name": "PasswordGate.change_password",
+            "line": 148,
             "type": "function"
           },
           {
             "name": "PasswordGate.retry_after",
-            "line": 138,
+            "line": 194,
             "type": "function"
           },
           {
             "name": "cookie",
-            "line": 152,
+            "line": 208,
             "type": "function"
           },
           {
             "name": "safe_next",
-            "line": 164,
+            "line": 220,
             "type": "function"
           },
           {
             "name": "cookie_header",
-            "line": 174,
+            "line": 230,
             "type": "function"
           },
           {
             "name": "RemoteHTTPServer",
-            "line": 181,
+            "line": 237,
             "type": "class"
           },
           {
             "name": "RemoteHTTPServer.__init__",
-            "line": 187,
+            "line": 243,
             "type": "function"
           },
           {
             "name": "RemoteHTTPServer.process_request",
-            "line": 193,
+            "line": 249,
             "type": "function"
           },
           {
             "name": "RemoteHTTPServer.process_request_thread",
-            "line": 205,
+            "line": 261,
+            "type": "function"
+          },
+          {
+            "name": "settings_request_allowed",
+            "line": 270,
+            "type": "function"
+          },
+          {
+            "name": "serve_settings",
+            "line": 295,
+            "type": "function"
+          },
+          {
+            "name": "serve_password_change",
+            "line": 315,
             "type": "function"
           },
           {
             "name": "handler_class",
-            "line": 214,
+            "line": 362,
             "type": "function"
           },
           {
             "name": "handler_class.RemoteHandler",
-            "line": 217,
+            "line": 365,
             "type": "class"
           },
           {
             "name": "handler_class.RemoteHandler.setup",
-            "line": 222,
+            "line": 371,
             "type": "function"
           },
           {
             "name": "handler_class.RemoteHandler.end_headers",
-            "line": 228,
+            "line": 377,
             "type": "function"
           },
           {
             "name": "handler_class.RemoteHandler.reply",
-            "line": 239,
+            "line": 388,
             "type": "function"
           },
           {
             "name": "handler_class.RemoteHandler.context",
-            "line": 252,
+            "line": 401,
             "type": "function"
           },
           {
             "name": "handler_class.RemoteHandler.same_origin",
-            "line": 267,
+            "line": 416,
             "type": "function"
           },
           {
             "name": "handler_class.RemoteHandler.authenticated",
-            "line": 274,
+            "line": 423,
             "type": "function"
           },
           {
             "name": "handler_class.RemoteHandler.denied",
-            "line": 279,
+            "line": 428,
             "type": "function"
           },
           {
             "name": "handler_class.RemoteHandler.login_page",
-            "line": 288,
+            "line": 437,
             "type": "function"
           },
           {
             "name": "handler_class.RemoteHandler.get_remote",
-            "line": 305,
+            "line": 454,
             "type": "function"
           },
           {
             "name": "handler_class.RemoteHandler.do_GET",
-            "line": 330,
+            "line": 479,
             "type": "function"
           },
           {
             "name": "handler_class.RemoteHandler.do_HEAD",
-            "line": 335,
+            "line": 484,
             "type": "function"
           },
           {
             "name": "handler_class.RemoteHandler.send_file",
-            "line": 340,
+            "line": 489,
             "type": "function"
           },
           {
             "name": "handler_class.RemoteHandler.do_POST",
-            "line": 349,
+            "line": 498,
             "type": "function"
           },
           {
             "name": "start",
-            "line": 415,
+            "line": 564,
             "type": "function"
           }
         ]
@@ -3277,7 +3302,7 @@
       },
       {
         "path": "scripts/remote_access_password.py",
-        "sha256": "dbb867f44d4d8032683c4dd0bb6b066f0be975e4a861bea6fa2ce2614d6449e8",
+        "sha256": "2a459e682e774ac201e1becf698ff29a34b77c80db220392ac4760db14ac01c6",
         "symbols": [
           {
             "name": "setup_server",
@@ -3344,7 +3369,7 @@
       },
       {
         "path": "server.py",
-        "sha256": "d6cf651f1dc8e089f480e6988c3575760032e0a15e85e79df9e4d3ca36177f92",
+        "sha256": "74215c6e2a97b4bd26587946e8e9dae3399b0b0a66377a0d23413046f6371fcd",
         "symbols": [
           {
             "name": "read_config",
@@ -3788,37 +3813,37 @@
           },
           {
             "name": "ManagerHandler.do_GET",
-            "line": 1793,
+            "line": 1795,
             "type": "function"
           },
           {
             "name": "ManagerHandler.do_HEAD",
-            "line": 1798,
+            "line": 1800,
             "type": "function"
           },
           {
             "name": "ManagerHandler.receive_upload",
-            "line": 1803,
+            "line": 1805,
             "type": "function"
           },
           {
             "name": "ManagerHandler.receive_calendar_telegram",
-            "line": 1841,
+            "line": 1843,
             "type": "function"
           },
           {
             "name": "ManagerHandler.receive_telegram_settings",
-            "line": 1906,
+            "line": 1908,
             "type": "function"
           },
           {
             "name": "ManagerHandler.do_POST",
-            "line": 1946,
+            "line": 1948,
             "type": "function"
           },
           {
             "name": "main",
-            "line": 2414,
+            "line": 2419,
             "type": "function"
           }
         ]
@@ -4457,7 +4482,7 @@
     "javascript": [
       {
         "path": "static/app.js",
-        "sha256": "ae1ed4a770afc28396e268265047f27fa88813bade3163661c240708878ddf51",
+        "sha256": "12f68e9ba641eca0474bff9f8a26d082f2c5792c76ab1fad970c6051cc1999a1",
         "symbols": [
           {
             "name": "$",
@@ -6420,6 +6445,22 @@
           {
             "name": "requireLogin",
             "line": 10,
+            "type": "FunctionDeclaration"
+          }
+        ]
+      },
+      {
+        "path": "static/settings.js",
+        "sha256": "f996cafc4ee7584fc028e2f21862cb26dd28d34ae572fefb97824c76118ecf48",
+        "symbols": [
+          {
+            "name": "openSettings",
+            "line": 16,
+            "type": "FunctionDeclaration"
+          },
+          {
+            "name": "saveSettings",
+            "line": 37,
             "type": "FunctionDeclaration"
           }
         ]

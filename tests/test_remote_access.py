@@ -37,6 +37,7 @@ class RemoteAccessTests(unittest.TestCase):
         self.remote = self.serve(auth.handler_class(manager.ManagerHandler))
         self.remote.password_gate = self.gate
         self.local = self.serve(manager.ManagerHandler)
+        self.local.password_gate = self.gate
 
     def tearDown(self):
         for server in self.servers:
@@ -62,6 +63,7 @@ class RemoteAccessTests(unittest.TestCase):
     def form(self):
         status, headers, body = self.http(auth.LOGIN_PATH)
         self.assertEqual(status, 200)
+        self.assertIn(('Referrer-Policy', 'same-origin'), headers)
         token = re.search(rb'name="csrf" value="([^"]+)"', body)[1].decode()
         return token, next(value.split(';')[0] for name, value in headers if name == 'Set-Cookie')
 
@@ -172,7 +174,8 @@ class RemoteAccessTests(unittest.TestCase):
         body = urllib.parse.urlencode({'csrf': csrf, 'password': PASSWORD})
         base = {'Content-Type': 'application/x-www-form-urlencoded', 'Origin': 'https://' + HOST}
         self.assertEqual(self.http(auth.LOGIN_PATH, 'POST', body, base)[0], 403)
-        self.assertEqual(self.http(auth.LOGIN_PATH, 'POST', body, {**base, 'Cookie': cookie, 'Origin': 'https://evil.test'})[0], 403)
+        for origin in ('', 'null', 'http://' + HOST, 'https://evil.test'):
+            self.assertEqual(self.http(auth.LOGIN_PATH, 'POST', body, {**base, 'Cookie': cookie, 'Origin': origin})[0], 403)
         self.now += auth.LOGIN_SECONDS + 1
         self.assertEqual(self.http(auth.LOGIN_PATH, 'POST', body, {**base, 'Cookie': cookie})[0], 403)
 
@@ -246,15 +249,97 @@ class RemoteAccessTests(unittest.TestCase):
         self.assertEqual(server.server_address[0], '127.0.0.1')
         self.assertEqual(self.http('/', server=server)[0], 403)
         status, _, page = self.http('/', headers={'Host':host}, server=server)
+        self.assertIn(b'minlength="6"', page)
         csrf = re.search(rb'name="csrf" value="([^"]+)"', page)[1].decode()
-        fields = {'csrf':csrf, 'password':PASSWORD, 'confirmation':PASSWORD}
+        fields = {'csrf':csrf, 'password':'six!42', 'confirmation':'six!42'}
         headers = {'Host':host,'Content-Type':'application/x-www-form-urlencoded','Origin':'http://' + host}
         self.assertEqual(self.http('/', 'POST', urllib.parse.urlencode(fields), {**headers,'Origin':'https://evil.test'}, server=server)[0],403)
         self.assertFalse(destination.exists())
+        short = {**fields, 'password': 'short', 'confirmation': 'short'}
+        self.assertEqual(self.http('/', 'POST', urllib.parse.urlencode(short), headers, server=server)[0],400)
+        self.assertFalse(destination.exists())
         self.assertEqual(self.http('/', 'POST', urllib.parse.urlencode(fields), headers, server=server)[0],200)
         self.assertTrue(server.setup_done.is_set())
-        self.assertNotIn(PASSWORD, destination.read_text())
+        self.assertNotIn('six!42', destination.read_text())
         self.assertEqual(self.http('/', 'POST', urllib.parse.urlencode(fields), headers, server=server)[0],400)
+
+    def settings_request(self, payload=None, remote=False, session='', **headers):
+        host = HOST if remote else '127.0.0.1:' + str(self.local.server_port)
+        base = {'Host': host, 'Origin': ('https://' if remote else 'http://') + host,
+                'Content-Type': 'application/json', 'X-Manager-Settings': '1'}
+        if session:
+            base['Cookie'] = session
+        return self.http(auth.PASSWORD_PATH if payload is not None else auth.SETTINGS_PATH,
+                         'POST' if payload is not None else 'GET',
+                         json.dumps(payload) if payload is not None else None,
+                         {**base, **headers}, server=self.remote if remote else self.local)
+
+    def test_local_settings_reset_forgotten_password_and_reject_foreign_requests(self):
+        original = self.credentials.read_bytes()
+        status, _, body = self.settings_request()
+        self.assertEqual(status, 200)
+        info = json.loads(body)
+        self.assertFalse(info['require_current_password'])
+        self.assertNotIn('digest', info)
+        payload = {'csrf': info['csrf'], 'new_password': 'six!42', 'confirmation': 'six!42'}
+        for origin in ('', 'null', 'https://evil.test'):
+            self.assertEqual(self.settings_request(payload, Origin=origin)[0], 403)
+        self.assertEqual(self.settings_request(payload, **{'X-Manager-Settings': ''})[0], 403)
+        self.assertEqual(self.settings_request(**{'Host': 'evil.test:' + str(self.local.server_port)})[0], 403)
+        self.assertEqual(self.settings_request({**payload, 'new_password': 'short', 'confirmation': 'short'})[0], 400)
+        self.assertEqual(self.credentials.read_bytes(), original)
+        self.assertEqual(self.settings_request(payload)[0], 200)
+        self.assertEqual(self.login(password='six!42')[0], 303)
+        self.assertEqual(self.login(password=PASSWORD)[0], 401)
+        backups = list((self.credentials.parent / 'backups').glob('password-before-*.json'))
+        self.assertEqual(len(backups), 1)
+        self.assertEqual(json.loads(backups[0].read_text()), json.loads(original))
+        self.assertEqual(backups[0].stat().st_mode & 0o777, 0o600)
+
+    def test_remote_settings_require_current_password_and_keep_only_current_session(self):
+        self.assertEqual(self.settings_request(remote=True)[0], 401)
+        session = self.session(remember='')
+        self.now += 25
+        info = json.loads(self.settings_request(remote=True, session=session)[2])
+        self.assertTrue(info['require_current_password'])
+        payload = {'csrf': info['csrf'], 'current_password': 'wrong',
+                   'new_password': 'new-remote-password', 'confirmation': 'new-remote-password'}
+        self.assertEqual(self.settings_request(payload, remote=True, session=session)[0], 400)
+        self.assertEqual(self.http('/api/health', headers={'Cookie': session})[0], 200)
+        payload['current_password'] = PASSWORD
+        status, headers, _ = self.settings_request(payload, remote=True, session=session)
+        self.assertEqual(status, 200)
+        replacement = next(value for name, value in headers if name == 'Set-Cookie' and value.startswith(auth.SESSION_COOKIE))
+        self.assertNotIn('Max-Age=', replacement)
+        self.assertEqual(replacement.split(';')[0].rsplit('.', 1)[0], session.rsplit('.', 1)[0])
+        self.assertEqual(self.http('/api/health', headers={'Cookie': session})[0], 401)
+        self.assertEqual(self.http('/api/health', headers={'Cookie': replacement.split(';')[0]})[0], 200)
+        self.assertEqual(self.login(password='new-remote-password')[0], 303)
+
+    def test_password_settings_conflict_and_unknown_profile_do_not_overwrite(self):
+        info = json.loads(self.settings_request()[2])
+        payload = {'csrf': info['csrf'], 'new_password': 'first-new-password', 'confirmation': 'first-new-password'}
+        self.assertEqual(self.settings_request(payload)[0], 200)
+        changed = self.credentials.read_bytes()
+        self.assertEqual(self.settings_request(payload)[0], 409)
+        self.assertEqual(self.credentials.read_bytes(), changed)
+        unknown = json.loads(changed); unknown['version'] = 99
+        self.credentials.write_text(json.dumps(unknown))
+        before = self.credentials.read_bytes()
+        self.assertEqual(self.settings_request()[0], 503)
+        self.assertEqual(self.settings_request(payload)[0], 400)
+        self.assertEqual(self.credentials.read_bytes(), before)
+
+    def test_password_write_failure_preserves_existing_profile_and_session(self):
+        session = self.session()
+        before = self.credentials.read_bytes()
+        info = json.loads(self.settings_request()[2])
+        payload = {'csrf': info['csrf'], 'new_password': 'first-new-password', 'confirmation': 'first-new-password'}
+        with patch.object(auth.os, 'replace', side_effect=OSError('write failed')):
+            self.assertEqual(self.settings_request(payload)[0], 500)
+        self.assertEqual(self.credentials.read_bytes(), before)
+        self.assertEqual(self.http('/api/health', headers={'Cookie': session})[0], 200)
+        self.assertEqual(list(self.credentials.parent.glob('.password-*')), [])
 
 
 if __name__ == '__main__':

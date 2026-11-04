@@ -4750,21 +4750,6 @@ $("createOrderFolderForm").addEventListener("submit", (event) => { event.prevent
 $("cancelCreateOrderFolder").addEventListener("click", () => $("createOrderFolderDialog").close());
 $("createOrderFolderDialog").addEventListener("cancel", (event) => { if (state.creatingOrderFolder) event.preventDefault(); });
 for (const id of ["newOrderDate", "newOrderTitle"]) $(id).addEventListener("input", renderNewOrderName);
-$("refreshButton").addEventListener("click", () => run(async () => {
-  $("refreshButton").disabled = true;
-  try {
-    await saveCurrentStatus();
-    ++treeSearchVersion;
-    clearTimeout(searchTimer);
-    state.searchTree = null;
-    state.treeQuery = "";
-    $("treeSearch").value = "";
-    await request("/api/clients-refresh", {});
-    await loadTree();
-    if (state.view === "orders") await loadOrders();
-    else await navigate(state.selected, { history: false });
-  } finally { $("refreshButton").disabled = false; }
-}));
 $("statusSelect").addEventListener("change", () => { state.dirty = true; renderStatus(); });
 for (const type of ["click", "keydown"]) $("orderStatusFields").addEventListener(type, (event) => event.stopPropagation());
 $("supplierStatusSelect").addEventListener("change", () => { state.dirty = true; renderStatus(); });

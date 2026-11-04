@@ -62,7 +62,7 @@ def setup_server(path, port=18766):
         def page(self, error=''):
             return f'''<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Пароль для внешнего входа · Зигзаг</title>
 <style>body{{font:15px -apple-system,sans-serif;color:#263738;background:#f7f9f8;margin:0;padding:24px}}main{{box-sizing:border-box;max-width:400px;margin:8vh auto;background:white;border:1px solid #dce5e0;border-radius:14px;padding:26px}}h1{{font-size:23px}}label{{display:block;margin:18px 0}}input{{box-sizing:border-box;width:100%;padding:12px;margin-top:7px;border:1px solid #bbcfc5;border-radius:8px;font:16px -apple-system,sans-serif}}button{{width:100%;padding:13px;border:0;background:#167a65;color:white;border-radius:8px;font:16px -apple-system,sans-serif}}p{{line-height:1.5}}.error{{color:#b13535}}</style>
-<main><h1>Пароль для внешнего входа</h1><p>Дома менеджер открывается как прежде. Этот пароль понадобится для входа через интернет.</p><form method="post" action="/"><input type="hidden" name="csrf" value="{csrf}"><label>Новый пароль<input name="password" type="password" minlength="12" maxlength="1024" autocomplete="new-password" required autofocus></label><label>Повтори пароль<input name="confirmation" type="password" minlength="12" maxlength="1024" autocomplete="new-password" required></label><p class="error" role="alert">{html.escape(error)}</p><button>Сохранить пароль</button></form></main></html>'''
+<main><h1>Пароль для внешнего входа</h1><p>Дома менеджер открывается как прежде. Этот пароль понадобится для входа через интернет.</p><form method="post" action="/"><input type="hidden" name="csrf" value="{csrf}"><label>Новый пароль<input name="password" type="password" minlength="6" maxlength="1024" autocomplete="new-password" required autofocus></label><label>Повтори пароль<input name="confirmation" type="password" minlength="6" maxlength="1024" autocomplete="new-password" required></label><p class="error" role="alert">{html.escape(error)}</p><button>Сохранить пароль</button></form></main></html>'''
 
         # Обслуживает GET через проверки и маршрутизацию текущего обработчика.
         # Передаёт работу `self.allowed`, `self.reply`, `done.is_set`.
@@ -95,7 +95,7 @@ def setup_server(path, port=18766):
                 with write_lock:
                     remote_access.save_password(path, password)
             except (OSError, ValueError, UnicodeError):
-                self.reply(400, self.page('Не удалось сохранить. Пароли должны совпадать и содержать не меньше 12 символов. Существующий пароль не заменяется.'))
+                self.reply(400, self.page('Не удалось сохранить. Пароли должны совпадать и содержать не меньше 6 символов. Существующий пароль не заменяется.'))
                 return
             self.reply(200, '<!doctype html><meta charset="utf-8"><title>Пароль сохранён</title><p>Пароль сохранён. Эту вкладку можно закрыть.</p>')
             done.set()
@@ -124,7 +124,7 @@ def main():
         finally:
             server.server_close()
         return 0 if server.setup_done.is_set() else 1
-    password = getpass.getpass('Пароль для внешнего входа (от 12 символов): ')
+    password = getpass.getpass('Пароль для внешнего входа (от 6 символов): ')
     if not hmac.compare_digest(password.encode(), getpass.getpass('Повтори пароль: ').encode()):
         raise ValueError('Пароли не совпадают')
     remote_access.save_password(args.credentials_file, password)

@@ -8,7 +8,7 @@
 
 ## Python
 
-60 файлов; 818 именованных объявлений.
+60 файлов; 823 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
@@ -52,7 +52,7 @@
 | [orders.py](python/orders.md) | 44 |
 | [reconciliations.py](python/reconciliations.md) | 19 |
 | [recovery_backup.py](python/recovery_backup.md) | 10 |
-| [remote_access.py](python/remote_access.md) | 33 |
+| [remote_access.py](python/remote_access.md) | 38 |
 | [scripts/archive_order_duplicate.py](python/scripts-archive_order_duplicate.md) | 8 |
 | [scripts/build_documentation.py](python/scripts-build_documentation.md) | 17 |
 | [scripts/deploy.py](python/scripts-deploy.md) | 3 |
@@ -75,7 +75,7 @@
 
 ## JavaScript
 
-19 файлов; 404 именованных объявлений.
+20 файлов; 406 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
@@ -93,6 +93,7 @@
 | [static/order-sorting.js](javascript/static-order-sorting.md) | 2 |
 | [static/reconciliations.js](javascript/static-reconciliations.md) | 10 |
 | [static/remote-access.js](javascript/static-remote-access.md) | 2 |
+| [static/settings.js](javascript/static-settings.md) | 2 |
 | [static/spreadsheet-preview.js](javascript/static-spreadsheet-preview.md) | 7 |
 | [static/spreadsheet-worker.js](javascript/static-spreadsheet-worker.md) | 2 |
 | [static/supplier-purchases.js](javascript/static-supplier-purchases.md) | 9 |

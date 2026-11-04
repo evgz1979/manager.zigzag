@@ -23,6 +23,13 @@ svg { width: 20px; height: 20px; flex-shrink: 0; fill: none; stroke: currentColo
 h1, h2, h3, p { margin: 0; }
 .workspace { display: grid; grid-template-columns: 296px minmax(0, 1fr); height: 100dvh; min-height: 480px; }
 .sidebar { display: flex; flex-direction: column; min-width: 0; background: var(--sidebar); border-right: 1px solid var(--line); overflow: hidden; }
+.brand .sidebar-close { display: none; }
+.brand > .icon-button { width: 40px; height: 40px; flex-shrink: 0; }
+.manager-settings-dialog { max-height: 90dvh; overflow-y: auto; }
+.manager-settings-dialog h3 { font-size: 15px; margin-bottom: 8px; }
+.manager-settings-dialog fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 16px; min-width: 0; }
+.manager-settings-dialog input { font-size: 16px; }
+.manager-settings-dialog [hidden] { display: none; }
 .mobile-header, .sidebar-backdrop, .sidebar-close { display: none; }
 .brand { display: flex; align-items: center; justify-content: space-between; padding: 25px 18px 23px; gap: 10px; }
 .brand-button { display: flex; align-items: center; gap: 12px; border: 0; background: none; padding: 0; text-align: left; font-size: 21px; font-weight: 650; letter-spacing: -.5px; }
@@ -1184,10 +1191,10 @@ h2 { font-size: 13px; font-weight: 600; }
   .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 201; width: min(340px, calc(100vw - 48px)); height: 100dvh; padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom) env(safe-area-inset-left); visibility: hidden; transform: translateX(-100%); box-shadow: 8px 0 30px #25333426; }
   .sidebar-open .sidebar { visibility: visible; transform: none; }
   .sidebar-open .sidebar-backdrop { display: block; position: fixed; inset: 0; z-index: 200; background: #182b3659; touch-action: none; }
-  .sidebar-close { display: grid; position: absolute; top: calc(18px + env(safe-area-inset-top)); right: 8px; width: 40px; height: 40px; font-size: 28px; }
-  .sidebar .brand { flex-shrink: 0; padding: 18px 52px 18px 16px; }
+  .brand .sidebar-close { display: grid; font-size: 28px; }
+  .sidebar .brand { flex-shrink: 0; padding: 18px 16px; }
   .sidebar .brand-mark { display: none; }
-  .sidebar .brand-button { font-size: 20px; }
+  .sidebar .brand-button { flex: 1; min-width: 0; font-size: 20px; }
   .sidebar .brand-button small { font-size: 11px; }
   .sidebar .auxiliary-buttons { grid-template-columns: repeat(2, minmax(0, 1fr)); flex-shrink: 0; padding: 0 12px 14px; }
   .sidebar .auxiliary-button { min-height: 40px; }

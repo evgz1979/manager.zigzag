@@ -1611,6 +1611,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
         try:
             if parsed.path == "/api/health":
                 self.send_json({"status": "ok", "release": RELEASE_ID, "root": str(DATA_ROOT)}, head=head)
+            elif parsed.path == remote_access.SETTINGS_PATH:
+                remote_access.serve_settings(self, head=head)
             elif parsed.path == "/api/orders":
                 self.send_json(listed_orders(), head=head)
             elif parsed.path == "/api/hidden-orders":
@@ -1944,6 +1946,9 @@ class ManagerHandler(BaseHTTPRequestHandler):
     # Проверяет и маршрутизирует запрос изменения данных текущего обработчика.
     # Запускает внешний процесс; параметры и ограничения заданы в теле функции.
     def do_POST(self):
+        if urllib.parse.urlsplit(self.path).path == remote_access.PASSWORD_PATH:
+            remote_access.serve_password_change(self)
+            return
         if urllib.parse.urlsplit(self.path).path == '/api/calendar-telegram-settings':
             self.receive_telegram_settings()
             return
@@ -2438,6 +2443,8 @@ def main():
     remote_server = None
     try:
         remote_server = remote_access.start(ManagerHandler, CONFIG_FILE)
+        if remote_server:
+            server.password_gate = remote_server.password_gate
     except (OSError, ValueError, configparser.Error):
         # The separate listener fails closed; the existing LAN address stays up.
         print('Внешний вход не запущен: проверь настройки remote_access', flush=True)

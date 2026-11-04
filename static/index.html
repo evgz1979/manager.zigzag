@@ -17,15 +17,14 @@
       <symbol id="icon-search" viewBox="0 0 24 24"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></symbol>
       <symbol id="icon-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M15 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/></symbol>
       <symbol id="icon-edit" viewBox="0 0 24 24"><path d="m15 4 5 5M4 20l5-1L21 7l-5-5L4 14Z"/></symbol>
-      <symbol id="icon-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 6M4 12l2 6a7 7 0 0 0 12-1"/></symbol>
       <symbol id="icon-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+      <symbol id="icon-settings" viewBox="0 0 24 24"><path d="m9 3-.5 2-2 .9-1.8-.6-2 3.4 1.5 1.4v2l-1.5 1.4 2 3.4 1.8-.6 2 .9.5 2h4l.5-2 2-.9 1.8.6 2-3.4-1.5-1.4v-2l1.5-1.4-2-3.4-1.8.6-2-.9-.5-2Z"/><circle cx="11" cy="11" r="3"/></symbol>
     </svg>
     <main class="workspace">
       <header class="mobile-header"><button id="sidebarToggle" class="secondary-button" type="button" aria-controls="sidebar" aria-expanded="false"><svg aria-hidden="true"><use href="#icon-menu"/></svg>Меню</button><span>Зигзаг</span></header>
       <div id="sidebarBackdrop" class="sidebar-backdrop" aria-hidden="true"></div>
       <aside id="sidebar" class="sidebar" aria-label="Папки">
-        <button id="sidebarClose" class="sidebar-close icon-button" type="button" aria-label="Закрыть меню">×</button>
-        <header class="brand"><button id="homeButton" class="brand-button" title="Все заказы" aria-label="Все заказы · Зигзаг"><span class="brand-mark">З</span><span>Зигзаг<small>Менеджер заказов</small></span></button><button id="refreshButton" class="icon-button" title="Обновить" aria-label="Обновить"><svg><use href="#icon-refresh"/></svg></button></header>
+        <header class="brand"><button id="sidebarClose" class="sidebar-close icon-button" type="button" aria-label="Закрыть меню">×</button><button id="homeButton" class="brand-button" title="Все заказы" aria-label="Все заказы · Зигзаг"><span class="brand-mark">З</span><span>Зигзаг<small>Менеджер заказов</small></span></button><button id="managerSettingsButton" class="icon-button" type="button" aria-label="Настройки" title="Настройки" aria-haspopup="dialog" aria-controls="managerSettingsDialog"><svg aria-hidden="true"><use href="#icon-settings"/></svg></button></header>
         <div id="auxiliaryButtons" class="auxiliary-buttons" aria-label="Общие папки"></div>
         <nav id="favoriteOrders" class="favorite-orders" aria-label="Избранные заказы" hidden></nav>
         <label class="search-field tree-search"><svg><use href="#icon-search"/></svg><input id="treeSearch" type="search" placeholder="Найти папку…" aria-label="Поиск по всем деревьям"></label>
@@ -400,6 +399,23 @@
         <div class="confirm-actions"><button id="calendarTelegramSettingsClose" class="secondary-button" type="button">Закрыть</button><button id="calendarTelegramSettingsSave" class="primary-button" type="submit">Подключить бота</button></div>
       </form>
     </dialog>
+    <dialog id="managerSettingsDialog" class="confirm-dialog create-order-dialog manager-settings-dialog" aria-labelledby="managerSettingsTitle">
+      <h2 id="managerSettingsTitle">Настройки</h2>
+      <h3>Пароль внешнего входа</h3>
+      <p id="managerSettingsAddress" class="new-order-preview"></p>
+      <form id="managerSettingsForm">
+        <input type="hidden" name="username" autocomplete="username" value="manager">
+        <fieldset id="managerSettingsFields" disabled>
+          <label id="managerCurrentPasswordLabel" hidden>Текущий пароль<input id="managerCurrentPassword" name="current_password" type="password" autocomplete="current-password" maxlength="1024"></label>
+          <label>Новый пароль<input id="managerNewPassword" name="new_password" type="password" autocomplete="new-password" minlength="6" maxlength="1024" required></label>
+          <label>Повтори новый пароль<input id="managerConfirmPassword" name="confirmation" type="password" autocomplete="new-password" minlength="6" maxlength="1024" required></label>
+          <p class="new-order-preview">От 6 символов. После смены на других устройствах понадобится войти заново.</p>
+          <button id="managerSettingsSave" class="primary-button" type="submit">Сменить пароль</button>
+        </fieldset>
+        <p id="managerSettingsState" class="todo-save-state" role="status"></p>
+        <div class="confirm-actions"><button id="managerSettingsClose" class="secondary-button" type="button">Закрыть</button></div>
+      </form>
+    </dialog>
     <div id="toast" class="toast" role="status" hidden></div>
     <dialog id="invoiceReconciliationDialog" class="invoice-reconciliation-dialog">
       <form id="invoiceReconciliationForm"><h2>Сверка для счёта</h2><p id="invoiceReconciliationName"></p>
@@ -412,6 +428,7 @@
     <script src="/home-calendar.js"></script>
     <script src="/money-overview.js"></script>
     <script src="/navigation.js"></script>
+    <script src="/settings.js"></script>
     <script src="/order-sorting.js"></script>
     <script src="/app.js"></script>
     <script src="/inbox.js"></script>

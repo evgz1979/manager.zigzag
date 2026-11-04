@@ -3,6 +3,7 @@ import configparser
 import hashlib
 import hmac
 import html
+import ipaddress
 import json
 import math
 import os
@@ -10,6 +11,7 @@ import re
 import secrets
 import stat
 import threading
+import tempfile
 import time
 import urllib.parse
 from collections import deque
@@ -23,14 +25,22 @@ LOGIN_SECONDS = 600
 SESSION_COOKIE = '__Host-zigzag-session'
 LOGIN_COOKIE = '__Host-zigzag-login'
 LOGIN_PATH = '/_auth/login'
+SETTINGS_PATH = '/api/manager-settings'
+PASSWORD_PATH = SETTINGS_PATH + '/password'
 DEFAULT_CREDENTIALS = Path.home() / '.local/share/manager-remote-access/password.json'
+
+
+# Обозначает устаревшую форму смены пароля.
+# Конфликт не разрешается повторной записью без открытия новых настроек.
+class PasswordSettingsConflict(ValueError):
+    pass
 
 
 # Создаёт документ хеша пароля с солью и случайным ключом подписи.
 # При недопустимом состоянии возбуждает ValueError.
 def password_document(password):
-    if not isinstance(password, str) or not 12 <= len(password) <= 1024 or '\x00' in password:
-        raise ValueError('Используй пароль от 12 до 1024 символов')
+    if not isinstance(password, str) or not 6 <= len(password) <= 1024 or '\x00' in password:
+        raise ValueError('Используй пароль от 6 до 1024 символов')
     salt = secrets.token_bytes(32)
     digest = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, ITERATIONS)
     return {'version': 1, 'algorithm': 'pbkdf2-sha256', 'iterations': ITERATIONS,
@@ -122,7 +132,7 @@ class PasswordGate:
     def valid(self, document, token, kind):
         if not isinstance(token, str) or len(token) > 220:
             return False
-        match = re.fullmatch(r'1\.(session|login)\.([0-9]{1,12})\.([0-9]{1,12})\.[0-9a-f]{32}\.[0-9a-f]{64}', token)
+        match = re.fullmatch(r'1\.(session|login|settings)\.([0-9]{1,12})\.([0-9]{1,12})\.[0-9a-f]{32}\.[0-9a-f]{64}', token)
         if not match or match[1] != kind:
             return False
         issued, expires, now = int(match[2]), int(match[3]), self.clock()
@@ -132,6 +142,52 @@ class PasswordGate:
         value, signature = token.rsplit('.', 1)
         expected = hmac.new(self.key(document), value.encode(), hashlib.sha256).hexdigest()
         return hmac.compare_digest(expected, signature)
+
+    # Атомарно меняет проверенный профиль с закрытой копией прежнего.
+    # Проверяет версию формы и текущий пароль внешнего сеанса под общей блокировкой.
+    def change_password(self, payload, require_current):
+        with self.lock:
+            document = self.document()
+            if not self.valid(document, payload.get('csrf'), 'settings'):
+                raise PasswordSettingsConflict('Настройки изменились или устарели. Закрой и открой их заново')
+            password = payload.get('new_password')
+            confirmation = payload.get('confirmation')
+            current = payload.get('current_password', '')
+            if (not isinstance(password, str) or not isinstance(confirmation, str)
+                    or not isinstance(current, str) or len(current) > 1024
+                    or not hmac.compare_digest(password.encode(), confirmation.encode())):
+                raise ValueError('Новые пароли должны совпадать')
+            if require_current:
+                digest = hashlib.pbkdf2_hmac('sha256', current.encode(), bytes.fromhex(document['salt']), ITERATIONS)
+                if not hmac.compare_digest(digest.hex(), document['digest']):
+                    raise ValueError('Текущий пароль не подошёл')
+            replacement = password_document(password)
+            parent = self.path.parent
+            if parent.is_symlink() or parent.stat().st_mode & 0o077:
+                raise ValueError('Каталог пароля должен быть закрыт для других пользователей')
+            backups = parent / 'backups'
+            backups.mkdir(mode=0o700, exist_ok=True)
+            if backups.is_symlink() or backups.stat().st_mode & 0o077:
+                raise ValueError('Каталог копий пароля должен быть закрыт')
+            backup = backups / ('password-before-' + str(int(self.clock())) + '-' + secrets.token_hex(8) + '.json')
+            fd = os.open(backup, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(fd, 'w') as stream:
+                json.dump(document, stream)
+                stream.flush()
+                os.fsync(stream.fileno())
+            fd, temporary = tempfile.mkstemp(prefix='.password-', dir=parent)
+            try:
+                with os.fdopen(fd, 'w') as stream:
+                    json.dump(replacement, stream)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                if self.document() != document:
+                    raise PasswordSettingsConflict('Пароль уже изменён. Открой настройки заново')
+                os.replace(temporary, self.path)
+            finally:
+                if os.path.exists(temporary):
+                    os.unlink(temporary)
+            return replacement
 
     # Возвращает задержку глобального ограничения попыток входа.
     # Возвращает `max(1, math.ceil(60 - (now - self.attempts[0])))`; либо `0`.
@@ -209,12 +265,105 @@ class RemoteHTTPServer(ThreadingHTTPServer):
             self.slots.release()
 
 
+# Проверяет адрес настроек локального менеджера или защищённого слушателя.
+# Локально принимает только loopback, частный IP или .local с фактическим портом сервера.
+def settings_request_allowed(handler, post=False):
+    hosts = handler.headers.get_all('Host', [])
+    if len(hosts) != 1:
+        return False
+    host = hosts[0]
+    if getattr(handler, 'remote_access_request', False):
+        return handler.same_origin() if post else True
+    try:
+        parsed = urllib.parse.urlsplit('//' + host)
+        name = parsed.hostname or ''
+        if parsed.port != handler.server.server_port or parsed.username or parsed.password:
+            return False
+        trusted = name == 'localhost' or name.endswith('.local')
+        if not trusted:
+            address = ipaddress.ip_address(name)
+            trusted = address.is_private or address.is_loopback
+    except ValueError:
+        return False
+    if not trusted:
+        return False
+    return not post or handler.headers.get_all('Origin', []) in (['http://' + host], ['https://' + host])
+
+
+# Выдаёт состояние внешнего входа и короткий токен формы настроек.
+# Не выдаёт профиль или его хеш; неверный адрес и неизвестный профиль закрывают действие.
+def serve_settings(handler, head=False):
+    if not settings_request_allowed(handler):
+        handler.send_json({'error': 'Открой настройки по локальному адресу менеджера'}, 403, head=head)
+        return
+    gate = getattr(handler.server, 'password_gate', None)
+    if gate is None:
+        handler.send_json({'enabled': False}, head=head)
+        return
+    try:
+        document = gate.document()
+    except (OSError, ValueError, UnicodeError):
+        handler.send_json({'error': 'Профиль внешнего входа недоступен. Сохранение заблокировано'}, 503, head=head)
+        return
+    handler.send_json({'enabled': True, 'public_host': gate.public_host,
+                       'require_current_password': bool(getattr(handler, 'remote_access_request', False)),
+                       'csrf': gate.token(document, 'settings', LOGIN_SECONDS)}, head=head)
+
+
+# Принимает явную смену пароля из настроек и обновляет текущий внешний сеанс.
+# Требует свою страницу, JSON, токен профиля и текущий пароль при внешнем входе.
+def serve_password_change(handler):
+    gate = getattr(handler.server, 'password_gate', None)
+    if (gate is None or not settings_request_allowed(handler, post=True)
+            or handler.headers.get_all('X-Manager-Settings', []) != ['1']):
+        handler.send_json({'error': 'Меняй пароль через настройки менеджера'}, 403)
+        return
+    remote = bool(getattr(handler, 'remote_access_request', False))
+    if remote and gate.retry_after():
+        handler.send_json({'error': 'Слишком много попыток. Попробуй через минуту'}, 429)
+        return
+    if not gate.verifying.acquire(blocking=False):
+        handler.send_json({'error': 'Проверка пароля уже идёт. Попробуй через секунду'}, 429)
+        return
+    try:
+        lengths = handler.headers.get_all('Content-Length', [])
+        if (handler.headers.get_content_type() != 'application/json' or len(lengths) != 1
+                or not re.fullmatch('[0-9]+', lengths[0]) or int(lengths[0]) > 16384
+                or handler.headers.get('Transfer-Encoding')):
+            raise ValueError('Некорректная форма настроек')
+        payload = json.loads(handler.rfile.read(int(lengths[0])).decode('utf-8'))
+        if not isinstance(payload, dict):
+            raise ValueError('Некорректная форма настроек')
+        old_session = cookie(handler, SESSION_COOKIE) if remote else ''
+        # Preserve the current browser's existing session lifetime and remember choice.
+        lifetime = max(1, int(old_session.split('.')[3]) - int(gate.clock())) if remote else 0
+        remembered = remote and int(old_session.split('.')[3]) - int(old_session.split('.')[2]) > 12 * 3600
+        document = gate.change_password(payload, require_current=remote)
+        result = {'ok': True, 'csrf': gate.token(document, 'settings', LOGIN_SECONDS)}
+        if remote:
+            value = old_session.rsplit('.', 1)[0]
+            session = value + '.' + hmac.new(gate.key(document), value.encode(), hashlib.sha256).hexdigest()
+            handler.reply(200, json.dumps(result).encode(), 'application/json; charset=utf-8',
+                          [('Set-Cookie', cookie_header(SESSION_COOKIE, session, lifetime if remembered else None))])
+        else:
+            handler.send_json(result)
+    except PasswordSettingsConflict as error:
+        handler.send_json({'error': str(error)}, 409)
+    except (ValueError, UnicodeError):
+        handler.send_json({'error': 'Проверь текущий пароль, совпадение новых паролей и длину от 6 до 1024 символов'}, 400)
+    except OSError:
+        handler.send_json({'error': 'Не удалось завершить смену пароля. Проверь вход с новым паролем перед повтором'}, 500)
+    finally:
+        gate.verifying.release()
+
+
 # Создаёт отдельный класс обработчика защищённого слушателя.
 # Возвращает `RemoteHandler`.
 def handler_class(base_handler):
     # Закрывает все унаследованные маршруты проверками отдельного внешнего входа.
     # Основные операции: setup, end_headers, reply, context, same_origin; остальные описаны у методов.
     class RemoteHandler(base_handler):
+        remote_access_request = True
         # This class is used only by the separate 127.0.0.1 listener. Never infer
         # local trust from Host, X-Forwarded-For, CF-Connecting-IP or client IP.
         # Настраивает ограничения соединения перед обработкой защищённого запроса.
@@ -223,14 +372,14 @@ def handler_class(base_handler):
             super().setup()
             self.connection.settimeout(20)
 
-        # Добавляет обязательные заголовки перед завершением HTTP-ответа.
-        # Передаёт работу `self.send_header`, `super().end_headers`, `super`.
+        # Добавляет защитные заголовки и политику ссылок внешнего ответа.
+        # same-origin сохраняет Origin собственной формы и скрывает Referer от других сайтов.
         def end_headers(self):
             self.send_header('Cache-Control', 'no-store')
             self.send_header('CDN-Cache-Control', 'no-store')
             self.send_header('X-Content-Type-Options', 'nosniff')
             self.send_header('X-Frame-Options', 'DENY')
-            self.send_header('Referrer-Policy', 'no-referrer')
+            self.send_header('Referrer-Policy', 'same-origin')
             self.send_header('Strict-Transport-Security', 'max-age=31536000')
             super().end_headers()
 
