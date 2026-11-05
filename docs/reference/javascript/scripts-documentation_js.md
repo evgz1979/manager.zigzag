@@ -1,28 +1,16 @@
 # scripts/documentation_js.cjs
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [scripts/documentation_js.cjs:1](../../../scripts/documentation_js.cjs#L1).
+Исходник: [scripts/documentation_js.cjs](../../../scripts/documentation_js.cjs).
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
-## description
-
-[scripts/documentation_js.cjs:16](../../../scripts/documentation_js.cjs#L16) · `FunctionDeclaration`.
-
-```c
-function description(code, start)
-```
-
-Извлекает ровно две строки комментария перед именованным объявлением.
-
-Учитывает обычные // и двухстрочный /* */ перед методом внутри выражения.
-
-Непосредственные вызовы: `code.slice`, `before.match`, `plain.slice`, `block.slice`.
+<a id="symbol-callsIn"></a>
 
 ## callsIn
 
-[scripts/documentation_js.cjs:26](../../../scripts/documentation_js.cjs#L26) · `FunctionDeclaration`.
+[scripts/documentation_js.cjs](../../../scripts/documentation_js.cjs) · `FunctionDeclaration`.
 
 ```c
 function callsIn(node, code)
@@ -34,9 +22,11 @@ function callsIn(node, code)
 
 Непосредственные вызовы: `Set`, `scan`.
 
-## scan
+<a id="symbol-callsIn.scan"></a>
 
-[scripts/documentation_js.cjs:30](../../../scripts/documentation_js.cjs#L30) · `FunctionDeclaration`.
+## callsIn.scan
+
+[scripts/documentation_js.cjs](../../../scripts/documentation_js.cjs) · `FunctionDeclaration`.
 
 ```c
 function scan(value)
@@ -48,9 +38,27 @@ function scan(value)
 
 Непосредственные вызовы: `Array.isArray`, `value.forEach`, `/Function|Method/.test`, `['CallExpression', 'NewExpression', 'OptionalCallExpression'].includes`, `calls.add`, `code.slice`, `/MemberExpression/.test`, `writes.add`, `Object.entries`, `['loc', 'comments', 'leadingComments', 'trailingComments', 'innerComments'].includes`, `scan`.
 
+<a id="symbol-description"></a>
+
+## description
+
+[scripts/documentation_js.cjs](../../../scripts/documentation_js.cjs) · `FunctionDeclaration`.
+
+```c
+function description(code, start)
+```
+
+Извлекает ровно две строки комментария перед именованным объявлением.
+
+Учитывает обычные // и двухстрочный /* */ перед методом внутри выражения.
+
+Непосредственные вызовы: `code.slice`, `before.match`, `plain.slice`, `block.slice`.
+
+<a id="symbol-inventory"></a>
+
 ## inventory
 
-[scripts/documentation_js.cjs:49](../../../scripts/documentation_js.cjs#L49) · `FunctionDeclaration`.
+[scripts/documentation_js.cjs](../../../scripts/documentation_js.cjs) · `FunctionDeclaration`.
 
 ```c
 function inventory(file)
@@ -62,16 +70,18 @@ function inventory(file)
 
 Непосредственные вызовы: `fs.readFileSync`, `path.join`, `babelParse`, `walk`.
 
-## walk
+<a id="symbol-inventory.walk"></a>
 
-[scripts/documentation_js.cjs:55](../../../scripts/documentation_js.cjs#L55) · `FunctionDeclaration`.
+## inventory.walk
+
+[scripts/documentation_js.cjs](../../../scripts/documentation_js.cjs) · `FunctionDeclaration`.
 
 ```c
-function walk(node, parent, ancestors = [])
+function walk(node, parent, ancestors = [], scope = [])
 ```
 
 Определяет имя и границу объявления по родительским узлам Babel AST.
 
-Сохраняет фактическую строку функции после вставленных комментариев.
+Квалифицирует вложенные имена; физическая строка нужна только диагностике и поиску.
 
-Непосредственные вызовы: `Array.isArray`, `node.forEach`, `['FunctionDeclaration', 'ClassDeclaration'].includes`, `['FunctionExpression', 'ArrowFunctionExpression'].includes`, `ancestors.at`, `['ObjectMethod', 'ClassMethod', 'ClassPrivateMethod'].includes`, `symbols.push`, `code.slice(declaration.start, node.body?.start || node.end).trim`, `code.slice`, `description`, `callsIn`, `Object.entries`, `['loc', 'comments', 'leadingComments', 'trailingComments', 'innerComments'].includes`, `walk`.
+Непосредственные вызовы: `Array.isArray`, `node.forEach`, `['FunctionDeclaration', 'ClassDeclaration'].includes`, `['FunctionExpression', 'ArrowFunctionExpression'].includes`, `ancestors.at`, `['ObjectMethod', 'ClassMethod', 'ClassPrivateMethod'].includes`, `symbols.push`, `[...scope, name].join`, `code.slice(declaration.start, node.body?.start || node.end).trim`, `code.slice`, `description`, `callsIn`, `Object.entries`, `['loc', 'comments', 'leadingComments', 'trailingComments', 'innerComments'].includes`, `walk`.

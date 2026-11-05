@@ -1,8 +1,8 @@
 # scripts/rebind_order.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [scripts/rebind_order.py:1](../../../scripts/rebind_order.py#L1).
+Исходник: [scripts/rebind_order.py](../../../scripts/rebind_order.py).
 
 Explicitly rebind an exported order after a confirmed external folder move.
 
@@ -13,49 +13,45 @@ It never moves documents or replaces the working database with a snapshot.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
-## inside
+<a id="symbol-append"></a>
 
-[scripts/rebind_order.py:22](../../../scripts/rebind_order.py#L22) · `function`.
+## append
 
-```python
-def inside(path, prefix):
-```
-
-Проверяет принадлежность пути указанной области по границам компонентов.
-
-Возвращает `path == prefix or path.startswith(prefix + '/')`.
-
-Непосредственные вызовы: `path.startswith`.
-
-Выражения возврата (ветки читаются в исходнике):
+[scripts/rebind_order.py](../../../scripts/rebind_order.py) · `function`.
 
 ```python
-path == prefix or path.startswith(prefix + '/')
+def append(session, phase):
 ```
 
-## table
+Дописывает запись в устойчивый журнал операции.
 
-[scripts/rebind_order.py:28](../../../scripts/rebind_order.py#L28) · `function`.
+Передаёт работу `datetime.now(ZoneInfo('Europe/Moscow')).isoformat`, `datetime.now`, `ZoneInfo`.
+
+Непосредственные вызовы: `datetime.now(ZoneInfo('Europe/Moscow')).isoformat`, `datetime.now`, `ZoneInfo`, `(Path(session) / '.journal.jsonl').open`, `Path`, `output.write`, `json.dumps`, `output.flush`, `os.fsync`, `output.fileno`.
+
+<a id="symbol-check_links"></a>
+
+## check_links
+
+[scripts/rebind_order.py](../../../scripts/rebind_order.py) · `function`.
 
 ```python
-def table(db, name):
+def check_links(db, source, destination, identity):
 ```
 
-Проверяет наличие таблицы SQLite перед совместимой перепривязкой.
+Проверяет согласованность связанных записей до перепривязки заказа.
 
-Работает с таблицами sqlite_master.
+Работает с таблицами orders, folder_notes, todo_missing_folders, todo_catalog, mobile_operations.
 
-Непосредственные вызовы: `db.execute('SELECT 1 FROM sqlite_master WHERE name=?', (name,)).fetchone`, `db.execute`.
+Непосредственные вызовы: `db.execute`, `any`, `inside`, `ValueError`, `table`, `db.execute('SELECT 1 FROM todo_catalog WHERE path=?', (destination,)).fetchone`, `json.loads`, `json.loads(payload).get`.
 
-Выражения возврата (ветки читаются в исходнике):
+Явные исключения: `ValueError`.
 
-```python
-db.execute('SELECT 1 FROM sqlite_master WHERE name=?', (name,)).fetchone() is not None
-```
+<a id="symbol-checked_folder"></a>
 
 ## checked_folder
 
-[scripts/rebind_order.py:34](../../../scripts/rebind_order.py#L34) · `function`.
+[scripts/rebind_order.py](../../../scripts/rebind_order.py) · `function`.
 
 ```python
 def checked_folder(root, relative):
@@ -75,53 +71,33 @@ def checked_folder(root, relative):
 target
 ```
 
-## append
+<a id="symbol-inside"></a>
 
-[scripts/rebind_order.py:49](../../../scripts/rebind_order.py#L49) · `function`.
+## inside
 
-```python
-def append(session, phase):
-```
-
-Дописывает запись в устойчивый журнал операции.
-
-Передаёт работу `datetime.now(ZoneInfo('Europe/Moscow')).isoformat`, `datetime.now`, `ZoneInfo`.
-
-Непосредственные вызовы: `datetime.now(ZoneInfo('Europe/Moscow')).isoformat`, `datetime.now`, `ZoneInfo`, `(Path(session) / '.journal.jsonl').open`, `Path`, `output.write`, `json.dumps`, `output.flush`, `os.fsync`, `output.fileno`.
-
-## check_links
-
-[scripts/rebind_order.py:59](../../../scripts/rebind_order.py#L59) · `function`.
+[scripts/rebind_order.py](../../../scripts/rebind_order.py) · `function`.
 
 ```python
-def check_links(db, source, destination, identity):
+def inside(path, prefix):
 ```
 
-Проверяет согласованность связанных записей до перепривязки заказа.
+Проверяет принадлежность пути указанной области по границам компонентов.
 
-Работает с таблицами orders, folder_notes, todo_missing_folders, todo_catalog, mobile_operations.
+Возвращает `path == prefix or path.startswith(prefix + '/')`.
 
-Непосредственные вызовы: `db.execute`, `any`, `inside`, `ValueError`, `table`, `db.execute('SELECT 1 FROM todo_catalog WHERE path=?', (destination,)).fetchone`, `json.loads`, `json.loads(payload).get`.
+Непосредственные вызовы: `path.startswith`.
 
-Явные исключения: `ValueError`.
-
-## update_paths
-
-[scripts/rebind_order.py:88](../../../scripts/rebind_order.py#L88) · `function`.
+Выражения возврата (ветки читаются в исходнике):
 
 ```python
-def update_paths(db, source, destination, identity):
+path == prefix or path.startswith(prefix + '/')
 ```
 
-Переписывает подтверждённые связанные пути в одной транзакции.
-
-Работает с таблицами orders, invoices, todo_catalog, mobile_files.
-
-Непосредственные вызовы: `db.execute`, `table`.
+<a id="symbol-rebind"></a>
 
 ## rebind
 
-[scripts/rebind_order.py:100](../../../scripts/rebind_order.py#L100) · `function`.
+[scripts/rebind_order.py](../../../scripts/rebind_order.py) · `function`.
 
 ```python
 def rebind(store, source, destination, *, perform=False):
@@ -142,9 +118,33 @@ preview
 {**preview, 'journal': str(session)}
 ```
 
+<a id="symbol-table"></a>
+
+## table
+
+[scripts/rebind_order.py](../../../scripts/rebind_order.py) · `function`.
+
+```python
+def table(db, name):
+```
+
+Проверяет наличие таблицы SQLite перед совместимой перепривязкой.
+
+Работает с таблицами sqlite_master.
+
+Непосредственные вызовы: `db.execute('SELECT 1 FROM sqlite_master WHERE name=?', (name,)).fetchone`, `db.execute`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+db.execute('SELECT 1 FROM sqlite_master WHERE name=?', (name,)).fetchone() is not None
+```
+
+<a id="symbol-undo"></a>
+
 ## undo
 
-[scripts/rebind_order.py:161](../../../scripts/rebind_order.py#L161) · `function`.
+[scripts/rebind_order.py](../../../scripts/rebind_order.py) · `function`.
 
 ```python
 def undo(session, *, perform=False):
@@ -165,3 +165,19 @@ def undo(session, *, perform=False):
 {'restored': 0}
 {'restored': 1}
 ```
+
+<a id="symbol-update_paths"></a>
+
+## update_paths
+
+[scripts/rebind_order.py](../../../scripts/rebind_order.py) · `function`.
+
+```python
+def update_paths(db, source, destination, identity):
+```
+
+Переписывает подтверждённые связанные пути в одной транзакции.
+
+Работает с таблицами orders, invoices, todo_catalog, mobile_files.
+
+Непосредственные вызовы: `db.execute`, `table`.

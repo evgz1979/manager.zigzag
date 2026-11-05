@@ -10,6 +10,7 @@ import re
 import shutil
 import subprocess
 import sys
+from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parents[1]
 REFERENCE = ROOT / 'docs/reference'
@@ -93,19 +94,24 @@ def python_inventory(path):
 def native_inventory(path):
     lines = path.read_text().splitlines()
     symbols = []
+    parents = []
     for index, line in enumerate(lines):
         match = NATIVE_PATTERN.match(line) if path.suffix == '.swift' else re.match(r'^(\s*)(?:static )?(?:void|int) (\w+)\(', line)
         if not match:
             continue
         kind = match[2] if path.suffix == '.swift' else 'function'
         name = ('init' if kind == 'init' else match[3]) if path.suffix == '.swift' else match[2]
+        indent = len(match[1].expandtabs(4))
+        while parents and parents[-1][0] >= indent:
+            parents.pop()
         signature = line.strip()
         following = index
         while '{' not in signature and following + 1 < len(lines):
             following += 1
             signature += ' ' + lines[following].strip()
-        symbols.append({'name': name, 'line': index + 1, 'type': kind,
+        symbols.append({'name': '.'.join([parent[1] for parent in parents] + [name]), 'line': index + 1, 'type': kind,
                         'signature': signature.split(' {')[0], 'description': description(lines, index + 1, '//'), 'calls': []})
+        parents.append((indent, name))
     return {'path': path.relative_to(ROOT).as_posix(), 'symbols': symbols}
 
 
@@ -128,18 +134,71 @@ def reference_name(file):
     return file['path'].rsplit('.', 1)[0].replace('/', '-') + '.md'
 
 
-# Создаёт относительную Markdown-ссылку на файл и фактическую строку кода.
-# Номер проверяется по текущей инвентаризации, а не по прежнему снимку.
-def source_link(path, line, folder):
+# Создаёт относительную Markdown-ссылку на исходный файл без физической строки.
+# Точное объявление определяется именем в справочнике или командой --locate.
+def source_link(path, folder):
     target = os.path.relpath(ROOT / path, folder)
-    return '[' + path + ':' + str(line) + '](' + target + '#L' + str(line) + ')'
+    return '[' + path + '](' + target + ')'
+
+
+# Назначает объявлениям постоянные якоря и порядок независимо от позиции в исходнике.
+# Одноимённые перегрузки различаются сигнатурой; строки и хеш целого файла не сохраняются.
+def prepare_reference(file, group):
+    file['reference'] = group + '/' + reference_name(file)
+    counts = {}
+    for symbol in file['symbols']:
+        counts[symbol['name']] = counts.get(symbol['name'], 0) + 1
+    anchors = set()
+    for symbol in file['symbols']:
+        anchor = 'symbol-' + quote(symbol['name'], safe='-._')
+        if counts[symbol['name']] > 1:
+            signature = re.sub(r'\s+', '', symbol['signature'])
+            anchor += '-' + hashlib.sha256(signature.encode()).hexdigest()[:12]
+        if anchor in anchors:
+            raise ValueError(file['path'] + ': ambiguous symbol ' + symbol['name'])
+        anchors.add(anchor)
+        symbol['anchor'] = anchor
+    file['symbols'].sort(key=lambda symbol: (symbol['name'], symbol['anchor']))
+
+
+# Создаёт ссылку на постоянный якорь описания функции или класса.
+# Имя и якорь берутся из текущей инвентаризации, без сохранённых координат исходника.
+def reference_link(file, symbol, folder):
+    target = os.path.relpath(REFERENCE / file['reference'], folder)
+    return '[' + symbol['name'] + '](' + target + '#' + symbol['anchor'] + ')'
+
+
+# Находит ближайшее объявление, которому принадлежит HTTP-ветка или SQL-строка.
+# Физические координаты используются только во время разбора и не попадают в справочник.
+def owner_link(file, line, folder):
+    candidates = [symbol for symbol in file['symbols'] if symbol['line'] <= line <= symbol.get('end_line', symbol['line'])]
+    if not candidates:
+        return source_link(file['path'], folder)
+    symbol = max(candidates, key=lambda item: item['line'])
+    return reference_link(file, symbol, folder)
+
+
+# Записывает компактный индекс объявлений: один символ на строку JSON.
+# Индекс не содержит физических строк, дат сборки или хешей целых исходников.
+def inventory_json(groups):
+    out = ['{', '  "version": 2,', '  "groups": {']
+    for group_index, (group, files) in enumerate(groups.items()):
+        out.append('    ' + json.dumps(group) + ': [')
+        for file_index, file in enumerate(files):
+            out += ['      {', '        "path": ' + json.dumps(file['path']) + ',', '        "symbols": [']
+            for index, symbol in enumerate(file['symbols']):
+                entry = {key: symbol[key] for key in ['name', 'type', 'anchor']}
+                out.append('          ' + json.dumps(entry, ensure_ascii=False) + (',' if index + 1 < len(file['symbols']) else ''))
+            out += ['        ]', '      }' + (',' if file_index + 1 < len(files) else '')]
+        out.append('    ]' + (',' if group_index + 1 < len(groups) else ''))
+    return '\n'.join([*out, '  }', '}', ''])
 
 
 # Строит страницу справочника одного модуля по его текущим объявлениям.
 # Вызовы и return представлены как синтаксические сведения с явными пределами.
 def module_page(file, folder):
-    out = ['# ' + file['path'], '', 'Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).', '',
-           'Исходник: ' + source_link(file['path'], 1, folder) + '.', '']
+    out = ['# ' + file['path'], '', 'Сгенерировано из текущих объявлений. [Все модули](../README.md).', '',
+           'Исходник: ' + source_link(file['path'], folder) + '.', '']
     if file.get('summary'):
         out += [file['summary'], '']
     if file.get('imports'):
@@ -149,7 +208,7 @@ def module_page(file, folder):
     else:
         out += ['Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.', '']
     for symbol in file['symbols']:
-        out += ['## ' + symbol['name'], '', source_link(file['path'], symbol['line'], folder) + ' · `' + symbol['type'] + '`.', '',
+        out += ['<a id="' + symbol['anchor'] + '"></a>', '', '## ' + symbol['name'], '', source_link(file['path'], folder) + ' · `' + symbol['type'] + '`.', '',
                 '```' + ('javascript' if symbol['type'] == 'embedded JavaScript' else 'python' if file['path'].endswith('.py') else 'javascript' if file['path'].endswith('.js') else 'swift' if file['path'].endswith('.swift') else 'c'), symbol['signature'], '```', '',
                 '\n\n'.join(symbol['description']), '']
         for key, title in [('calls', 'Непосредственные вызовы'), ('raises', 'Явные исключения'), ('writes', 'Прямые присваивания полям/свойствам')]:
@@ -164,10 +223,11 @@ def module_page(file, folder):
 
 # Извлекает ветки HTTP-маршрутов из фактических сравнений route/path.
 # Не принимает упоминание API в сообщении или защите Origin за отдельный маршрут.
-def api_page():
+def api_page(files):
     out = ['# HTTP API: точки входа', '', 'Получено статически из веток обработчиков. Параметры ниже — строковые ключи payload/get, найденные внутри ветки, а не автоматически доказанная обязательная JSON-схема. Точные проверки находятся по ссылке и в вызываемом доменном методе.', '',
            'На внешнем слушателе все маршруты наследуют проверки входа. HEAD использует общую GET-маршрутизацию. Защитные проверки, общие лимиты тела и специальные загрузки могут находиться перед перечисленными ветками.', '']
     for relative in ['server.py', 'remote_access.py']:
+        file = next(file for file in files if file['path'] == relative)
         source = (ROOT / relative).read_text()
         tree = ast.parse(source)
         for method in [node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name in ['handle_get', 'do_POST', 'get_remote', 'receive_calendar_telegram', 'receive_upload', 'receive_telegram_settings']]:
@@ -190,7 +250,7 @@ def api_page():
                     calls = list(dict.fromkeys(ast.unparse(call.func) for call in branch if isinstance(call, ast.Call) and not ast.unparse(call.func).startswith(('payload.', 'query.', 'self.send_json', 'json.', 'db.'))))
                     responses = list(dict.fromkeys(ast.unparse(call) for call in branch if isinstance(call, ast.Call) and ast.unparse(call.func) == 'self.send_json'))
                     verb = 'GET / HEAD' if method.name in ['handle_get', 'get_remote'] else 'POST'
-                    out += ['## ' + verb + ' ' + route, '', source_link(relative, node.lineno, REFERENCE) + ' · `' + method.name + '`.', '',
+                    out += ['## ' + verb + ' ' + route, '', owner_link(file, node.lineno, REFERENCE) + '.', '',
                             'Условие: `' + test.replace('`', "'") + '`.', '']
                     if params:
                         out += ['Ключи payload, читаемые в ветке: ' + ', '.join('`' + value + '`' for value in params) + '.', '']
@@ -224,8 +284,8 @@ def schema_page(files):
                 snippets.append((node.lineno, node.value))
         if snippets:
             out += ['## ' + file['path'], '']
-        for line, sql in sorted(set(snippets)):
-            out += [source_link(file['path'], line, REFERENCE), '', '```sql', sql.strip(), '```', '']
+        for link, sql in sorted({(owner_link(file, line, REFERENCE), sql) for line, sql in snippets}):
+            out += [link, '', '```sql', sql.strip(), '```', '']
     return '\n'.join(out)
 
 
@@ -250,77 +310,97 @@ def usage_page(files):
     return '\n'.join(out)
 
 
-# Проверяет локальные Markdown-ссылки и номера строк исходников.
-# Внешние адреса и смысл пользовательских HTML-якорей здесь не проверяются.
+# Проверяет локальные файлы и устойчивые ссылки на существующие объявления.
+# Старые #L разрешены только в истории; внешние адреса и прочие heading-якоря не проверяются.
 def check_links(files):
     errors = []
-    by_path = {}
+    by_reference = {}
     for file in files:
-        by_path.setdefault((ROOT / file['path']).resolve(), []).extend(file['symbols'])
+        by_reference.setdefault((REFERENCE / file['reference']).resolve(), set()).update(symbol['anchor'] for symbol in file['symbols'])
     for path in [ROOT / 'README.md', ROOT / 'mobile/README.md', *sorted((ROOT / 'docs').rglob('*.md'))]:
         content = re.sub(r'(?ms)^```[^\n]*\n.*?^```[ \t]*(?:\n|$)', '', path.read_text())
         content = re.sub(r'`[^`\n]*`', '', content)
         for label, target in re.findall(r'(?<!!)\[([^\]\n]+)\]\(([^)\n]+)\)', content):
-            if re.match(r'[a-z][a-z0-9+.-]*:', target, re.I) or target.startswith('#'):
+            if re.match(r'[a-z][a-z0-9+.-]*:', target, re.I):
                 continue
             target = target.strip('<>')
             name, _, anchor = target.partition('#')
-            destination = path.parent / name
+            destination = path.parent / name if name else path
             if not destination.exists():
                 errors.append(str(path.relative_to(ROOT)) + ': missing ' + target)
             elif re.fullmatch(r'L\d+', anchor):
                 number = int(anchor[1:])
-                if not 1 <= number <= len(destination.read_text().splitlines()):
+                if 'history' not in path.relative_to(ROOT).parts:
+                    errors.append(str(path.relative_to(ROOT)) + ': use a stable symbol reference instead of ' + target)
+                elif not 1 <= number <= len(destination.read_text().splitlines()):
                     errors.append(str(path.relative_to(ROOT)) + ': invalid line ' + target)
-                candidates = [symbol for symbol in by_path.get(destination.resolve(), []) if symbol['name'] == label or symbol['name'] == label.rsplit('.', 1)[-1]]
-                if candidates and number not in {symbol['line'] for symbol in candidates}:
-                    errors.append(str(path.relative_to(ROOT)) + ': stale symbol line ' + label + ' ' + target)
+            elif anchor.startswith('symbol-'):
+                anchors = by_reference.get(destination.resolve(), set())
+                if anchor not in anchors or ('id="' + anchor + '"') not in destination.read_text():
+                    errors.append(str(path.relative_to(ROOT)) + ': missing symbol ' + target)
     return errors
 
 
+# Собирает текущие объявления всех поддерживаемых языков без исполнения приложения.
+# Физические строки остаются в памяти для ошибок, владельцев веток и команды --locate.
+def collect_inventory(node, babel=None):
+    env = dict(os.environ)
+    if babel:
+        env['MANAGER_DOCUMENTATION_BABEL'] = str(Path(babel).resolve())
+    result = subprocess.run([node, str(ROOT / 'scripts/documentation_js.cjs')], capture_output=True, text=True, check=True, env=env)
+    embedded = [embedded_inventory(path) for path in sorted([*ROOT.glob('*.py'), *(ROOT / 'scripts').glob('*.py'), *(ROOT / 'static').glob('*.html')])]
+    groups = {'python': [python_inventory(path) for path in sorted([*ROOT.glob('*.py'), *(ROOT / 'scripts').glob('*.py')])],
+              'javascript': json.loads(result.stdout),
+              'native': [native_inventory(path) for path in sorted([*ROOT.glob('*.swift'), *(ROOT / 'mobile').glob('*.swift'), ROOT / 'scripts/manager_launcher.c']) if path.name not in ['CoreTests.swift', 'ProtocolProbe.swift']], 'embedded': [file for file in embedded if file['symbols']]}
+    for group, files in groups.items():
+        for file in files:
+            prepare_reference(file, group)
+    return groups
+
+
 # Собирает справочники и сравнивает их с сохранённым результатом при --check.
-# Меняет только docs/reference; приложение, база, документы и секреты не открываются.
+# Меняет только docs/reference; --locate печатает текущую позицию символа без записи файлов.
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--check', action='store_true')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--check', action='store_true')
+    mode.add_argument('--locate', metavar='PATH::SYMBOL', help='Показать текущую строку объявления без изменения справочника')
     parser.add_argument('--node', default=shutil.which('node'))
     parser.add_argument('--babel', help='Path to bundled Playwright lib/transform/babelBundle.js')
     args = parser.parse_args()
     if not args.node:
         parser.error('Node is required; pass --node or add the bundled runtime to PATH')
-    env = dict(os.environ)
-    if args.babel:
-        env['MANAGER_DOCUMENTATION_BABEL'] = str(Path(args.babel).resolve())
-    result = subprocess.run([args.node, str(ROOT / 'scripts/documentation_js.cjs')], capture_output=True, text=True, check=True, env=env)
-    embedded = [embedded_inventory(path) for path in sorted([*ROOT.glob('*.py'), *(ROOT / 'scripts').glob('*.py'), *(ROOT / 'static').glob('*.html')])]
-    groups = {'python': [python_inventory(path) for path in sorted([*ROOT.glob('*.py'), *(ROOT / 'scripts').glob('*.py')])],
-              'javascript': json.loads(result.stdout),
-              'native': [native_inventory(path) for path in sorted([*ROOT.glob('*.swift'), *(ROOT / 'mobile').glob('*.swift'), ROOT / 'scripts/manager_launcher.c']) if path.name not in ['CoreTests.swift', 'ProtocolProbe.swift']], 'embedded': [file for file in embedded if file['symbols']]}
+    groups = collect_inventory(args.node, args.babel)
+    if args.locate:
+        path, separator, name = args.locate.partition('::')
+        found = [(file, symbol) for files in groups.values() for file in files if file['path'] == path for symbol in file['symbols'] if symbol['name'] == name]
+        if not separator or not found:
+            parser.error('Объявление не найдено; укажи путь и полное имя, например invoices.py::InvoiceStore.plan')
+        for file, symbol in found:
+            print(file['path'] + ':' + str(symbol['line']) + ' ' + symbol['signature'])
+        return 0
     outputs = {}
-    index = ['# Справочник исходников', '', 'Срез кода: **3 ноября 2026 года**. Сгенерировано `scripts/build_documentation.py` из текущего AST/объявлений и двухстрочных комментариев. [Архитектура](../architecture.md), [языки](../language/README.md), [старый код](../legacy-code.md).', '',
+    index = ['# Справочник исходников', '', 'Сгенерировано `scripts/build_documentation.py` из текущего AST/объявлений и двухстрочных комментариев. Ссылки используют постоянные имена объявлений. [Архитектура](../architecture.md), [языки](../language/README.md), [старый код](../legacy-code.md).', '',
              '[HTTP-маршруты](http-api.md) · [SQLite DDL](sqlite-schema.md) · [использование модулей](module-usage.md) · [машинная инвентаризация](inventory.json).', '',
              'Включены собственные Python-модули и эксплуатационные скрипты, именованные JS-функции/методы, Swift-типы/методы и функции C-обёртки. Тестовые методы, vendor, анонимные callbacks и вычисляемые свойства не считаются отдельными объявлениями; тесты и встроенные HTML-сценарии объясняются в тематических документах.', '']
-    manifest = {'version': 1, 'date': '2026-11-03', 'groups': {}}
     errors = []
     for group, files in groups.items():
         count = sum(len(file['symbols']) for file in files)
         index += ['## ' + {'python': 'Python', 'javascript': 'JavaScript', 'native': 'Swift и C', 'embedded': 'Встроенный JavaScript'}[group], '',
                   str(len(files)) + ' файлов; ' + str(count) + ' именованных объявлений.', '', '| Модуль | Объявлений |', '| --- | ---: |']
-        manifest['groups'][group] = []
         for file in files:
-            relative = group + '/' + reference_name(file)
+            relative = file['reference']
             index.append('| [' + file['path'] + '](' + relative + ') | ' + str(len(file['symbols'])) + ' |')
             outputs[REFERENCE / relative] = module_page(file, (REFERENCE / relative).parent)
-            manifest['groups'][group].append({'path': file['path'], 'sha256': hashlib.sha256((ROOT / file['path']).read_bytes()).hexdigest(), 'symbols': [{key: symbol[key] for key in ['name', 'line', 'type']} for symbol in file['symbols']]})
             for symbol in file['symbols']:
                 if len(symbol['description']) != 2:
                     errors.append(file['path'] + ':' + str(symbol['line']) + ': expected two description lines')
         index.append('')
     outputs[REFERENCE / 'README.md'] = '\n'.join(index)
-    outputs[REFERENCE / 'http-api.md'] = api_page()
+    outputs[REFERENCE / 'http-api.md'] = api_page(groups['python'])
     outputs[REFERENCE / 'sqlite-schema.md'] = schema_page(groups['python'])
     outputs[REFERENCE / 'module-usage.md'] = usage_page(groups['python'])
-    outputs[REFERENCE / 'inventory.json'] = json.dumps(manifest, ensure_ascii=False, indent=2) + '\n'
+    outputs[REFERENCE / 'inventory.json'] = inventory_json(groups)
     expected = set(outputs)
     existing = set(REFERENCE.rglob('*.md')) | set(REFERENCE.glob('*.json'))
     for path in sorted(existing - expected):

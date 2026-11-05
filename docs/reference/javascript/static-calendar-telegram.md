@@ -1,14 +1,16 @@
 # static/calendar-telegram.js
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [static/calendar-telegram.js:1](../../../static/calendar-telegram.js#L1).
+Исходник: [static/calendar-telegram.js](../../../static/calendar-telegram.js).
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-get"></a>
+
 ## get
 
-[static/calendar-telegram.js:5](../../../static/calendar-telegram.js#L5) · `ArrowFunctionExpression`.
+[static/calendar-telegram.js](../../../static/calendar-telegram.js) · `ArrowFunctionExpression`.
 
 ```javascript
 const get = (id) =>
@@ -20,39 +22,11 @@ const get = (id) =>
 
 Непосредственные вызовы: `document.getElementById`.
 
-## readSettings
-
-[static/calendar-telegram.js:10](../../../static/calendar-telegram.js#L10) · `FunctionDeclaration`.
-
-```javascript
-async function readSettings()
-```
-
-Читает безопасное состояние подключения Telegram для интерфейса.
-
-Использует `/api/calendar-telegram-settings`.
-
-Непосредственные вызовы: `fetch`, `Error`, `response.json`.
-
-## showSettings
-
-[static/calendar-telegram.js:17](../../../static/calendar-telegram.js#L17) · `FunctionDeclaration`.
-
-```javascript
-function showSettings(current)
-```
-
-Показывает текущие параметры и ошибки настройки Telegram.
-
-Использует `get`, `dialog.showModal`.
-
-Непосредственные вызовы: `get`, `dialog.showModal`.
-
-Прямые присваивания полям/свойствам: `connected.hidden`, `connected.textContent`.
+<a id="symbol-openSettings"></a>
 
 ## openSettings
 
-[static/calendar-telegram.js:25](../../../static/calendar-telegram.js#L25) · `FunctionDeclaration`.
+[static/calendar-telegram.js](../../../static/calendar-telegram.js) · `FunctionDeclaration`.
 
 ```javascript
 async function openSettings()
@@ -64,9 +38,27 @@ async function openSettings()
 
 Непосредственные вызовы: `showSettings`, `readSettings`, `notify`.
 
+<a id="symbol-readSettings"></a>
+
+## readSettings
+
+[static/calendar-telegram.js](../../../static/calendar-telegram.js) · `FunctionDeclaration`.
+
+```javascript
+async function readSettings()
+```
+
+Читает безопасное состояние подключения Telegram для интерфейса.
+
+Использует `/api/calendar-telegram-settings`.
+
+Непосредственные вызовы: `fetch`, `Error`, `response.json`.
+
+<a id="symbol-setSettingsBusy"></a>
+
 ## setSettingsBusy
 
-[static/calendar-telegram.js:31](../../../static/calendar-telegram.js#L31) · `FunctionDeclaration`.
+[static/calendar-telegram.js](../../../static/calendar-telegram.js) · `FunctionDeclaration`.
 
 ```javascript
 function setSettingsBusy(value)
@@ -80,9 +72,11 @@ function setSettingsBusy(value)
 
 Прямые присваивания полям/свойствам: `control.disabled`.
 
+<a id="symbol-settingsRequest"></a>
+
 ## settingsRequest
 
-[static/calendar-telegram.js:38](../../../static/calendar-telegram.js#L38) · `FunctionDeclaration`.
+[static/calendar-telegram.js](../../../static/calendar-telegram.js) · `FunctionDeclaration`.
 
 ```javascript
 async function settingsRequest(action)
@@ -93,3 +87,21 @@ async function settingsRequest(action)
 Использует `/api/calendar-telegram-settings`.
 
 Непосредственные вызовы: `fetch`, `JSON.stringify`, `get("calendarTelegramToken").value.trim`, `get`, `get("calendarTelegramChatId").value.trim`, `response.json`, `Error`.
+
+<a id="symbol-showSettings"></a>
+
+## showSettings
+
+[static/calendar-telegram.js](../../../static/calendar-telegram.js) · `FunctionDeclaration`.
+
+```javascript
+function showSettings(current)
+```
+
+Показывает текущие параметры и ошибки настройки Telegram.
+
+Использует `get`, `dialog.showModal`.
+
+Непосредственные вызовы: `get`, `dialog.showModal`.
+
+Прямые присваивания полям/свойствам: `connected.hidden`, `connected.textContent`.

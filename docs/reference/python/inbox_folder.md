@@ -1,8 +1,8 @@
 # inbox_folder.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [inbox_folder.py:1](../../../inbox_folder.py#L1).
+Исходник: [inbox_folder.py](../../../inbox_folder.py).
 
 Count direct Inbox files without opening documents or walking subfolders.
 
@@ -10,9 +10,11 @@ Count direct Inbox files without opening documents or walking subfolders.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-snapshot"></a>
+
 ## snapshot
 
-[inbox_folder.py:9](../../../inbox_folder.py#L9) · `function`.
+[inbox_folder.py](../../../inbox_folder.py) · `function`.
 
 ```python
 def snapshot(root):

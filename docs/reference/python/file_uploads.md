@@ -1,8 +1,8 @@
 # file_uploads.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [file_uploads.py:1](../../../file_uploads.py#L1).
+Исходник: [file_uploads.py](../../../file_uploads.py).
 
 Stream browser files into an existing event directory without overwriting files.
 
@@ -10,33 +10,11 @@ Stream browser files into an existing event directory without overwriting files.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
-## UploadConflict
-
-[file_uploads.py:26](../../../file_uploads.py#L26) · `class`.
-
-```python
-class UploadConflict(ValueError):
-```
-
-Обозначает конфликт изменения в этом модуле.
-
-Вызывающий обработчик использует тип исключения для отказа без подмены данных.
-
-## UploadTooLarge
-
-[file_uploads.py:32](../../../file_uploads.py#L32) · `class`.
-
-```python
-class UploadTooLarge(ValueError):
-```
-
-Обозначает превышение размера в этом модуле.
-
-Вызывающий обработчик использует тип исключения для отказа без подмены данных.
+<a id="symbol-UploadBusy"></a>
 
 ## UploadBusy
 
-[file_uploads.py:38](../../../file_uploads.py#L38) · `class`.
+[file_uploads.py](../../../file_uploads.py) · `class`.
 
 ```python
 class UploadBusy(ValueError):
@@ -46,9 +24,39 @@ class UploadBusy(ValueError):
 
 Вызывающий обработчик использует тип исключения для отказа без подмены данных.
 
+<a id="symbol-UploadConflict"></a>
+
+## UploadConflict
+
+[file_uploads.py](../../../file_uploads.py) · `class`.
+
+```python
+class UploadConflict(ValueError):
+```
+
+Обозначает конфликт изменения в этом модуле.
+
+Вызывающий обработчик использует тип исключения для отказа без подмены данных.
+
+<a id="symbol-UploadTooLarge"></a>
+
+## UploadTooLarge
+
+[file_uploads.py](../../../file_uploads.py) · `class`.
+
+```python
+class UploadTooLarge(ValueError):
+```
+
+Обозначает превышение размера в этом модуле.
+
+Вызывающий обработчик использует тип исключения для отказа без подмены данных.
+
+<a id="symbol-available"></a>
+
 ## available
 
-[file_uploads.py:44](../../../file_uploads.py#L44) · `function`.
+[file_uploads.py](../../../file_uploads.py) · `function`.
 
 ```python
 def available(root, relative):
@@ -68,71 +76,11 @@ True
 bool(parent_order(root, relative))
 ```
 
-## target
-
-[file_uploads.py:63](../../../file_uploads.py#L63) · `function`.
-
-```python
-def target(root, relative):
-```
-
-Находит допустимую существующую цель файловой операции.
-
-При недопустимом состоянии возбуждает ValueError, FileNotFoundError.
-
-Непосредственные вызовы: `isinstance`, `ValueError`, `file_trash.checked`, `Path(root).resolve`, `Path`, `path.is_dir`, `FileNotFoundError`, `available`.
-
-Явные исключения: `ValueError`, `FileNotFoundError`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-path
-```
-
-## token
-
-[file_uploads.py:76](../../../file_uploads.py#L76) · `function`.
-
-```python
-def token(root, relative, folder=None):
-```
-
-Создаёт подписанный либо вычисляемый проверочный токен текущего контекста.
-
-Возвращает `hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()`.
-
-Непосредственные вызовы: `target`, `str`, `Path(root).resolve`, `Path`, `unicodedata.normalize`, `folder_layout.identity`, `hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest`, `hashlib.sha256`, `json.dumps(value, sort_keys=True).encode`, `json.dumps`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
-```
-
-## options
-
-[file_uploads.py:84](../../../file_uploads.py#L84) · `function`.
-
-```python
-def options(root, relative):
-```
-
-Возвращает ограничения и привязку формы загрузки файлов.
-
-Возвращает `{'token': token(root, relative, folder), 'maxBytes': MAX_BYTES, 'maxFiles': MAX_FILES}`.
-
-Непосредственные вызовы: `target`, `token`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-{'token': token(root, relative, folder), 'maxBytes': MAX_BYTES, 'maxFiles': MAX_FILES}
-```
+<a id="symbol-filename"></a>
 
 ## filename
 
-[file_uploads.py:91](../../../file_uploads.py#L91) · `function`.
+[file_uploads.py](../../../file_uploads.py) · `function`.
 
 ```python
 def filename(value):
@@ -152,43 +100,33 @@ def filename(value):
 value
 ```
 
-## reserved_names
+<a id="symbol-options"></a>
 
-[file_uploads.py:102](../../../file_uploads.py#L102) · `function`.
+## options
+
+[file_uploads.py](../../../file_uploads.py) · `function`.
 
 ```python
-def reserved_names(db, relative):
+def options(root, relative):
 ```
 
-Собирает имена, которые нельзя занять новой загрузкой.
+Возвращает ограничения и привязку формы загрузки файлов.
 
-Работает с таблицами sqlite_master, invoices.
+Возвращает `{'token': token(root, relative, folder), 'maxBytes': MAX_BYTES, 'maxFiles': MAX_FILES}`.
 
-Непосредственные вызовы: `unicodedata.normalize`, `set`, `db.execute`, `reserve`, `(Path(path) / '# bills' / name).as_posix`, `Path`.
+Непосредственные вызовы: `target`, `token`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-names
+{'token': token(root, relative, folder), 'maxBytes': MAX_BYTES, 'maxFiles': MAX_FILES}
 ```
 
-## reserved_names.reserve
-
-[file_uploads.py:107](../../../file_uploads.py#L107) · `function`.
-
-```python
-def reserve(path):
-```
-
-Занимает свободное имя файла для текущей загрузки.
-
-Передаёт работу `unicodedata.normalize`, `path.startswith`, `names.add`.
-
-Непосредственные вызовы: `unicodedata.normalize`, `path.startswith`, `names.add`, `path[len(prefix):].split('/', 1)[0].casefold`, `path[len(prefix):].split`, `len`.
+<a id="symbol-receive"></a>
 
 ## receive
 
-[file_uploads.py:125](../../../file_uploads.py#L125) · `function`.
+[file_uploads.py](../../../file_uploads.py) · `function`.
 
 ```python
 def receive(store, relative, expected, name, source, size):
@@ -206,4 +144,88 @@ def receive(store, relative, expected, name, source, size):
 
 ```python
 {'path': (Path(relative) / candidate).as_posix(), 'name': candidate, 'size': size}
+```
+
+<a id="symbol-reserved_names"></a>
+
+## reserved_names
+
+[file_uploads.py](../../../file_uploads.py) · `function`.
+
+```python
+def reserved_names(db, relative):
+```
+
+Собирает имена, которые нельзя занять новой загрузкой.
+
+Работает с таблицами sqlite_master, invoices.
+
+Непосредственные вызовы: `unicodedata.normalize`, `set`, `db.execute`, `reserve`, `(Path(path) / '# bills' / name).as_posix`, `Path`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+names
+```
+
+<a id="symbol-reserved_names.reserve"></a>
+
+## reserved_names.reserve
+
+[file_uploads.py](../../../file_uploads.py) · `function`.
+
+```python
+def reserve(path):
+```
+
+Занимает свободное имя файла для текущей загрузки.
+
+Передаёт работу `unicodedata.normalize`, `path.startswith`, `names.add`.
+
+Непосредственные вызовы: `unicodedata.normalize`, `path.startswith`, `names.add`, `path[len(prefix):].split('/', 1)[0].casefold`, `path[len(prefix):].split`, `len`.
+
+<a id="symbol-target"></a>
+
+## target
+
+[file_uploads.py](../../../file_uploads.py) · `function`.
+
+```python
+def target(root, relative):
+```
+
+Находит допустимую существующую цель файловой операции.
+
+При недопустимом состоянии возбуждает ValueError, FileNotFoundError.
+
+Непосредственные вызовы: `isinstance`, `ValueError`, `file_trash.checked`, `Path(root).resolve`, `Path`, `path.is_dir`, `FileNotFoundError`, `available`.
+
+Явные исключения: `ValueError`, `FileNotFoundError`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+path
+```
+
+<a id="symbol-token"></a>
+
+## token
+
+[file_uploads.py](../../../file_uploads.py) · `function`.
+
+```python
+def token(root, relative, folder=None):
+```
+
+Создаёт подписанный либо вычисляемый проверочный токен текущего контекста.
+
+Возвращает `hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()`.
+
+Непосредственные вызовы: `target`, `str`, `Path(root).resolve`, `Path`, `unicodedata.normalize`, `folder_layout.identity`, `hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest`, `hashlib.sha256`, `json.dumps(value, sort_keys=True).encode`, `json.dumps`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
 ```

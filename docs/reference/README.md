@@ -1,6 +1,6 @@
 # Справочник исходников
 
-Срез кода: **3 ноября 2026 года**. Сгенерировано `scripts/build_documentation.py` из текущего AST/объявлений и двухстрочных комментариев. [Архитектура](../architecture.md), [языки](../language/README.md), [старый код](../legacy-code.md).
+Сгенерировано `scripts/build_documentation.py` из текущего AST/объявлений и двухстрочных комментариев. Ссылки используют постоянные имена объявлений. [Архитектура](../architecture.md), [языки](../language/README.md), [старый код](../legacy-code.md).
 
 [HTTP-маршруты](http-api.md) · [SQLite DDL](sqlite-schema.md) · [использование модулей](module-usage.md) · [машинная инвентаризация](inventory.json).
 
@@ -8,7 +8,7 @@
 
 ## Python
 
-60 файлов; 823 именованных объявлений.
+60 файлов; 829 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
@@ -35,7 +35,7 @@
 | [inbox_folder.py](python/inbox_folder.md) | 1 |
 | [invoice_discovery.py](python/invoice_discovery.md) | 6 |
 | [invoice_documents.py](python/invoice_documents.md) | 13 |
-| [invoices.py](python/invoices.md) | 45 |
+| [invoices.py](python/invoices.md) | 46 |
 | [local_metadata.py](python/local_metadata.md) | 26 |
 | [mobile_sync.py](python/mobile_sync.md) | 24 |
 | [native_renderers.py](python/native_renderers.md) | 1 |
@@ -54,7 +54,7 @@
 | [recovery_backup.py](python/recovery_backup.md) | 10 |
 | [remote_access.py](python/remote_access.md) | 38 |
 | [scripts/archive_order_duplicate.py](python/scripts-archive_order_duplicate.md) | 8 |
-| [scripts/build_documentation.py](python/scripts-build_documentation.md) | 17 |
+| [scripts/build_documentation.py](python/scripts-build_documentation.md) | 22 |
 | [scripts/deploy.py](python/scripts-deploy.md) | 3 |
 | [scripts/deploy_remote.py](python/scripts-deploy_remote.md) | 17 |
 | [scripts/rebind_glass_notes.py](python/scripts-rebind_glass_notes.md) | 6 |

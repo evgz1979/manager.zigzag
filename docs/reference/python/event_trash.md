@@ -1,8 +1,8 @@
 # event_trash.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [event_trash.py:1](../../../event_trash.py#L1).
+Исходник: [event_trash.py](../../../event_trash.py).
 
 Recoverable removal of immediate events in supplier orders.
 
@@ -10,9 +10,11 @@ Recoverable removal of immediate events in supplier orders.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-available"></a>
+
 ## available
 
-[event_trash.py:28](../../../event_trash.py#L28) · `function`.
+[event_trash.py](../../../event_trash.py) · `function`.
 
 ```python
 def available(relative):
@@ -31,9 +33,34 @@ False
 folder_rename.available(relative) and (not path.name.startswith('#')) and work_orders.supplier_order(path.parent.as_posix())
 ```
 
+<a id="symbol-list_sessions"></a>
+
+## list_sessions
+
+[event_trash.py](../../../event_trash.py) · `function`.
+
+```python
+def list_sessions(store):
+```
+
+Читает сохранённые сеансы корзины для интерфейса восстановления.
+
+Работает с таблицами folder_renames.
+
+Непосредственные вызовы: `store.connect`, `paths.table`, `db.execute`, `json.loads`, `pair.get`, `result.append`, `sorted`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+[]
+sorted(result, key=lambda item: item['created'], reverse=True)
+```
+
+<a id="symbol-preview"></a>
+
 ## preview
 
-[event_trash.py:37](../../../event_trash.py#L37) · `function`.
+[event_trash.py](../../../event_trash.py) · `function`.
 
 ```python
 def preview(store, relative, db=None):
@@ -54,9 +81,11 @@ preview(store, relative, connection)
 {**view, 'revision': hashlib.sha256(json.dumps(fingerprint, sort_keys=True).encode()).hexdigest(), 'count': len(inventory), 'parent': Path(relative).parent.as_posix()}
 ```
 
+<a id="symbol-preview.scan"></a>
+
 ## preview.scan
 
-[event_trash.py:50](../../../event_trash.py#L50) · `function`.
+[event_trash.py](../../../event_trash.py) · `function`.
 
 ```python
 def scan(directory):
@@ -68,9 +97,11 @@ def scan(directory):
 
 Непосредственные вызовы: `os.scandir`, `entry.stat`, `inventory.append`, `Path(entry.path).relative_to(store.root / relative).as_posix`, `Path(entry.path).relative_to`, `Path`, `entry.is_dir`, `scan`.
 
+<a id="symbol-remove"></a>
+
 ## remove
 
-[event_trash.py:70](../../../event_trash.py#L70) · `function`.
+[event_trash.py](../../../event_trash.py) · `function`.
 
 ```python
 def remove(store, payload):
@@ -90,30 +121,11 @@ def remove(store, payload):
 {'source': source, 'path': view['parent'], 'session': token}
 ```
 
-## list_sessions
-
-[event_trash.py:120](../../../event_trash.py#L120) · `function`.
-
-```python
-def list_sessions(store):
-```
-
-Читает сохранённые сеансы корзины для интерфейса восстановления.
-
-Работает с таблицами folder_renames.
-
-Непосредственные вызовы: `store.connect`, `paths.table`, `db.execute`, `json.loads`, `pair.get`, `result.append`, `sorted`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-[]
-sorted(result, key=lambda item: item['created'], reverse=True)
-```
+<a id="symbol-restore"></a>
 
 ## restore
 
-[event_trash.py:135](../../../event_trash.py#L135) · `function`.
+[event_trash.py](../../../event_trash.py) · `function`.
 
 ```python
 def restore(store, token):

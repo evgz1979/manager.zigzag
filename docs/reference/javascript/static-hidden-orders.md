@@ -1,14 +1,16 @@
 # static/hidden-orders.js
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [static/hidden-orders.js:1](../../../static/hidden-orders.js#L1).
+Исходник: [static/hidden-orders.js](../../../static/hidden-orders.js).
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-%24"></a>
+
 ## $
 
-[static/hidden-orders.js:5](../../../static/hidden-orders.js#L5) · `ArrowFunctionExpression`.
+[static/hidden-orders.js](../../../static/hidden-orders.js) · `ArrowFunctionExpression`.
 
 ```javascript
 const $ = (id) =>
@@ -20,9 +22,11 @@ const $ = (id) =>
 
 Непосредственные вызовы: `document.getElementById`.
 
+<a id="symbol-escape"></a>
+
 ## escape
 
-[static/hidden-orders.js:8](../../../static/hidden-orders.js#L8) · `ArrowFunctionExpression`.
+[static/hidden-orders.js](../../../static/hidden-orders.js) · `ArrowFunctionExpression`.
 
 ```javascript
 const escape = (value) =>
@@ -34,23 +38,11 @@ const escape = (value) =>
 
 Непосредственные вызовы: `String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll`, `String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll`, `String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll`, `String(value ?? "").replaceAll("&", "&amp;").replaceAll`, `String(value ?? "").replaceAll`, `String`.
 
-## normalize
-
-[static/hidden-orders.js:11](../../../static/hidden-orders.js#L11) · `ArrowFunctionExpression`.
-
-```javascript
-const normalize = (value) =>
-```
-
-Нормализует строку для поиска и сравнения без учёта регистра.
-
-Использует `String(value ?? "").normalize("NFC").toLocaleLowerCase`, `String(value ?? "").normalize`, `String`.
-
-Непосредственные вызовы: `String(value ?? "").normalize("NFC").toLocaleLowerCase`, `String(value ?? "").normalize`, `String`.
+<a id="symbol-groupKey"></a>
 
 ## groupKey
 
-[static/hidden-orders.js:21](../../../static/hidden-orders.js#L21) · `ArrowFunctionExpression`.
+[static/hidden-orders.js](../../../static/hidden-orders.js) · `ArrowFunctionExpression`.
 
 ```javascript
 const groupKey = (kind, path) =>
@@ -62,51 +54,11 @@ const groupKey = (kind, path) =>
 
 Непосредственные вызовы: `JSON.stringify`.
 
-## href
-
-[static/hidden-orders.js:24](../../../static/hidden-orders.js#L24) · `ArrowFunctionExpression`.
-
-```javascript
-const href = (path) =>
-```
-
-Собирает URL запроса с безопасным кодированием параметров.
-
-Использует `encodeURIComponent`.
-
-Непосредственные вызовы: `encodeURIComponent`.
-
-## link
-
-[static/hidden-orders.js:27](../../../static/hidden-orders.js#L27) · `ArrowFunctionExpression`.
-
-```javascript
-const link = (path, label, className = "") =>
-```
-
-Строит ссылку открытия папки с безопасным отображением имени.
-
-Использует `escape`, `href`.
-
-Непосредственные вызовы: `escape`, `href`.
-
-## remember
-
-[static/hidden-orders.js:30](../../../static/hidden-orders.js#L30) · `ArrowFunctionExpression`.
-
-```javascript
-const remember = () =>
-```
-
-Сохраняет полученные скрытые заказы для фильтрации интерфейса.
-
-Сохраняет локальную настройку интерфейса через localStorage.
-
-Непосредственные вызовы: `localStorage.setItem`, `JSON.stringify`.
+<a id="symbol-groupOrders"></a>
 
 ## groupOrders
 
-[static/hidden-orders.js:34](../../../static/hidden-orders.js#L34) · `FunctionDeclaration`.
+[static/hidden-orders.js](../../../static/hidden-orders.js) · `FunctionDeclaration`.
 
 ```javascript
 function groupOrders(rows)
@@ -120,9 +72,93 @@ function groupOrders(rows)
 
 Прямые присваивания полям/свойствам: `client.count`.
 
+<a id="symbol-href"></a>
+
+## href
+
+[static/hidden-orders.js](../../../static/hidden-orders.js) · `ArrowFunctionExpression`.
+
+```javascript
+const href = (path) =>
+```
+
+Собирает URL запроса с безопасным кодированием параметров.
+
+Использует `encodeURIComponent`.
+
+Непосредственные вызовы: `encodeURIComponent`.
+
+<a id="symbol-link"></a>
+
+## link
+
+[static/hidden-orders.js](../../../static/hidden-orders.js) · `ArrowFunctionExpression`.
+
+```javascript
+const link = (path, label, className = "") =>
+```
+
+Строит ссылку открытия папки с безопасным отображением имени.
+
+Использует `escape`, `href`.
+
+Непосредственные вызовы: `escape`, `href`.
+
+<a id="symbol-load"></a>
+
+## load
+
+[static/hidden-orders.js](../../../static/hidden-orders.js) · `FunctionDeclaration`.
+
+```javascript
+async function load()
+```
+
+Загружает сохранённые данные компонента с сервера в модуле списка скрытых заказов.
+
+Использует `/api/hidden-orders`.
+
+Непосредственные вызовы: `$("hiddenOrdersRefresh").setAttribute`, `$`, `$("hiddenOrdersGroups").setAttribute`, `fetch`, `response.json`, `Error`, `data.warnings.slice(0, 3).join`, `data.warnings.slice`, `render`.
+
+Прямые присваивания полям/свойствам: `$("hiddenOrdersState").textContent`, `$("hiddenOrdersCount").textContent`.
+
+<a id="symbol-normalize"></a>
+
+## normalize
+
+[static/hidden-orders.js](../../../static/hidden-orders.js) · `ArrowFunctionExpression`.
+
+```javascript
+const normalize = (value) =>
+```
+
+Нормализует строку для поиска и сравнения без учёта регистра.
+
+Использует `String(value ?? "").normalize("NFC").toLocaleLowerCase`, `String(value ?? "").normalize`, `String`.
+
+Непосредственные вызовы: `String(value ?? "").normalize("NFC").toLocaleLowerCase`, `String(value ?? "").normalize`, `String`.
+
+<a id="symbol-remember"></a>
+
+## remember
+
+[static/hidden-orders.js](../../../static/hidden-orders.js) · `ArrowFunctionExpression`.
+
+```javascript
+const remember = () =>
+```
+
+Сохраняет полученные скрытые заказы для фильтрации интерфейса.
+
+Сохраняет локальную настройку интерфейса через localStorage.
+
+Непосредственные вызовы: `localStorage.setItem`, `JSON.stringify`.
+
+<a id="symbol-render"></a>
+
 ## render
 
-[static/hidden-orders.js:49](../../../static/hidden-orders.js#L49) · `FunctionDeclaration`.
+[static/hidden-orders.js](../../../static/hidden-orders.js) · `FunctionDeclaration`.
 
 ```javascript
 function render()
@@ -146,19 +182,3 @@ function render()
     }).join`, `clients.map`, `[...$("hiddenOrdersGroups").querySelectorAll("[data-focus-key]")].find((element) => element.dataset.focusKey === focusKey)?.focus`, `[...$("hiddenOrdersGroups").querySelectorAll("[data-focus-key]")].find`, `$("hiddenOrdersGroups").querySelectorAll`, `Boolean`.
 
 Прямые присваивания полям/свойствам: `$("hiddenOrdersReason").innerHTML`, `$("hiddenOrdersReason").value`, `$("hiddenOrdersGroups").innerHTML`, `document.scrollingElement.scrollTop`, `$("hiddenOrdersCount").textContent`, `$("hiddenOrdersEmpty").hidden`.
-
-## load
-
-[static/hidden-orders.js:83](../../../static/hidden-orders.js#L83) · `FunctionDeclaration`.
-
-```javascript
-async function load()
-```
-
-Загружает сохранённые данные компонента с сервера в модуле списка скрытых заказов.
-
-Использует `/api/hidden-orders`.
-
-Непосредственные вызовы: `$("hiddenOrdersRefresh").setAttribute`, `$`, `$("hiddenOrdersGroups").setAttribute`, `fetch`, `response.json`, `Error`, `data.warnings.slice(0, 3).join`, `data.warnings.slice`, `render`.
-
-Прямые присваивания полям/свойствам: `$("hiddenOrdersState").textContent`, `$("hiddenOrdersCount").textContent`.

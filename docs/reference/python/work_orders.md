@@ -1,8 +1,8 @@
 # work_orders.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [work_orders.py:1](../../../work_orders.py#L1).
+Исходник: [work_orders.py](../../../work_orders.py).
 
 Production roles, supplier statuses, palettes, favorite sections and UUID selections.
 
@@ -10,9 +10,11 @@ Production roles, supplier statuses, palettes, favorite sections and UUID select
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-SupplierFavoriteConflict"></a>
+
 ## SupplierFavoriteConflict
 
-[work_orders.py:30](../../../work_orders.py#L30) · `class`.
+[work_orders.py](../../../work_orders.py) · `class`.
 
 ```python
 class SupplierFavoriteConflict(ValueError):
@@ -22,53 +24,147 @@ class SupplierFavoriteConflict(ValueError):
 
 Вызывающий обработчик использует тип исключения для отказа без подмены данных.
 
-## supplier_root_path
+<a id="symbol-archive_time"></a>
 
-[work_orders.py:36](../../../work_orders.py#L36) · `function`.
+## archive_time
+
+[work_orders.py](../../../work_orders.py) · `function`.
 
 ```python
-def supplier_root_path(relative):
+def archive_time(blocks):
 ```
 
-Выделяет корень производства или реальный раздел поставщика по пути.
+Читает сохранённое время перемещения заказа в архивную группу.
+
+Возвращает `None`; либо `stamp.timestamp() if stamp.tzinfo is not None else None`.
+
+Непосредственные вызовы: `blocks.get`, `isinstance`, `datetime.fromisoformat`, `stamp.timestamp`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+None
+stamp.timestamp() if stamp.tzinfo is not None else None
+```
+
+<a id="symbol-archived"></a>
+
+## archived
+
+[work_orders.py](../../../work_orders.py) · `function`.
+
+```python
+def archived(order):
+```
+
+Проверяет попадание производственного заказа в архив по сохранённым данным.
+
+Возвращает `status_order(order['path']) and read_status(order.get('extra_blocks', {})) == 'archived'`.
+
+Непосредственные вызовы: `status_order`, `read_status`, `order.get`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+status_order(order['path']) and read_status(order.get('extra_blocks', {})) == 'archived'
+```
+
+<a id="symbol-checked_ids"></a>
+
+## checked_ids
+
+[work_orders.py](../../../work_orders.py) · `function`.
+
+```python
+def checked_ids(value):
+```
+
+Проверяет UUID и уникальность списка связанных сущностей.
 
 При недопустимом состоянии возбуждает ValueError.
 
-Непосредственные вызовы: `isinstance`, `len`, `Path`, `is_work_root`, `ValueError`, `unicodedata.normalize`.
+Непосредственные вызовы: `isinstance`, `len`, `any`, `ValueError`, `set`.
 
 Явные исключения: `ValueError`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-unicodedata.normalize('NFC', relative)
+value
 ```
 
-## supplier_section_path
+<a id="symbol-direct_order"></a>
 
-[work_orders.py:44](../../../work_orders.py#L44) · `function`.
+## direct_order
+
+[work_orders.py](../../../work_orders.py) · `function`.
 
 ```python
-def supplier_section_path(relative):
+def direct_order(relative):
 ```
 
-Выделяет корень производства или реальный раздел поставщика по пути.
+Распознаёт непосредственный заказ раздела поставщика.
 
-При недопустимом состоянии возбуждает ValueError.
+Возвращает `len(parts) == 2 and is_work_root(parts[0]) and dated(parts[1])`.
 
-Непосредственные вызовы: `isinstance`, `ValueError`, `Path`, `len`, `is_work_root`, `parts[1].startswith`, `unicodedata.normalize`, `Path(*parts).as_posix`.
-
-Явные исключения: `ValueError`.
+Непосредственные вызовы: `Path`, `len`, `is_work_root`, `dated`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-unicodedata.normalize('NFC', Path(*parts).as_posix())
+len(parts) == 2 and is_work_root(parts[0]) and dated(parts[1])
 ```
+
+<a id="symbol-folder_date"></a>
+
+## folder_date
+
+[work_orders.py](../../../work_orders.py) · `function`.
+
+```python
+def folder_date(relative):
+```
+
+Извлекает принятую дату заказа из названия папки.
+
+Возвращает `None`; либо `f'{year:04d}-{month:02d}-{day:02d}'`.
+
+Непосредственные вызовы: `Path`, `dated`, `DATE.match`, `map`, `match.groups`, `len`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+None
+f'{year:04d}-{month:02d}-{day:02d}'
+```
+
+<a id="symbol-in_work"></a>
+
+## in_work
+
+[work_orders.py](../../../work_orders.py) · `function`.
+
+```python
+def in_work(relative):
+```
+
+Проверяет принадлежность пути производственному дереву # work.
+
+Возвращает `bool(parts and is_work_root(parts[0]))`.
+
+Непосредственные вызовы: `Path`, `bool`, `is_work_root`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+bool(parts and is_work_root(parts[0]))
+```
+
+<a id="symbol-is_etc_section"></a>
 
 ## is_etc_section
 
-[work_orders.py:55](../../../work_orders.py#L55) · `function`.
+[work_orders.py](../../../work_orders.py) · `function`.
 
 ```python
 def is_etc_section(relative):
@@ -86,51 +182,102 @@ def is_etc_section(relative):
 len(parts) == 2 and is_work_root(parts[0]) and (parts[1].removeprefix('#').strip().casefold() == 'etc')
 ```
 
-## supplier_favorite_record
+<a id="symbol-new_supplier_hue"></a>
 
-[work_orders.py:62](../../../work_orders.py#L62) · `function`.
+## new_supplier_hue
 
-```python
-def supplier_favorite_record(row):
-```
-
-Читает сохранённую звезду производственного раздела.
-
-Разбирает JSON; вызывающий код должен учитывать ошибки или неизвестный формат.
-
-Непосредственные вызовы: `json.loads`, `isinstance`, `type`, `data.get`.
-
-Выражения возврата (ветки читаются в исходнике):
+[work_orders.py](../../../work_orders.py) · `function`.
 
 ```python
-{'path': row['path'], 'revision': f"{row['id']}:{row['revision']}", 'is_favorite': data['is_favorite'] if valid else None, 'position': data.get('position') if valid else None, 'editable': valid}
+def new_supplier_hue(db, name):
 ```
 
-## supplier_favorites
-
-[work_orders.py:78](../../../work_orders.py#L78) · `function`.
-
-```python
-def supplier_favorites(db, root, paths):
-```
-
-Однократно инициализирует и читает избранные разделы корня.
+Выбирает наименее занятый оттенок только для нового поставщика.
 
 Работает с таблицами metadata_records.
 
-Непосредственные вызовы: `supplier_root_path`, `supplier_section_path`, `any`, `Path(path).parent.as_posix`, `Path`, `ValueError`, `db.execute`, `schema`, `audit`, `assert_unlocked`, `db.execute('SELECT data FROM metadata_records WHERE kind=? AND path=?', (SUPPLIER_FAVORITE_INIT_KIND, root)).fetchone`, `json.loads`, `db.execute('SELECT * FROM metadata_records WHERE kind=? AND path=?', (SUPPLIER_FAVORITE_KIND, path)).fetchone`, `Path(path).name[1:].strip().lower`, `Path(path).name[1:].strip`, `bool`, `INITIAL_SUPPLIER_FAVORITES.index`, `str`, `uuid.uuid4`, `json.dumps`, `time.time`, `supplier_favorite_record`.
-
-Явные исключения: `ValueError`.
+Непосредственные вызовы: `list`, `SUPPLIER_PALETTE.values`, `db.execute('SELECT data FROM metadata_records WHERE kind=?', (SUPPLIER_COLOR_KIND,)).fetchall`, `db.execute`, `json.loads`, `isinstance`, `type`, `data.get`, `used.append`, `ord`, `range`, `max`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-result
+max(candidates, key=lambda hue: min((min((hue - other) % 360, (other - hue) % 360) for other in used)))
 ```
+
+<a id="symbol-read_favorite_rows"></a>
+
+## read_favorite_rows
+
+[work_orders.py](../../../work_orders.py) · `function`.
+
+```python
+def read_favorite_rows(db, root):
+```
+
+Читает строки настроек избранных разделов из текущего соединения.
+
+Работает с таблицами metadata_records.
+
+Непосредственные вызовы: `supplier_favorite_record`, `db.execute`, `Path(row['path']).parent.as_posix`, `Path`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+[supplier_favorite_record(row) for row in db.execute('SELECT * FROM metadata_records WHERE kind=?', (SUPPLIER_FAVORITE_KIND,)) if Path(row['path']).parent.as_posix() == root]
+```
+
+<a id="symbol-read_links"></a>
+
+## read_links
+
+[work_orders.py](../../../work_orders.py) · `function`.
+
+```python
+def read_links(blocks):
+```
+
+Читает строгий список UUID связанной подборки заказов поставщиков.
+
+Разбирает JSON; вызывающий код должен учитывать ошибки или неизвестный формат.
+
+Непосредственные вызовы: `json.loads`, `isinstance`, `set`, `type`, `checked_ids`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+[]
+None
+checked_ids(body['order_ids'])
+```
+
+<a id="symbol-read_status"></a>
+
+## read_status
+
+[work_orders.py](../../../work_orders.py) · `function`.
+
+```python
+def read_status(blocks):
+```
+
+Читает самостоятельный статус поставщика из известного блока.
+
+Возвращает `'work'`; либо `next((key for (key, label) in STATUS_LABELS.items() if blocks[STATUS_BLOCK] == label), None)`.
+
+Непосредственные вызовы: `next`, `STATUS_LABELS.items`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+'work'
+next((key for (key, label) in STATUS_LABELS.items() if blocks[STATUS_BLOCK] == label), None)
+```
+
+<a id="symbol-read_supplier_favorites"></a>
 
 ## read_supplier_favorites
 
-[work_orders.py:114](../../../work_orders.py#L114) · `function`.
+[work_orders.py](../../../work_orders.py) · `function`.
 
 ```python
 def read_supplier_favorites(store, root):
@@ -148,9 +295,11 @@ def read_supplier_favorites(store, root):
 {row['path']: supplier_favorite_record(row) for row in db.execute('SELECT * FROM metadata_records WHERE kind=?', (SUPPLIER_FAVORITE_KIND,)) if Path(row['path']).parent.as_posix() == root}
 ```
 
+<a id="symbol-save_supplier_favorite"></a>
+
 ## save_supplier_favorite
 
-[work_orders.py:127](../../../work_orders.py#L127) · `function`.
+[work_orders.py](../../../work_orders.py) · `function`.
 
 ```python
 def save_supplier_favorite(store, payload):
@@ -171,110 +320,55 @@ current
 supplier_favorite_record(db.execute('SELECT * FROM metadata_records WHERE id=?', (row['id'],)).fetchone())
 ```
 
-## read_favorite_rows
+<a id="symbol-status_order"></a>
 
-[work_orders.py:159](../../../work_orders.py#L159) · `function`.
+## status_order
+
+[work_orders.py](../../../work_orders.py) · `function`.
 
 ```python
-def read_favorite_rows(db, root):
+def status_order(relative):
 ```
 
-Читает строки настроек избранных разделов из текущего соединения.
+Проверяет применимость самостоятельного статуса поставщика к пути.
 
-Работает с таблицами metadata_records.
+Возвращает `direct_order(relative) or (supplier_order(relative) and (not in_freza(relative)))`.
 
-Непосредственные вызовы: `supplier_favorite_record`, `db.execute`, `Path(row['path']).parent.as_posix`, `Path`.
+Непосредственные вызовы: `direct_order`, `supplier_order`, `in_freza`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-[supplier_favorite_record(row) for row in db.execute('SELECT * FROM metadata_records WHERE kind=?', (SUPPLIER_FAVORITE_KIND,)) if Path(row['path']).parent.as_posix() == root]
+direct_order(relative) or (supplier_order(relative) and (not in_freza(relative)))
 ```
 
-## in_work
+<a id="symbol-summary"></a>
 
-[work_orders.py:166](../../../work_orders.py#L166) · `function`.
+## summary
+
+[work_orders.py](../../../work_orders.py) · `function`.
 
 ```python
-def in_work(relative):
+def summary(row):
 ```
 
-Проверяет принадлежность пути производственному дереву # work.
+Формирует сводное представление производственного заказа.
 
-Возвращает `bool(parts and is_work_root(parts[0]))`.
+Формирует возвращаемое значение из проверенного локального состояния.
 
-Непосредственные вызовы: `Path`, `bool`, `is_work_root`.
+Непосредственные вызовы: `Path`, `status_order`, `read_status`, `row.get`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-bool(parts and is_work_root(parts[0]))
+{key: row[key] for key in ('id', 'path', 'title', 'status', 'registered')} | {'supplier': Path(row['path']).parts[-2]} | ({'supplier_status': read_status(row.get('extra_blocks', {}))} if status_order(row['path']) else {})
 ```
 
-## direct_order
-
-[work_orders.py:173](../../../work_orders.py#L173) · `function`.
-
-```python
-def direct_order(relative):
-```
-
-Распознаёт непосредственный заказ раздела поставщика.
-
-Возвращает `len(parts) == 2 and is_work_root(parts[0]) and dated(parts[1])`.
-
-Непосредственные вызовы: `Path`, `len`, `is_work_root`, `dated`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-len(parts) == 2 and is_work_root(parts[0]) and dated(parts[1])
-```
-
-## supplier_name
-
-[work_orders.py:180](../../../work_orders.py#L180) · `function`.
-
-```python
-def supplier_name(relative):
-```
-
-Определяет подпись реального раздела поставщика по пути.
-
-Возвращает `''`; либо `parts[1][1:].strip() if parts[1].startswith('#') else parts[1]`.
-
-Непосредственные вызовы: `Path`, `len`, `is_work_root`, `dated`, `parts[1].startswith`, `parts[1][1:].strip`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-''
-parts[1][1:].strip() if parts[1].startswith('#') else parts[1]
-```
-
-## new_supplier_hue
-
-[work_orders.py:190](../../../work_orders.py#L190) · `function`.
-
-```python
-def new_supplier_hue(db, name):
-```
-
-Выбирает наименее занятый оттенок только для нового поставщика.
-
-Работает с таблицами metadata_records.
-
-Непосредственные вызовы: `list`, `SUPPLIER_PALETTE.values`, `db.execute('SELECT data FROM metadata_records WHERE kind=?', (SUPPLIER_COLOR_KIND,)).fetchall`, `db.execute`, `json.loads`, `isinstance`, `type`, `data.get`, `used.append`, `ord`, `range`, `max`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-max(candidates, key=lambda hue: min((min((hue - other) % 360, (other - hue) % 360) for other in used)))
-```
+<a id="symbol-supplier_color"></a>
 
 ## supplier_color
 
-[work_orders.py:209](../../../work_orders.py#L209) · `function`.
+[work_orders.py](../../../work_orders.py) · `function`.
 
 ```python
 def supplier_color(db, relative):
@@ -296,9 +390,80 @@ supplier_color(db, relative)
 {'hue': data['hue'], 'neutral': data['neutral']}
 ```
 
+<a id="symbol-supplier_favorite_record"></a>
+
+## supplier_favorite_record
+
+[work_orders.py](../../../work_orders.py) · `function`.
+
+```python
+def supplier_favorite_record(row):
+```
+
+Читает сохранённую звезду производственного раздела.
+
+Разбирает JSON; вызывающий код должен учитывать ошибки или неизвестный формат.
+
+Непосредственные вызовы: `json.loads`, `isinstance`, `type`, `data.get`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+{'path': row['path'], 'revision': f"{row['id']}:{row['revision']}", 'is_favorite': data['is_favorite'] if valid else None, 'position': data.get('position') if valid else None, 'editable': valid}
+```
+
+<a id="symbol-supplier_favorites"></a>
+
+## supplier_favorites
+
+[work_orders.py](../../../work_orders.py) · `function`.
+
+```python
+def supplier_favorites(db, root, paths):
+```
+
+Однократно инициализирует и читает избранные разделы корня.
+
+Работает с таблицами metadata_records.
+
+Непосредственные вызовы: `supplier_root_path`, `supplier_section_path`, `any`, `Path(path).parent.as_posix`, `Path`, `ValueError`, `db.execute`, `schema`, `audit`, `assert_unlocked`, `db.execute('SELECT data FROM metadata_records WHERE kind=? AND path=?', (SUPPLIER_FAVORITE_INIT_KIND, root)).fetchone`, `json.loads`, `db.execute('SELECT * FROM metadata_records WHERE kind=? AND path=?', (SUPPLIER_FAVORITE_KIND, path)).fetchone`, `Path(path).name[1:].strip().lower`, `Path(path).name[1:].strip`, `bool`, `INITIAL_SUPPLIER_FAVORITES.index`, `str`, `uuid.uuid4`, `json.dumps`, `time.time`, `supplier_favorite_record`.
+
+Явные исключения: `ValueError`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+result
+```
+
+<a id="symbol-supplier_name"></a>
+
+## supplier_name
+
+[work_orders.py](../../../work_orders.py) · `function`.
+
+```python
+def supplier_name(relative):
+```
+
+Определяет подпись реального раздела поставщика по пути.
+
+Возвращает `''`; либо `parts[1][1:].strip() if parts[1].startswith('#') else parts[1]`.
+
+Непосредственные вызовы: `Path`, `len`, `is_work_root`, `dated`, `parts[1].startswith`, `parts[1][1:].strip`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+''
+parts[1][1:].strip() if parts[1].startswith('#') else parts[1]
+```
+
+<a id="symbol-supplier_order"></a>
+
 ## supplier_order
 
-[work_orders.py:247](../../../work_orders.py#L247) · `function`.
+[work_orders.py](../../../work_orders.py) · `function`.
 
 ```python
 def supplier_order(relative):
@@ -317,178 +482,59 @@ False
 len(parts) == 3 and is_work_root(parts[0]) and (not dated(parts[1])) or (len(parts) == 2 and is_supplier_root(parts[0]))
 ```
 
-## status_order
+<a id="symbol-supplier_root_path"></a>
 
-[work_orders.py:257](../../../work_orders.py#L257) · `function`.
+## supplier_root_path
 
-```python
-def status_order(relative):
-```
-
-Проверяет применимость самостоятельного статуса поставщика к пути.
-
-Возвращает `direct_order(relative) or (supplier_order(relative) and (not in_freza(relative)))`.
-
-Непосредственные вызовы: `direct_order`, `supplier_order`, `in_freza`.
-
-Выражения возврата (ветки читаются в исходнике):
+[work_orders.py](../../../work_orders.py) · `function`.
 
 ```python
-direct_order(relative) or (supplier_order(relative) and (not in_freza(relative)))
+def supplier_root_path(relative):
 ```
 
-## folder_date
-
-[work_orders.py:263](../../../work_orders.py#L263) · `function`.
-
-```python
-def folder_date(relative):
-```
-
-Извлекает принятую дату заказа из названия папки.
-
-Возвращает `None`; либо `f'{year:04d}-{month:02d}-{day:02d}'`.
-
-Непосредственные вызовы: `Path`, `dated`, `DATE.match`, `map`, `match.groups`, `len`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-None
-f'{year:04d}-{month:02d}-{day:02d}'
-```
-
-## read_status
-
-[work_orders.py:276](../../../work_orders.py#L276) · `function`.
-
-```python
-def read_status(blocks):
-```
-
-Читает самостоятельный статус поставщика из известного блока.
-
-Возвращает `'work'`; либо `next((key for (key, label) in STATUS_LABELS.items() if blocks[STATUS_BLOCK] == label), None)`.
-
-Непосредственные вызовы: `next`, `STATUS_LABELS.items`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-'work'
-next((key for (key, label) in STATUS_LABELS.items() if blocks[STATUS_BLOCK] == label), None)
-```
-
-## write_status
-
-[work_orders.py:284](../../../work_orders.py#L284) · `function`.
-
-```python
-def write_status(blocks, status):
-```
-
-Сериализует самостоятельный статус поставщика без изменения остальных блоков.
+Выделяет корень производства или реальный раздел поставщика по пути.
 
 При недопустимом состоянии возбуждает ValueError.
 
-Непосредственные вызовы: `isinstance`, `ValueError`, `read_status`, `archive_time`, `datetime.now(timezone.utc).isoformat`, `datetime.now`.
+Непосредственные вызовы: `isinstance`, `len`, `Path`, `is_work_root`, `ValueError`, `unicodedata.normalize`.
 
 Явные исключения: `ValueError`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-updated
+unicodedata.normalize('NFC', relative)
 ```
 
-## archive_time
+<a id="symbol-supplier_section_path"></a>
 
-[work_orders.py:299](../../../work_orders.py#L299) · `function`.
+## supplier_section_path
+
+[work_orders.py](../../../work_orders.py) · `function`.
 
 ```python
-def archive_time(blocks):
+def supplier_section_path(relative):
 ```
 
-Читает сохранённое время перемещения заказа в архивную группу.
-
-Возвращает `None`; либо `stamp.timestamp() if stamp.tzinfo is not None else None`.
-
-Непосредственные вызовы: `blocks.get`, `isinstance`, `datetime.fromisoformat`, `stamp.timestamp`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-None
-stamp.timestamp() if stamp.tzinfo is not None else None
-```
-
-## archived
-
-[work_orders.py:312](../../../work_orders.py#L312) · `function`.
-
-```python
-def archived(order):
-```
-
-Проверяет попадание производственного заказа в архив по сохранённым данным.
-
-Возвращает `status_order(order['path']) and read_status(order.get('extra_blocks', {})) == 'archived'`.
-
-Непосредственные вызовы: `status_order`, `read_status`, `order.get`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-status_order(order['path']) and read_status(order.get('extra_blocks', {})) == 'archived'
-```
-
-## checked_ids
-
-[work_orders.py:318](../../../work_orders.py#L318) · `function`.
-
-```python
-def checked_ids(value):
-```
-
-Проверяет UUID и уникальность списка связанных сущностей.
+Выделяет корень производства или реальный раздел поставщика по пути.
 
 При недопустимом состоянии возбуждает ValueError.
 
-Непосредственные вызовы: `isinstance`, `len`, `any`, `ValueError`, `set`.
+Непосредственные вызовы: `isinstance`, `ValueError`, `Path`, `len`, `is_work_root`, `parts[1].startswith`, `unicodedata.normalize`, `Path(*parts).as_posix`.
 
 Явные исключения: `ValueError`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-value
+unicodedata.normalize('NFC', Path(*parts).as_posix())
 ```
 
-## read_links
-
-[work_orders.py:329](../../../work_orders.py#L329) · `function`.
-
-```python
-def read_links(blocks):
-```
-
-Читает строгий список UUID связанной подборки заказов поставщиков.
-
-Разбирает JSON; вызывающий код должен учитывать ошибки или неизвестный формат.
-
-Непосредственные вызовы: `json.loads`, `isinstance`, `set`, `type`, `checked_ids`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-[]
-None
-checked_ids(body['order_ids'])
-```
+<a id="symbol-write_links"></a>
 
 ## write_links
 
-[work_orders.py:343](../../../work_orders.py#L343) · `function`.
+[work_orders.py](../../../work_orders.py) · `function`.
 
 ```python
 def write_links(blocks, identities):
@@ -508,22 +554,26 @@ def write_links(blocks, identities):
 {**blocks, LINKS_BLOCK: json.dumps({'version': 1, 'order_ids': checked_ids(identities)}, ensure_ascii=False)}
 ```
 
-## summary
+<a id="symbol-write_status"></a>
 
-[work_orders.py:351](../../../work_orders.py#L351) · `function`.
+## write_status
+
+[work_orders.py](../../../work_orders.py) · `function`.
 
 ```python
-def summary(row):
+def write_status(blocks, status):
 ```
 
-Формирует сводное представление производственного заказа.
+Сериализует самостоятельный статус поставщика без изменения остальных блоков.
 
-Формирует возвращаемое значение из проверенного локального состояния.
+При недопустимом состоянии возбуждает ValueError.
 
-Непосредственные вызовы: `Path`, `status_order`, `read_status`, `row.get`.
+Непосредственные вызовы: `isinstance`, `ValueError`, `read_status`, `archive_time`, `datetime.now(timezone.utc).isoformat`, `datetime.now`.
+
+Явные исключения: `ValueError`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-{key: row[key] for key in ('id', 'path', 'title', 'status', 'registered')} | {'supplier': Path(row['path']).parts[-2]} | ({'supplier_status': read_status(row.get('extra_blocks', {}))} if status_order(row['path']) else {})
+updated
 ```

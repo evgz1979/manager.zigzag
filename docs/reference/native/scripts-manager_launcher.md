@@ -1,26 +1,16 @@
 # scripts/manager_launcher.c
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [scripts/manager_launcher.c:1](../../../scripts/manager_launcher.c#L1).
+Исходник: [scripts/manager_launcher.c](../../../scripts/manager_launcher.c).
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
-## forward_signal
-
-[scripts/manager_launcher.c:14](../../../scripts/manager_launcher.c#L14) · `function`.
-
-```c
-static void forward_signal(int number)
-```
-
-Передаёт сигнал завершения дочернему процессу сервера Python.
-
-Сигнал отправляется только при сохранённом положительном PID ребёнка.
+<a id="symbol-authorize"></a>
 
 ## authorize
 
-[scripts/manager_launcher.c:20](../../../scripts/manager_launcher.c#L20) · `function`.
+[scripts/manager_launcher.c](../../../scripts/manager_launcher.c) · `function`.
 
 ```c
 static int authorize(const char *path)
@@ -30,9 +20,25 @@ static int authorize(const char *path)
 
 Успех закрывает дескриптор; отказ возвращает код 77 с диагностикой.
 
+<a id="symbol-forward_signal"></a>
+
+## forward_signal
+
+[scripts/manager_launcher.c](../../../scripts/manager_launcher.c) · `function`.
+
+```c
+static void forward_signal(int number)
+```
+
+Передаёт сигнал завершения дочернему процессу сервера Python.
+
+Сигнал отправляется только при сохранённом положительном PID ребёнка.
+
+<a id="symbol-main"></a>
+
 ## main
 
-[scripts/manager_launcher.c:32](../../../scripts/manager_launcher.c#L32) · `function`.
+[scripts/manager_launcher.c](../../../scripts/manager_launcher.c) · `function`.
 
 ```c
 int main(int argc, char **argv)

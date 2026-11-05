@@ -1,14 +1,16 @@
 # static/spreadsheet-preview.js
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [static/spreadsheet-preview.js:1](../../../static/spreadsheet-preview.js#L1).
+Исходник: [static/spreadsheet-preview.js](../../../static/spreadsheet-preview.js).
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-close"></a>
+
 ## close
 
-[static/spreadsheet-preview.js:6](../../../static/spreadsheet-preview.js#L6) · `FunctionDeclaration`.
+[static/spreadsheet-preview.js](../../../static/spreadsheet-preview.js) · `FunctionDeclaration`.
 
 ```javascript
 function close()
@@ -20,9 +22,11 @@ function close()
 
 Непосредственные вызовы: `active.worker.terminate`, `clearTimeout`.
 
+<a id="symbol-open"></a>
+
 ## open
 
-[static/spreadsheet-preview.js:14](../../../static/spreadsheet-preview.js#L14) · `FunctionDeclaration`.
+[static/spreadsheet-preview.js](../../../static/spreadsheet-preview.js) · `FunctionDeclaration`.
 
 ```javascript
 function open(container, url, onError)
@@ -36,39 +40,11 @@ function open(container, url, onError)
 
 Прямые присваивания полям/свойствам: `viewer.className`, `toolbar.className`, `label.textContent`, `sheets.disabled`, `zoomLabel.textContent`, `zoom.value`, `readonly.textContent`, `scroll.className`, `scroll.tabIndex`, `scroll.textContent`, `footer.className`, `previous.textContent`, `next.textContent`, `notice.className`, `footer.hidden`, `worker.onerror`, `worker.onmessage`.
 
-## fail
+<a id="symbol-open.changePage"></a>
 
-[static/spreadsheet-preview.js:59](../../../static/spreadsheet-preview.js#L59) · `FunctionDeclaration`.
+## open.changePage
 
-```javascript
-function fail(message)
-```
-
-Показывает ошибку открытия таблицы и освобождает временные ресурсы.
-
-Использует `close`, `onError`.
-
-Непосредственные вызовы: `close`, `onError`.
-
-## send
-
-[static/spreadsheet-preview.js:66](../../../static/spreadsheet-preview.js#L66) · `FunctionDeclaration`.
-
-```javascript
-function send(message)
-```
-
-Передаёт команду отдельному Worker просмотра таблиц.
-
-Управляет отложенным обновлением через таймер или кадр браузера.
-
-Непосредственные вызовы: `clearTimeout`, `setTimeout`, `worker.postMessage`.
-
-Прямые присваивания полям/свойствам: `current.timeout`, `current.id`.
-
-## changePage
-
-[static/spreadsheet-preview.js:73](../../../static/spreadsheet-preview.js#L73) · `FunctionDeclaration`.
+[static/spreadsheet-preview.js](../../../static/spreadsheet-preview.js) · `FunctionDeclaration`.
 
 ```javascript
 function changePage(sheetIndex, offset)
@@ -82,9 +58,43 @@ function changePage(sheetIndex, offset)
 
 Прямые присваивания полям/свойствам: `previous.disabled`, `next.disabled`.
 
-## resize
+<a id="symbol-open.columnName"></a>
 
-[static/spreadsheet-preview.js:82](../../../static/spreadsheet-preview.js#L82) · `FunctionDeclaration`.
+## open.columnName
+
+[static/spreadsheet-preview.js](../../../static/spreadsheet-preview.js) · `FunctionDeclaration`.
+
+```javascript
+function columnName(index)
+```
+
+Преобразует номер колонки в буквенное обозначение Excel.
+
+Использует `Math.floor`, `String.fromCharCode`.
+
+Непосредственные вызовы: `Math.floor`, `String.fromCharCode`.
+
+<a id="symbol-open.fail"></a>
+
+## open.fail
+
+[static/spreadsheet-preview.js](../../../static/spreadsheet-preview.js) · `FunctionDeclaration`.
+
+```javascript
+function fail(message)
+```
+
+Показывает ошибку открытия таблицы и освобождает временные ресурсы.
+
+Использует `close`, `onError`.
+
+Непосредственные вызовы: `close`, `onError`.
+
+<a id="symbol-open.resize"></a>
+
+## open.resize
+
+[static/spreadsheet-preview.js](../../../static/spreadsheet-preview.js) · `FunctionDeclaration`.
 
 ```javascript
 function resize()
@@ -98,16 +108,20 @@ function resize()
 
 Прямые присваивания полям/свойствам: `table.style.zoom`.
 
-## columnName
+<a id="symbol-open.send"></a>
 
-[static/spreadsheet-preview.js:112](../../../static/spreadsheet-preview.js#L112) · `FunctionDeclaration`.
+## open.send
+
+[static/spreadsheet-preview.js](../../../static/spreadsheet-preview.js) · `FunctionDeclaration`.
 
 ```javascript
-function columnName(index)
+function send(message)
 ```
 
-Преобразует номер колонки в буквенное обозначение Excel.
+Передаёт команду отдельному Worker просмотра таблиц.
 
-Использует `Math.floor`, `String.fromCharCode`.
+Управляет отложенным обновлением через таймер или кадр браузера.
 
-Непосредственные вызовы: `Math.floor`, `String.fromCharCode`.
+Непосредственные вызовы: `clearTimeout`, `setTimeout`, `worker.postMessage`.
+
+Прямые присваивания полям/свойствам: `current.timeout`, `current.id`.

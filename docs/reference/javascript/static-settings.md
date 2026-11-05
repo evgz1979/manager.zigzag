@@ -1,14 +1,16 @@
 # static/settings.js
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [static/settings.js:1](../../../static/settings.js#L1).
+Исходник: [static/settings.js](../../../static/settings.js).
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-openSettings"></a>
+
 ## openSettings
 
-[static/settings.js:16](../../../static/settings.js#L16) · `FunctionDeclaration`.
+[static/settings.js](../../../static/settings.js) · `FunctionDeclaration`.
 
 ```javascript
 async function openSettings()
@@ -22,9 +24,11 @@ async function openSettings()
 
 Прямые присваивания полям/свойствам: `fields.disabled`, `status.textContent`, `document.getElementById('managerSettingsAddress').textContent`, `document.getElementById('managerCurrentPasswordLabel').hidden`, `current.required`.
 
+<a id="symbol-saveSettings"></a>
+
 ## saveSettings
 
-[static/settings.js:37](../../../static/settings.js#L37) · `FunctionDeclaration`.
+[static/settings.js](../../../static/settings.js) · `FunctionDeclaration`.
 
 ```javascript
 async function saveSettings(event)

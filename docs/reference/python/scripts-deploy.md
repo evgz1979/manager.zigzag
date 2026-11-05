@@ -1,8 +1,8 @@
 # scripts/deploy.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [scripts/deploy.py:1](../../../scripts/deploy.py#L1).
+Исходник: [scripts/deploy.py](../../../scripts/deploy.py).
 
 Проверка и доставка кода на M4; рабочие данные не входят в обычный деплой.
 
@@ -10,29 +10,35 @@
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
-## source_files
+<a id="symbol-main"></a>
 
-[scripts/deploy.py:24](../../../scripts/deploy.py#L24) · `function`.
+## main
+
+[scripts/deploy.py](../../../scripts/deploy.py) · `function`.
 
 ```python
-def source_files():
+def main():
 ```
 
-Собирает только исходники приложения без обхода рабочих документов и data.
+Разбирает параметры запуска и выполняет основной сценарий программы.
 
-Возвращает `{p.relative_to(APP).as_posix(): p.read_bytes() for p in sorted(files)}`.
+Запускает внешний процесс; параметры и ограничения заданы в теле функции.
 
-Непосредственные вызовы: `APP.iterdir`, `(APP / directory).rglob`, `path.relative_to`, `path.is_file`, `path.is_symlink`, `any`, `part.startswith`, `files.append`, `p.relative_to(APP).as_posix`, `p.relative_to`, `p.read_bytes`, `sorted`.
+Непосредственные вызовы: `argparse.ArgumentParser`, `parser.add_argument`, `parser.parse_args`, `sum`, `bool`, `parser.error`, `configparser.ConfigParser`, `config.read`, `dict`, `int`, `source_files`, `subprocess.run`, `RuntimeError`, `datetime.now(timezone.utc).strftime`, `datetime.now`, `uuid4`, `hashlib.sha256(body).hexdigest`, `hashlib.sha256`, `files.items`, `(release + '\n').encode`, `snapshot_bytes`, `hashlib.sha256(files['.initial.sqlite3']).hexdigest`, `(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n').encode`, `json.dumps`, `io.BytesIO`, `tarfile.open`, `tarfile.TarInfo`, `len`, `archive.addfile`, `buffer.getvalue`, `(APP / 'scripts/deploy_remote.py').read_text`, `shlex.join`.
+
+Явные исключения: `RuntimeError`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-{p.relative_to(APP).as_posix(): p.read_bytes() for p in sorted(files)}
+result.returncode
 ```
+
+<a id="symbol-snapshot_bytes"></a>
 
 ## snapshot_bytes
 
-[scripts/deploy.py:38](../../../scripts/deploy.py#L38) · `function`.
+[scripts/deploy.py](../../../scripts/deploy.py) · `function`.
 
 ```python
 def snapshot_bytes(path):
@@ -52,24 +58,24 @@ def snapshot_bytes(path):
 target.read_bytes()
 ```
 
-## main
+<a id="symbol-source_files"></a>
 
-[scripts/deploy.py:54](../../../scripts/deploy.py#L54) · `function`.
+## source_files
+
+[scripts/deploy.py](../../../scripts/deploy.py) · `function`.
 
 ```python
-def main():
+def source_files():
 ```
 
-Разбирает параметры запуска и выполняет основной сценарий программы.
+Собирает только исходники приложения без обхода рабочих документов и data.
 
-Запускает внешний процесс; параметры и ограничения заданы в теле функции.
+Возвращает `{p.relative_to(APP).as_posix(): p.read_bytes() for p in sorted(files)}`.
 
-Непосредственные вызовы: `argparse.ArgumentParser`, `parser.add_argument`, `parser.parse_args`, `sum`, `bool`, `parser.error`, `configparser.ConfigParser`, `config.read`, `dict`, `int`, `source_files`, `subprocess.run`, `RuntimeError`, `datetime.now(timezone.utc).strftime`, `datetime.now`, `uuid4`, `hashlib.sha256(body).hexdigest`, `hashlib.sha256`, `files.items`, `(release + '\n').encode`, `snapshot_bytes`, `hashlib.sha256(files['.initial.sqlite3']).hexdigest`, `(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n').encode`, `json.dumps`, `io.BytesIO`, `tarfile.open`, `tarfile.TarInfo`, `len`, `archive.addfile`, `buffer.getvalue`, `(APP / 'scripts/deploy_remote.py').read_text`, `shlex.join`.
-
-Явные исключения: `RuntimeError`.
+Непосредственные вызовы: `APP.iterdir`, `(APP / directory).rglob`, `path.relative_to`, `path.is_file`, `path.is_symlink`, `any`, `part.startswith`, `files.append`, `p.relative_to(APP).as_posix`, `p.relative_to`, `p.read_bytes`, `sorted`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-result.returncode
+{p.relative_to(APP).as_posix(): p.read_bytes() for p in sorted(files)}
 ```

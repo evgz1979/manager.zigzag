@@ -1,8 +1,8 @@
 # scripts/rebind_glass_notes.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [scripts/rebind_glass_notes.py:1](../../../scripts/rebind_glass_notes.py#L1).
+Исходник: [scripts/rebind_glass_notes.py](../../../scripts/rebind_glass_notes.py).
 
 Явная перепривязка выгруженных заметок после переноса # glass в # work.
 
@@ -13,9 +13,11 @@ SQLite после обратного переноса папки пользов�
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-append_journal"></a>
+
 ## append_journal
 
-[scripts/rebind_glass_notes.py:20](../../../scripts/rebind_glass_notes.py#L20) · `function`.
+[scripts/rebind_glass_notes.py](../../../scripts/rebind_glass_notes.py) · `function`.
 
 ```python
 def append_journal(session, record):
@@ -27,29 +29,29 @@ def append_journal(session, record):
 
 Непосредственные вызовы: `datetime.now(ZoneInfo('Europe/Moscow')).isoformat`, `datetime.now`, `ZoneInfo`, `(Path(session) / '.journal.jsonl').open`, `Path`, `stream.write`, `json.dumps`, `stream.flush`, `os.fsync`, `stream.fileno`.
 
-## inside
+<a id="symbol-check_database"></a>
 
-[scripts/rebind_glass_notes.py:30](../../../scripts/rebind_glass_notes.py#L30) · `function`.
+## check_database
 
-```python
-def inside(path, prefix):
-```
-
-Проверяет принадлежность пути указанной области по границам компонентов.
-
-Возвращает `path == prefix or path.startswith(prefix + '/')`.
-
-Непосредственные вызовы: `path.startswith`.
-
-Выражения возврата (ветки читаются в исходнике):
+[scripts/rebind_glass_notes.py](../../../scripts/rebind_glass_notes.py) · `function`.
 
 ```python
-path == prefix or path.startswith(prefix + '/')
+def check_database(db, source, destination):
 ```
+
+Проверяет целостность и совместимость рабочей SQLite.
+
+Работает с таблицами orders, sqlite_master.
+
+Непосредственные вызовы: `any`, `inside`, `db.execute`, `ValueError`, `db.execute('SELECT 1 FROM sqlite_master WHERE name=?', (name,)).fetchone`, `json.loads`.
+
+Явные исключения: `ValueError`.
+
+<a id="symbol-checked_folder"></a>
 
 ## checked_folder
 
-[scripts/rebind_glass_notes.py:36](../../../scripts/rebind_glass_notes.py#L36) · `function`.
+[scripts/rebind_glass_notes.py](../../../scripts/rebind_glass_notes.py) · `function`.
 
 ```python
 def checked_folder(root, relative):
@@ -69,25 +71,33 @@ def checked_folder(root, relative):
 target
 ```
 
-## check_database
+<a id="symbol-inside"></a>
 
-[scripts/rebind_glass_notes.py:51](../../../scripts/rebind_glass_notes.py#L51) · `function`.
+## inside
+
+[scripts/rebind_glass_notes.py](../../../scripts/rebind_glass_notes.py) · `function`.
 
 ```python
-def check_database(db, source, destination):
+def inside(path, prefix):
 ```
 
-Проверяет целостность и совместимость рабочей SQLite.
+Проверяет принадлежность пути указанной области по границам компонентов.
 
-Работает с таблицами orders, sqlite_master.
+Возвращает `path == prefix or path.startswith(prefix + '/')`.
 
-Непосредственные вызовы: `any`, `inside`, `db.execute`, `ValueError`, `db.execute('SELECT 1 FROM sqlite_master WHERE name=?', (name,)).fetchone`, `json.loads`.
+Непосредственные вызовы: `path.startswith`.
 
-Явные исключения: `ValueError`.
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+path == prefix or path.startswith(prefix + '/')
+```
+
+<a id="symbol-rebind"></a>
 
 ## rebind
 
-[scripts/rebind_glass_notes.py:64](../../../scripts/rebind_glass_notes.py#L64) · `function`.
+[scripts/rebind_glass_notes.py](../../../scripts/rebind_glass_notes.py) · `function`.
 
 ```python
 def rebind(notes, source='# glass', destination='# work/# glass', *, perform=False):
@@ -108,9 +118,11 @@ preview
 {**preview, 'journal': str(session)}
 ```
 
+<a id="symbol-undo"></a>
+
 ## undo
 
-[scripts/rebind_glass_notes.py:136](../../../scripts/rebind_glass_notes.py#L136) · `function`.
+[scripts/rebind_glass_notes.py](../../../scripts/rebind_glass_notes.py) · `function`.
 
 ```python
 def undo(session, *, perform=False):

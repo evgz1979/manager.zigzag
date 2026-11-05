@@ -1,8 +1,8 @@
 # image_reports.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [image_reports.py:1](../../../image_reports.py#L1).
+Исходник: [image_reports.py](../../../image_reports.py).
 
 Image/comment PDFs generated with macOS, published without overwriting files.
 
@@ -10,31 +10,11 @@ Image/comment PDFs generated with macOS, published without overwriting files.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
-## renderer
-
-[image_reports.py:22](../../../image_reports.py#L22) · `function`.
-
-```python
-def renderer(app_dir, data_dir):
-```
-
-Получает собранный Swift-помощник для текущего исходника.
-
-При недопустимом состоянии возбуждает ValueError.
-
-Непосредственные вызовы: `native_renderers.build`, `Path`, `ValueError`.
-
-Явные исключения: `ValueError`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-native_renderers.build(Path(app_dir) / 'image_report.swift', data_dir, 'image-report', 90)
-```
+<a id="symbol-create"></a>
 
 ## create
 
-[image_reports.py:32](../../../image_reports.py#L32) · `function`.
+[image_reports.py](../../../image_reports.py) · `function`.
 
 ```python
 def create(folder, items, app_dir, data_dir):
@@ -52,4 +32,28 @@ def create(folder, items, app_dir, data_dir):
 
 ```python
 (target, pages)
+```
+
+<a id="symbol-renderer"></a>
+
+## renderer
+
+[image_reports.py](../../../image_reports.py) · `function`.
+
+```python
+def renderer(app_dir, data_dir):
+```
+
+Получает собранный Swift-помощник для текущего исходника.
+
+При недопустимом состоянии возбуждает ValueError.
+
+Непосредственные вызовы: `native_renderers.build`, `Path`, `ValueError`.
+
+Явные исключения: `ValueError`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+native_renderers.build(Path(app_dir) / 'image_report.swift', data_dir, 'image-report', 90)
 ```

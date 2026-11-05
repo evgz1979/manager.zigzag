@@ -1,74 +1,16 @@
 # invoice_pdf.swift
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [invoice_pdf.swift:1](../../../invoice_pdf.swift#L1).
+Исходник: [invoice_pdf.swift](../../../invoice_pdf.swift).
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
-## fail
-
-[invoice_pdf.swift:7](../../../invoice_pdf.swift#L7) · `func`.
-
-```swift
-func fail(_ message: String) -> Never
-```
-
-Завершает помощник с диагностикой в stderr и ненулевым кодом.
-
-Вызывающий Python получает отказ вместо частичного успешного результата.
-
-## s
-
-[invoice_pdf.swift:17](../../../invoice_pdf.swift#L17) · `func`.
-
-```swift
-func s(_ key: String) -> String
-```
-
-Извлекает строковое поле входного документа счёта.
-
-Отсутствующее или нестроковое значение становится пустой строкой.
-
-## money
-
-[invoice_pdf.swift:20](../../../invoice_pdf.swift#L20) · `func`.
-
-```swift
-func money(_ cents: Int) -> String
-```
-
-Форматирует денежное значение для PDF или карточки телефона.
-
-Использует сохранённое числовое значение; расчёты базы этим не изменяются.
-
-## date
-
-[invoice_pdf.swift:28](../../../invoice_pdf.swift#L28) · `func`.
-
-```swift
-func date(_ value: String) -> String
-```
-
-Переставляет компоненты даты счёта для печатного отображения.
-
-Использует формат входной строки с разделителем дефис.
-
-## Text
-
-[invoice_pdf.swift:33](../../../invoice_pdf.swift#L33) · `struct`.
-
-```swift
-struct Text
-```
-
-Хранит измеренную текстовую область для последующей отрисовки PDF.
-
-Координаты, размер и атрибуты определяются во время предварительной раскладки.
+<a id="symbol-Rule"></a>
 
 ## Rule
 
-[invoice_pdf.swift:39](../../../invoice_pdf.swift#L39) · `struct`.
+[invoice_pdf.swift](../../../invoice_pdf.swift) · `struct`.
 
 ```swift
 struct Rule
@@ -78,9 +20,25 @@ struct Rule
 
 Отрисовывается после расчёта итоговой высоты документа.
 
+<a id="symbol-Text"></a>
+
+## Text
+
+[invoice_pdf.swift](../../../invoice_pdf.swift) · `struct`.
+
+```swift
+struct Text
+```
+
+Хранит измеренную текстовую область для последующей отрисовки PDF.
+
+Координаты, размер и атрибуты определяются во время предварительной раскладки.
+
+<a id="symbol-attributed"></a>
+
 ## attributed
 
-[invoice_pdf.swift:44](../../../invoice_pdf.swift#L44) · `func`.
+[invoice_pdf.swift](../../../invoice_pdf.swift) · `func`.
 
 ```swift
 func attributed(_ text: String, _ size: CGFloat, _ bold: Bool, _ right: Bool) -> NSAttributedString
@@ -90,21 +48,67 @@ func attributed(_ text: String, _ size: CGFloat, _ bold: Bool, _ right: Bool) ->
 
 Возвращает NSAttributedString для измерения и отрисовки PDF.
 
-## text
+<a id="symbol-date"></a>
 
-[invoice_pdf.swift:53](../../../invoice_pdf.swift#L53) · `func`.
+## date
+
+[invoice_pdf.swift](../../../invoice_pdf.swift) · `func`.
 
 ```swift
-func text(_ value: String, _ x: CGFloat, _ top: CGFloat, _ width: CGFloat, _ size: CGFloat? = nil, bold: Bool = false, right: Bool = false) -> CGFloat
+func date(_ value: String) -> String
 ```
 
-Измеряет текст и добавляет область в план PDF-документа.
+Переставляет компоненты даты счёта для печатного отображения.
 
-При отрисовке используется ранее вычисленная геометрия и выбранный шрифт.
+Использует формат входной строки с разделителем дефис.
+
+<a id="symbol-fail"></a>
+
+## fail
+
+[invoice_pdf.swift](../../../invoice_pdf.swift) · `func`.
+
+```swift
+func fail(_ message: String) -> Never
+```
+
+Завершает помощник с диагностикой в stderr и ненулевым кодом.
+
+Вызывающий Python получает отказ вместо частичного успешного результата.
+
+<a id="symbol-layout"></a>
+
+## layout
+
+[invoice_pdf.swift](../../../invoice_pdf.swift) · `func`.
+
+```swift
+func layout(_ font: CGFloat)
+```
+
+Рассчитывает размещение реквизитов, позиций и итогов PDF.
+
+Обновляет накопленные области текста и линий для выбранного размера шрифта.
+
+<a id="symbol-money"></a>
+
+## money
+
+[invoice_pdf.swift](../../../invoice_pdf.swift) · `func`.
+
+```swift
+func money(_ cents: Int) -> String
+```
+
+Форматирует денежное значение для PDF или карточки телефона.
+
+Использует сохранённое числовое значение; расчёты базы этим не изменяются.
+
+<a id="symbol-rule"></a>
 
 ## rule
 
-[invoice_pdf.swift:65](../../../invoice_pdf.swift#L65) · `func`.
+[invoice_pdf.swift](../../../invoice_pdf.swift) · `func`.
 
 ```swift
 func rule(_ top: CGFloat)
@@ -114,14 +118,30 @@ func rule(_ top: CGFloat)
 
 Геометрия использует текущие поля страницы и ширину содержимого.
 
-## layout
+<a id="symbol-s"></a>
 
-[invoice_pdf.swift:68](../../../invoice_pdf.swift#L68) · `func`.
+## s
+
+[invoice_pdf.swift](../../../invoice_pdf.swift) · `func`.
 
 ```swift
-func layout(_ font: CGFloat)
+func s(_ key: String) -> String
 ```
 
-Рассчитывает размещение реквизитов, позиций и итогов PDF.
+Извлекает строковое поле входного документа счёта.
 
-Обновляет накопленные области текста и линий для выбранного размера шрифта.
+Отсутствующее или нестроковое значение становится пустой строкой.
+
+<a id="symbol-text"></a>
+
+## text
+
+[invoice_pdf.swift](../../../invoice_pdf.swift) · `func`.
+
+```swift
+func text(_ value: String, _ x: CGFloat, _ top: CGFloat, _ width: CGFloat, _ size: CGFloat? = nil, bold: Bool = false, right: Bool = false) -> CGFloat
+```
+
+Измеряет текст и добавляет область в план PDF-документа.
+
+При отрисовке используется ранее вычисленная геометрия и выбранный шрифт.

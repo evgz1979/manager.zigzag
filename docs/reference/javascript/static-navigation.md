@@ -1,14 +1,16 @@
 # static/navigation.js
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [static/navigation.js:1](../../../static/navigation.js#L1).
+Исходник: [static/navigation.js](../../../static/navigation.js).
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-setOpen"></a>
+
 ## setOpen
 
-[static/navigation.js:13](../../../static/navigation.js#L13) · `FunctionDeclaration`.
+[static/navigation.js](../../../static/navigation.js) · `FunctionDeclaration`.
 
 ```javascript
 function setOpen(value)

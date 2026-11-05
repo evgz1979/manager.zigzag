@@ -1,14 +1,16 @@
 # static/mobile.js
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [static/mobile.js:1](../../../static/mobile.js#L1).
+Исходник: [static/mobile.js](../../../static/mobile.js).
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-byId"></a>
+
 ## byId
 
-[static/mobile.js:5](../../../static/mobile.js#L5) · `ArrowFunctionExpression`.
+[static/mobile.js](../../../static/mobile.js) · `ArrowFunctionExpression`.
 
 ```javascript
 const byId = id =>
@@ -20,9 +22,11 @@ const byId = id =>
 
 Непосредственные вызовы: `document.getElementById`.
 
+<a id="symbol-refresh"></a>
+
 ## refresh
 
-[static/mobile.js:9](../../../static/mobile.js#L9) · `FunctionDeclaration`.
+[static/mobile.js](../../../static/mobile.js) · `FunctionDeclaration`.
 
 ```javascript
 async function refresh()
@@ -36,9 +40,11 @@ async function refresh()
 
 Прямые присваивания полям/свойствам: `byId('mobileStatus').textContent`, `byId('mobileEnable').hidden`, `byId('mobilePause').hidden`, `byId('mobileRefresh').disabled`.
 
+<a id="symbol-update"></a>
+
 ## update
 
-[static/mobile.js:24](../../../static/mobile.js#L24) · `FunctionDeclaration`.
+[static/mobile.js](../../../static/mobile.js) · `FunctionDeclaration`.
 
 ```javascript
 async function update(payload)

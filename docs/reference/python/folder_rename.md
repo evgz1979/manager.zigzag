@@ -1,8 +1,8 @@
 # folder_rename.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [folder_rename.py:1](../../../folder_rename.py#L1).
+Исходник: [folder_rename.py](../../../folder_rename.py).
 
 Rename one opened folder and all its SQLite paths, without duplicating orders.
 
@@ -10,9 +10,11 @@ Rename one opened folder and all its SQLite paths, without duplicating orders.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-FolderRenameConflict"></a>
+
 ## FolderRenameConflict
 
-[folder_rename.py:23](../../../folder_rename.py#L23) · `class`.
+[folder_rename.py](../../../folder_rename.py) · `class`.
 
 ```python
 class FolderRenameConflict(ValueError):
@@ -22,9 +24,11 @@ class FolderRenameConflict(ValueError):
 
 Вызывающий обработчик использует тип исключения для отказа без подмены данных.
 
+<a id="symbol-available"></a>
+
 ## available
 
-[folder_rename.py:29](../../../folder_rename.py#L29) · `function`.
+[folder_rename.py](../../../folder_rename.py) · `function`.
 
 ```python
 def available(relative):
@@ -43,51 +47,11 @@ False
 not parts[0].startswith('#') or len(parts) > len(section_prefix(relative)) > 0
 ```
 
-## target
-
-[folder_rename.py:38](../../../folder_rename.py#L38) · `function`.
-
-```python
-def target(root, relative):
-```
-
-Находит допустимую существующую цель файловой операции.
-
-При недопустимом состоянии возбуждает ValueError, FileNotFoundError.
-
-Непосредственные вызовы: `isinstance`, `available`, `ValueError`, `layout.safe_path`, `Path`, `layout_scope`, `path.is_dir`, `FileNotFoundError`.
-
-Явные исключения: `ValueError`, `FileNotFoundError`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-path
-```
-
-## preview
-
-[folder_rename.py:49](../../../folder_rename.py#L49) · `function`.
-
-```python
-def preview(store, relative):
-```
-
-Готовит проверяемое предложение операции без её выполнения.
-
-Формирует возвращаемое значение из проверенного локального состояния.
-
-Непосредственные вызовы: `target`, `event_folder_undo.guard_database`, `layout.identity`, `hashlib.sha256(json.dumps(fingerprint, sort_keys=True).encode()).hexdigest`, `hashlib.sha256`, `json.dumps(fingerprint, sort_keys=True).encode`, `json.dumps`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-{'path': relative, 'name': path.name, 'revision': hashlib.sha256(json.dumps(fingerprint, sort_keys=True).encode()).hexdigest(), **fingerprint}
-```
+<a id="symbol-name"></a>
 
 ## name
 
-[folder_rename.py:59](../../../folder_rename.py#L59) · `function`.
+[folder_rename.py](../../../folder_rename.py) · `function`.
 
 ```python
 def name(value):
@@ -107,9 +71,33 @@ def name(value):
 value
 ```
 
+<a id="symbol-preview"></a>
+
+## preview
+
+[folder_rename.py](../../../folder_rename.py) · `function`.
+
+```python
+def preview(store, relative):
+```
+
+Готовит проверяемое предложение операции без её выполнения.
+
+Формирует возвращаемое значение из проверенного локального состояния.
+
+Непосредственные вызовы: `target`, `event_folder_undo.guard_database`, `layout.identity`, `hashlib.sha256(json.dumps(fingerprint, sort_keys=True).encode()).hexdigest`, `hashlib.sha256`, `json.dumps(fingerprint, sort_keys=True).encode`, `json.dumps`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+{'path': relative, 'name': path.name, 'revision': hashlib.sha256(json.dumps(fingerprint, sort_keys=True).encode()).hexdigest(), **fingerprint}
+```
+
+<a id="symbol-rename"></a>
+
 ## rename
 
-[folder_rename.py:70](../../../folder_rename.py#L70) · `function`.
+[folder_rename.py](../../../folder_rename.py) · `function`.
 
 ```python
 def rename(store, payload):
@@ -127,4 +115,28 @@ def rename(store, payload):
 
 ```python
 {'path': destination, 'source': source, 'name': new_name, 'journal': session.relative_to(root).as_posix()}
+```
+
+<a id="symbol-target"></a>
+
+## target
+
+[folder_rename.py](../../../folder_rename.py) · `function`.
+
+```python
+def target(root, relative):
+```
+
+Находит допустимую существующую цель файловой операции.
+
+При недопустимом состоянии возбуждает ValueError, FileNotFoundError.
+
+Непосредственные вызовы: `isinstance`, `available`, `ValueError`, `layout.safe_path`, `Path`, `layout_scope`, `path.is_dir`, `FileNotFoundError`.
+
+Явные исключения: `ValueError`, `FileNotFoundError`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+path
 ```

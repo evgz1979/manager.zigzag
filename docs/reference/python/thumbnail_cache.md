@@ -1,8 +1,8 @@
 # thumbnail_cache.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [thumbnail_cache.py:1](../../../thumbnail_cache.py#L1).
+Исходник: [thumbnail_cache.py](../../../thumbnail_cache.py).
 
 Rebuildable local thumbnail database. HTTP reads never open source files.
 
@@ -10,93 +10,11 @@ Rebuildable local thumbnail database. HTTP reads never open source files.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
-## relative
-
-[thumbnail_cache.py:34](../../../thumbnail_cache.py#L34) · `function`.
-
-```python
-def relative(value):
-```
-
-Преобразует путь в относительный ключ корня документов.
-
-При недопустимом состоянии возбуждает ValueError.
-
-Непосредственные вызовы: `isinstance`, `ValueError`, `Path`, `path.is_absolute`, `any`, `part.startswith`, `unicodedata.normalize`, `path.as_posix`.
-
-Явные исключения: `ValueError`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-unicodedata.normalize('NFC', path.as_posix())
-```
-
-## supported
-
-[thumbnail_cache.py:45](../../../thumbnail_cache.py#L45) · `function`.
-
-```python
-def supported(path):
-```
-
-Проверяет, поддерживается ли формат файла генератором превью.
-
-Возвращает `path.suffix.lower() in EXTENSIONS and (path.suffix.lower() != '.cdr' or sketches.sketch_name(path.name))`.
-
-Непосредственные вызовы: `Path`, `path.suffix.lower`, `sketches.sketch_name`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-path.suffix.lower() in EXTENSIONS and (path.suffix.lower() != '.cdr' or sketches.sketch_name(path.name))
-```
-
-## signature
-
-[thumbnail_cache.py:52](../../../thumbnail_cache.py#L52) · `function`.
-
-```python
-def signature(info):
-```
-
-Вычисляет отпечаток метаданных объекта для проверки свежести.
-
-Возвращает `hashlib.sha256(value.encode()).hexdigest()`.
-
-Непосредственные вызовы: `hashlib.sha256(value.encode()).hexdigest`, `hashlib.sha256`, `value.encode`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-hashlib.sha256(value.encode()).hexdigest()
-```
-
-## source
-
-[thumbnail_cache.py:59](../../../thumbnail_cache.py#L59) · `function`.
-
-```python
-def source(root, path):
-```
-
-Проверяет исходный объект перед чтением или переносом.
-
-При недопустимом состоянии возбуждает ValueError.
-
-Непосредственные вызовы: `Path`, `relative`, `target.is_symlink`, `ValueError`, `target.lstat`, `stat.S_ISREG`, `supported`.
-
-Явные исключения: `ValueError`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-(target, info)
-```
+<a id="symbol-ThumbnailCache"></a>
 
 ## ThumbnailCache
 
-[thumbnail_cache.py:74](../../../thumbnail_cache.py#L74) · `class`.
+[thumbnail_cache.py](../../../thumbnail_cache.py) · `class`.
 
 ```python
 class ThumbnailCache:
@@ -106,9 +24,11 @@ class ThumbnailCache:
 
 Основные операции: __init__, connect, observe, items, image; остальные описаны у методов.
 
+<a id="symbol-ThumbnailCache.__init__"></a>
+
 ## ThumbnailCache.__init__
 
-[thumbnail_cache.py:77](../../../thumbnail_cache.py#L77) · `function`.
+[thumbnail_cache.py](../../../thumbnail_cache.py) · `function`.
 
 ```python
 def __init__(self, root, data_dir):
@@ -124,9 +44,11 @@ def __init__(self, root, data_dir):
 
 Прямые присваивания полям/свойствам: `self.root`, `self.data_dir`, `self.database`.
 
+<a id="symbol-ThumbnailCache.connect"></a>
+
 ## ThumbnailCache.connect
 
-[thumbnail_cache.py:102](../../../thumbnail_cache.py#L102) · `function`.
+[thumbnail_cache.py](../../../thumbnail_cache.py) · `function`.
 
 ```python
 def connect(self):
@@ -138,23 +60,73 @@ def connect(self):
 
 Непосредственные вызовы: `sqlite3.connect`, `db.close`.
 
-## ThumbnailCache.observe
+<a id="symbol-ThumbnailCache.cover"></a>
 
-[thumbnail_cache.py:113](../../../thumbnail_cache.py#L113) · `function`.
+## ThumbnailCache.cover
+
+[thumbnail_cache.py](../../../thumbnail_cache.py) · `function`.
 
 ```python
-def observe(self, entries, *, requested=False):
+def cover(self, folder):
 ```
 
-Регистрирует наблюдённые версии файлов в локальной очереди миниатюр.
+Выбирает подходящую готовую обложку из сохранённого каталога превью.
 
 Работает с таблицами thumbnails.
 
-Непосредственные вызовы: `time.time`, `self.connect`, `relative`, `supported`, `signature`, `db.execute`.
+Непосредственные вызовы: `relative`, `self.connect`, `db.execute`, `Path(row['path']).suffix.lower`, `Path`, `dict`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+dict(row)
+{'path': '', 'signature': '', 'state': 'pending'}
+```
+
+<a id="symbol-ThumbnailCache.finish"></a>
+
+## ThumbnailCache.finish
+
+[thumbnail_cache.py](../../../thumbnail_cache.py) · `function`.
+
+```python
+def finish(self, item, image=None, mime='image/jpeg', error=''):
+```
+
+Фиксирует результат обработки задания миниатюры.
+
+Работает с таблицами thumbnails.
+
+Непосредственные вызовы: `time.time`, `self.connect`, `db.execute`, `min`.
+
+<a id="symbol-ThumbnailCache.image"></a>
+
+## ThumbnailCache.image
+
+[thumbnail_cache.py](../../../thumbnail_cache.py) · `function`.
+
+```python
+def image(self, path, key=''):
+```
+
+Читает готовую миниатюру для точной версии исходного файла.
+
+Работает с таблицами thumbnails.
+
+Непосредственные вызовы: `self.connect`, `db.execute('SELECT signature,state,image,mime FROM thumbnails WHERE path=?', (relative(path),)).fetchone`, `db.execute`, `relative`, `bytes`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+(bytes(row['image']), row['mime'], row['signature'])
+None
+```
+
+<a id="symbol-ThumbnailCache.items"></a>
 
 ## ThumbnailCache.items
 
-[thumbnail_cache.py:134](../../../thumbnail_cache.py#L134) · `function`.
+[thumbnail_cache.py](../../../thumbnail_cache.py) · `function`.
 
 ```python
 def items(self, paths):
@@ -175,51 +147,11 @@ def items(self, paths):
 [found.get(path, {'path': path, 'state': 'pending', 'signature': ''}) for path in paths]
 ```
 
-## ThumbnailCache.image
-
-[thumbnail_cache.py:149](../../../thumbnail_cache.py#L149) · `function`.
-
-```python
-def image(self, path, key=''):
-```
-
-Читает готовую миниатюру для точной версии исходного файла.
-
-Работает с таблицами thumbnails.
-
-Непосредственные вызовы: `self.connect`, `db.execute('SELECT signature,state,image,mime FROM thumbnails WHERE path=?', (relative(path),)).fetchone`, `db.execute`, `relative`, `bytes`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-(bytes(row['image']), row['mime'], row['signature'])
-None
-```
-
-## ThumbnailCache.cover
-
-[thumbnail_cache.py:158](../../../thumbnail_cache.py#L158) · `function`.
-
-```python
-def cover(self, folder):
-```
-
-Выбирает подходящую готовую обложку из сохранённого каталога превью.
-
-Работает с таблицами thumbnails.
-
-Непосредственные вызовы: `relative`, `self.connect`, `db.execute`, `Path(row['path']).suffix.lower`, `Path`, `dict`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-dict(row)
-{'path': '', 'signature': '', 'state': 'pending'}
-```
+<a id="symbol-ThumbnailCache.next_item"></a>
 
 ## ThumbnailCache.next_item
 
-[thumbnail_cache.py:171](../../../thumbnail_cache.py#L171) · `function`.
+[thumbnail_cache.py](../../../thumbnail_cache.py) · `function`.
 
 ```python
 def next_item(self):
@@ -237,23 +169,59 @@ def next_item(self):
 dict(row) if row else None
 ```
 
-## ThumbnailCache.finish
+<a id="symbol-ThumbnailCache.observe"></a>
 
-[thumbnail_cache.py:180](../../../thumbnail_cache.py#L180) · `function`.
+## ThumbnailCache.observe
+
+[thumbnail_cache.py](../../../thumbnail_cache.py) · `function`.
 
 ```python
-def finish(self, item, image=None, mime='image/jpeg', error=''):
+def observe(self, entries, *, requested=False):
 ```
 
-Фиксирует результат обработки задания миниатюры.
+Регистрирует наблюдённые версии файлов в локальной очереди миниатюр.
 
 Работает с таблицами thumbnails.
 
-Непосредственные вызовы: `time.time`, `self.connect`, `db.execute`, `min`.
+Непосредственные вызовы: `time.time`, `self.connect`, `relative`, `supported`, `signature`, `db.execute`.
+
+<a id="symbol-ThumbnailCache.scan"></a>
+
+## ThumbnailCache.scan
+
+[thumbnail_cache.py](../../../thumbnail_cache.py) · `function`.
+
+```python
+def scan(self, stop):
+```
+
+Обходит разрешённые имена/метаданные для обновления фонового индекса.
+
+Работает с таблицами thumbnails.
+
+Непосредственные вызовы: `time.time`, `self.status`, `os.walk`, `stop.is_set`, `Path`, `name.startswith`, `(folder / name).is_symlink`, `supported`, `(folder / name).relative_to(self.root).as_posix`, `(folder / name).relative_to`, `source`, `entries.append`, `failed`, `self.observe`, `self.connect`, `db.execute`, `'; '.join`.
+
+<a id="symbol-ThumbnailCache.scan.failed"></a>
+
+## ThumbnailCache.scan.failed
+
+[thumbnail_cache.py](../../../thumbnail_cache.py) · `function`.
+
+```python
+def failed(error):
+```
+
+Сохраняет диагностический результат неудачного фонового обхода.
+
+Передаёт работу `errors.append`.
+
+Непосредственные вызовы: `len`, `errors.append`, `str`.
+
+<a id="symbol-ThumbnailCache.status"></a>
 
 ## ThumbnailCache.status
 
-[thumbnail_cache.py:191](../../../thumbnail_cache.py#L191) · `function`.
+[thumbnail_cache.py](../../../thumbnail_cache.py) · `function`.
 
 ```python
 def status(self, **values):
@@ -271,37 +239,53 @@ def status(self, **values):
 result
 ```
 
-## ThumbnailCache.scan
+<a id="symbol-generate"></a>
 
-[thumbnail_cache.py:202](../../../thumbnail_cache.py#L202) · `function`.
+## generate
 
-```python
-def scan(self, stop):
-```
-
-Обходит разрешённые имена/метаданные для обновления фонового индекса.
-
-Работает с таблицами thumbnails.
-
-Непосредственные вызовы: `time.time`, `self.status`, `os.walk`, `stop.is_set`, `Path`, `name.startswith`, `(folder / name).is_symlink`, `supported`, `(folder / name).relative_to(self.root).as_posix`, `(folder / name).relative_to`, `source`, `entries.append`, `failed`, `self.observe`, `self.connect`, `db.execute`, `'; '.join`.
-
-## ThumbnailCache.scan.failed
-
-[thumbnail_cache.py:209](../../../thumbnail_cache.py#L209) · `function`.
+[thumbnail_cache.py](../../../thumbnail_cache.py) · `function`.
 
 ```python
-def failed(error):
+def generate(cache, item, binary, stop):
 ```
 
-Сохраняет диагностический результат неудачного фонового обхода.
+Генерирует превью поддерживаемого файла и сохраняет результат обработки.
 
-Передаёт работу `errors.append`.
+При недопустимом состоянии возбуждает ValueError.
 
-Непосредственные вызовы: `len`, `errors.append`, `str`.
+Непосредственные вызовы: `source`, `signature`, `cache.observe`, `tempfile.TemporaryDirectory`, `Path`, `target.suffix.lower`, `run_renderer`, `str`, `sketches.embedded_preview`, `embedded.write_bytes`, `output.read_bytes`, `raw.startswith`, `len`, `ValueError`, `cache.finish`.
+
+Явные исключения: `ValueError`.
+
+<a id="symbol-relative"></a>
+
+## relative
+
+[thumbnail_cache.py](../../../thumbnail_cache.py) · `function`.
+
+```python
+def relative(value):
+```
+
+Преобразует путь в относительный ключ корня документов.
+
+При недопустимом состоянии возбуждает ValueError.
+
+Непосредственные вызовы: `isinstance`, `ValueError`, `Path`, `path.is_absolute`, `any`, `part.startswith`, `unicodedata.normalize`, `path.as_posix`.
+
+Явные исключения: `ValueError`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+unicodedata.normalize('NFC', path.as_posix())
+```
+
+<a id="symbol-renderer"></a>
 
 ## renderer
 
-[thumbnail_cache.py:242](../../../thumbnail_cache.py#L242) · `function`.
+[thumbnail_cache.py](../../../thumbnail_cache.py) · `function`.
 
 ```python
 def renderer(data_dir):
@@ -319,9 +303,11 @@ def renderer(data_dir):
 native_renderers.build(Path(__file__).with_name('thumbnail_preview.swift'), data_dir, 'thumbnail-renderer', 90)
 ```
 
+<a id="symbol-run_renderer"></a>
+
 ## run_renderer
 
-[thumbnail_cache.py:248](../../../thumbnail_cache.py#L248) · `function`.
+[thumbnail_cache.py](../../../thumbnail_cache.py) · `function`.
 
 ```python
 def run_renderer(command, stop):
@@ -335,25 +321,95 @@ def run_renderer(command, stop):
 
 Явные исключения: `ValueError`.
 
-## generate
+<a id="symbol-signature"></a>
 
-[thumbnail_cache.py:270](../../../thumbnail_cache.py#L270) · `function`.
+## signature
+
+[thumbnail_cache.py](../../../thumbnail_cache.py) · `function`.
 
 ```python
-def generate(cache, item, binary, stop):
+def signature(info):
 ```
 
-Генерирует превью поддерживаемого файла и сохраняет результат обработки.
+Вычисляет отпечаток метаданных объекта для проверки свежести.
+
+Возвращает `hashlib.sha256(value.encode()).hexdigest()`.
+
+Непосредственные вызовы: `hashlib.sha256(value.encode()).hexdigest`, `hashlib.sha256`, `value.encode`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+hashlib.sha256(value.encode()).hexdigest()
+```
+
+<a id="symbol-source"></a>
+
+## source
+
+[thumbnail_cache.py](../../../thumbnail_cache.py) · `function`.
+
+```python
+def source(root, path):
+```
+
+Проверяет исходный объект перед чтением или переносом.
 
 При недопустимом состоянии возбуждает ValueError.
 
-Непосредственные вызовы: `source`, `signature`, `cache.observe`, `tempfile.TemporaryDirectory`, `Path`, `target.suffix.lower`, `run_renderer`, `str`, `sketches.embedded_preview`, `embedded.write_bytes`, `output.read_bytes`, `raw.startswith`, `len`, `ValueError`, `cache.finish`.
+Непосредственные вызовы: `Path`, `relative`, `target.is_symlink`, `ValueError`, `target.lstat`, `stat.S_ISREG`, `supported`.
 
 Явные исключения: `ValueError`.
 
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+(target, info)
+```
+
+<a id="symbol-supervise"></a>
+
+## supervise
+
+[thumbnail_cache.py](../../../thumbnail_cache.py) · `function`.
+
+```python
+def supervise(root, data_dir, stop):
+```
+
+Поддерживает один отдельный процесс миниатюр в течение жизни сервера.
+
+Запускает внешний процесс; параметры и ограничения заданы в теле функции.
+
+Непосредственные вызовы: `stop.is_set`, `subprocess.Popen`, `str`, `Path(__file__).resolve`, `Path`, `os.getpid`, `process.poll`, `stop.wait`, `print`, `process.terminate`, `process.wait`, `process.kill`.
+
+<a id="symbol-supported"></a>
+
+## supported
+
+[thumbnail_cache.py](../../../thumbnail_cache.py) · `function`.
+
+```python
+def supported(path):
+```
+
+Проверяет, поддерживается ли формат файла генератором превью.
+
+Возвращает `path.suffix.lower() in EXTENSIONS and (path.suffix.lower() != '.cdr' or sketches.sketch_name(path.name))`.
+
+Непосредственные вызовы: `Path`, `path.suffix.lower`, `sketches.sketch_name`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+path.suffix.lower() in EXTENSIONS and (path.suffix.lower() != '.cdr' or sketches.sketch_name(path.name))
+```
+
+<a id="symbol-worker"></a>
+
 ## worker
 
-[thumbnail_cache.py:299](../../../thumbnail_cache.py#L299) · `function`.
+[thumbnail_cache.py](../../../thumbnail_cache.py) · `function`.
 
 ```python
 def worker(cache, parent):
@@ -365,23 +421,11 @@ def worker(cache, parent):
 
 Непосредственные вызовы: `cache.database.with_suffix('.lock').open`, `cache.database.with_suffix`, `fcntl.flock`, `threading.Event`, `signal.signal`, `threading.Thread(target=watch_parent, daemon=True).start`, `threading.Thread`, `renderer`, `threading.Thread(target=scan_loop, daemon=True).start`, `cache.status`, `os.getpid`, `stop.is_set`, `time.time`, `cache.next_item`, `stop.wait`, `generate`, `cache.finish`, `str`.
 
-## worker.watch_parent
-
-[thumbnail_cache.py:312](../../../thumbnail_cache.py#L312) · `function`.
-
-```python
-def watch_parent():
-```
-
-Завершает дочерний процесс после исчезновения родительского сервера.
-
-Передаёт работу `stop.wait`, `os.getppid`, `stop.set`.
-
-Непосредственные вызовы: `stop.wait`, `os.getppid`, `stop.set`.
+<a id="symbol-worker.scan_loop"></a>
 
 ## worker.scan_loop
 
-[thumbnail_cache.py:319](../../../thumbnail_cache.py#L319) · `function`.
+[thumbnail_cache.py](../../../thumbnail_cache.py) · `function`.
 
 ```python
 def scan_loop():
@@ -393,16 +437,18 @@ def scan_loop():
 
 Непосредственные вызовы: `stop.is_set`, `cache.scan`, `cache.status().get`, `cache.status`, `str`, `stop.wait`.
 
-## supervise
+<a id="symbol-worker.watch_parent"></a>
 
-[thumbnail_cache.py:351](../../../thumbnail_cache.py#L351) · `function`.
+## worker.watch_parent
+
+[thumbnail_cache.py](../../../thumbnail_cache.py) · `function`.
 
 ```python
-def supervise(root, data_dir, stop):
+def watch_parent():
 ```
 
-Поддерживает один отдельный процесс миниатюр в течение жизни сервера.
+Завершает дочерний процесс после исчезновения родительского сервера.
 
-Запускает внешний процесс; параметры и ограничения заданы в теле функции.
+Передаёт работу `stop.wait`, `os.getppid`, `stop.set`.
 
-Непосредственные вызовы: `stop.is_set`, `subprocess.Popen`, `str`, `Path(__file__).resolve`, `Path`, `os.getpid`, `process.poll`, `stop.wait`, `print`, `process.terminate`, `process.wait`, `process.kill`.
+Непосредственные вызовы: `stop.wait`, `os.getppid`, `stop.set`.

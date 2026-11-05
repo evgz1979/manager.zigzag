@@ -1,8 +1,8 @@
 # scripts/verify_recovery_backup.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [scripts/verify_recovery_backup.py:1](../../../scripts/verify_recovery_backup.py#L1).
+Исходник: [scripts/verify_recovery_backup.py](../../../scripts/verify_recovery_backup.py).
 
 Standalone verification of an extracted recovery bundle, without the application.
 
@@ -10,9 +10,11 @@ Standalone verification of an extracted recovery bundle, without the application
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-verify"></a>
+
 ## verify
 
-[scripts/verify_recovery_backup.py:13](../../../scripts/verify_recovery_backup.py#L13) · `function`.
+[scripts/verify_recovery_backup.py](../../../scripts/verify_recovery_backup.py) · `function`.
 
 ```python
 def verify(directory):

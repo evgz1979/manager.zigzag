@@ -4,7 +4,31 @@
 
 ## calendar_events.py
 
-[calendar_events.py:18](../../calendar_events.py#L18)
+[schema](python/calendar_events.md#symbol-schema)
+
+```sql
+ALTER TABLE calendar_events ADD COLUMN color TEXT NOT NULL DEFAULT 'gray'
+```
+
+[schema](python/calendar_events.md#symbol-schema)
+
+```sql
+ALTER TABLE calendar_events ADD COLUMN is_completed INTEGER NOT NULL DEFAULT 0
+```
+
+[schema](python/calendar_events.md#symbol-schema)
+
+```sql
+ALTER TABLE calendar_events ADD COLUMN is_inactive INTEGER NOT NULL DEFAULT 0
+```
+
+[schema](python/calendar_events.md#symbol-schema)
+
+```sql
+ALTER TABLE calendar_events ADD COLUMN is_trip INTEGER NOT NULL DEFAULT 0
+```
+
+[schema](python/calendar_events.md#symbol-schema)
 
 ```sql
 CREATE TABLE IF NOT EXISTS calendar_events (
@@ -15,33 +39,9 @@ CREATE TABLE IF NOT EXISTS calendar_events (
         is_completed INTEGER NOT NULL DEFAULT 0, is_trip INTEGER NOT NULL DEFAULT 0)
 ```
 
-[calendar_events.py:25](../../calendar_events.py#L25)
-
-```sql
-ALTER TABLE calendar_events ADD COLUMN color TEXT NOT NULL DEFAULT 'gray'
-```
-
-[calendar_events.py:27](../../calendar_events.py#L27)
-
-```sql
-ALTER TABLE calendar_events ADD COLUMN is_inactive INTEGER NOT NULL DEFAULT 0
-```
-
-[calendar_events.py:31](../../calendar_events.py#L31)
-
-```sql
-ALTER TABLE calendar_events ADD COLUMN is_completed INTEGER NOT NULL DEFAULT 0
-```
-
-[calendar_events.py:35](../../calendar_events.py#L35)
-
-```sql
-ALTER TABLE calendar_events ADD COLUMN is_trip INTEGER NOT NULL DEFAULT 0
-```
-
 ## client_activity.py
 
-[client_activity.py:57](../../client_activity.py#L57)
+[ClientActivity.schema](python/client_activity.md#symbol-ClientActivity.schema)
 
 ```sql
 -- Динамический шаблон
@@ -52,21 +52,21 @@ CREATE TABLE IF NOT EXISTS {cls.table} (
 
 ## event_folder_undo.py
 
-[event_folder_undo.py:74](../../event_folder_undo.py#L74)
-
-```sql
-CREATE TABLE IF NOT EXISTS event_renames (session TEXT PRIMARY KEY,state TEXT NOT NULL,mappings TEXT NOT NULL,paths_applied INTEGER NOT NULL DEFAULT 0)
-```
-
-[event_folder_undo.py:76](../../event_folder_undo.py#L76)
+[schema](python/event_folder_undo.md#symbol-schema)
 
 ```sql
 ALTER TABLE event_renames ADD COLUMN paths_applied INTEGER NOT NULL DEFAULT 0
 ```
 
+[schema](python/event_folder_undo.md#symbol-schema)
+
+```sql
+CREATE TABLE IF NOT EXISTS event_renames (session TEXT PRIMARY KEY,state TEXT NOT NULL,mappings TEXT NOT NULL,paths_applied INTEGER NOT NULL DEFAULT 0)
+```
+
 ## event_trash.py
 
-[event_trash.py:98](../../event_trash.py#L98)
+[remove](python/event_trash.md#symbol-remove)
 
 ```sql
 CREATE TABLE IF NOT EXISTS folder_renames (session TEXT PRIMARY KEY,state TEXT NOT NULL,mappings TEXT NOT NULL,paths_applied INTEGER NOT NULL)
@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS folder_renames (session TEXT PRIMARY KEY,state TEXT N
 
 ## folder_notes.py
 
-[folder_notes.py:70](../../folder_notes.py#L70)
+[schema](python/folder_notes.md#symbol-schema)
 
 ```sql
 CREATE TABLE IF NOT EXISTS folder_notes (
@@ -85,7 +85,7 @@ CREATE TABLE IF NOT EXISTS folder_notes (
 
 ## folder_rename.py
 
-[folder_rename.py:104](../../folder_rename.py#L104)
+[rename](python/folder_rename.md#symbol-rename)
 
 ```sql
 CREATE TABLE IF NOT EXISTS folder_renames (session TEXT PRIMARY KEY,state TEXT NOT NULL,mappings TEXT NOT NULL,paths_applied INTEGER NOT NULL)
@@ -93,7 +93,19 @@ CREATE TABLE IF NOT EXISTS folder_renames (session TEXT PRIMARY KEY,state TEXT N
 
 ## invoice_documents.py
 
-[invoice_documents.py:22](../../invoice_documents.py#L22)
+[schema](python/invoice_documents.md#symbol-schema)
+
+```sql
+ALTER TABLE invoice_documents ADD COLUMN
+```
+
+[schema](python/invoice_documents.md#symbol-schema)
+
+```sql
+CREATE INDEX IF NOT EXISTS invoice_documents_invoice ON invoice_documents(invoice_id)
+```
+
+[schema](python/invoice_documents.md#symbol-schema)
 
 ```sql
 CREATE TABLE IF NOT EXISTS invoice_documents (
@@ -104,21 +116,27 @@ CREATE TABLE IF NOT EXISTS invoice_documents (
         sync_error TEXT NOT NULL DEFAULT '')
 ```
 
-[invoice_documents.py:31](../../invoice_documents.py#L31)
-
-```sql
-ALTER TABLE invoice_documents ADD COLUMN
-```
-
-[invoice_documents.py:32](../../invoice_documents.py#L32)
-
-```sql
-CREATE INDEX IF NOT EXISTS invoice_documents_invoice ON invoice_documents(invoice_id)
-```
-
 ## invoices.py
 
-[invoices.py:304](../../invoices.py#L304)
+[InvoiceStore.connect](python/invoices.md#symbol-InvoiceStore.connect)
+
+```sql
+CREATE TABLE IF NOT EXISTS invoice_history (id TEXT, revision INTEGER, data TEXT NOT NULL, saved REAL NOT NULL, PRIMARY KEY(id,revision))
+```
+
+[InvoiceStore.connect](python/invoices.md#symbol-InvoiceStore.connect)
+
+```sql
+CREATE TABLE IF NOT EXISTS invoice_sequences (year INTEGER PRIMARY KEY, value INTEGER NOT NULL)
+```
+
+[InvoiceStore.connect](python/invoices.md#symbol-InvoiceStore.connect)
+
+```sql
+CREATE TABLE IF NOT EXISTS invoice_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)
+```
+
+[InvoiceStore.connect](python/invoices.md#symbol-InvoiceStore.connect)
 
 ```sql
 CREATE TABLE IF NOT EXISTS invoices (
@@ -129,78 +147,9 @@ CREATE TABLE IF NOT EXISTS invoices (
                 UNIQUE(year,number))
 ```
 
-[invoices.py:310](../../invoices.py#L310)
-
-```sql
-CREATE TABLE IF NOT EXISTS invoice_sequences (year INTEGER PRIMARY KEY, value INTEGER NOT NULL)
-```
-
-[invoices.py:311](../../invoices.py#L311)
-
-```sql
-CREATE TABLE IF NOT EXISTS invoice_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)
-```
-
-[invoices.py:312](../../invoices.py#L312)
-
-```sql
-CREATE TABLE IF NOT EXISTS invoice_history (id TEXT, revision INTEGER, data TEXT NOT NULL, saved REAL NOT NULL, PRIMARY KEY(id,revision))
-```
-
 ## local_metadata.py
 
-[local_metadata.py:23](../../local_metadata.py#L23)
-
-```sql
-CREATE TABLE IF NOT EXISTS metadata_settings (key TEXT PRIMARY KEY,value TEXT NOT NULL)
-```
-
-[local_metadata.py:26](../../local_metadata.py#L26)
-
-```sql
-CREATE TABLE IF NOT EXISTS metadata_records (
-        id TEXT NOT NULL UNIQUE,kind TEXT NOT NULL,path TEXT NOT NULL,data TEXT NOT NULL,
-        revision INTEGER NOT NULL,updated REAL NOT NULL,PRIMARY KEY(kind,path))
-```
-
-[local_metadata.py:29](../../local_metadata.py#L29)
-
-```sql
-CREATE TABLE IF NOT EXISTS metadata_history (
-        seq INTEGER PRIMARY KEY,entity TEXT NOT NULL,identity TEXT NOT NULL,data TEXT NOT NULL,saved REAL NOT NULL)
-```
-
-[local_metadata.py:31](../../local_metadata.py#L31)
-
-```sql
-CREATE TABLE IF NOT EXISTS legacy_documents (
-        path TEXT NOT NULL,digest TEXT NOT NULL,body BLOB NOT NULL,saved REAL NOT NULL,PRIMARY KEY(path,digest))
-```
-
-[local_metadata.py:33](../../local_metadata.py#L33)
-
-```sql
-CREATE TABLE IF NOT EXISTS metadata_imports (
-        kind TEXT NOT NULL,path TEXT NOT NULL,error TEXT NOT NULL,attempted REAL NOT NULL,PRIMARY KEY(kind,path))
-```
-
-[local_metadata.py:35](../../local_metadata.py#L35)
-
-```sql
-CREATE TABLE IF NOT EXISTS metadata_publications (
-        id TEXT PRIMARY KEY,source TEXT NOT NULL,revision TEXT NOT NULL,path TEXT NOT NULL,body BLOB NOT NULL,
-        published INTEGER NOT NULL DEFAULT 0,error TEXT NOT NULL DEFAULT '',UNIQUE(source,revision))
-```
-
-[local_metadata.py:38](../../local_metadata.py#L38)
-
-```sql
-CREATE TABLE IF NOT EXISTS metadata_file_moves (
-        session TEXT NOT NULL,source TEXT NOT NULL,destination TEXT NOT NULL,state TEXT NOT NULL,
-        PRIMARY KEY(session,source))
-```
-
-[local_metadata.py:53](../../local_metadata.py#L53)
+[audit](python/local_metadata.md#symbol-audit)
 
 ```sql
 -- Динамический шаблон
@@ -210,15 +159,73 @@ CREATE TRIGGER IF NOT EXISTS metadata_audit_{table}_{event}
             VALUES ('{table}',OLD.{identity},{payload},strftime('%s','now')); END
 ```
 
+[schema](python/local_metadata.md#symbol-schema)
+
+```sql
+CREATE TABLE IF NOT EXISTS legacy_documents (
+        path TEXT NOT NULL,digest TEXT NOT NULL,body BLOB NOT NULL,saved REAL NOT NULL,PRIMARY KEY(path,digest))
+```
+
+[schema](python/local_metadata.md#symbol-schema)
+
+```sql
+CREATE TABLE IF NOT EXISTS metadata_file_moves (
+        session TEXT NOT NULL,source TEXT NOT NULL,destination TEXT NOT NULL,state TEXT NOT NULL,
+        PRIMARY KEY(session,source))
+```
+
+[schema](python/local_metadata.md#symbol-schema)
+
+```sql
+CREATE TABLE IF NOT EXISTS metadata_history (
+        seq INTEGER PRIMARY KEY,entity TEXT NOT NULL,identity TEXT NOT NULL,data TEXT NOT NULL,saved REAL NOT NULL)
+```
+
+[schema](python/local_metadata.md#symbol-schema)
+
+```sql
+CREATE TABLE IF NOT EXISTS metadata_imports (
+        kind TEXT NOT NULL,path TEXT NOT NULL,error TEXT NOT NULL,attempted REAL NOT NULL,PRIMARY KEY(kind,path))
+```
+
+[schema](python/local_metadata.md#symbol-schema)
+
+```sql
+CREATE TABLE IF NOT EXISTS metadata_publications (
+        id TEXT PRIMARY KEY,source TEXT NOT NULL,revision TEXT NOT NULL,path TEXT NOT NULL,body BLOB NOT NULL,
+        published INTEGER NOT NULL DEFAULT 0,error TEXT NOT NULL DEFAULT '',UNIQUE(source,revision))
+```
+
+[schema](python/local_metadata.md#symbol-schema)
+
+```sql
+CREATE TABLE IF NOT EXISTS metadata_records (
+        id TEXT NOT NULL UNIQUE,kind TEXT NOT NULL,path TEXT NOT NULL,data TEXT NOT NULL,
+        revision INTEGER NOT NULL,updated REAL NOT NULL,PRIMARY KEY(kind,path))
+```
+
+[schema](python/local_metadata.md#symbol-schema)
+
+```sql
+CREATE TABLE IF NOT EXISTS metadata_settings (key TEXT PRIMARY KEY,value TEXT NOT NULL)
+```
+
 ## mobile_sync.py
 
-[mobile_sync.py:124](../../mobile_sync.py#L124)
+[MobileBridge.__init__](python/mobile_sync.md#symbol-MobileBridge.__init__)
+
+```sql
+CREATE TABLE IF NOT EXISTS mobile_files (
+                order_id TEXT PRIMARY KEY, scanned REAL NOT NULL, items TEXT NOT NULL)
+```
+
+[MobileBridge.__init__](python/mobile_sync.md#symbol-MobileBridge.__init__)
 
 ```sql
 CREATE TABLE IF NOT EXISTS mobile_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)
 ```
 
-[mobile_sync.py:125](../../mobile_sync.py#L125)
+[MobileBridge.__init__](python/mobile_sync.md#symbol-MobileBridge.__init__)
 
 ```sql
 CREATE TABLE IF NOT EXISTS mobile_operations (
@@ -226,23 +233,16 @@ CREATE TABLE IF NOT EXISTS mobile_operations (
                 status TEXT NOT NULL, result TEXT NOT NULL, prepared TEXT NOT NULL DEFAULT '{}')
 ```
 
-[mobile_sync.py:128](../../mobile_sync.py#L128)
+[MobileBridge.__init__](python/mobile_sync.md#symbol-MobileBridge.__init__)
 
 ```sql
 CREATE TABLE IF NOT EXISTS mobile_tasks (
                 order_id TEXT PRIMARY KEY, items TEXT NOT NULL)
 ```
 
-[mobile_sync.py:130](../../mobile_sync.py#L130)
-
-```sql
-CREATE TABLE IF NOT EXISTS mobile_files (
-                order_id TEXT PRIMARY KEY, scanned REAL NOT NULL, items TEXT NOT NULL)
-```
-
 ## object_years.py
 
-[object_years.py:120](../../object_years.py#L120)
+[group](python/object_years.md#symbol-group)
 
 ```sql
 CREATE TABLE IF NOT EXISTS folder_renames (session TEXT PRIMARY KEY,state TEXT NOT NULL,mappings TEXT NOT NULL,paths_applied INTEGER NOT NULL)
@@ -250,13 +250,13 @@ CREATE TABLE IF NOT EXISTS folder_renames (session TEXT PRIMARY KEY,state TEXT N
 
 ## order_todos.py
 
-[order_todos.py:167](../../order_todos.py#L167)
+[OrderTodos.refresh](python/order_todos.md#symbol-OrderTodos.refresh)
 
 ```sql
 CREATE TABLE IF NOT EXISTS todo_catalog (path TEXT PRIMARY KEY, checked REAL, error TEXT NOT NULL)
 ```
 
-[order_todos.py:168](../../order_todos.py#L168)
+[OrderTodos.refresh](python/order_todos.md#symbol-OrderTodos.refresh)
 
 ```sql
 CREATE TABLE IF NOT EXISTS todo_missing_folders (path TEXT PRIMARY KEY, order_path TEXT NOT NULL, checked REAL NOT NULL)
@@ -264,7 +264,31 @@ CREATE TABLE IF NOT EXISTS todo_missing_folders (path TEXT PRIMARY KEY, order_pa
 
 ## orders.py
 
-[orders.py:54](../../orders.py#L54)
+[OrderStore.connect](python/orders.md#symbol-OrderStore.connect)
+
+```sql
+ALTER TABLE orders ADD COLUMN export_format INTEGER NOT NULL DEFAULT 0
+```
+
+[OrderStore.connect](python/orders.md#symbol-OrderStore.connect)
+
+```sql
+ALTER TABLE orders ADD COLUMN extra_blocks TEXT NOT NULL DEFAULT '{}'
+```
+
+[OrderStore.connect](python/orders.md#symbol-OrderStore.connect)
+
+```sql
+ALTER TABLE orders ADD COLUMN financial_status TEXT NOT NULL DEFAULT 'unspecified'
+```
+
+[OrderStore.connect](python/orders.md#symbol-OrderStore.connect)
+
+```sql
+ALTER TABLE orders ADD COLUMN registered INTEGER NOT NULL DEFAULT 1
+```
+
+[OrderStore.connect](python/orders.md#symbol-OrderStore.connect)
 
 ```sql
 CREATE TABLE IF NOT EXISTS orders (
@@ -274,33 +298,16 @@ CREATE TABLE IF NOT EXISTS orders (
                 updated REAL NOT NULL, sync_error TEXT NOT NULL DEFAULT '')
 ```
 
-[orders.py:63](../../orders.py#L63)
-
-```sql
-ALTER TABLE orders ADD COLUMN extra_blocks TEXT NOT NULL DEFAULT '{}'
-```
-
-[orders.py:65](../../orders.py#L65)
-
-```sql
-ALTER TABLE orders ADD COLUMN export_format INTEGER NOT NULL DEFAULT 0
-```
-
-[orders.py:67](../../orders.py#L67)
-
-```sql
-ALTER TABLE orders ADD COLUMN registered INTEGER NOT NULL DEFAULT 1
-```
-
-[orders.py:69](../../orders.py#L69)
-
-```sql
-ALTER TABLE orders ADD COLUMN financial_status TEXT NOT NULL DEFAULT 'unspecified'
-```
-
 ## reconciliations.py
 
-[reconciliations.py:28](../../reconciliations.py#L28)
+[schema](python/reconciliations.md#symbol-schema)
+
+```sql
+CREATE TABLE IF NOT EXISTS reconciliation_invoices (
+        id TEXT PRIMARY KEY,reconciliation_id TEXT NOT NULL,revision INTEGER NOT NULL,updated REAL NOT NULL)
+```
+
+[schema](python/reconciliations.md#symbol-schema)
 
 ```sql
 CREATE TABLE IF NOT EXISTS reconciliations (
@@ -308,16 +315,9 @@ CREATE TABLE IF NOT EXISTS reconciliations (
         revision INTEGER NOT NULL,updated REAL NOT NULL)
 ```
 
-[reconciliations.py:31](../../reconciliations.py#L31)
-
-```sql
-CREATE TABLE IF NOT EXISTS reconciliation_invoices (
-        id TEXT PRIMARY KEY,reconciliation_id TEXT NOT NULL,revision INTEGER NOT NULL,updated REAL NOT NULL)
-```
-
 ## scripts/archive_order_duplicate.py
 
-[scripts/archive_order_duplicate.py:175](../../scripts/archive_order_duplicate.py#L175)
+[archive](python/scripts-archive_order_duplicate.md#symbol-archive)
 
 ```sql
 CREATE TABLE IF NOT EXISTS order_duplicate_archive (
@@ -327,7 +327,7 @@ CREATE TABLE IF NOT EXISTS order_duplicate_archive (
 
 ## thumbnail_cache.py
 
-[thumbnail_cache.py:87](../../thumbnail_cache.py#L87)
+[ThumbnailCache.__init__](python/thumbnail_cache.md#symbol-ThumbnailCache.__init__)
 
 ```sql
 CREATE TABLE IF NOT EXISTS thumbnails (

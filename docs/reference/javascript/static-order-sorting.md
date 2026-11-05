@@ -1,14 +1,16 @@
 # static/order-sorting.js
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [static/order-sorting.js:1](../../../static/order-sorting.js#L1).
+Исходник: [static/order-sorting.js](../../../static/order-sorting.js).
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-compareOrderText"></a>
+
 ## compareOrderText
 
-[static/order-sorting.js:5](../../../static/order-sorting.js#L5) · `FunctionDeclaration`.
+[static/order-sorting.js](../../../static/order-sorting.js) · `FunctionDeclaration`.
 
 ```javascript
 function compareOrderText(first, second)
@@ -20,9 +22,11 @@ function compareOrderText(first, second)
 
 Непосредственные вызовы: `String(first ?? "").normalize`, `String`, `String(second ?? "").normalize`, `first.localeCompare`.
 
+<a id="symbol-compareOrders"></a>
+
 ## compareOrders
 
-[static/order-sorting.js:13](../../../static/order-sorting.js#L13) · `FunctionDeclaration`.
+[static/order-sorting.js](../../../static/order-sorting.js) · `FunctionDeclaration`.
 
 ```javascript
 function compareOrders(a, b, key = "title", direction = 1, labelSets = {})

@@ -1,14 +1,16 @@
 # mobile/DriveTransport.swift
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [mobile/DriveTransport.swift:1](../../../mobile/DriveTransport.swift#L1).
+Исходник: [mobile/DriveTransport.swift](../../../mobile/DriveTransport.swift).
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-DriveTransport"></a>
+
 ## DriveTransport
 
-[mobile/DriveTransport.swift:6](../../../mobile/DriveTransport.swift#L6) · `actor`.
+[mobile/DriveTransport.swift](../../../mobile/DriveTransport.swift) · `actor`.
 
 ```swift
 actor DriveTransport
@@ -18,9 +20,11 @@ actor DriveTransport
 
 Ожидание файлов не выполняется в локальном редакторе PhoneStore.
 
-## SyncResult
+<a id="symbol-DriveTransport.SyncResult"></a>
 
-[mobile/DriveTransport.swift:9](../../../mobile/DriveTransport.swift#L9) · `struct`.
+## DriveTransport.SyncResult
+
+[mobile/DriveTransport.swift](../../../mobile/DriveTransport.swift) · `struct`.
 
 ```swift
 struct SyncResult: Sendable
@@ -30,21 +34,11 @@ struct SyncResult: Sendable
 
 Содержит опубликованные UUID и полученные байты каталога Mac.
 
-## resolve
+<a id="symbol-DriveTransport.available"></a>
 
-[mobile/DriveTransport.swift:16](../../../mobile/DriveTransport.swift#L16) · `func`.
+## DriveTransport.available
 
-```swift
-func resolve(_ bookmark: Data) throws -> URL
-```
-
-Разрешает сохранённый bookmark в URL выбранного корня.
-
-Неверное разрешение передаётся вызывающему коду через throws.
-
-## available
-
-[mobile/DriveTransport.swift:23](../../../mobile/DriveTransport.swift#L23) · `func`.
+[mobile/DriveTransport.swift](../../../mobile/DriveTransport.swift) · `func`.
 
 ```swift
 func available(_ url: URL) throws
@@ -54,9 +48,25 @@ func available(_ url: URL) throws
 
 При незавершённой загрузке инициирует скачивание и сообщает о необходимости повтора.
 
-## read
+<a id="symbol-DriveTransport.cache"></a>
 
-[mobile/DriveTransport.swift:33](../../../mobile/DriveTransport.swift#L33) · `func`.
+## DriveTransport.cache
+
+[mobile/DriveTransport.swift](../../../mobile/DriveTransport.swift) · `func`.
+
+```swift
+func cache(bookmark: Data, file: PhoneFile, destination: URL) throws
+```
+
+Сохраняет выбранный оригинал для автономного просмотра на телефоне.
+
+Проверяет допустимость файла и сохраняет в отдельный локальный каталог вложений.
+
+<a id="symbol-DriveTransport.read"></a>
+
+## DriveTransport.read
+
+[mobile/DriveTransport.swift](../../../mobile/DriveTransport.swift) · `func`.
 
 ```swift
 func read(_ url: URL, limit: Int = 32 * 1024 * 1024) throws -> Data
@@ -66,9 +76,25 @@ func read(_ url: URL, limit: Int = 32 * 1024 * 1024) throws -> Data
 
 Ошибки координации, недоступность и превышение размера передаются через throws.
 
-## sync
+<a id="symbol-DriveTransport.resolve"></a>
 
-[mobile/DriveTransport.swift:50](../../../mobile/DriveTransport.swift#L50) · `func`.
+## DriveTransport.resolve
+
+[mobile/DriveTransport.swift](../../../mobile/DriveTransport.swift) · `func`.
+
+```swift
+func resolve(_ bookmark: Data) throws -> URL
+```
+
+Разрешает сохранённый bookmark в URL выбранного корня.
+
+Неверное разрешение передаётся вызывающему коду через throws.
+
+<a id="symbol-DriveTransport.sync"></a>
+
+## DriveTransport.sync
+
+[mobile/DriveTransport.swift](../../../mobile/DriveTransport.swift) · `func`.
 
 ```swift
 func sync(bookmark: Data, operations: [QueuedOperation], rootID: String?) throws -> SyncResult
@@ -77,15 +103,3 @@ func sync(bookmark: Data, operations: [QueuedOperation], rootID: String?) throws
 Выполняет один цикл обмена через выбранную папку iCloud.
 
 Публикация операции и подтверждение её применения различаются; Mac-обмен отложен.
-
-## cache
-
-[mobile/DriveTransport.swift:90](../../../mobile/DriveTransport.swift#L90) · `func`.
-
-```swift
-func cache(bookmark: Data, file: PhoneFile, destination: URL) throws
-```
-
-Сохраняет выбранный оригинал для автономного просмотра на телефоне.
-
-Проверяет допустимость файла и сохраняет в отдельный локальный каталог вложений.

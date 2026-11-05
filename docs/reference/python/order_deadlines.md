@@ -1,8 +1,8 @@
 # order_deadlines.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [order_deadlines.py:1](../../../order_deadlines.py#L1).
+Исходник: [order_deadlines.py](../../../order_deadlines.py).
 
 Versioned Moscow deadline weeks; weekly comments share the order-calendar event field.
 
@@ -10,31 +10,11 @@ Versioned Moscow deadline weeks; weekly comments share the order-calendar event 
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
-## validate_week
-
-[order_deadlines.py:14](../../../order_deadlines.py#L14) · `function`.
-
-```python
-def validate_week(value):
-```
-
-Проверяет дату понедельника, используемую как ключ срока заказа.
-
-При недопустимом состоянии возбуждает ValueError.
-
-Непосредственные вызовы: `isinstance`, `re.fullmatch`, `ValueError`, `date.fromisoformat`, `timedelta`, `monday.weekday`.
-
-Явные исключения: `ValueError`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-value
-```
+<a id="symbol-read"></a>
 
 ## read
 
-[order_deadlines.py:29](../../../order_deadlines.py#L29) · `function`.
+[order_deadlines.py](../../../order_deadlines.py) · `function`.
 
 ```python
 def read(blocks):
@@ -54,31 +34,33 @@ None
 parsed if parsed == sorted(set(parsed)) else None
 ```
 
-## write
+<a id="symbol-read_comments"></a>
 
-[order_deadlines.py:47](../../../order_deadlines.py#L47) · `function`.
+## read_comments
+
+[order_deadlines.py](../../../order_deadlines.py) · `function`.
 
 ```python
-def write(blocks, week, selected):
+def read_comments(blocks):
 ```
 
-Ставит или снимает одну неделю срока, сохраняя прочие блоки карточки.
+Предоставляет совместимое имя чтения действующих недельных событий.
 
-При недопустимом состоянии возбуждает ValueError.
+Возвращает `order_calendar.read(blocks, 'week')`.
 
-Непосредственные вызовы: `validate_week`, `type`, `ValueError`, `read`, `set`, `weeks.add`, `weeks.discard`, `len`, `json.dumps`, `sorted`.
-
-Явные исключения: `ValueError`.
+Непосредственные вызовы: `order_calendar.read`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-{**blocks, BLOCK: json.dumps({'version': 1, 'weeks': sorted(weeks)}, ensure_ascii=False)}
+order_calendar.read(blocks, 'week')
 ```
+
+<a id="symbol-read_legacy_comments"></a>
 
 ## read_legacy_comments
 
-[order_deadlines.py:66](../../../order_deadlines.py#L66) · `function`.
+[order_deadlines.py](../../../order_deadlines.py) · `function`.
 
 ```python
 def read_legacy_comments(blocks):
@@ -98,9 +80,11 @@ None
 comments
 ```
 
+<a id="symbol-validate_comment"></a>
+
 ## validate_comment
 
-[order_deadlines.py:86](../../../order_deadlines.py#L86) · `function`.
+[order_deadlines.py](../../../order_deadlines.py) · `function`.
 
 ```python
 def validate_comment(comment):
@@ -120,29 +104,81 @@ def validate_comment(comment):
 comment
 ```
 
-## read_comments
+<a id="symbol-validate_week"></a>
 
-[order_deadlines.py:94](../../../order_deadlines.py#L94) · `function`.
+## validate_week
+
+[order_deadlines.py](../../../order_deadlines.py) · `function`.
 
 ```python
-def read_comments(blocks):
+def validate_week(value):
 ```
 
-Предоставляет совместимое имя чтения действующих недельных событий.
+Проверяет дату понедельника, используемую как ключ срока заказа.
 
-Возвращает `order_calendar.read(blocks, 'week')`.
+При недопустимом состоянии возбуждает ValueError.
 
-Непосредственные вызовы: `order_calendar.read`.
+Непосредственные вызовы: `isinstance`, `re.fullmatch`, `ValueError`, `date.fromisoformat`, `timedelta`, `monday.weekday`.
+
+Явные исключения: `ValueError`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-order_calendar.read(blocks, 'week')
+value
 ```
+
+<a id="symbol-week_options"></a>
+
+## week_options
+
+[order_deadlines.py](../../../order_deadlines.py) · `function`.
+
+```python
+def week_options(now=None):
+```
+
+Строит последовательность недель относительно понедельника Москвы.
+
+Возвращает `result`.
+
+Непосредственные вызовы: `(now or datetime.now(MOSCOW)).astimezone(MOSCOW).date`, `(now or datetime.now(MOSCOW)).astimezone`, `datetime.now`, `timedelta`, `today.weekday`, `range`, `start.isocalendar`, `result.append`, `start.isoformat`, `end.isoformat`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+result
+```
+
+<a id="symbol-write"></a>
+
+## write
+
+[order_deadlines.py](../../../order_deadlines.py) · `function`.
+
+```python
+def write(blocks, week, selected):
+```
+
+Ставит или снимает одну неделю срока, сохраняя прочие блоки карточки.
+
+При недопустимом состоянии возбуждает ValueError.
+
+Непосредственные вызовы: `validate_week`, `type`, `ValueError`, `read`, `set`, `weeks.add`, `weeks.discard`, `len`, `json.dumps`, `sorted`.
+
+Явные исключения: `ValueError`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+{**blocks, BLOCK: json.dumps({'version': 1, 'weeks': sorted(weeks)}, ensure_ascii=False)}
+```
+
+<a id="symbol-write_comment"></a>
 
 ## write_comment
 
-[order_deadlines.py:102](../../../order_deadlines.py#L102) · `function`.
+[order_deadlines.py](../../../order_deadlines.py) · `function`.
 
 ```python
 def write_comment(blocks, week, comment):
@@ -159,24 +195,4 @@ def write_comment(blocks, week, comment):
 ```python
 order_calendar.clear_week_comment(blocks, week)
 order_calendar.write(blocks, week, comment, 'week')
-```
-
-## week_options
-
-[order_deadlines.py:112](../../../order_deadlines.py#L112) · `function`.
-
-```python
-def week_options(now=None):
-```
-
-Строит последовательность недель относительно понедельника Москвы.
-
-Возвращает `result`.
-
-Непосредственные вызовы: `(now or datetime.now(MOSCOW)).astimezone(MOSCOW).date`, `(now or datetime.now(MOSCOW)).astimezone`, `datetime.now`, `timedelta`, `today.weekday`, `range`, `start.isocalendar`, `result.append`, `start.isoformat`, `end.isoformat`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-result
 ```

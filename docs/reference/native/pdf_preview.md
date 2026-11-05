@@ -1,14 +1,16 @@
 # pdf_preview.swift
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [pdf_preview.swift:1](../../../pdf_preview.swift#L1).
+Исходник: [pdf_preview.swift](../../../pdf_preview.swift).
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-fail"></a>
+
 ## fail
 
-[pdf_preview.swift:7](../../../pdf_preview.swift#L7) · `func`.
+[pdf_preview.swift](../../../pdf_preview.swift) · `func`.
 
 ```swift
 func fail(_ message: String) -> Never

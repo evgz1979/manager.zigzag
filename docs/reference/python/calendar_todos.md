@@ -1,8 +1,8 @@
 # calendar_todos.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [calendar_todos.py:1](../../../calendar_todos.py#L1).
+Исходник: [calendar_todos.py](../../../calendar_todos.py).
 
 Read-only To-do digest for the same two or three weeks as the calendar PNG.
 
@@ -10,9 +10,11 @@ Read-only To-do digest for the same two or three weeks as the calendar PNG.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-digest"></a>
+
 ## digest
 
-[calendar_todos.py:8](../../../calendar_todos.py#L8) · `function`.
+[calendar_todos.py](../../../calendar_todos.py) · `function`.
 
 ```python
 def digest(snapshot, start, through=None):
@@ -31,9 +33,11 @@ def digest(snapshot, start, through=None):
 '\n\n'.join(sections)
 ```
 
+<a id="symbol-message_parts"></a>
+
 ## message_parts
 
-[calendar_todos.py:78](../../../calendar_todos.py#L78) · `function`.
+[calendar_todos.py](../../../calendar_todos.py) · `function`.
 
 ```python
 def message_parts(text, limit=4000):

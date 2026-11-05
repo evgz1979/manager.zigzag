@@ -1,14 +1,16 @@
 # static/remote-access.js
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [static/remote-access.js:1](../../../static/remote-access.js#L1).
+Исходник: [static/remote-access.js](../../../static/remote-access.js).
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-loginUrl"></a>
+
 ## loginUrl
 
-[static/remote-access.js:7](../../../static/remote-access.js#L7) · `ArrowFunctionExpression`.
+[static/remote-access.js](../../../static/remote-access.js) · `ArrowFunctionExpression`.
 
 ```javascript
 const loginUrl = () =>
@@ -20,9 +22,11 @@ const loginUrl = () =>
 
 Непосредственные вызовы: `encodeURIComponent`.
 
+<a id="symbol-requireLogin"></a>
+
 ## requireLogin
 
-[static/remote-access.js:10](../../../static/remote-access.js#L10) · `FunctionDeclaration`.
+[static/remote-access.js](../../../static/remote-access.js) · `FunctionDeclaration`.
 
 ```javascript
 function requireLogin()

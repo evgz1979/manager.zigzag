@@ -20,6 +20,18 @@ PREVIOUS = "20261019T170000Z-abcdef12"
 
 
 class DeploymentTests(unittest.TestCase):
+    def test_payment_notified_marks_block_incompatible_rollback(self):
+        release = self.base / 'without-payment-notified'
+        release.mkdir()
+        (release / 'local_metadata.py').write_text('')
+        with sqlite3.connect(self.db) as db:
+            db.execute('CREATE TABLE metadata_settings (key TEXT PRIMARY KEY, value TEXT)')
+            db.execute("INSERT INTO metadata_settings VALUES ('invoice_calendar_notified','1')")
+        with self.assertRaisesRegex(RuntimeError, 'Сообщил'):
+            remote.check_event_rename_compatibility(self.db, release)
+        (release / 'invoices.py').write_text('INVOICE_CALENDAR_NOTIFIED_VERSION = 1')
+        remote.check_event_rename_compatibility(self.db, release)
+
     def test_enabled_remote_password_gate_blocks_incompatible_rollback(self):
         config = configparser.ConfigParser()
         config.read_string('[remote_access]\nenabled=true\n')

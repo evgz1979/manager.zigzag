@@ -1,8 +1,8 @@
 # object_activity.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [object_activity.py:1](../../../object_activity.py#L1).
+Исходник: [object_activity.py](../../../object_activity.py).
 
 Object visibility using the shared SQLite activity index and legacy marker compatibility.
 
@@ -10,9 +10,11 @@ Object visibility using the shared SQLite activity index and legacy marker compa
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-ObjectActivity"></a>
+
 ## ObjectActivity
 
-[object_activity.py:13](../../../object_activity.py#L13) · `class`.
+[object_activity.py](../../../object_activity.py) · `class`.
 
 ```python
 class ObjectActivity(ClientActivity):
@@ -22,9 +24,11 @@ class ObjectActivity(ClientActivity):
 
 Основные операции: matches, refresh.
 
+<a id="symbol-ObjectActivity.matches"></a>
+
 ## ObjectActivity.matches
 
-[object_activity.py:20](../../../object_activity.py#L20) · `function`.
+[object_activity.py](../../../object_activity.py) · `function`.
 
 ```python
 def matches(self, path):
@@ -42,9 +46,11 @@ def matches(self, path):
 folder_role(self.root, path)['folderKind'] == 'object'
 ```
 
+<a id="symbol-ObjectActivity.refresh"></a>
+
 ## ObjectActivity.refresh
 
-[object_activity.py:25](../../../object_activity.py#L25) · `function`.
+[object_activity.py](../../../object_activity.py) · `function`.
 
 ```python
 def refresh(self):
@@ -56,9 +62,11 @@ def refresh(self):
 
 Непосредственные вызовы: `os.walk`, `Path`, `name.startswith`, `folder.is_symlink`, `folder.relative_to(self.root).as_posix`, `folder.relative_to`, `folder_role`, `allowed.append`, `self.read`, `self.error`.
 
+<a id="symbol-ObjectActivity.refresh.on_error"></a>
+
 ## ObjectActivity.refresh.on_error
 
-[object_activity.py:29](../../../object_activity.py#L29) · `function`.
+[object_activity.py](../../../object_activity.py) · `function`.
 
 ```python
 def on_error(error):

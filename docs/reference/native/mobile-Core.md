@@ -1,62 +1,16 @@
 # mobile/Core.swift
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [mobile/Core.swift:1](../../../mobile/Core.swift#L1).
+Исходник: [mobile/Core.swift](../../../mobile/Core.swift).
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
-## PhoneTask
-
-[mobile/Core.swift:6](../../../mobile/Core.swift#L6) · `struct`.
-
-```swift
-struct PhoneTask: Codable, Identifiable, Equatable
-```
-
-Описывает задачу телефона с устойчивой идентичностью и версией.
-
-Codable сохраняет текст и выполнение для каталога и локального состояния.
-
-## PhoneFile
-
-[mobile/Core.swift:15](../../../mobile/Core.swift#L15) · `struct`.
-
-```swift
-struct PhoneFile: Codable, Identifiable, Equatable
-```
-
-Описывает вложение заказа и привязку к версии исходного файла.
-
-Путь используется как id; размер, время и token проверяются при действиях.
-
-## PhoneOrder
-
-[mobile/Core.swift:27](../../../mobile/Core.swift#L27) · `struct`.
-
-```swift
-struct PhoneOrder: Codable, Identifiable
-```
-
-Описывает доступную телефону копию карточки заказа.
-
-Содержит задачи, вложения и время их последнего обновления.
-
-## Receipt
-
-[mobile/Core.swift:51](../../../mobile/Core.swift#L51) · `struct`.
-
-```swift
-struct Receipt: Codable
-```
-
-Описывает подтверждение применения либо конфликт операции на Mac.
-
-UUID, digest и root_id связывают ответ с точными неизменяемыми байтами запроса.
+<a id="symbol-Catalog"></a>
 
 ## Catalog
 
-[mobile/Core.swift:61](../../../mobile/Core.swift#L61) · `struct`.
+[mobile/Core.swift](../../../mobile/Core.swift) · `struct`.
 
 ```swift
 struct Catalog: Codable
@@ -66,33 +20,11 @@ struct Catalog: Codable
 
 Схема и root_id проверяются до замены локального каталога телефона.
 
-## PhoneOperation
-
-[mobile/Core.swift:72](../../../mobile/Core.swift#L72) · `struct`.
-
-```swift
-struct PhoneOperation: Codable, Identifiable
-```
-
-Описывает одно неизменяемое действие телефона для Mac.
-
-UUID, sequence и исходная версия защищают от дубля и применения к другой задаче.
-
-## QueuedOperation
-
-[mobile/Core.swift:96](../../../mobile/Core.swift#L96) · `struct`.
-
-```swift
-struct QueuedOperation: Codable, Identifiable
-```
-
-Хранит действие, точные байты отправки и полученное подтверждение.
-
-Digest считается от однажды сериализованных байтов, а не от повторной кодировки.
+<a id="symbol-LocalState"></a>
 
 ## LocalState
 
-[mobile/Core.swift:108](../../../mobile/Core.swift#L108) · `struct`.
+[mobile/Core.swift](../../../mobile/Core.swift) · `struct`.
 
 ```swift
 struct LocalState: Codable
@@ -102,9 +34,11 @@ struct LocalState: Codable
 
 Сохраняется целиком через PhoneStore.persist до обновления памяти.
 
+<a id="symbol-PhoneError"></a>
+
 ## PhoneError
 
-[mobile/Core.swift:120](../../../mobile/Core.swift#L120) · `enum`.
+[mobile/Core.swift](../../../mobile/Core.swift) · `enum`.
 
 ```swift
 enum PhoneError: LocalizedError
@@ -114,9 +48,53 @@ enum PhoneError: LocalizedError
 
 LocalizedError предоставляет сообщение для состояния интерфейса.
 
+<a id="symbol-PhoneFile"></a>
+
+## PhoneFile
+
+[mobile/Core.swift](../../../mobile/Core.swift) · `struct`.
+
+```swift
+struct PhoneFile: Codable, Identifiable, Equatable
+```
+
+Описывает вложение заказа и привязку к версии исходного файла.
+
+Путь используется как id; размер, время и token проверяются при действиях.
+
+<a id="symbol-PhoneOperation"></a>
+
+## PhoneOperation
+
+[mobile/Core.swift](../../../mobile/Core.swift) · `struct`.
+
+```swift
+struct PhoneOperation: Codable, Identifiable
+```
+
+Описывает одно неизменяемое действие телефона для Mac.
+
+UUID, sequence и исходная версия защищают от дубля и применения к другой задаче.
+
+<a id="symbol-PhoneOrder"></a>
+
+## PhoneOrder
+
+[mobile/Core.swift](../../../mobile/Core.swift) · `struct`.
+
+```swift
+struct PhoneOrder: Codable, Identifiable
+```
+
+Описывает доступную телефону копию карточки заказа.
+
+Содержит задачи, вложения и время их последнего обновления.
+
+<a id="symbol-PhoneStore"></a>
+
 ## PhoneStore
 
-[mobile/Core.swift:129](../../../mobile/Core.swift#L129) · `class`.
+[mobile/Core.swift](../../../mobile/Core.swift) · `class`.
 
 ```swift
 final class PhoneStore
@@ -126,45 +104,11 @@ final class PhoneStore
 
 Все изменения проходят через persist; повреждение не заменяется пустой очередью.
 
-## init
+<a id="symbol-PhoneStore.bookmark"></a>
 
-[mobile/Core.swift:137](../../../mobile/Core.swift#L137) · `init`.
+## PhoneStore.bookmark
 
-```swift
-init(directory: URL)
-```
-
-Инициализирует зависимости и состояние экземпляра.
-
-Конкретные параметры и правила загрузки определены в теле и полях типа.
-
-## persist
-
-[mobile/Core.swift:154](../../../mobile/Core.swift#L154) · `func`.
-
-```swift
-func persist(_ next: LocalState) throws
-```
-
-Атомарно сохраняет новое локальное состояние до изменения памяти.
-
-Если запись не удалась, прежнее состояние и черновики остаются доступны.
-
-## draft
-
-[mobile/Core.swift:171](../../../mobile/Core.swift#L171) · `func`.
-
-```swift
-func draft(_ key: String, text: String) throws
-```
-
-Читает или сохраняет текстовый черновик по устойчивому ключу.
-
-SwiftUI Binding и PhoneStore используют один ключ локального состояния.
-
-## bookmark
-
-[mobile/Core.swift:179](../../../mobile/Core.swift#L179) · `func`.
+[mobile/Core.swift](../../../mobile/Core.swift) · `func`.
 
 ```swift
 func bookmark(_ data: Data) throws
@@ -174,9 +118,39 @@ func bookmark(_ data: Data) throws
 
 Изменение проходит через общий устойчивый persist.
 
-## enqueue
+<a id="symbol-PhoneStore.cachedURL"></a>
 
-[mobile/Core.swift:188](../../../mobile/Core.swift#L188) · `func`.
+## PhoneStore.cachedURL
+
+[mobile/Core.swift](../../../mobile/Core.swift) · `func`.
+
+```swift
+func cachedURL(_ file: PhoneFile) -> URL
+```
+
+Вычисляет локальный путь автономной копии конкретной версии вложения.
+
+SHA-256 от пути и token разделяет версии; имя файла сохраняется в конце.
+
+<a id="symbol-PhoneStore.draft"></a>
+
+## PhoneStore.draft
+
+[mobile/Core.swift](../../../mobile/Core.swift) · `func`.
+
+```swift
+func draft(_ key: String, text: String) throws
+```
+
+Читает или сохраняет текстовый черновик по устойчивому ключу.
+
+SwiftUI Binding и PhoneStore используют один ключ локального состояния.
+
+<a id="symbol-PhoneStore.enqueue"></a>
+
+## PhoneStore.enqueue
+
+[mobile/Core.swift](../../../mobile/Core.swift) · `func`.
 
 ```swift
 func enqueue(orderID: String, kind: String, text: String? = nil, task: PhoneTask? = nil, file: PhoneFile? = nil, draftKey: String? = nil) throws -> String
@@ -186,21 +160,11 @@ func enqueue(orderID: String, kind: String, text: String? = nil, task: PhoneTask
 
 Проверяет вид операции и сохраняет исходные признаки задачи или файла.
 
-## markSent
+<a id="symbol-PhoneStore.ingest"></a>
 
-[mobile/Core.swift:235](../../../mobile/Core.swift#L235) · `func`.
+## PhoneStore.ingest
 
-```swift
-func markSent(_ ids: Set<String>) throws
-```
-
-Помечает операции как опубликованные в папку обмена.
-
-Флаг sent ещё не означает receipt применения операции сервером Mac.
-
-## ingest
-
-[mobile/Core.swift:243](../../../mobile/Core.swift#L243) · `func`.
+[mobile/Core.swift](../../../mobile/Core.swift) · `func`.
 
 ```swift
 func ingest(_ catalog: Catalog) throws
@@ -210,9 +174,11 @@ func ingest(_ catalog: Catalog) throws
 
 Чужой архив, неверные UUID, пути или digest не изменяют очередь.
 
-## safePath
+<a id="symbol-PhoneStore.ingest.safePath"></a>
 
-[mobile/Core.swift:251](../../../mobile/Core.swift#L251) · `func`.
+## PhoneStore.ingest.safePath
+
+[mobile/Core.swift](../../../mobile/Core.swift) · `func`.
 
 ```swift
 func safePath(_ path: String) -> Bool
@@ -222,9 +188,39 @@ func safePath(_ path: String) -> Bool
 
 Запрещает пустые и скрытые компоненты и нулевые символы.
 
-## order
+<a id="symbol-PhoneStore.init"></a>
 
-[mobile/Core.swift:295](../../../mobile/Core.swift#L295) · `func`.
+## PhoneStore.init
+
+[mobile/Core.swift](../../../mobile/Core.swift) · `init`.
+
+```swift
+init(directory: URL)
+```
+
+Инициализирует зависимости и состояние экземпляра.
+
+Конкретные параметры и правила загрузки определены в теле и полях типа.
+
+<a id="symbol-PhoneStore.markSent"></a>
+
+## PhoneStore.markSent
+
+[mobile/Core.swift](../../../mobile/Core.swift) · `func`.
+
+```swift
+func markSent(_ ids: Set<String>) throws
+```
+
+Помечает операции как опубликованные в папку обмена.
+
+Флаг sent ещё не означает receipt применения операции сервером Mac.
+
+<a id="symbol-PhoneStore.order"></a>
+
+## PhoneStore.order
+
+[mobile/Core.swift](../../../mobile/Core.swift) · `func`.
 
 ```swift
 func order(_ id: String) -> PhoneOrder?
@@ -234,14 +230,58 @@ func order(_ id: String) -> PhoneOrder?
 
 Неподтверждённые операции остаются видимыми до получения receipt Mac.
 
-## cachedURL
+<a id="symbol-PhoneStore.persist"></a>
 
-[mobile/Core.swift:321](../../../mobile/Core.swift#L321) · `func`.
+## PhoneStore.persist
+
+[mobile/Core.swift](../../../mobile/Core.swift) · `func`.
 
 ```swift
-func cachedURL(_ file: PhoneFile) -> URL
+func persist(_ next: LocalState) throws
 ```
 
-Вычисляет локальный путь автономной копии конкретной версии вложения.
+Атомарно сохраняет новое локальное состояние до изменения памяти.
 
-SHA-256 от пути и token разделяет версии; имя файла сохраняется в конце.
+Если запись не удалась, прежнее состояние и черновики остаются доступны.
+
+<a id="symbol-PhoneTask"></a>
+
+## PhoneTask
+
+[mobile/Core.swift](../../../mobile/Core.swift) · `struct`.
+
+```swift
+struct PhoneTask: Codable, Identifiable, Equatable
+```
+
+Описывает задачу телефона с устойчивой идентичностью и версией.
+
+Codable сохраняет текст и выполнение для каталога и локального состояния.
+
+<a id="symbol-QueuedOperation"></a>
+
+## QueuedOperation
+
+[mobile/Core.swift](../../../mobile/Core.swift) · `struct`.
+
+```swift
+struct QueuedOperation: Codable, Identifiable
+```
+
+Хранит действие, точные байты отправки и полученное подтверждение.
+
+Digest считается от однажды сериализованных байтов, а не от повторной кодировки.
+
+<a id="symbol-Receipt"></a>
+
+## Receipt
+
+[mobile/Core.swift](../../../mobile/Core.swift) · `struct`.
+
+```swift
+struct Receipt: Codable
+```
+
+Описывает подтверждение применения либо конфликт операции на Mac.
+
+UUID, digest и root_id связывают ответ с точными неизменяемыми байтами запроса.

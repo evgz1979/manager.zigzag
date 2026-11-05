@@ -1,8 +1,8 @@
 # telegram_calendar.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [telegram_calendar.py:1](../../../telegram_calendar.py#L1).
+Исходник: [telegram_calendar.py](../../../telegram_calendar.py).
 
 Calendar delivery through a dedicated Telegram bot; never return or log tokens.
 
@@ -10,9 +10,11 @@ Calendar delivery through a dedicated Telegram bot; never return or log tokens.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-TelegramError"></a>
+
 ## TelegramError
 
-[telegram_calendar.py:25](../../../telegram_calendar.py#L25) · `class`.
+[telegram_calendar.py](../../../telegram_calendar.py) · `class`.
 
 ```python
 class TelegramError(RuntimeError):
@@ -22,114 +24,11 @@ class TelegramError(RuntimeError):
 
 Вызывающий обработчик использует тип исключения для отказа без подмены данных.
 
-## settings_path
-
-[telegram_calendar.py:31](../../../telegram_calendar.py#L31) · `function`.
-
-```python
-def settings_path(data_dir):
-```
-
-Вычисляет закрытый локальный путь настроек Telegram.
-
-Возвращает `Path(os.environ.get('MANAGER_TELEGRAM_SETTINGS') or Path(data_dir) / 'telegram.ini')`.
-
-Непосредственные вызовы: `Path`, `os.environ.get`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-Path(os.environ.get('MANAGER_TELEGRAM_SETTINGS') or Path(data_dir) / 'telegram.ini')
-```
-
-## read_ini
-
-[telegram_calendar.py:37](../../../telegram_calendar.py#L37) · `function`.
-
-```python
-def read_ini(path):
-```
-
-Читает конфигурацию Telegram без вывода секретов.
-
-Возвращает `config`.
-
-Непосредственные вызовы: `configparser.ConfigParser`, `path.open`, `config.read_file`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-config
-```
-
-## validate_token
-
-[telegram_calendar.py:46](../../../telegram_calendar.py#L46) · `function`.
-
-```python
-def validate_token(token, data_dir):
-```
-
-Проверяет допустимую форму токена Telegram перед использованием.
-
-При недопустимом состоянии возбуждает ValueError, TelegramError.
-
-Непосредственные вызовы: `isinstance`, `re.fullmatch`, `ValueError`, `Path`, `settings_path`, `read_ini`, `config.get`, `config.get('telegram', 'bot_token', fallback='').strip`, `old_token.split`, `token.split`, `TelegramError`.
-
-Явные исключения: `ValueError`, `TelegramError`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-token
-```
-
-## settings
-
-[telegram_calendar.py:65](../../../telegram_calendar.py#L65) · `function`.
-
-```python
-def settings(data_dir):
-```
-
-Читает и проверяет настройки функции без раскрытия секретов вызывающему коду.
-
-При недопустимом состоянии возбуждает ValueError, TelegramError.
-
-Непосредственные вызовы: `read_ini`, `settings_path`, `config.get`, `ValueError`, `config.get('telegram', 'bot_token', fallback='').strip`, `config.get('telegram', 'chat_id', fallback='').strip`, `validate_token`, `re.fullmatch`, `TelegramError`.
-
-Явные исключения: `ValueError`, `TelegramError`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-(token, chat)
-```
-
-## status
-
-[telegram_calendar.py:83](../../../telegram_calendar.py#L83) · `function`.
-
-```python
-def status(data_dir):
-```
-
-Возвращает состояние обработки и сохранённые ошибки.
-
-Возвращает `{'configured': True, 'chat_id': chat, 'bot_username': config.get('telegram', 'bot_username', fallback='')}`; либо `{'configured': False}`.
-
-Непосредственные вызовы: `settings`, `read_ini`, `settings_path`, `config.get`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-{'configured': True, 'chat_id': chat, 'bot_username': config.get('telegram', 'bot_username', fallback='')}
-{'configured': False}
-```
+<a id="symbol-api_request"></a>
 
 ## api_request
 
-[telegram_calendar.py:94](../../../telegram_calendar.py#L94) · `function`.
+[telegram_calendar.py](../../../telegram_calendar.py) · `function`.
 
 ```python
 def api_request(request, timeout=15):
@@ -149,9 +48,11 @@ def api_request(request, timeout=15):
 result['result']
 ```
 
+<a id="symbol-bot_api"></a>
+
 ## bot_api
 
-[telegram_calendar.py:116](../../../telegram_calendar.py#L116) · `function`.
+[telegram_calendar.py](../../../telegram_calendar.py) · `function`.
 
 ```python
 def bot_api(token, method, payload=None):
@@ -169,9 +70,11 @@ def bot_api(token, method, payload=None):
 api_request(request)
 ```
 
+<a id="symbol-bot_info"></a>
+
 ## bot_info
 
-[telegram_calendar.py:124](../../../telegram_calendar.py#L124) · `function`.
+[telegram_calendar.py](../../../telegram_calendar.py) · `function`.
 
 ```python
 def bot_info(token, data_dir):
@@ -191,9 +94,11 @@ def bot_info(token, data_dir):
 bot
 ```
 
+<a id="symbol-chats"></a>
+
 ## chats
 
-[telegram_calendar.py:135](../../../telegram_calendar.py#L135) · `function`.
+[telegram_calendar.py](../../../telegram_calendar.py) · `function`.
 
 ```python
 def chats(token, data_dir):
@@ -213,9 +118,11 @@ def chats(token, data_dir):
 {'bot_username': bot['username'], 'chats': list(found.values())}
 ```
 
+<a id="symbol-configure"></a>
+
 ## configure
 
-[telegram_calendar.py:156](../../../telegram_calendar.py#L156) · `function`.
+[telegram_calendar.py](../../../telegram_calendar.py) · `function`.
 
 ```python
 def configure(payload, data_dir):
@@ -236,25 +143,11 @@ chats(token, data_dir)
 {'configured': True, 'chat_id': chat, 'bot_username': bot['username']}
 ```
 
-## validate_image
-
-[telegram_calendar.py:200](../../../telegram_calendar.py#L200) · `function`.
-
-```python
-def validate_image(image):
-```
-
-Проверяет байты PNG и допустимые ограничения общего снимка.
-
-При недопустимом состоянии возбуждает ValueError.
-
-Непосредственные вызовы: `len`, `ValueError`, `struct.unpack`.
-
-Явные исключения: `ValueError`.
+<a id="symbol-current_week"></a>
 
 ## current_week
 
-[telegram_calendar.py:210](../../../telegram_calendar.py#L210) · `function`.
+[telegram_calendar.py](../../../telegram_calendar.py) · `function`.
 
 ```python
 def current_week(now=None):
@@ -272,9 +165,33 @@ def current_week(now=None):
 today - timedelta(days=today.weekday())
 ```
 
+<a id="symbol-read_ini"></a>
+
+## read_ini
+
+[telegram_calendar.py](../../../telegram_calendar.py) · `function`.
+
+```python
+def read_ini(path):
+```
+
+Читает конфигурацию Telegram без вывода секретов.
+
+Возвращает `config`.
+
+Непосредственные вызовы: `configparser.ConfigParser`, `path.open`, `config.read_file`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+config
+```
+
+<a id="symbol-send"></a>
+
 ## send
 
-[telegram_calendar.py:217](../../../telegram_calendar.py#L217) · `function`.
+[telegram_calendar.py](../../../telegram_calendar.py) · `function`.
 
 ```python
 def send(image, start, data_dir, *, now=None, todo_text='', through=None):
@@ -292,4 +209,115 @@ def send(image, start, data_dir, *, now=None, todo_text='', through=None):
 
 ```python
 response
+```
+
+<a id="symbol-settings"></a>
+
+## settings
+
+[telegram_calendar.py](../../../telegram_calendar.py) · `function`.
+
+```python
+def settings(data_dir):
+```
+
+Читает и проверяет настройки функции без раскрытия секретов вызывающему коду.
+
+При недопустимом состоянии возбуждает ValueError, TelegramError.
+
+Непосредственные вызовы: `read_ini`, `settings_path`, `config.get`, `ValueError`, `config.get('telegram', 'bot_token', fallback='').strip`, `config.get('telegram', 'chat_id', fallback='').strip`, `validate_token`, `re.fullmatch`, `TelegramError`.
+
+Явные исключения: `ValueError`, `TelegramError`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+(token, chat)
+```
+
+<a id="symbol-settings_path"></a>
+
+## settings_path
+
+[telegram_calendar.py](../../../telegram_calendar.py) · `function`.
+
+```python
+def settings_path(data_dir):
+```
+
+Вычисляет закрытый локальный путь настроек Telegram.
+
+Возвращает `Path(os.environ.get('MANAGER_TELEGRAM_SETTINGS') or Path(data_dir) / 'telegram.ini')`.
+
+Непосредственные вызовы: `Path`, `os.environ.get`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+Path(os.environ.get('MANAGER_TELEGRAM_SETTINGS') or Path(data_dir) / 'telegram.ini')
+```
+
+<a id="symbol-status"></a>
+
+## status
+
+[telegram_calendar.py](../../../telegram_calendar.py) · `function`.
+
+```python
+def status(data_dir):
+```
+
+Возвращает состояние обработки и сохранённые ошибки.
+
+Возвращает `{'configured': True, 'chat_id': chat, 'bot_username': config.get('telegram', 'bot_username', fallback='')}`; либо `{'configured': False}`.
+
+Непосредственные вызовы: `settings`, `read_ini`, `settings_path`, `config.get`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+{'configured': True, 'chat_id': chat, 'bot_username': config.get('telegram', 'bot_username', fallback='')}
+{'configured': False}
+```
+
+<a id="symbol-validate_image"></a>
+
+## validate_image
+
+[telegram_calendar.py](../../../telegram_calendar.py) · `function`.
+
+```python
+def validate_image(image):
+```
+
+Проверяет байты PNG и допустимые ограничения общего снимка.
+
+При недопустимом состоянии возбуждает ValueError.
+
+Непосредственные вызовы: `len`, `ValueError`, `struct.unpack`.
+
+Явные исключения: `ValueError`.
+
+<a id="symbol-validate_token"></a>
+
+## validate_token
+
+[telegram_calendar.py](../../../telegram_calendar.py) · `function`.
+
+```python
+def validate_token(token, data_dir):
+```
+
+Проверяет допустимую форму токена Telegram перед использованием.
+
+При недопустимом состоянии возбуждает ValueError, TelegramError.
+
+Непосредственные вызовы: `isinstance`, `re.fullmatch`, `ValueError`, `Path`, `settings_path`, `read_ini`, `config.get`, `config.get('telegram', 'bot_token', fallback='').strip`, `old_token.split`, `token.split`, `TelegramError`.
+
+Явные исключения: `ValueError`, `TelegramError`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+token
 ```

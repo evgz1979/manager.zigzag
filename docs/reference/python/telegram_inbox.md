@@ -1,8 +1,8 @@
 # telegram_inbox.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [telegram_inbox.py:1](../../../telegram_inbox.py#L1).
+Исходник: [telegram_inbox.py](../../../telegram_inbox.py).
 
 Durable Telegram intake. Acknowledge updates only after the SQLite commit.
 
@@ -10,91 +10,11 @@ Durable Telegram intake. Acknowledge updates only after the SQLite commit.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
-## decode
-
-[telegram_inbox.py:21](../../../telegram_inbox.py#L21) · `function`.
-
-```python
-def decode(row):
-```
-
-Разбирает сохранённый строгий формат записи протокола.
-
-При недопустимом состоянии возбуждает ValueError.
-
-Непосредственные вызовы: `json.loads`, `isinstance`, `type`, `data.get`, `data['text'].strip`, `ValueError`.
-
-Явные исключения: `ValueError`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-{**data, 'id': row['id'], 'revision': row['revision']}
-```
-
-## items
-
-[telegram_inbox.py:36](../../../telegram_inbox.py#L36) · `function`.
-
-```python
-def items(store):
-```
-
-Читает сохранённые элементы очереди или каталога модуля.
-
-Работает с таблицами metadata_records.
-
-Непосредственные вызовы: `MetadataStore(store).connect`, `MetadataStore`, `decode`, `db.execute`, `sorted`, `item.get`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-sorted((item for item in result if not item.get('deleted', False)), key=lambda item: (item['created_at'], item['message_id'], item['line'], item['id']))
-```
-
-## complete
-
-[telegram_inbox.py:46](../../../telegram_inbox.py#L46) · `function`.
-
-```python
-def complete(store, payload):
-```
-
-Меняет выполнение задачи Inbox по её UUID и ожидаемой версии.
-
-Возвращает `change(store, payload, 'completed', payload.get('completed'))`.
-
-Непосредственные вызовы: `change`, `payload.get`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-change(store, payload, 'completed', payload.get('completed'))
-```
-
-## set_deleted
-
-[telegram_inbox.py:52](../../../telegram_inbox.py#L52) · `function`.
-
-```python
-def set_deleted(store, payload, deleted):
-```
-
-Меняет признак корзины, сохраняя саму запись и её историю.
-
-Возвращает `change(store, payload, 'deleted', deleted)`.
-
-Непосредственные вызовы: `change`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-change(store, payload, 'deleted', deleted)
-```
+<a id="symbol-change"></a>
 
 ## change
 
-[telegram_inbox.py:58](../../../telegram_inbox.py#L58) · `function`.
+[telegram_inbox.py](../../../telegram_inbox.py) · `function`.
 
 ```python
 def change(store, payload, field, value):
@@ -114,9 +34,33 @@ def change(store, payload, field, value):
 decode(db.execute('SELECT * FROM metadata_records WHERE kind=? AND id=?', (KIND, identity)).fetchone())
 ```
 
+<a id="symbol-complete"></a>
+
+## complete
+
+[telegram_inbox.py](../../../telegram_inbox.py) · `function`.
+
+```python
+def complete(store, payload):
+```
+
+Меняет выполнение задачи Inbox по её UUID и ожидаемой версии.
+
+Возвращает `change(store, payload, 'completed', payload.get('completed'))`.
+
+Непосредственные вызовы: `change`, `payload.get`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+change(store, payload, 'completed', payload.get('completed'))
+```
+
+<a id="symbol-cursor"></a>
+
 ## cursor
 
-[telegram_inbox.py:87](../../../telegram_inbox.py#L87) · `function`.
+[telegram_inbox.py](../../../telegram_inbox.py) · `function`.
 
 ```python
 def cursor(db, bot):
@@ -137,9 +81,35 @@ None
 value
 ```
 
+<a id="symbol-decode"></a>
+
+## decode
+
+[telegram_inbox.py](../../../telegram_inbox.py) · `function`.
+
+```python
+def decode(row):
+```
+
+Разбирает сохранённый строгий формат записи протокола.
+
+При недопустимом состоянии возбуждает ValueError.
+
+Непосредственные вызовы: `json.loads`, `isinstance`, `type`, `data.get`, `data['text'].strip`, `ValueError`.
+
+Явные исключения: `ValueError`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+{**data, 'id': row['id'], 'revision': row['revision']}
+```
+
+<a id="symbol-ingest"></a>
+
 ## ingest
 
-[telegram_inbox.py:102](../../../telegram_inbox.py#L102) · `function`.
+[telegram_inbox.py](../../../telegram_inbox.py) · `function`.
 
 ```python
 def ingest(store, bot, chat, updates):
@@ -159,9 +129,33 @@ def ingest(store, bot, chat, updates):
 added
 ```
 
+<a id="symbol-items"></a>
+
+## items
+
+[telegram_inbox.py](../../../telegram_inbox.py) · `function`.
+
+```python
+def items(store):
+```
+
+Читает сохранённые элементы очереди или каталога модуля.
+
+Работает с таблицами metadata_records.
+
+Непосредственные вызовы: `MetadataStore(store).connect`, `MetadataStore`, `decode`, `db.execute`, `sorted`, `item.get`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+sorted((item for item in result if not item.get('deleted', False)), key=lambda item: (item['created_at'], item['message_id'], item['line'], item['id']))
+```
+
+<a id="symbol-poll"></a>
+
 ## poll
 
-[telegram_inbox.py:154](../../../telegram_inbox.py#L154) · `function`.
+[telegram_inbox.py](../../../telegram_inbox.py) · `function`.
 
 ```python
 def poll(store, data_dir):
@@ -179,9 +173,33 @@ def poll(store, data_dir):
 added
 ```
 
+<a id="symbol-set_deleted"></a>
+
+## set_deleted
+
+[telegram_inbox.py](../../../telegram_inbox.py) · `function`.
+
+```python
+def set_deleted(store, payload, deleted):
+```
+
+Меняет признак корзины, сохраняя саму запись и её историю.
+
+Возвращает `change(store, payload, 'deleted', deleted)`.
+
+Непосредственные вызовы: `change`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+change(store, payload, 'deleted', deleted)
+```
+
+<a id="symbol-snapshot"></a>
+
 ## snapshot
 
-[telegram_inbox.py:172](../../../telegram_inbox.py#L172) · `function`.
+[telegram_inbox.py](../../../telegram_inbox.py) · `function`.
 
 ```python
 def snapshot(store, data_dir):
@@ -199,9 +217,11 @@ def snapshot(store, data_dir):
 {'items': items(store), **telegram.status(data_dir), **STATUS}
 ```
 
+<a id="symbol-worker"></a>
+
 ## worker
 
-[telegram_inbox.py:178](../../../telegram_inbox.py#L178) · `function`.
+[telegram_inbox.py](../../../telegram_inbox.py) · `function`.
 
 ```python
 def worker(store, data_dir, stop, calendar_sender=None):

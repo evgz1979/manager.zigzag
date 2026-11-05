@@ -1,8 +1,8 @@
 # telegram_calendar_commands.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [telegram_calendar_commands.py:1](../../../telegram_calendar_commands.py#L1).
+Исходник: [telegram_calendar_commands.py](../../../telegram_calendar_commands.py).
 
 Durable, single-attempt calendar requests from the configured private chat.
 
@@ -10,9 +10,11 @@ Durable, single-attempt calendar requests from the configured private chat.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-decode"></a>
+
 ## decode
 
-[telegram_calendar_commands.py:15](../../../telegram_calendar_commands.py#L15) · `function`.
+[telegram_calendar_commands.py](../../../telegram_calendar_commands.py) · `function`.
 
 ```python
 def decode(row):
@@ -32,9 +34,11 @@ def decode(row):
 data
 ```
 
+<a id="symbol-enqueue"></a>
+
 ## enqueue
 
-[telegram_calendar_commands.py:27](../../../telegram_calendar_commands.py#L27) · `function`.
+[telegram_calendar_commands.py](../../../telegram_calendar_commands.py) · `function`.
 
 ```python
 def enqueue(db, bot, chat, message):
@@ -46,23 +50,11 @@ def enqueue(db, bot, chat, message):
 
 Непосредственные вызовы: `db.execute('SELECT * FROM metadata_records WHERE kind=? AND path=?', (KIND, path)).fetchone`, `db.execute`, `decode`, `str`, `uuid5`, `json.dumps`.
 
-## update
-
-[telegram_calendar_commands.py:42](../../../telegram_calendar_commands.py#L42) · `function`.
-
-```python
-def update(db, row, data):
-```
-
-Меняет состояние существующего запроса с проверкой версии.
-
-Работает с таблицами metadata_records.
-
-Непосредственные вызовы: `audit`, `db.execute`, `json.dumps`, `time.time`.
+<a id="symbol-process"></a>
 
 ## process
 
-[telegram_calendar_commands.py:50](../../../telegram_calendar_commands.py#L50) · `function`.
+[telegram_calendar_commands.py](../../../telegram_calendar_commands.py) · `function`.
 
 ```python
 def process(store, data_dir, sender):
@@ -73,3 +65,19 @@ def process(store, data_dir, sender):
 Работает с таблицами metadata_records.
 
 Непосредственные вызовы: `telegram.SEND_LOCK.acquire`, `telegram.settings`, `token.split`, `MetadataStore(store).connect`, `MetadataStore`, `db.commit`, `db.execute`, `db.execute('SELECT * FROM metadata_records WHERE kind=? ORDER BY updated,id', (KIND,)).fetchall`, `decode`, `update`, `sender`, `str`, `db.execute('SELECT * FROM metadata_records WHERE kind=? AND id=?', (KIND, selected['id'])).fetchone`, `telegram.bot_api`, `telegram.SEND_LOCK.release`.
+
+<a id="symbol-update"></a>
+
+## update
+
+[telegram_calendar_commands.py](../../../telegram_calendar_commands.py) · `function`.
+
+```python
+def update(db, row, data):
+```
+
+Меняет состояние существующего запроса с проверкой версии.
+
+Работает с таблицами metadata_records.
+
+Непосредственные вызовы: `audit`, `db.execute`, `json.dumps`, `time.time`.

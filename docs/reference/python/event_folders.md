@@ -1,8 +1,8 @@
 # event_folders.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [event_folders.py:1](../../../event_folders.py#L1).
+Исходник: [event_folders.py](../../../event_folders.py).
 
 Нумерованные события заказа: создание и подтверждённое исправление имён.
 
@@ -10,9 +10,11 @@
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-EventFolderConflict"></a>
+
 ## EventFolderConflict
 
-[event_folders.py:24](../../../event_folders.py#L24) · `class`.
+[event_folders.py](../../../event_folders.py) · `class`.
 
 ```python
 class EventFolderConflict(ValueError):
@@ -22,135 +24,11 @@ class EventFolderConflict(ValueError):
 
 Вызывающий обработчик использует тип исключения для отказа без подмены данных.
 
-## event_number
-
-[event_folders.py:30](../../../event_folders.py#L30) · `function`.
-
-```python
-def event_number(name):
-```
-
-Извлекает допустимый порядковый номер события из имени папки.
-
-Возвращает `None if dated(name) else NUMBER.match(name)`.
-
-Непосредственные вызовы: `dated`, `NUMBER.match`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-None if dated(name) else NUMBER.match(name)
-```
-
-## parent
-
-[event_folders.py:36](../../../event_folders.py#L36) · `function`.
-
-```python
-def parent(root, relative):
-```
-
-Определяет родительскую папку или заказ по допустимому пути.
-
-При недопустимом состоянии возбуждает ValueError, FileNotFoundError.
-
-Непосредственные вызовы: `isinstance`, `is_freza_task`, `ValueError`, `Path`, `any`, `part.startswith`, `is_service_folder`, `layout.safe_path`, `layout_scope`, `target.is_dir`, `FileNotFoundError`, `folder_role`.
-
-Явные исключения: `ValueError`, `FileNotFoundError`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-target
-```
-
-## title_name
-
-[event_folders.py:51](../../../event_folders.py#L51) · `function`.
-
-```python
-def title_name(number, title):
-```
-
-Проверяет имя создаваемого или переименовываемого объекта.
-
-При недопустимом состоянии возбуждает ValueError.
-
-Непосредственные вызовы: `isinstance`, `any`, `ord`, `ValueError`, `unicodedata.normalize`, `title.strip`, `len`, `os.fsencode`.
-
-Явные исключения: `ValueError`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-name
-```
-
-## snapshot
-
-[event_folders.py:65](../../../event_folders.py#L65) · `function`.
-
-```python
-def snapshot(target):
-```
-
-Собирает текущее наблюдаемое состояние для проверки или показа.
-
-Возвращает `{'parent': layout.identity(target), 'children': children}`.
-
-Непосредственные вызовы: `target.iterdir`, `item.name.startswith`, `children.append`, `layout.identity`, `children.sort`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-{'parent': layout.identity(target), 'children': children}
-```
-
-## preview
-
-[event_folders.py:77](../../../event_folders.py#L77) · `function`.
-
-```python
-def preview(root, relative, notes=None):
-```
-
-Готовит проверяемое предложение операции без её выполнения.
-
-Формирует возвращаемое значение из проверенного локального состояния.
-
-Непосредственные вызовы: `Path(root).resolve`, `Path`, `parent`, `notes.store.database.exists`, `notes.connect`, `restore.assert_unlocked`, `snapshot`, `item['name'].startswith`, `events.sort`, `max`, `int`, `event_number`, `set`, `CANONICAL.fullmatch`, `canonical.add`, `used.add`, `re.match`, `name[match.end():].strip`, `match.end`, `suggestions.append`, `hashlib.sha256(json.dumps(fingerprint, sort_keys=True, ensure_ascii=False).encode()).hexdigest`, `hashlib.sha256`, `json.dumps(fingerprint, sort_keys=True, ensure_ascii=False).encode`, `json.dumps`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-{'path': relative, 'revision': hashlib.sha256(json.dumps(fingerprint, sort_keys=True, ensure_ascii=False).encode()).hexdigest(), 'next_number': f'{maximum + 1:02d}', 'suggestions': suggestions, 'before': before}
-```
-
-## current
-
-[event_folders.py:119](../../../event_folders.py#L119) · `function`.
-
-```python
-def current(root, payload, notes=None):
-```
-
-Проверяет текущую запись и ожидаемую версию перед изменением.
-
-При недопустимом состоянии возбуждает EventFolderConflict.
-
-Непосредственные вызовы: `preview`, `payload.get`, `EventFolderConflict`.
-
-Явные исключения: `EventFolderConflict`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-result
-```
+<a id="symbol-create"></a>
 
 ## create
 
-[event_folders.py:128](../../../event_folders.py#L128) · `function`.
+[event_folders.py](../../../event_folders.py) · `function`.
 
 ```python
 def create(root, payload, notes=None):
@@ -170,9 +48,103 @@ def create(root, payload, notes=None):
 {'path': relative, 'name': name, 'journal': session.relative_to(root).as_posix()}
 ```
 
+<a id="symbol-current"></a>
+
+## current
+
+[event_folders.py](../../../event_folders.py) · `function`.
+
+```python
+def current(root, payload, notes=None):
+```
+
+Проверяет текущую запись и ожидаемую версию перед изменением.
+
+При недопустимом состоянии возбуждает EventFolderConflict.
+
+Непосредственные вызовы: `preview`, `payload.get`, `EventFolderConflict`.
+
+Явные исключения: `EventFolderConflict`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+result
+```
+
+<a id="symbol-event_number"></a>
+
+## event_number
+
+[event_folders.py](../../../event_folders.py) · `function`.
+
+```python
+def event_number(name):
+```
+
+Извлекает допустимый порядковый номер события из имени папки.
+
+Возвращает `None if dated(name) else NUMBER.match(name)`.
+
+Непосредственные вызовы: `dated`, `NUMBER.match`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+None if dated(name) else NUMBER.match(name)
+```
+
+<a id="symbol-parent"></a>
+
+## parent
+
+[event_folders.py](../../../event_folders.py) · `function`.
+
+```python
+def parent(root, relative):
+```
+
+Определяет родительскую папку или заказ по допустимому пути.
+
+При недопустимом состоянии возбуждает ValueError, FileNotFoundError.
+
+Непосредственные вызовы: `isinstance`, `is_freza_task`, `ValueError`, `Path`, `any`, `part.startswith`, `is_service_folder`, `layout.safe_path`, `layout_scope`, `target.is_dir`, `FileNotFoundError`, `folder_role`.
+
+Явные исключения: `ValueError`, `FileNotFoundError`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+target
+```
+
+<a id="symbol-preview"></a>
+
+## preview
+
+[event_folders.py](../../../event_folders.py) · `function`.
+
+```python
+def preview(root, relative, notes=None):
+```
+
+Готовит проверяемое предложение операции без её выполнения.
+
+Формирует возвращаемое значение из проверенного локального состояния.
+
+Непосредственные вызовы: `Path(root).resolve`, `Path`, `parent`, `notes.store.database.exists`, `notes.connect`, `restore.assert_unlocked`, `snapshot`, `item['name'].startswith`, `events.sort`, `max`, `int`, `event_number`, `set`, `CANONICAL.fullmatch`, `canonical.add`, `used.add`, `re.match`, `name[match.end():].strip`, `match.end`, `suggestions.append`, `hashlib.sha256(json.dumps(fingerprint, sort_keys=True, ensure_ascii=False).encode()).hexdigest`, `hashlib.sha256`, `json.dumps(fingerprint, sort_keys=True, ensure_ascii=False).encode`, `json.dumps`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+{'path': relative, 'revision': hashlib.sha256(json.dumps(fingerprint, sort_keys=True, ensure_ascii=False).encode()).hexdigest(), 'next_number': f'{maximum + 1:02d}', 'suggestions': suggestions, 'before': before}
+```
+
+<a id="symbol-rename"></a>
+
 ## rename
 
-[event_folders.py:155](../../../event_folders.py#L155) · `function`.
+[event_folders.py](../../../event_folders.py) · `function`.
 
 ```python
 def rename(notes, payload):
@@ -190,4 +162,50 @@ def rename(notes, payload):
 
 ```python
 {'path': view['path'], 'renamed': mappings, 'journal': session.relative_to(root).as_posix()}
+```
+
+<a id="symbol-snapshot"></a>
+
+## snapshot
+
+[event_folders.py](../../../event_folders.py) · `function`.
+
+```python
+def snapshot(target):
+```
+
+Собирает текущее наблюдаемое состояние для проверки или показа.
+
+Возвращает `{'parent': layout.identity(target), 'children': children}`.
+
+Непосредственные вызовы: `target.iterdir`, `item.name.startswith`, `children.append`, `layout.identity`, `children.sort`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+{'parent': layout.identity(target), 'children': children}
+```
+
+<a id="symbol-title_name"></a>
+
+## title_name
+
+[event_folders.py](../../../event_folders.py) · `function`.
+
+```python
+def title_name(number, title):
+```
+
+Проверяет имя создаваемого или переименовываемого объекта.
+
+При недопустимом состоянии возбуждает ValueError.
+
+Непосредственные вызовы: `isinstance`, `any`, `ord`, `ValueError`, `unicodedata.normalize`, `title.strip`, `len`, `os.fsencode`.
+
+Явные исключения: `ValueError`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+name
 ```

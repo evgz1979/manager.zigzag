@@ -2258,6 +2258,9 @@ class ManagerHandler(BaseHTTPRequestHandler):
             elif route == "/api/invoice-plan-calendar-carryover":
                 self.send_json(invoice_store().save_plan_calendar_carryover(payload))
                 return
+            elif route == "/api/invoice-plan-calendar-notified":
+                self.send_json(invoice_store().save_plan_calendar_notified(payload))
+                return
             elif route == "/api/order-calendar-event":
                 record = order_store().save_calendar_event(payload)
                 self.send_json(record)

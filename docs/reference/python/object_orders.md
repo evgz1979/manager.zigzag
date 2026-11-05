@@ -1,8 +1,8 @@
 # object_orders.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [object_orders.py:1](../../../object_orders.py#L1).
+Исходник: [object_orders.py](../../../object_orders.py).
 
 Object order lists: bounded folder-name discovery, then SQLite-only refreshes.
 
@@ -10,49 +10,11 @@ Object order lists: bounded folder-name discovery, then SQLite-only refreshes.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
-## inside
-
-[object_orders.py:22](../../../object_orders.py#L22) · `function`.
-
-```python
-def inside(path, scope):
-```
-
-Проверяет принадлежность пути указанной области по границам компонентов.
-
-Возвращает `path.startswith(scope + '/')`.
-
-Непосредственные вызовы: `path.startswith`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-path.startswith(scope + '/')
-```
-
-## canonical
-
-[object_orders.py:28](../../../object_orders.py#L28) · `function`.
-
-```python
-def canonical(path):
-```
-
-Приводит путь к каноническому виду для сопоставления записей.
-
-Возвращает `unicodedata.normalize('NFC', path)`.
-
-Непосредственные вызовы: `unicodedata.normalize`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-unicodedata.normalize('NFC', path)
-```
+<a id="symbol-ObjectOrders"></a>
 
 ## ObjectOrders
 
-[object_orders.py:34](../../../object_orders.py#L34) · `class`.
+[object_orders.py](../../../object_orders.py) · `class`.
 
 ```python
 class ObjectOrders:
@@ -62,9 +24,11 @@ class ObjectOrders:
 
 Основные операции: __init__, path, put, refresh, save_catalog; остальные описаны у методов.
 
+<a id="symbol-ObjectOrders.__init__"></a>
+
 ## ObjectOrders.__init__
 
-[object_orders.py:40](../../../object_orders.py#L40) · `function`.
+[object_orders.py](../../../object_orders.py) · `function`.
 
 ```python
 def __init__(self, store):
@@ -78,9 +42,55 @@ def __init__(self, store):
 
 Прямые присваивания полям/свойствам: `self.store`, `self.meta`.
 
+<a id="symbol-ObjectOrders.allowed_paths"></a>
+
+## ObjectOrders.allowed_paths
+
+[object_orders.py](../../../object_orders.py) · `function`.
+
+```python
+def allowed_paths(self, relative, inactive, show_inactive):
+```
+
+Вычисляет допустимые пути текущего списка из сохранённого каталога.
+
+Возвращает `allowed`.
+
+Непосредственные вызовы: `canonical`, `inside`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+allowed
+```
+
+<a id="symbol-ObjectOrders.allowed_paths.allowed"></a>
+
+## ObjectOrders.allowed_paths.allowed
+
+[object_orders.py](../../../object_orders.py) · `function`.
+
+```python
+def allowed(path):
+```
+
+Проверяет допустимость одной папки в текущем каталоге.
+
+Формирует возвращаемое значение из проверенного локального состояния.
+
+Непосредственные вызовы: `canonical`, `inside`, `any`, `part.startswith`, `Path`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+inside(path, relative) and (not any((part.startswith(('.', '#')) for part in Path(path).parts))) and (show_inactive or not any((path == item or inside(path, item) for item in hidden)))
+```
+
+<a id="symbol-ObjectOrders.path"></a>
+
 ## ObjectOrders.path
 
-[object_orders.py:46](../../../object_orders.py#L46) · `function`.
+[object_orders.py](../../../object_orders.py) · `function`.
 
 ```python
 def path(self, relative):
@@ -100,9 +110,11 @@ def path(self, relative):
 relative
 ```
 
+<a id="symbol-ObjectOrders.put"></a>
+
 ## ObjectOrders.put
 
-[object_orders.py:55](../../../object_orders.py#L55) · `function`.
+[object_orders.py](../../../object_orders.py) · `function`.
 
 ```python
 def put(self, kind, path, body):
@@ -116,79 +128,11 @@ def put(self, kind, path, body):
 
 Явные исключения: `ValueError`.
 
-## ObjectOrders.refresh
-
-[object_orders.py:69](../../../object_orders.py#L69) · `function`.
-
-```python
-def refresh(self, relative):
-```
-
-Перечитывает только имена подпапок объекта и контейнеров годов.
-
-При недопустимом состоянии возбуждает ValueError.
-
-Непосредственные вызовы: `self.store.path`, `self.path`, `self.store.target`, `folder_role`, `ValueError`, `set`, `stack.pop`, `sorted`, `folder.iterdir`, `child.name.startswith`, `child.is_symlink`, `child.is_dir`, `child.relative_to(self.store.root).as_posix`, `child.relative_to`, `found.add`, `canonical`, `stack.append`, `errors.append`, `str`, `self.save_catalog`.
-
-Явные исключения: `ValueError`.
-
-## ObjectOrders.save_catalog
-
-[object_orders.py:101](../../../object_orders.py#L101) · `function`.
-
-```python
-def save_catalog(self, relative, found, errors, *, allowed=None):
-```
-
-Сохраняет перечень известных папок без регистрации новых заказов.
-
-Работает с таблицами metadata_records.
-
-Непосредственные вызовы: `self.meta.connect`, `db.execute`, `inside`, `allowed`, `sorted`, `self.put`, `errors.append`, `str`, `set`, `time.time`, `' · '.join`.
-
-## ObjectOrders.allowed_paths
-
-[object_orders.py:120](../../../object_orders.py#L120) · `function`.
-
-```python
-def allowed_paths(self, relative, inactive, show_inactive):
-```
-
-Вычисляет допустимые пути текущего списка из сохранённого каталога.
-
-Возвращает `allowed`.
-
-Непосредственные вызовы: `canonical`, `inside`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-allowed
-```
-
-## ObjectOrders.allowed_paths.allowed
-
-[object_orders.py:124](../../../object_orders.py#L124) · `function`.
-
-```python
-def allowed(path):
-```
-
-Проверяет допустимость одной папки в текущем каталоге.
-
-Формирует возвращаемое значение из проверенного локального состояния.
-
-Непосредственные вызовы: `canonical`, `inside`, `any`, `part.startswith`, `Path`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-inside(path, relative) and (not any((part.startswith(('.', '#')) for part in Path(path).parts))) and (show_inactive or not any((path == item or inside(path, item) for item in hidden)))
-```
+<a id="symbol-ObjectOrders.read"></a>
 
 ## ObjectOrders.read
 
-[object_orders.py:132](../../../object_orders.py#L132) · `function`.
+[object_orders.py](../../../object_orders.py) · `function`.
 
 ```python
 def read(self, relative, *, inactive=(), show_inactive=False):
@@ -206,4 +150,82 @@ def read(self, relative, *, inactive=(), show_inactive=False):
 
 ```python
 {'path': relative, 'orders': OrderTodos(self.store).attach(result), 'checked': scope.get('checked'), 'error': scope.get('error', ''), 'deadline_week_options': order_deadlines.week_options()}
+```
+
+<a id="symbol-ObjectOrders.refresh"></a>
+
+## ObjectOrders.refresh
+
+[object_orders.py](../../../object_orders.py) · `function`.
+
+```python
+def refresh(self, relative):
+```
+
+Перечитывает только имена подпапок объекта и контейнеров годов.
+
+При недопустимом состоянии возбуждает ValueError.
+
+Непосредственные вызовы: `self.store.path`, `self.path`, `self.store.target`, `folder_role`, `ValueError`, `set`, `stack.pop`, `sorted`, `folder.iterdir`, `child.name.startswith`, `child.is_symlink`, `child.is_dir`, `child.relative_to(self.store.root).as_posix`, `child.relative_to`, `found.add`, `canonical`, `stack.append`, `errors.append`, `str`, `self.save_catalog`.
+
+Явные исключения: `ValueError`.
+
+<a id="symbol-ObjectOrders.save_catalog"></a>
+
+## ObjectOrders.save_catalog
+
+[object_orders.py](../../../object_orders.py) · `function`.
+
+```python
+def save_catalog(self, relative, found, errors, *, allowed=None):
+```
+
+Сохраняет перечень известных папок без регистрации новых заказов.
+
+Работает с таблицами metadata_records.
+
+Непосредственные вызовы: `self.meta.connect`, `db.execute`, `inside`, `allowed`, `sorted`, `self.put`, `errors.append`, `str`, `set`, `time.time`, `' · '.join`.
+
+<a id="symbol-canonical"></a>
+
+## canonical
+
+[object_orders.py](../../../object_orders.py) · `function`.
+
+```python
+def canonical(path):
+```
+
+Приводит путь к каноническому виду для сопоставления записей.
+
+Возвращает `unicodedata.normalize('NFC', path)`.
+
+Непосредственные вызовы: `unicodedata.normalize`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+unicodedata.normalize('NFC', path)
+```
+
+<a id="symbol-inside"></a>
+
+## inside
+
+[object_orders.py](../../../object_orders.py) · `function`.
+
+```python
+def inside(path, scope):
+```
+
+Проверяет принадлежность пути указанной области по границам компонентов.
+
+Возвращает `path.startswith(scope + '/')`.
+
+Непосредственные вызовы: `path.startswith`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+path.startswith(scope + '/')
 ```

@@ -1,8 +1,8 @@
 # spreadsheet_preview.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [spreadsheet_preview.py:1](../../../spreadsheet_preview.py#L1).
+Исходник: [spreadsheet_preview.py](../../../spreadsheet_preview.py).
 
 Чтение оригиналов Excel для браузерного просмотра без внешних программ.
 
@@ -10,9 +10,11 @@
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-read_bytes"></a>
+
 ## read_bytes
 
-[spreadsheet_preview.py:16](../../../spreadsheet_preview.py#L16) · `function`.
+[spreadsheet_preview.py](../../../spreadsheet_preview.py) · `function`.
 
 ```python
 def read_bytes(target):

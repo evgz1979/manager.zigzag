@@ -1,8 +1,8 @@
 # native_renderers.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [native_renderers.py:1](../../../native_renderers.py#L1).
+Исходник: [native_renderers.py](../../../native_renderers.py).
 
 Сборка Swift-помощников с постоянным путём кеша между релизами.
 
@@ -10,9 +10,11 @@
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-build"></a>
+
 ## build
 
-[native_renderers.py:10](../../../native_renderers.py#L10) · `function`.
+[native_renderers.py](../../../native_renderers.py) · `function`.
 
 ```python
 def build(source, data_dir, name, timeout):

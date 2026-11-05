@@ -1,8 +1,8 @@
 # object_years.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [object_years.py:1](../../../object_years.py#L1).
+Исходник: [object_years.py](../../../object_years.py).
 
 Group an object's dated orders by year, with coordinated SQLite paths and undo.
 
@@ -10,9 +10,11 @@ Group an object's dated orders by year, with coordinated SQLite paths and undo.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-YearGroupConflict"></a>
+
 ## YearGroupConflict
 
-[object_years.py:23](../../../object_years.py#L23) · `class`.
+[object_years.py](../../../object_years.py) · `class`.
 
 ```python
 class YearGroupConflict(ValueError):
@@ -22,9 +24,11 @@ class YearGroupConflict(ValueError):
 
 Вызывающий обработчик использует тип исключения для отказа без подмены данных.
 
+<a id="symbol-_preview"></a>
+
 ## _preview
 
-[object_years.py:29](../../../object_years.py#L29) · `function`.
+[object_years.py](../../../object_years.py) · `function`.
 
 ```python
 def _preview(store, relative, db):
@@ -44,29 +48,11 @@ def _preview(store, relative, db):
 {'path': relative, 'revision': hashlib.sha256(json.dumps(token, sort_keys=True).encode()).hexdigest(), 'mappings': mappings, 'created_years': created, 'existing_years': existing, 'skipped': skipped, 'conflicts': list(dict.fromkeys(conflicts)), 'before': token}
 ```
 
-## preview
-
-[object_years.py:88](../../../object_years.py#L88) · `function`.
-
-```python
-def preview(store, relative):
-```
-
-Готовит проверяемое предложение операции без её выполнения.
-
-Возвращает `_preview(store, relative, db)`.
-
-Непосредственные вызовы: `store.connect`, `_preview`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-_preview(store, relative, db)
-```
+<a id="symbol-group"></a>
 
 ## group
 
-[object_years.py:95](../../../object_years.py#L95) · `function`.
+[object_years.py](../../../object_years.py) · `function`.
 
 ```python
 def group(store, payload):
@@ -84,4 +70,26 @@ def group(store, payload):
 
 ```python
 {'path': view['path'], 'moved': len(view['mappings']), 'journal': session.relative_to(root).as_posix()}
+```
+
+<a id="symbol-preview"></a>
+
+## preview
+
+[object_years.py](../../../object_years.py) · `function`.
+
+```python
+def preview(store, relative):
+```
+
+Готовит проверяемое предложение операции без её выполнения.
+
+Возвращает `_preview(store, relative, db)`.
+
+Непосредственные вызовы: `store.connect`, `_preview`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+_preview(store, relative, db)
 ```

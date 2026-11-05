@@ -1,8 +1,8 @@
 # calendar_layout.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [calendar_layout.py:1](../../../calendar_layout.py#L1).
+Исходник: [calendar_layout.py](../../../calendar_layout.py).
 
 Manual calendar placement, independent of dates, deadlines and finances.
 
@@ -10,9 +10,27 @@ Manual calendar placement, independent of dates, deadlines and finances.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-mark_contract"></a>
+
+## mark_contract
+
+[calendar_layout.py](../../../calendar_layout.py) · `function`.
+
+```python
+def mark_contract(db):
+```
+
+Фиксирует в настройках базы использование несовместимого со старым кодом формата.
+
+Работает с таблицами metadata_settings.
+
+Непосредственные вызовы: `schema`, `db.execute`.
+
+<a id="symbol-read_compact"></a>
+
 ## read_compact
 
-[calendar_layout.py:10](../../../calendar_layout.py#L10) · `function`.
+[calendar_layout.py](../../../calendar_layout.py) · `function`.
 
 ```python
 def read_compact(blocks):
@@ -32,9 +50,11 @@ None
 value['enabled']
 ```
 
+<a id="symbol-write_compact"></a>
+
 ## write_compact
 
-[calendar_layout.py:26](../../../calendar_layout.py#L26) · `function`.
+[calendar_layout.py](../../../calendar_layout.py) · `function`.
 
 ```python
 def write_compact(blocks, enabled):
@@ -53,17 +73,3 @@ def write_compact(blocks, enabled):
 ```python
 {**blocks, COMPACT_BLOCK: json.dumps({'version': 1, 'enabled': enabled}, ensure_ascii=False)}
 ```
-
-## mark_contract
-
-[calendar_layout.py:36](../../../calendar_layout.py#L36) · `function`.
-
-```python
-def mark_contract(db):
-```
-
-Фиксирует в настройках базы использование несовместимого со старым кодом формата.
-
-Работает с таблицами metadata_settings.
-
-Непосредственные вызовы: `schema`, `db.execute`.

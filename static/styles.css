@@ -1177,6 +1177,7 @@ h2 { font-size: 13px; font-weight: 600; }
 .calendar-invoice-plan.calendar-completed .calendar-plan-caption { color: inherit; }
 .calendar-event-slot.calendar-inactive.has-event, .calendar-event-slot.calendar-unselected-week.has-event, .calendar-invoice-plan.calendar-inactive { color: #d1d5d8; background: #fafafa; }
 .calendar-event-slot.calendar-inactive.has-event:hover:not(:disabled), .calendar-event-slot.calendar-inactive.has-event:focus-visible, .calendar-event-slot.calendar-unselected-week.has-event:hover:not(:disabled), .calendar-event-slot.calendar-unselected-week.has-event:focus-visible, .calendar-invoice-plan.calendar-inactive:hover, .calendar-invoice-plan.calendar-inactive:focus-visible { color: #c7cdd1; background: #f4f6f7; outline-color: #d1d5d8; }
+.calendar-invoice-plan.calendar-notified, .calendar-invoice-plan.calendar-notified:hover, .calendar-invoice-plan.calendar-notified:focus-visible { background: #fff2a8; }
 .calendar-supplier-order .calendar-event-slot.has-event,
 .calendar-supplier-order .calendar-event-slot.has-event:hover:not(:disabled),
 .calendar-supplier-order .calendar-event-slot.has-event:focus-visible { background: transparent; }

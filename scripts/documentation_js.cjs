@@ -51,10 +51,10 @@ function inventory(file) {
   const tree = babelParse(code, file);
   const symbols = [];
   // Определяет имя и границу объявления по родительским узлам Babel AST.
-  // Сохраняет фактическую строку функции после вставленных комментариев.
-  function walk(node, parent, ancestors = []) {
+  // Квалифицирует вложенные имена; физическая строка нужна только диагностике и поиску.
+  function walk(node, parent, ancestors = [], scope = []) {
     if (!node || typeof node !== 'object') return;
-    if (Array.isArray(node)) { node.forEach(child => walk(child, parent, ancestors)); return; }
+    if (Array.isArray(node)) { node.forEach(child => walk(child, parent, ancestors, scope)); return; }
     let name, declaration = node;
     if (['FunctionDeclaration', 'ClassDeclaration'].includes(node.type)) name = node.id?.name;
     if (['FunctionExpression', 'ArrowFunctionExpression'].includes(node.type)) {
@@ -69,12 +69,12 @@ function inventory(file) {
     }
     if (['ObjectMethod', 'ClassMethod', 'ClassPrivateMethod'].includes(node.type)) name = node.key.name || node.key.id?.name || node.key.value;
     if (name) {
-      symbols.push({ name, line: declaration.loc.start.line, end_line: node.loc.end.line, type: node.type,
+      symbols.push({ name: [...scope, name].join('.'), line: declaration.loc.start.line, end_line: node.loc.end.line, type: node.type,
         signature: code.slice(declaration.start, node.body?.start || node.end).trim(),
         description: description(code, declaration.start), ...callsIn(node.body, code) });
     }
     for (const [key, child] of Object.entries(node)) {
-      if (!['loc', 'comments', 'leadingComments', 'trailingComments', 'innerComments'].includes(key) && typeof child === 'object') walk(child, node, [...ancestors, parent]);
+      if (!['loc', 'comments', 'leadingComments', 'trailingComments', 'innerComments'].includes(key) && typeof child === 'object') walk(child, node, [...ancestors, parent], name ? [...scope, name] : scope);
     }
   }
   walk(tree, null);

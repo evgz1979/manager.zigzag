@@ -1,8 +1,8 @@
 # folder_layout.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [folder_layout.py:1](../../../folder_layout.py#L1).
+Исходник: [folder_layout.py](../../../folder_layout.py).
 
 Переносы папок без перезаписи, с устойчивым журналом и обратными операциями.
 
@@ -10,115 +10,11 @@
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
-## identity
-
-[folder_layout.py:18](../../../folder_layout.py#L18) · `function`.
-
-```python
-def identity(path):
-```
-
-Проверяет или вычисляет устойчивую идентичность объекта.
-
-Возвращает `{'device': value.st_dev, 'inode': value.st_ino, 'kind': stat.S_IFMT(value.st_mode)}`.
-
-Непосредственные вызовы: `Path(path).lstat`, `Path`, `stat.S_IFMT`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-{'device': value.st_dev, 'inode': value.st_ino, 'kind': stat.S_IFMT(value.st_mode)}
-```
-
-## exists
-
-[folder_layout.py:25](../../../folder_layout.py#L25) · `function`.
-
-```python
-def exists(path):
-```
-
-Проверяет существование пути, включая повреждённые символические ссылки.
-
-Возвращает `os.path.lexists(path)`.
-
-Непосредственные вызовы: `os.path.lexists`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-os.path.lexists(path)
-```
-
-## rename_exclusive
-
-[folder_layout.py:31](../../../folder_layout.py#L31) · `function`.
-
-```python
-def rename_exclusive(source, destination):
-```
-
-Выполняет macOS-перенос с запретом замены существующей цели.
-
-При недопустимом состоянии возбуждает OSError.
-
-Непосредственные вызовы: `ctypes.CDLL`, `function`, `os.fsencode`, `ctypes.get_errno`, `OSError`, `os.strerror`, `str`.
-
-Явные исключения: `OSError`.
-
-## append
-
-[folder_layout.py:42](../../../folder_layout.py#L42) · `function`.
-
-```python
-def append(session, record):
-```
-
-Дописывает запись в устойчивый журнал операции.
-
-Передаёт работу `datetime.now(ZoneInfo('Europe/Moscow')).isoformat`, `datetime.now`, `ZoneInfo`.
-
-Непосредственные вызовы: `datetime.now(ZoneInfo('Europe/Moscow')).isoformat`, `datetime.now`, `ZoneInfo`, `(Path(session) / '.journal.jsonl').open`, `Path`, `stream.write`, `json.dumps`, `stream.flush`, `os.fsync`, `stream.fileno`.
-
-## save_json
-
-[folder_layout.py:52](../../../folder_layout.py#L52) · `function`.
-
-```python
-def save_json(path, value):
-```
-
-Сохраняет структурированный JSON в предусмотренный файл.
-
-Передаёт работу `Path(path).open`, `Path`, `json.dump`.
-
-Непосредственные вызовы: `Path(path).open`, `Path`, `json.dump`, `stream.write`, `stream.flush`, `os.fsync`, `stream.fileno`.
-
-## safe_path
-
-[folder_layout.py:62](../../../folder_layout.py#L62) · `function`.
-
-```python
-def safe_path(root, relative, clients, *, service_roots=()):
-```
-
-Проверяет границы корня, допустимую область и компоненты пути.
-
-При недопустимом состоянии возбуждает ValueError.
-
-Непосредственные вызовы: `Path`, `relative.is_absolute`, `ValueError`, `any`, `first.startswith`, `range`, `len`, `(root / Path(*relative.parts[:index])).is_symlink`.
-
-Явные исключения: `ValueError`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-root / relative
-```
+<a id="symbol-Plan"></a>
 
 ## Plan
 
-[folder_layout.py:78](../../../folder_layout.py#L78) · `class`.
+[folder_layout.py](../../../folder_layout.py) · `class`.
 
 ```python
 class Plan:
@@ -128,9 +24,11 @@ class Plan:
 
 Основные операции: __init__, mkdir, move, create_session.
 
+<a id="symbol-Plan.__init__"></a>
+
 ## Plan.__init__
 
-[folder_layout.py:81](../../../folder_layout.py#L81) · `function`.
+[folder_layout.py](../../../folder_layout.py) · `function`.
 
 ```python
 def __init__(self, root, clients, *, service_roots=()):
@@ -144,41 +42,11 @@ def __init__(self, root, clients, *, service_roots=()):
 
 Прямые присваивания полям/свойствам: `self.root`, `self.clients`, `self.service_roots`, `self.operations`, `self.directories`.
 
-## Plan.mkdir
-
-[folder_layout.py:90](../../../folder_layout.py#L90) · `function`.
-
-```python
-def mkdir(self, relative):
-```
-
-Добавляет или выполняет создание отсутствующей папки в плане.
-
-При недопустимом состоянии возбуждает FileExistsError.
-
-Непосредственные вызовы: `Path(relative).as_posix`, `Path`, `safe_path`, `exists`, `path.is_dir`, `FileExistsError`, `self.operations.append`, `self.directories.add`.
-
-Явные исключения: `FileExistsError`.
-
-## Plan.move
-
-[folder_layout.py:104](../../../folder_layout.py#L104) · `function`.
-
-```python
-def move(self, source, destination, reason, origin=None):
-```
-
-Переносит объект или событие с проверкой исходного и целевого состояния.
-
-При недопустимом состоянии возбуждает FileExistsError, ValueError.
-
-Непосредственные вызовы: `Path(source).as_posix`, `Path`, `Path(destination).as_posix`, `safe_path`, `exists`, `FileExistsError`, `len`, `os.fsencode`, `ValueError`, `self.operations.append`, `identity`.
-
-Явные исключения: `FileExistsError`, `ValueError`.
+<a id="symbol-Plan.create_session"></a>
 
 ## Plan.create_session
 
-[folder_layout.py:119](../../../folder_layout.py#L119) · `function`.
+[folder_layout.py](../../../folder_layout.py) · `function`.
 
 ```python
 def create_session(self, notes, before):
@@ -198,9 +66,125 @@ def create_session(self, notes, before):
 session
 ```
 
+<a id="symbol-Plan.mkdir"></a>
+
+## Plan.mkdir
+
+[folder_layout.py](../../../folder_layout.py) · `function`.
+
+```python
+def mkdir(self, relative):
+```
+
+Добавляет или выполняет создание отсутствующей папки в плане.
+
+При недопустимом состоянии возбуждает FileExistsError.
+
+Непосредственные вызовы: `Path(relative).as_posix`, `Path`, `safe_path`, `exists`, `path.is_dir`, `FileExistsError`, `self.operations.append`, `self.directories.add`.
+
+Явные исключения: `FileExistsError`.
+
+<a id="symbol-Plan.move"></a>
+
+## Plan.move
+
+[folder_layout.py](../../../folder_layout.py) · `function`.
+
+```python
+def move(self, source, destination, reason, origin=None):
+```
+
+Переносит объект или событие с проверкой исходного и целевого состояния.
+
+При недопустимом состоянии возбуждает FileExistsError, ValueError.
+
+Непосредственные вызовы: `Path(source).as_posix`, `Path`, `Path(destination).as_posix`, `safe_path`, `exists`, `FileExistsError`, `len`, `os.fsencode`, `ValueError`, `self.operations.append`, `identity`.
+
+Явные исключения: `FileExistsError`, `ValueError`.
+
+<a id="symbol-append"></a>
+
+## append
+
+[folder_layout.py](../../../folder_layout.py) · `function`.
+
+```python
+def append(session, record):
+```
+
+Дописывает запись в устойчивый журнал операции.
+
+Передаёт работу `datetime.now(ZoneInfo('Europe/Moscow')).isoformat`, `datetime.now`, `ZoneInfo`.
+
+Непосредственные вызовы: `datetime.now(ZoneInfo('Europe/Moscow')).isoformat`, `datetime.now`, `ZoneInfo`, `(Path(session) / '.journal.jsonl').open`, `Path`, `stream.write`, `json.dumps`, `stream.flush`, `os.fsync`, `stream.fileno`.
+
+<a id="symbol-apply"></a>
+
+## apply
+
+[folder_layout.py](../../../folder_layout.py) · `function`.
+
+```python
+def apply(session):
+```
+
+Применяет проверенную операцию или подготовленный план.
+
+При недопустимом состоянии возбуждает ValueError, FileExistsError.
+
+Непосредственные вызовы: `Path`, `load_plan`, `(session / '.lock').open`, `fcntl.flock`, `any`, `records`, `ValueError`, `enumerate`, `safe_path`, `plan.get`, `append`, `exists`, `FileExistsError`, `target.mkdir`, `identity`, `str`, `rename_exclusive`, `len`.
+
+Явные исключения: `ValueError`, `FileExistsError`.
+
+<a id="symbol-exists"></a>
+
+## exists
+
+[folder_layout.py](../../../folder_layout.py) · `function`.
+
+```python
+def exists(path):
+```
+
+Проверяет существование пути, включая повреждённые символические ссылки.
+
+Возвращает `os.path.lexists(path)`.
+
+Непосредственные вызовы: `os.path.lexists`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+os.path.lexists(path)
+```
+
+<a id="symbol-identity"></a>
+
+## identity
+
+[folder_layout.py](../../../folder_layout.py) · `function`.
+
+```python
+def identity(path):
+```
+
+Проверяет или вычисляет устойчивую идентичность объекта.
+
+Возвращает `{'device': value.st_dev, 'inode': value.st_ino, 'kind': stat.S_IFMT(value.st_mode)}`.
+
+Непосредственные вызовы: `Path(path).lstat`, `Path`, `stat.S_IFMT`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+{'device': value.st_dev, 'inode': value.st_ino, 'kind': stat.S_IFMT(value.st_mode)}
+```
+
+<a id="symbol-load_plan"></a>
+
 ## load_plan
 
-[folder_layout.py:155](../../../folder_layout.py#L155) · `function`.
+[folder_layout.py](../../../folder_layout.py) · `function`.
 
 ```python
 def load_plan(session):
@@ -218,9 +202,11 @@ def load_plan(session):
 json.loads((Path(session) / '.plan.json').read_text(encoding='utf-8'))
 ```
 
+<a id="symbol-records"></a>
+
 ## records
 
-[folder_layout.py:161](../../../folder_layout.py#L161) · `function`.
+[folder_layout.py](../../../folder_layout.py) · `function`.
 
 ```python
 def records(session):
@@ -238,25 +224,69 @@ def records(session):
 [json.loads(line) for line in lines if line.endswith('\n')]
 ```
 
-## apply
+<a id="symbol-rename_exclusive"></a>
 
-[folder_layout.py:168](../../../folder_layout.py#L168) · `function`.
+## rename_exclusive
+
+[folder_layout.py](../../../folder_layout.py) · `function`.
 
 ```python
-def apply(session):
+def rename_exclusive(source, destination):
 ```
 
-Применяет проверенную операцию или подготовленный план.
+Выполняет macOS-перенос с запретом замены существующей цели.
 
-При недопустимом состоянии возбуждает ValueError, FileExistsError.
+При недопустимом состоянии возбуждает OSError.
 
-Непосредственные вызовы: `Path`, `load_plan`, `(session / '.lock').open`, `fcntl.flock`, `any`, `records`, `ValueError`, `enumerate`, `safe_path`, `plan.get`, `append`, `exists`, `FileExistsError`, `target.mkdir`, `identity`, `str`, `rename_exclusive`, `len`.
+Непосредственные вызовы: `ctypes.CDLL`, `function`, `os.fsencode`, `ctypes.get_errno`, `OSError`, `os.strerror`, `str`.
 
-Явные исключения: `ValueError`, `FileExistsError`.
+Явные исключения: `OSError`.
+
+<a id="symbol-safe_path"></a>
+
+## safe_path
+
+[folder_layout.py](../../../folder_layout.py) · `function`.
+
+```python
+def safe_path(root, relative, clients, *, service_roots=()):
+```
+
+Проверяет границы корня, допустимую область и компоненты пути.
+
+При недопустимом состоянии возбуждает ValueError.
+
+Непосредственные вызовы: `Path`, `relative.is_absolute`, `ValueError`, `any`, `first.startswith`, `range`, `len`, `(root / Path(*relative.parts[:index])).is_symlink`.
+
+Явные исключения: `ValueError`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+root / relative
+```
+
+<a id="symbol-save_json"></a>
+
+## save_json
+
+[folder_layout.py](../../../folder_layout.py) · `function`.
+
+```python
+def save_json(path, value):
+```
+
+Сохраняет структурированный JSON в предусмотренный файл.
+
+Передаёт работу `Path(path).open`, `Path`, `json.dump`.
+
+Непосредственные вызовы: `Path(path).open`, `Path`, `json.dump`, `stream.write`, `stream.flush`, `os.fsync`, `stream.fileno`.
+
+<a id="symbol-undo"></a>
 
 ## undo
 
-[folder_layout.py:201](../../../folder_layout.py#L201) · `function`.
+[folder_layout.py](../../../folder_layout.py) · `function`.
 
 ```python
 def undo(session, perform=False, *, coordinate_database=False, keep_directories=()):

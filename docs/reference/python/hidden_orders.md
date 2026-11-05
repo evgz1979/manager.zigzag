@@ -1,8 +1,8 @@
 # hidden_orders.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [hidden_orders.py:1](../../../hidden_orders.py#L1).
+Исходник: [hidden_orders.py](../../../hidden_orders.py).
 
 SQLite-only, read-only overview of orders absent from the main table.
 
@@ -10,9 +10,11 @@ SQLite-only, read-only overview of orders absent from the main table.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-canonical"></a>
+
 ## canonical
 
-[hidden_orders.py:19](../../../hidden_orders.py#L19) · `function`.
+[hidden_orders.py](../../../hidden_orders.py) · `function`.
 
 ```python
 def canonical(path):
@@ -30,29 +32,11 @@ def canonical(path):
 unicodedata.normalize('NFC', path)
 ```
 
-## production_path
-
-[hidden_orders.py:25](../../../hidden_orders.py#L25) · `function`.
-
-```python
-def production_path(path):
-```
-
-Проверяет принадлежность пути производственной области.
-
-Возвращает `bool(parts and (is_work_root(parts[0]) or is_supplier_root(parts[0])))`.
-
-Непосредственные вызовы: `Path`, `bool`, `is_work_root`, `is_supplier_root`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-bool(parts and (is_work_root(parts[0]) or is_supplier_root(parts[0])))
-```
+<a id="symbol-catalog_orders"></a>
 
 ## catalog_orders
 
-[hidden_orders.py:32](../../../hidden_orders.py#L32) · `function`.
+[hidden_orders.py](../../../hidden_orders.py) · `function`.
 
 ```python
 def catalog_orders(store, records):
@@ -73,9 +57,11 @@ def catalog_orders(store, records):
 (result, warnings)
 ```
 
+<a id="symbol-listed"></a>
+
 ## listed
 
-[hidden_orders.py:77](../../../hidden_orders.py#L77) · `function`.
+[hidden_orders.py](../../../hidden_orders.py) · `function`.
 
 ```python
 def listed(store, inactive_clients, inactive_objects):
@@ -91,4 +77,26 @@ def listed(store, inactive_clients, inactive_objects):
 
 ```python
 {'orders': result, 'reason_labels': REASONS, 'warnings': warnings}
+```
+
+<a id="symbol-production_path"></a>
+
+## production_path
+
+[hidden_orders.py](../../../hidden_orders.py) · `function`.
+
+```python
+def production_path(path):
+```
+
+Проверяет принадлежность пути производственной области.
+
+Возвращает `bool(parts and (is_work_root(parts[0]) or is_supplier_root(parts[0])))`.
+
+Непосредственные вызовы: `Path`, `bool`, `is_work_root`, `is_supplier_root`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+bool(parts and (is_work_root(parts[0]) or is_supplier_root(parts[0])))
 ```

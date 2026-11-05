@@ -1,8 +1,8 @@
 # weekly_events_migration.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [weekly_events_migration.py:1](../../../weekly_events_migration.py#L1).
+Исходник: [weekly_events_migration.py](../../../weekly_events_migration.py).
 
 Consolidate legacy week comments into order calendar events, with a snapshot.
 
@@ -10,9 +10,11 @@ Consolidate legacy week comments into order calendar events, with a snapshot.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-changes"></a>
+
 ## changes
 
-[weekly_events_migration.py:21](../../../weekly_events_migration.py#L21) · `function`.
+[weekly_events_migration.py](../../../weekly_events_migration.py) · `function`.
 
 ```python
 def changes(db):
@@ -32,29 +34,27 @@ def changes(db):
 result
 ```
 
-## table_counts
+<a id="symbol-main"></a>
 
-[weekly_events_migration.py:53](../../../weekly_events_migration.py#L53) · `function`.
+## main
 
-```python
-def table_counts(db):
-```
-
-Считает строки таблиц для проверки сохранности миграции.
-
-Работает с таблицами sqlite_master.
-
-Непосредственные вызовы: `db.execute`, `db.execute('SELECT count(*) FROM "' + name.replace('"', '""') + '"').fetchone`, `name.replace`.
-
-Выражения возврата (ветки читаются в исходнике):
+[weekly_events_migration.py](../../../weekly_events_migration.py) · `function`.
 
 ```python
-{name: db.execute('SELECT count(*) FROM "' + name.replace('"', '""') + '"').fetchone()[0] for name in names}
+def main():
 ```
+
+Разбирает параметры запуска и выполняет основной сценарий программы.
+
+Передаёт работу `argparse.ArgumentParser`, `parser.add_argument`, `parser.parse_args`.
+
+Непосредственные вызовы: `argparse.ArgumentParser`, `parser.add_argument`, `parser.parse_args`, `migrate`, `closing`, `sqlite3.connect`, `args.database.resolve().as_uri`, `args.database.resolve`, `changes`, `sum`, `print`, `json.dumps`.
+
+<a id="symbol-migrate"></a>
 
 ## migrate
 
-[weekly_events_migration.py:88](../../../weekly_events_migration.py#L88) · `function`.
+[weekly_events_migration.py](../../../weekly_events_migration.py) · `function`.
 
 ```python
 def migrate(database, output):
@@ -75,16 +75,24 @@ def migrate(database, output):
 result
 ```
 
-## main
+<a id="symbol-table_counts"></a>
 
-[weekly_events_migration.py:146](../../../weekly_events_migration.py#L146) · `function`.
+## table_counts
+
+[weekly_events_migration.py](../../../weekly_events_migration.py) · `function`.
 
 ```python
-def main():
+def table_counts(db):
 ```
 
-Разбирает параметры запуска и выполняет основной сценарий программы.
+Считает строки таблиц для проверки сохранности миграции.
 
-Передаёт работу `argparse.ArgumentParser`, `parser.add_argument`, `parser.parse_args`.
+Работает с таблицами sqlite_master.
 
-Непосредственные вызовы: `argparse.ArgumentParser`, `parser.add_argument`, `parser.parse_args`, `migrate`, `closing`, `sqlite3.connect`, `args.database.resolve().as_uri`, `args.database.resolve`, `changes`, `sum`, `print`, `json.dumps`.
+Непосредственные вызовы: `db.execute`, `db.execute('SELECT count(*) FROM "' + name.replace('"', '""') + '"').fetchone`, `name.replace`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+{name: db.execute('SELECT count(*) FROM "' + name.replace('"', '""') + '"').fetchone()[0] for name in names}
+```

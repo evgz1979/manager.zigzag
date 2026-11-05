@@ -411,6 +411,7 @@ const HomeCalendar = (() => {
         link.dataset.calendarPeriod = plan.period || 'day';
         link.classList.toggle("calendar-inactive", plan.is_inactive === true);
         link.classList.toggle("calendar-completed", plan.is_completed === true);
+        link.classList.toggle("calendar-notified", payment && plan.is_notified === true);
         link.setAttribute("aria-haspopup", "menu");
         const signedAmount = payment ? (operation === 'incoming' ? '+' : '−') + amount : '';
         const value = document.createElement('span'), caption = document.createElement('span');
@@ -426,7 +427,7 @@ const HomeCalendar = (() => {
         } else link.dataset.calendarPlanEdit = plan.id;
         const start = new Date(plan.date + 'T00:00:00Z');
         const periodLabel = plan.period === 'week' ? 'Неделя: ' + fullDate.format(start) + ' — ' + fullDate.format(shiftDays(start, 6)) : fullDate.format(start);
-        const description = [plan.is_carryover === true ? 'Перенос слева' : '', plan.is_watch_todos === true ? 'Смотри ту-ду' : '', plan.is_completed === true ? 'Выполнено' : '', plan.is_trip === true ? 'Выезд' : '', plan.is_inactive === true ? 'Неактуально' : '', label, signedAmount ? signedAmount + ' ₽' : '', plan.text, plan.invoice_label, plan.title, plan.client, plan.object, periodLabel].filter(Boolean).join(' · ');
+        const description = [payment && plan.is_notified === true ? 'Сообщил' : '', plan.is_carryover === true ? 'Перенос слева' : '', plan.is_watch_todos === true ? 'Смотри ту-ду' : '', plan.is_completed === true ? 'Выполнено' : '', plan.is_trip === true ? 'Выезд' : '', plan.is_inactive === true ? 'Неактуально' : '', label, signedAmount ? signedAmount + ' ₽' : '', plan.text, plan.invoice_label, plan.title, plan.client, plan.object, periodLabel].filter(Boolean).join(' · ');
         link.setAttribute('aria-label', description);
         link.title = plan.path ? description : plan.text || '';
         const target = operation === 'outgoing' ? targets.outgoing : targets.incoming, next = before.get(target);

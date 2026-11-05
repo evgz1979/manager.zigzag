@@ -1,8 +1,8 @@
 # invoice_discovery.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [invoice_discovery.py:1](../../../invoice_discovery.py#L1).
+Исходник: [invoice_discovery.py](../../../invoice_discovery.py).
 
 Offer manually added # bills PDFs; import only after explicit attachment.
 
@@ -10,29 +10,81 @@ Offer manually added # bills PDFs; import only after explicit attachment.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
-## name_key
+<a id="symbol-attach"></a>
 
-[invoice_discovery.py:22](../../../invoice_discovery.py#L22) · `function`.
+## attach
+
+[invoice_discovery.py](../../../invoice_discovery.py) · `function`.
 
 ```python
-def name_key(name):
+def attach(store, payload):
 ```
 
-Строит нормализованный ключ имени для сравнения файлов.
+Привязывает существующие данные к выбранной сущности или сводке.
 
-Возвращает `unicodedata.normalize('NFC', name).casefold()`.
+Работает с таблицами invoices.
 
-Непосредственные вызовы: `unicodedata.normalize('NFC', name).casefold`, `unicodedata.normalize`.
+Непосредственные вызовы: `payload.get`, `isinstance`, `name.startswith`, `any`, `ord`, `Path(name).suffix.casefold`, `Path`, `len`, `os.fsencode`, `ValueError`, `invoices.external_comment`, `store.connect`, `store.owner`, `folder_target`, `target.is_symlink`, `target.is_file`, `file_key`, `invoices.InvoiceConflict`, `target.stat`, `icloud_access.read_bytes`, `pdf.startswith`, `str`, `uuid.uuid5`, `json.dumps`, `unicodedata.normalize`, `hashlib.sha256(pdf).hexdigest`, `hashlib.sha256`, `db.execute`, `db.execute("SELECT * FROM invoices WHERE path=? AND state IN ('issued','external')\n                AND pdf=? ORDER BY created,id LIMIT 1", (path, pdf)).fetchone`, `json.loads(existing['data']).get`, `json.loads`, `store.record`, `name_key`, `known_names`, `invoices.today().isoformat`, `invoices.today`, `time.time`, `store.current`.
+
+Явные исключения: `ValueError`, `invoices.InvoiceConflict`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-unicodedata.normalize('NFC', name).casefold()
+store.record(existing)
+store.record(store.current(db, path, identity))
 ```
+
+<a id="symbol-candidates"></a>
+
+## candidates
+
+[invoice_discovery.py](../../../invoice_discovery.py) · `function`.
+
+```python
+def candidates(store, path):
+```
+
+Перечисляет ещё не прикреплённые непосредственные PDF без чтения содержимого.
+
+Возвращает `{'items': [], 'warning': ''}`.
+
+Непосредственные вызовы: `store.connect`, `store.owner`, `known_names`, `folder_target`, `list`, `folder.iterdir`, `name.startswith`, `target.suffix.casefold`, `name_key`, `target.lstat`, `stat.S_ISREG`, `any`, `ord`, `items.append`, `file_key`, `sorted`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+{'items': [], 'warning': ''}
+{'items': sorted(items, key=lambda item: name_key(item['name'])), 'warning': f'Не предложено PDF: {skipped}. Нужен непустой PDF до 20 МБ с обычным именем.' if skipped else ''}
+```
+
+<a id="symbol-file_key"></a>
+
+## file_key
+
+[invoice_discovery.py](../../../invoice_discovery.py) · `function`.
+
+```python
+def file_key(target):
+```
+
+Строит нормализованный ключ имени для сравнения файлов.
+
+Возвращает `hashlib.sha256(json.dumps(file_trash.fingerprint(target), sort_keys=True).encode()).hexdigest()`.
+
+Непосредственные вызовы: `hashlib.sha256(json.dumps(file_trash.fingerprint(target), sort_keys=True).encode()).hexdigest`, `hashlib.sha256`, `json.dumps(file_trash.fingerprint(target), sort_keys=True).encode`, `json.dumps`, `file_trash.fingerprint`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+hashlib.sha256(json.dumps(file_trash.fingerprint(target), sort_keys=True).encode()).hexdigest()
+```
+
+<a id="symbol-folder_target"></a>
 
 ## folder_target
 
-[invoice_discovery.py:28](../../../invoice_discovery.py#L28) · `function`.
+[invoice_discovery.py](../../../invoice_discovery.py) · `function`.
 
 ```python
 def folder_target(store, path):
@@ -52,29 +104,11 @@ def folder_target(store, path):
 folder
 ```
 
-## file_key
-
-[invoice_discovery.py:40](../../../invoice_discovery.py#L40) · `function`.
-
-```python
-def file_key(target):
-```
-
-Строит нормализованный ключ имени для сравнения файлов.
-
-Возвращает `hashlib.sha256(json.dumps(file_trash.fingerprint(target), sort_keys=True).encode()).hexdigest()`.
-
-Непосредственные вызовы: `hashlib.sha256(json.dumps(file_trash.fingerprint(target), sort_keys=True).encode()).hexdigest`, `hashlib.sha256`, `json.dumps(file_trash.fingerprint(target), sort_keys=True).encode`, `json.dumps`, `file_trash.fingerprint`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-hashlib.sha256(json.dumps(file_trash.fingerprint(target), sort_keys=True).encode()).hexdigest()
-```
+<a id="symbol-known_names"></a>
 
 ## known_names
 
-[invoice_discovery.py:46](../../../invoice_discovery.py#L46) · `function`.
+[invoice_discovery.py](../../../invoice_discovery.py) · `function`.
 
 ```python
 def known_names(db, path):
@@ -92,46 +126,24 @@ def known_names(db, path):
 names
 ```
 
-## candidates
+<a id="symbol-name_key"></a>
 
-[invoice_discovery.py:56](../../../invoice_discovery.py#L56) · `function`.
+## name_key
+
+[invoice_discovery.py](../../../invoice_discovery.py) · `function`.
 
 ```python
-def candidates(store, path):
+def name_key(name):
 ```
 
-Перечисляет ещё не прикреплённые непосредственные PDF без чтения содержимого.
+Строит нормализованный ключ имени для сравнения файлов.
 
-Возвращает `{'items': [], 'warning': ''}`.
+Возвращает `unicodedata.normalize('NFC', name).casefold()`.
 
-Непосредственные вызовы: `store.connect`, `store.owner`, `known_names`, `folder_target`, `list`, `folder.iterdir`, `name.startswith`, `target.suffix.casefold`, `name_key`, `target.lstat`, `stat.S_ISREG`, `any`, `ord`, `items.append`, `file_key`, `sorted`.
+Непосредственные вызовы: `unicodedata.normalize('NFC', name).casefold`, `unicodedata.normalize`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-{'items': [], 'warning': ''}
-{'items': sorted(items, key=lambda item: name_key(item['name'])), 'warning': f'Не предложено PDF: {skipped}. Нужен непустой PDF до 20 МБ с обычным именем.' if skipped else ''}
-```
-
-## attach
-
-[invoice_discovery.py:85](../../../invoice_discovery.py#L85) · `function`.
-
-```python
-def attach(store, payload):
-```
-
-Привязывает существующие данные к выбранной сущности или сводке.
-
-Работает с таблицами invoices.
-
-Непосредственные вызовы: `payload.get`, `isinstance`, `name.startswith`, `any`, `ord`, `Path(name).suffix.casefold`, `Path`, `len`, `os.fsencode`, `ValueError`, `invoices.external_comment`, `store.connect`, `store.owner`, `folder_target`, `target.is_symlink`, `target.is_file`, `file_key`, `invoices.InvoiceConflict`, `target.stat`, `icloud_access.read_bytes`, `pdf.startswith`, `str`, `uuid.uuid5`, `json.dumps`, `unicodedata.normalize`, `hashlib.sha256(pdf).hexdigest`, `hashlib.sha256`, `db.execute`, `db.execute("SELECT * FROM invoices WHERE path=? AND state IN ('issued','external')\n                AND pdf=? ORDER BY created,id LIMIT 1", (path, pdf)).fetchone`, `json.loads(existing['data']).get`, `json.loads`, `store.record`, `name_key`, `known_names`, `invoices.today().isoformat`, `invoices.today`, `time.time`, `store.current`.
-
-Явные исключения: `ValueError`, `invoices.InvoiceConflict`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-store.record(existing)
-store.record(store.current(db, path, identity))
+unicodedata.normalize('NFC', name).casefold()
 ```

@@ -35,6 +35,7 @@ INVOICE_PAYMENT_SOURCE_VERSION = 1
 INVOICE_WEEK_PLAN_VERSION = 1
 INVOICE_PAID_STATUS_VERSION = 1
 INVOICE_CLOSING_DOCUMENTS_VERSION = 1
+INVOICE_CALENDAR_NOTIFIED_VERSION = 1
 LIST_STATUSES = {"none": "Без отметки", "active": "Актуально", "inactive": "Неактуально", "later": "Позже", "sent": "Отправлен", "paid": "Оплачен"}
 EXTERNAL_REQUEST_LIMIT = ((MAX_EXTERNAL_BYTES + 2) // 3) * 4 + 64 * 1024
 DEFAULT_SELLER = {
@@ -428,6 +429,7 @@ class InvoiceStore:
                                    'is_trip': data.get('_calendar_trip', False),
                                    'is_watch_todos': data.get('_calendar_watch_todos', False),
                                    'is_carryover': data.get('_calendar_carryover', False),
+                                   'is_notified': data.get('_calendar_notified', False),
                                    'operation': data.get('operation', 'invoice'), 'amount': data.get('amount'),
                                    'text': data.get('text', ''), 'invoice_label': data.get('invoice_label', ''),
                                    'title': owner['title'] if owner else 'Без заказа', 'client': owner['client'] if owner else '', 'object': owner['object'] if owner else ''})
@@ -452,6 +454,11 @@ class InvoiceStore:
     # Возвращает `self._save_plan_calendar_flag(payload, 'is_carryover', '_calendar_carryover')`.
     def save_plan_calendar_carryover(self, payload):
         return self._save_plan_calendar_flag(payload, 'is_carryover', '_calendar_carryover')
+
+    # Сохраняет независимую отметку «Сообщил» запланированной суммы.
+    # Требует доход/расход, строгий boolean и текущую UUID/revision; остальные данные сохраняет.
+    def save_plan_calendar_notified(self, payload):
+        return self._save_plan_calendar_flag(payload, 'is_notified', '_calendar_notified')
 
     # Сохраняет отметку задач у плана, связанного с заказом.
     # При недопустимом состоянии возбуждает ValueError.
@@ -481,11 +488,19 @@ class InvoiceStore:
                 raise ValueError('В перенос можно поместить только доход или расход')
             if field == 'is_carryover' and data.get('_trash'):
                 raise InvoiceConflict('Платёж в корзине. Восстанови его перед изменением размещения')
+            if field == 'is_notified' and data.get('operation') not in ('incoming', 'outgoing'):
+                raise ValueError('Отметка «Сообщил» доступна только у запланированного дохода или расхода')
+            if field == 'is_notified' and data.get('_trash'):
+                raise InvoiceConflict('Платёж в корзине. Восстанови его перед изменением отметки')
             db.execute('INSERT INTO invoice_history VALUES (?,?,?,?)', (row['id'], row['revision'], row['data'], time.time()))
             data[key] = value
             db.execute('UPDATE invoices SET data=?,revision=revision+1,updated=? WHERE id=?',
                        (json.dumps(data, ensure_ascii=False), time.time(), row['id']))
-            order_calendar.mark_flag_contract(db, field)
+            if field == 'is_notified':
+                local_metadata.schema(db)
+                db.execute("INSERT INTO metadata_settings VALUES ('invoice_calendar_notified','1') ON CONFLICT(key) DO UPDATE SET value=excluded.value")
+            else:
+                order_calendar.mark_flag_contract(db, field)
             return self.record(self.current(db, row['path'], row['id']))
 
     # Переносит дату плана и сохраняет остальные данные платежа.

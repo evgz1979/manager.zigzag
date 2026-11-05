@@ -1,56 +1,16 @@
 # static/money-overview.js
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [static/money-overview.js:1](../../../static/money-overview.js#L1).
+Исходник: [static/money-overview.js](../../../static/money-overview.js).
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
-## escape
-
-[static/money-overview.js:9](../../../static/money-overview.js#L9) · `ArrowFunctionExpression`.
-
-```javascript
-const escape = (value) =>
-```
-
-Экранирует текст перед вставкой в HTML-разметку или атрибут.
-
-Заменяет &, <, >, кавычки и апостроф на безопасные HTML-сущности.
-
-Непосредственные вызовы: `String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll`, `String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll`, `String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll`, `String(value ?? "").replaceAll("&", "&amp;").replaceAll`, `String(value ?? "").replaceAll`, `String`.
-
-## key
-
-[static/money-overview.js:12](../../../static/money-overview.js#L12) · `ArrowFunctionExpression`.
-
-```javascript
-const key = (date) =>
-```
-
-Вычисляет строковый ключ месяца для группировки платежей.
-
-Использует `date.toISOString().slice`, `date.toISOString`.
-
-Непосредственные вызовы: `date.toISOString().slice`, `date.toISOString`.
-
-## shift
-
-[static/money-overview.js:15](../../../static/money-overview.js#L15) · `ArrowFunctionExpression`.
-
-```javascript
-const shift = (month, offset) =>
-```
-
-Сдвигает ключ месяца на заданное число месяцев.
-
-Использует `Date`, `Date.UTC`, `Number`.
-
-Непосредственные вызовы: `Date`, `Date.UTC`, `Number`, `month.slice`.
+<a id="symbol-currentMonth"></a>
 
 ## currentMonth
 
-[static/money-overview.js:18](../../../static/money-overview.js#L18) · `ArrowFunctionExpression`.
+[static/money-overview.js](../../../static/money-overview.js) · `ArrowFunctionExpression`.
 
 ```javascript
 const currentMonth = () =>
@@ -62,9 +22,59 @@ const currentMonth = () =>
 
 Непосредственные вызовы: `new Intl.DateTimeFormat("sv-SE", { year: "numeric", month: "2-digit", timeZone: "Europe/Moscow" }).format`, `Intl.DateTimeFormat`, `Date`.
 
+<a id="symbol-escape"></a>
+
+## escape
+
+[static/money-overview.js](../../../static/money-overview.js) · `ArrowFunctionExpression`.
+
+```javascript
+const escape = (value) =>
+```
+
+Экранирует текст перед вставкой в HTML-разметку или атрибут.
+
+Заменяет &, <, >, кавычки и апостроф на безопасные HTML-сущности.
+
+Непосредственные вызовы: `String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll`, `String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll`, `String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll`, `String(value ?? "").replaceAll("&", "&amp;").replaceAll`, `String(value ?? "").replaceAll`, `String`.
+
+<a id="symbol-item"></a>
+
+## item
+
+[static/money-overview.js](../../../static/money-overview.js) · `FunctionDeclaration`.
+
+```javascript
+function item(plan)
+```
+
+Строит строку одного платежа помесячной сводки.
+
+Использует `money.format`, `shortDate.format`, `Date`.
+
+Непосредственные вызовы: `money.format`, `shortDate.format`, `Date`, `compactDate.format`, `[plan.client, plan.object, plan.text].filter(Boolean).join`, `[plan.client, plan.object, plan.text].filter`, `[period, plan.operation === "incoming" ? "Приход" : "Расход", amount + " ₽", caption, context, plan.invoice_label].filter(Boolean).join`, `[period, plan.operation === "incoming" ? "Приход" : "Расход", amount + " ₽", caption, context, plan.invoice_label].filter`, `escape`, `encodeURIComponent`.
+
+<a id="symbol-key"></a>
+
+## key
+
+[static/money-overview.js](../../../static/money-overview.js) · `ArrowFunctionExpression`.
+
+```javascript
+const key = (date) =>
+```
+
+Вычисляет строковый ключ месяца для группировки платежей.
+
+Использует `date.toISOString().slice`, `date.toISOString`.
+
+Непосредственные вызовы: `date.toISOString().slice`, `date.toISOString`.
+
+<a id="symbol-months"></a>
+
 ## months
 
-[static/money-overview.js:23](../../../static/money-overview.js#L23) · `FunctionDeclaration`.
+[static/money-overview.js](../../../static/money-overview.js) · `FunctionDeclaration`.
 
 ```javascript
 function months(records, firstMonth)
@@ -78,23 +88,11 @@ function months(records, firstMonth)
 
 Прямые присваивания полям/свойствам: `month[plan.operation === "incoming" ? "income" : "expense"]`.
 
-## item
-
-[static/money-overview.js:46](../../../static/money-overview.js#L46) · `FunctionDeclaration`.
-
-```javascript
-function item(plan)
-```
-
-Строит строку одного платежа помесячной сводки.
-
-Использует `money.format`, `shortDate.format`, `Date`.
-
-Непосредственные вызовы: `money.format`, `shortDate.format`, `Date`, `compactDate.format`, `[plan.client, plan.object, plan.text].filter(Boolean).join`, `[plan.client, plan.object, plan.text].filter`, `[period, plan.operation === "incoming" ? "Приход" : "Расход", amount + " ₽", caption, context, plan.invoice_label].filter(Boolean).join`, `[period, plan.operation === "incoming" ? "Приход" : "Расход", amount + " ₽", caption, context, plan.invoice_label].filter`, `escape`, `encodeURIComponent`.
+<a id="symbol-render"></a>
 
 ## render
 
-[static/money-overview.js:63](../../../static/money-overview.js#L63) · `FunctionDeclaration`.
+[static/money-overview.js](../../../static/money-overview.js) · `FunctionDeclaration`.
 
 ```javascript
 function render()
@@ -119,9 +117,27 @@ function render()
 
 Прямые присваивания полям/свойствам: `container.innerHTML`, `viewport.scrollLeft`, `pane.scrollTop`.
 
+<a id="symbol-shift"></a>
+
+## shift
+
+[static/money-overview.js](../../../static/money-overview.js) · `ArrowFunctionExpression`.
+
+```javascript
+const shift = (month, offset) =>
+```
+
+Сдвигает ключ месяца на заданное число месяцев.
+
+Использует `Date`, `Date.UTC`, `Number`.
+
+Непосредственные вызовы: `Date`, `Date.UTC`, `Number`, `month.slice`.
+
+<a id="symbol-show"></a>
+
 ## show
 
-[static/money-overview.js:91](../../../static/money-overview.js#L91) · `FunctionDeclaration`.
+[static/money-overview.js](../../../static/money-overview.js) · `FunctionDeclaration`.
 
 ```javascript
 function show(records, visible, { loaded = false, error = "" } = {})

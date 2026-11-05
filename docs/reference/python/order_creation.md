@@ -1,8 +1,8 @@
 # order_creation.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [order_creation.py:1](../../../order_creation.py#L1).
+Исходник: [order_creation.py](../../../order_creation.py).
 
 Register only folders explicitly created by the manager; retry from SQLite.
 
@@ -10,9 +10,11 @@ Register only folders explicitly created by the manager; retry from SQLite.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-complete_service_folders"></a>
+
 ## complete_service_folders
 
-[order_creation.py:17](../../../order_creation.py#L17) · `function`.
+[order_creation.py](../../../order_creation.py) · `function`.
 
 ```python
 def complete_service_folders(store, path, session, plan, journal):
@@ -26,9 +28,27 @@ def complete_service_folders(store, path, session, plan, journal):
 
 Явные исключения: `ValueError`.
 
+<a id="symbol-failed"></a>
+
+## failed
+
+[order_creation.py](../../../order_creation.py) · `function`.
+
+```python
+def failed(store, path, error):
+```
+
+Сохраняет диагностический результат неудачного фонового обхода.
+
+Работает с таблицами metadata_records.
+
+Непосредственные вызовы: `store.connect`, `db.execute('SELECT data FROM metadata_records WHERE kind=? AND path=?', (KIND, path)).fetchone`, `db.execute`, `json.loads`, `Path`, `layout.load_plan`, `next`, `enumerate`, `any`, `layout.records`, `data.update`, `str`, `json.dumps`, `time.time`.
+
+<a id="symbol-prepare"></a>
+
 ## prepare
 
-[order_creation.py:42](../../../order_creation.py#L42) · `function`.
+[order_creation.py](../../../order_creation.py) · `function`.
 
 ```python
 def prepare(store, path, title, session):
@@ -42,9 +62,27 @@ def prepare(store, path, title, session):
 
 Явные исключения: `ValueError`.
 
+<a id="symbol-recover"></a>
+
+## recover
+
+[order_creation.py](../../../order_creation.py) · `function`.
+
+```python
+def recover(store):
+```
+
+Завершает допустимые незавершённые намерения создания после перезапуска.
+
+Работает с таблицами metadata_records.
+
+Непосредственные вызовы: `store.database.exists`, `store.connect`, `local_metadata.schema`, `db.execute`, `register`, `failed`, `local_metadata.MetadataStore(store).error`, `local_metadata.MetadataStore`.
+
+<a id="symbol-register"></a>
+
 ## register
 
-[order_creation.py:69](../../../order_creation.py#L69) · `function`.
+[order_creation.py](../../../order_creation.py) · `function`.
 
 ```python
 def register(store, path):
@@ -58,37 +96,11 @@ def register(store, path):
 
 Явные исключения: `ValueError`.
 
-## failed
-
-[order_creation.py:116](../../../order_creation.py#L116) · `function`.
-
-```python
-def failed(store, path, error):
-```
-
-Сохраняет диагностический результат неудачного фонового обхода.
-
-Работает с таблицами metadata_records.
-
-Непосредственные вызовы: `store.connect`, `db.execute('SELECT data FROM metadata_records WHERE kind=? AND path=?', (KIND, path)).fetchone`, `db.execute`, `json.loads`, `Path`, `layout.load_plan`, `next`, `enumerate`, `any`, `layout.records`, `data.update`, `str`, `json.dumps`, `time.time`.
-
-## recover
-
-[order_creation.py:136](../../../order_creation.py#L136) · `function`.
-
-```python
-def recover(store):
-```
-
-Завершает допустимые незавершённые намерения создания после перезапуска.
-
-Работает с таблицами metadata_records.
-
-Непосредственные вызовы: `store.database.exists`, `store.connect`, `local_metadata.schema`, `db.execute`, `register`, `failed`, `local_metadata.MetadataStore(store).error`, `local_metadata.MetadataStore`.
+<a id="symbol-retry_one"></a>
 
 ## retry_one
 
-[order_creation.py:154](../../../order_creation.py#L154) · `function`.
+[order_creation.py](../../../order_creation.py) · `function`.
 
 ```python
 def retry_one(store, path):

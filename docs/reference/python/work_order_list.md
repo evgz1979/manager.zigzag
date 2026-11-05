@@ -1,8 +1,8 @@
 # work_order_list.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [work_order_list.py:1](../../../work_order_list.py#L1).
+Исходник: [work_order_list.py](../../../work_order_list.py).
 
 Production order tables in #work and individual supplier sections.
 
@@ -10,29 +10,11 @@ Production order tables in #work and individual supplier sections.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
-## supplier_scope
-
-[work_order_list.py:13](../../../work_order_list.py#L13) · `function`.
-
-```python
-def supplier_scope(relative):
-```
-
-Определяет область текущего списка поставщика.
-
-Формирует возвращаемое значение из проверенного локального состояния.
-
-Непосредственные вызовы: `Path`, `is_print_section`, `in_freza`, `len`, `is_supplier_root`, `is_work_root`, `dated`, `parts[1].startswith`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-not is_print_section(relative) and (not in_freza(relative)) and (len(parts) == 1 and is_supplier_root(parts[0]) or (len(parts) == 2 and is_work_root(parts[0]) and (not dated(parts[1])) and (not parts[1].startswith('.'))))
-```
+<a id="symbol-WorkOrderList"></a>
 
 ## WorkOrderList
 
-[work_order_list.py:22](../../../work_order_list.py#L22) · `class`.
+[work_order_list.py](../../../work_order_list.py) · `class`.
 
 ```python
 class WorkOrderList(ObjectOrders):
@@ -42,9 +24,57 @@ class WorkOrderList(ObjectOrders):
 
 Основные операции: path, sections, allowed_paths, refresh, read.
 
+<a id="symbol-WorkOrderList.allowed_paths"></a>
+
+## WorkOrderList.allowed_paths
+
+[work_order_list.py](../../../work_order_list.py) · `function`.
+
+```python
+def allowed_paths(self, relative, inactive=(), show_inactive=False):
+```
+
+Вычисляет допустимые пути текущего списка из сохранённого каталога.
+
+Возвращает `lambda path: canonical(Path(path).parent.as_posix()) == relative and (not Path(path).name.startswith(('.', '#')))`; либо `allowed`.
+
+Непосредственные вызовы: `supplier_scope`, `self.sections`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+lambda path: canonical(Path(path).parent.as_posix()) == relative and (not Path(path).name.startswith(('.', '#')))
+allowed
+```
+
+<a id="symbol-WorkOrderList.allowed_paths.allowed"></a>
+
+## WorkOrderList.allowed_paths.allowed
+
+[work_order_list.py](../../../work_order_list.py) · `function`.
+
+```python
+def allowed(path):
+```
+
+Проверяет допустимость одной папки в текущем каталоге.
+
+Возвращает `False`; либо `len(parts) == 2 and dated(parts[1]) or (len(parts) == 3 and Path(path).parent.as_posix() in sections)`.
+
+Непосредственные вызовы: `canonical`, `Path`, `parts[-1].startswith`, `len`, `dated`, `Path(path).parent.as_posix`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+False
+len(parts) == 2 and dated(parts[1]) or (len(parts) == 3 and Path(path).parent.as_posix() in sections)
+```
+
+<a id="symbol-WorkOrderList.path"></a>
+
 ## WorkOrderList.path
 
-[work_order_list.py:28](../../../work_order_list.py#L28) · `function`.
+[work_order_list.py](../../../work_order_list.py) · `function`.
 
 ```python
 def path(self, relative):
@@ -64,9 +94,51 @@ def path(self, relative):
 relative
 ```
 
+<a id="symbol-WorkOrderList.read"></a>
+
+## WorkOrderList.read
+
+[work_order_list.py](../../../work_order_list.py) · `function`.
+
+```python
+def read(self, relative, **kwargs):
+```
+
+Собирает список производства, группы и статусы из SQLite.
+
+Работает с таблицами metadata_history.
+
+Непосредственные вызовы: `super().read`, `super`, `self.store.connect`, `Path(row['path']).name.lstrip('#').strip`, `Path(row['path']).name.lstrip`, `Path`, `work_orders.supplier_color`, `self.sections`, `work_orders.folder_date`, `work_orders.supplier_name`, `colors.get`, `canonical`, `Path(order['path']).parent.as_posix`, `work_orders.status_order`, `work_orders.read_status`, `work_orders.archived`, `work_orders.archive_time`, `db.execute`, `json.loads`, `sorted`, `result['orders'].sort`, `supplier_scope`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+result
+```
+
+<a id="symbol-WorkOrderList.refresh"></a>
+
+## WorkOrderList.refresh
+
+[work_order_list.py](../../../work_order_list.py) · `function`.
+
+```python
+def refresh(self, relative):
+```
+
+Обновляет разрешённый каталог непосредственных производственных заказов.
+
+При недопустимом состоянии возбуждает ValueError.
+
+Непосредственные вызовы: `self.store.path`, `self.path`, `self.store.target`, `self.allowed_paths`, `set`, `self.sections`, `list`, `target.iterdir`, `len`, `ValueError`, `child.name.startswith`, `child.is_symlink`, `child.is_dir`, `child.relative_to(self.store.root).as_posix`, `child.relative_to`, `allowed`, `found.add`, `canonical`, `child.iterdir`, `order.relative_to(self.store.root).as_posix`, `order.relative_to`, `order.is_symlink`, `order.is_dir`, `errors.append`, `str`, `self.save_catalog`.
+
+Явные исключения: `ValueError`.
+
+<a id="symbol-WorkOrderList.sections"></a>
+
 ## WorkOrderList.sections
 
-[work_order_list.py:37](../../../work_order_list.py#L37) · `function`.
+[work_order_list.py](../../../work_order_list.py) · `function`.
 
 ```python
 def sections(self, relative):
@@ -85,80 +157,24 @@ def sections(self, relative):
 sorted((row for row in records.values() if row['is_favorite'] is True and (not is_print_section(row['path']))), key=lambda row: (work_orders.is_etc_section(row['path']), row['position'], row['path']))
 ```
 
-## WorkOrderList.allowed_paths
+<a id="symbol-supplier_scope"></a>
 
-[work_order_list.py:46](../../../work_order_list.py#L46) · `function`.
+## supplier_scope
+
+[work_order_list.py](../../../work_order_list.py) · `function`.
 
 ```python
-def allowed_paths(self, relative, inactive=(), show_inactive=False):
+def supplier_scope(relative):
 ```
 
-Вычисляет допустимые пути текущего списка из сохранённого каталога.
+Определяет область текущего списка поставщика.
 
-Возвращает `lambda path: canonical(Path(path).parent.as_posix()) == relative and (not Path(path).name.startswith(('.', '#')))`; либо `allowed`.
+Формирует возвращаемое значение из проверенного локального состояния.
 
-Непосредственные вызовы: `supplier_scope`, `self.sections`.
+Непосредственные вызовы: `Path`, `is_print_section`, `in_freza`, `len`, `is_supplier_root`, `is_work_root`, `dated`, `parts[1].startswith`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-lambda path: canonical(Path(path).parent.as_posix()) == relative and (not Path(path).name.startswith(('.', '#')))
-allowed
-```
-
-## WorkOrderList.allowed_paths.allowed
-
-[work_order_list.py:53](../../../work_order_list.py#L53) · `function`.
-
-```python
-def allowed(path):
-```
-
-Проверяет допустимость одной папки в текущем каталоге.
-
-Возвращает `False`; либо `len(parts) == 2 and dated(parts[1]) or (len(parts) == 3 and Path(path).parent.as_posix() in sections)`.
-
-Непосредственные вызовы: `canonical`, `Path`, `parts[-1].startswith`, `len`, `dated`, `Path(path).parent.as_posix`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-False
-len(parts) == 2 and dated(parts[1]) or (len(parts) == 3 and Path(path).parent.as_posix() in sections)
-```
-
-## WorkOrderList.refresh
-
-[work_order_list.py:63](../../../work_order_list.py#L63) · `function`.
-
-```python
-def refresh(self, relative):
-```
-
-Обновляет разрешённый каталог непосредственных производственных заказов.
-
-При недопустимом состоянии возбуждает ValueError.
-
-Непосредственные вызовы: `self.store.path`, `self.path`, `self.store.target`, `self.allowed_paths`, `set`, `self.sections`, `list`, `target.iterdir`, `len`, `ValueError`, `child.name.startswith`, `child.is_symlink`, `child.is_dir`, `child.relative_to(self.store.root).as_posix`, `child.relative_to`, `allowed`, `found.add`, `canonical`, `child.iterdir`, `order.relative_to(self.store.root).as_posix`, `order.relative_to`, `order.is_symlink`, `order.is_dir`, `errors.append`, `str`, `self.save_catalog`.
-
-Явные исключения: `ValueError`.
-
-## WorkOrderList.read
-
-[work_order_list.py:98](../../../work_order_list.py#L98) · `function`.
-
-```python
-def read(self, relative, **kwargs):
-```
-
-Собирает список производства, группы и статусы из SQLite.
-
-Работает с таблицами metadata_history.
-
-Непосредственные вызовы: `super().read`, `super`, `self.store.connect`, `Path(row['path']).name.lstrip('#').strip`, `Path(row['path']).name.lstrip`, `Path`, `work_orders.supplier_color`, `self.sections`, `work_orders.folder_date`, `work_orders.supplier_name`, `colors.get`, `canonical`, `Path(order['path']).parent.as_posix`, `work_orders.status_order`, `work_orders.read_status`, `work_orders.archived`, `work_orders.archive_time`, `db.execute`, `json.loads`, `sorted`, `result['orders'].sort`, `supplier_scope`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-result
+not is_print_section(relative) and (not in_freza(relative)) and (len(parts) == 1 and is_supplier_root(parts[0]) or (len(parts) == 2 and is_work_root(parts[0]) and (not dated(parts[1])) and (not parts[1].startswith('.'))))
 ```

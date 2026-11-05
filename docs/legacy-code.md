@@ -14,12 +14,12 @@
 
 | Код | Что сейчас происходит | Почему сохранён и что проверить перед удалением |
 | --- | --- | --- |
-| [schedule_mobile_sync](../server.py#L828), [mobile_sync_worker](../server.py#L836) | Сразу возвращаются при `DATABASE_ONLY = True`; исторический worker создаётся, но обмена не делает | Связаны с `MobileBridge`, статусом UI, очередью и тестами протокола |
-| [MobileBridge.run](../mobile_sync.py#L434), `configure`, `status` | `run` не обрабатывает файлы при `database_only`; включение отклонено, статус `paused` | Сохранённые операции, receipts и UUID нельзя очищать вместе с кодом |
+| [schedule_mobile_sync](reference/python/server.md#symbol-schedule_mobile_sync), [mobile_sync_worker](reference/python/server.md#symbol-mobile_sync_worker) | Сразу возвращаются при `DATABASE_ONLY = True`; исторический worker создаётся, но обмена не делает | Связаны с `MobileBridge`, статусом UI, очередью и тестами протокола |
+| [MobileBridge.run](reference/python/mobile_sync.md#symbol-MobileBridge.run), `configure`, `status` | `run` не обрабатывает файлы при `database_only`; включение отклонено, статус `paused` | Сохранённые операции, receipts и UUID нельзя очищать вместе с кодом |
 | `mobile/Core.swift`, `DriveTransport.swift`, `PhoneApp.swift` | Отдельное приложение; не часть текущего веб-доступа с iPhone | Для возобновления нужна адаптация протокола к SQLite, подпись и проверка двух устройств |
-| [save_status](../server.py#L1346), [save_note](../server.py#L1367), `/api/status`, `/api/note` | Старые прямые файловые записи закрыты в режиме SQLite | Нужна проверка старых тестов, миграции и потенциальных внешних клиентов |
-| [migrate_statuses](../server.py#L752), [load_legacy_statuses](../server.py#L663) | Миграция `data/statuses.json` запускается из `main` только вне SQLite-only | Не относится к текущему механизму `MetadataStore.migrate`; нельзя смешивать их состояние |
-| [OrderStore.sync](../orders.py#L547), [FolderNotes.sync](../folder_notes.py#L306), [ClientActivity.sync](../client_activity.py#L222) | Старые файловые экспорты ограничены ветками режима хранения | Часть оболочек вызывается фоновым циклом, но файловая ветка не становится активной от наличия вызова |
+| [save_status](reference/python/server.md#symbol-save_status), [save_note](reference/python/server.md#symbol-save_note), `/api/status`, `/api/note` | Старые прямые файловые записи закрыты в режиме SQLite | Нужна проверка старых тестов, миграции и потенциальных внешних клиентов |
+| [migrate_statuses](reference/python/server.md#symbol-migrate_statuses), [load_legacy_statuses](reference/python/server.md#symbol-load_legacy_statuses) | Миграция `data/statuses.json` запускается из `main` только вне SQLite-only | Не относится к текущему механизму `MetadataStore.migrate`; нельзя смешивать их состояние |
+| [OrderStore.sync](reference/python/orders.md#symbol-OrderStore.sync), [FolderNotes.sync](reference/python/folder_notes.md#symbol-FolderNotes.sync), [ClientActivity.sync](reference/python/client_activity.md#symbol-ClientActivity.sync) | Старые файловые экспорты ограничены ветками режима хранения | Часть оболочек вызывается фоновым циклом, но файловая ветка не становится активной от наличия вызова |
 
 Вход в менеджер с телефона через браузер — действующая веб-архитектура. Сохранённое нативное приложение iPhone — отдельная приостановленная ветка. Не следует писать в инструкции, что пользователь может включить её кнопкой «Подготовить обмен» сейчас.
 
@@ -27,15 +27,15 @@
 
 | Формат/ветка | Где находится | Действующее назначение |
 | --- | --- | --- |
-| `!.txt`, `!order.txt`, прежние status-файлы, `.order.json` | [load](../order_document.py#L440), `LEGACY_DOCUMENTS`, `parse` | Первоначальный импорт и сохранение неизвестных блоков; это не актуальная выгрузка SQLite |
-| `.file-comments` | [read](../file_comments.py#L44), [MetadataStore._comment](../local_metadata.py#L185) | Однократный импорт с архивом исходных байтов и отметкой успешного переноса |
-| Прежние карточки активности | [ClientActivity.read](../client_activity.py#L104), `refresh` | Начальное получение индекса; существующая SQLite сохраняет преимущество |
-| Отдельные комментарии недель | [read_legacy_comments](../order_deadlines.py#L66), [unify_weekly_blocks](../order_calendar.py#L88) | Объединение известных данных без затирания разных текстов |
-| `read_comments` | [read_comments](../order_deadlines.py#L94) | Совместимое имя для действующего поля недельных событий, не отдельное хранилище |
-| Прежние ненаправленные связи | [group_main](../order_links.py#L119), [OrderLinks.migrate_statuses](../order_links.py#L248) | Явная инициализация главного и совместимый переход статусов |
-| Прежние карточки `report`/`reports` | [Reconciliations.open](../reconciliations.py#L169) | Переход к собственным сверкам с проверкой неоднозначности и сохранением источников |
-| Старый корневой `# glass` | [is_supplier_root](../folder_structure.py#L26), `supplier_purchases.py` | Сохраняемая совместимость роли и прежних назначений, не команда автоматически переносить папки |
-| Прежняя пара изображений Telegram | [ManagerHandler.receive_calendar_telegram](../server.py#L1843) | Совместимый разбор загрузки использует общий снимок; отдельное дневное изображение не отправляется |
+| `!.txt`, `!order.txt`, прежние status-файлы, `.order.json` | [load](reference/python/order_document.md#symbol-load), `LEGACY_DOCUMENTS`, `parse` | Первоначальный импорт и сохранение неизвестных блоков; это не актуальная выгрузка SQLite |
+| `.file-comments` | [read](reference/python/file_comments.md#symbol-read), [MetadataStore._comment](reference/python/local_metadata.md#symbol-MetadataStore._comment) | Однократный импорт с архивом исходных байтов и отметкой успешного переноса |
+| Прежние карточки активности | [ClientActivity.read](reference/python/client_activity.md#symbol-ClientActivity.read), `refresh` | Начальное получение индекса; существующая SQLite сохраняет преимущество |
+| Отдельные комментарии недель | [read_legacy_comments](reference/python/order_deadlines.md#symbol-read_legacy_comments), [unify_weekly_blocks](reference/python/order_calendar.md#symbol-unify_weekly_blocks) | Объединение известных данных без затирания разных текстов |
+| `read_comments` | [read_comments](reference/python/order_deadlines.md#symbol-read_comments) | Совместимое имя для действующего поля недельных событий, не отдельное хранилище |
+| Прежние ненаправленные связи | [group_main](reference/python/order_links.md#symbol-group_main), [OrderLinks.migrate_statuses](reference/python/order_links.md#symbol-OrderLinks.migrate_statuses) | Явная инициализация главного и совместимый переход статусов |
+| Прежние карточки `report`/`reports` | [Reconciliations.open](reference/python/reconciliations.md#symbol-Reconciliations.open) | Переход к собственным сверкам с проверкой неоднозначности и сохранением источников |
+| Старый корневой `# glass` | [is_supplier_root](reference/python/folder_structure.md#symbol-is_supplier_root), `supplier_purchases.py` | Сохраняемая совместимость роли и прежних назначений, не команда автоматически переносить папки |
+| Прежняя пара изображений Telegram | [ManagerHandler.receive_calendar_telegram](reference/python/server.md#symbol-ManagerHandler.receive_calendar_telegram) | Совместимый разбор загрузки использует общий снимок; отдельное дневное изображение не отправляется |
 
 Неизвестные блоки намеренно возвращают `None`/ошибку вместо пустого списка. Удаление парсера без проверки реальных старых данных может превратить защищённый отказ в потерю информации при следующем сохранении.
 
@@ -56,7 +56,7 @@
 
 ## Устаревшие артефакты и специальные данные
 
-`data/swift-cache` заменён `data/swift-cache-v2`: старый кеш мог содержать абсолютные пути из разных релизов. [build](../native_renderers.py#L10) больше его не выбирает. Автоматическая очистка старого кеша и старых бинарных файлов не добавлена. Это генерируемые данные установки, не отдельный Python-модуль.
+`data/swift-cache` заменён `data/swift-cache-v2`: старый кеш мог содержать абсолютные пути из разных релизов. [build](reference/python/native_renderers.md#symbol-build) больше его не выбирает. Автоматическая очистка старого кеша и старых бинарных файлов не добавлена. Это генерируемые данные установки, не отдельный Python-модуль.
 
 `output/` содержит прежние иллюстрации проверок интерфейса. Они не подгружаются приложением и не доказывают вид текущей версии. `docs/history/` хранит прежние обзорные инструкции только для истории. `docs/CHANGELOG.md` описывает решения на дату записи; более позднее решение может их заменить.
 

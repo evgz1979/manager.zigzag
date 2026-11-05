@@ -1,28 +1,66 @@
 # static/reconciliations.js
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [static/reconciliations.js:1](../../../static/reconciliations.js#L1).
+Исходник: [static/reconciliations.js](../../../static/reconciliations.js).
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
-## money
+<a id="symbol-button"></a>
 
-[static/reconciliations.js:7](../../../static/reconciliations.js#L7) · `ArrowFunctionExpression`.
+## button
+
+[static/reconciliations.js](../../../static/reconciliations.js) · `FunctionDeclaration`.
 
 ```javascript
-const money = value =>
+function button(invoice)
 ```
 
-Форматирует денежное значение для соответствующего компонента.
+Строит кнопку действия компонента с текущим состоянием записи.
 
-Использует `Number.isSafeInteger`, `rubles`.
+Использует `links.set`, `links.get`, `escapeHtml`.
 
-Непосредственные вызовы: `Number.isSafeInteger`, `rubles`.
+Непосредственные вызовы: `links.set`, `links.get`, `escapeHtml`.
+
+<a id="symbol-close"></a>
+
+## close
+
+[static/reconciliations.js](../../../static/reconciliations.js) · `FunctionDeclaration`.
+
+```javascript
+function close()
+```
+
+Закрывает компонент и освобождает его временное состояние в модуле самостоятельных сверок.
+
+Использует `$('invoiceReconciliationDialog').close`, `$`.
+
+Непосредственные вызовы: `$('invoiceReconciliationDialog').close`, `$`.
+
+<a id="symbol-controls"></a>
+
+## controls
+
+[static/reconciliations.js](../../../static/reconciliations.js) · `FunctionDeclaration`.
+
+```javascript
+function controls(busy)
+```
+
+Обновляет доступность действий открытого редактора в модуле самостоятельных сверок.
+
+Использует `$`.
+
+Непосредственные вызовы: `$`.
+
+Прямые присваивания полям/свойствам: `$(id).disabled`.
+
+<a id="symbol-date"></a>
 
 ## date
 
-[static/reconciliations.js:10](../../../static/reconciliations.js#L10) · `ArrowFunctionExpression`.
+[static/reconciliations.js](../../../static/reconciliations.js) · `ArrowFunctionExpression`.
 
 ```javascript
 const date = value =>
@@ -34,9 +72,81 @@ const date = value =>
 
 Непосредственные вызовы: `/^\d{4}-\d{2}-\d{2}$/.test`, `value.split('-').reverse().join`, `value.split('-').reverse`, `value.split`.
 
+<a id="symbol-loadAssignment"></a>
+
+## loadAssignment
+
+[static/reconciliations.js](../../../static/reconciliations.js) · `FunctionDeclaration`.
+
+```javascript
+async function loadAssignment(current, preserve = false)
+```
+
+Загружает допустимые сверки и текущее назначение счёта.
+
+Использует `/api/reconciliations`, `/api/invoice`.
+
+Непосредственные вызовы: `$`, `controls`, `Promise.all`, `request`, `apiUrl`, `links.get`, `catalog.items.map(item => '<option value="' + escapeHtml(item.id) + '">' + escapeHtml(item.title + (item.client ? ' · ' + item.client : '')) + '</option>').join`, `catalog.items.map`, `catalog.items.some`, `$('invoiceReconciliationSelect').insertAdjacentHTML`, `escapeHtml`.
+
+Прямые присваивания полям/свойствам: `current.loading`, `current.invoice`, `current.items`, `current.link`, `$('invoiceReconciliationSelect').innerHTML`, `$('invoiceReconciliationSelect').value`, `current.ready`, `$('invoiceReconciliationState').textContent`, `$('saveInvoiceReconciliation').disabled`.
+
+<a id="symbol-money"></a>
+
+## money
+
+[static/reconciliations.js](../../../static/reconciliations.js) · `ArrowFunctionExpression`.
+
+```javascript
+const money = value =>
+```
+
+Форматирует денежное значение для соответствующего компонента.
+
+Использует `Number.isSafeInteger`, `rubles`.
+
+Непосредственные вызовы: `Number.isSafeInteger`, `rubles`.
+
+<a id="symbol-open"></a>
+
+## open
+
+[static/reconciliations.js](../../../static/reconciliations.js) · `FunctionDeclaration`.
+
+```javascript
+async function open(invoice)
+```
+
+Открывает компонент и загружает его исходные данные в модуле самостоятельных сверок.
+
+Использует `$`, `$('invoiceReconciliationDialog').showModal`, `loadAssignment`.
+
+Непосредственные вызовы: `$`, `$('invoiceReconciliationDialog').showModal`, `loadAssignment`, `$('invoiceReconciliationSelect').focus`.
+
+Прямые присваивания полям/свойствам: `$('invoiceReconciliationName').textContent`, `$('invoiceReconciliationState').textContent`.
+
+<a id="symbol-refresh"></a>
+
+## refresh
+
+[static/reconciliations.js](../../../static/reconciliations.js) · `FunctionDeclaration`.
+
+```javascript
+async function refresh()
+```
+
+Перечитывает данные открытого компонента по установленным правилам в модуле самостоятельных сверок.
+
+Использует `/api/reconciliations`, `/api/reconciliation`.
+
+Непосредственные вызовы: `$`, `renderList`, `request`, `renderTable`, `apiUrl`, `document.activeElement?.closest`, `JSON.stringify`, `renderTodos`, `resizeOrderNote`, `renderOrderHeading`, `renderStatus`.
+
+Прямые присваивания полям/свойствам: `$('reconciliationList').hidden`, `$('reconciliationInvoices').hidden`, `$('reconciliationListState').textContent`, `folder.reconciliation`, `folder.note`, `folder.todo_items`, `$('orderTitleInput').value`, `$('reconciliationClient').value`, `$('orderNote').value`, `$('reconciliationInvoiceState').textContent`.
+
+<a id="symbol-renderList"></a>
+
 ## renderList
 
-[static/reconciliations.js:14](../../../static/reconciliations.js#L14) · `FunctionDeclaration`.
+[static/reconciliations.js](../../../static/reconciliations.js) · `FunctionDeclaration`.
 
 ```javascript
 function renderList(folder, records)
@@ -55,23 +165,11 @@ function renderList(folder, records)
 
 Прямые присваивания полям/свойствам: `$('reconciliationListRows').innerHTML`, `pane.scrollTop`, `$('reconciliationListCount').textContent`, `$('reconciliationListState').textContent`.
 
-## button
-
-[static/reconciliations.js:37](../../../static/reconciliations.js#L37) · `FunctionDeclaration`.
-
-```javascript
-function button(invoice)
-```
-
-Строит кнопку действия компонента с текущим состоянием записи.
-
-Использует `links.set`, `links.get`, `escapeHtml`.
-
-Непосредственные вызовы: `links.set`, `links.get`, `escapeHtml`.
+<a id="symbol-renderTable"></a>
 
 ## renderTable
 
-[static/reconciliations.js:46](../../../static/reconciliations.js#L46) · `FunctionDeclaration`.
+[static/reconciliations.js](../../../static/reconciliations.js) · `FunctionDeclaration`.
 
 ```javascript
 function renderTable(record)
@@ -90,81 +188,3 @@ function renderTable(record)
     }).join`, `rows.map`, `document.querySelector`, `[...$('reconciliationInvoiceRows').querySelectorAll('[data-reconciliation-unlink]')].find(el => el.dataset.reconciliationUnlink === focused)?.focus`, `[...$('reconciliationInvoiceRows').querySelectorAll('[data-reconciliation-unlink]')].find`, `$('reconciliationInvoiceRows').querySelectorAll`.
 
 Прямые присваивания полям/свойствам: `$('reconciliationInvoiceCount').textContent`, `$('reconciliationInvoiceRows').innerHTML`, `pane.scrollTop`, `$('reconciliationInvoiceState').textContent`, `$('reconciliationInvoiceRows').invoiceRecords`.
-
-## refresh
-
-[static/reconciliations.js:70](../../../static/reconciliations.js#L70) · `FunctionDeclaration`.
-
-```javascript
-async function refresh()
-```
-
-Перечитывает данные открытого компонента по установленным правилам в модуле самостоятельных сверок.
-
-Использует `/api/reconciliations`, `/api/reconciliation`.
-
-Непосредственные вызовы: `$`, `renderList`, `request`, `renderTable`, `apiUrl`, `document.activeElement?.closest`, `JSON.stringify`, `renderTodos`, `resizeOrderNote`, `renderOrderHeading`, `renderStatus`.
-
-Прямые присваивания полям/свойствам: `$('reconciliationList').hidden`, `$('reconciliationInvoices').hidden`, `$('reconciliationListState').textContent`, `folder.reconciliation`, `folder.note`, `folder.todo_items`, `$('orderTitleInput').value`, `$('reconciliationClient').value`, `$('orderNote').value`, `$('reconciliationInvoiceState').textContent`.
-
-## controls
-
-[static/reconciliations.js:112](../../../static/reconciliations.js#L112) · `FunctionDeclaration`.
-
-```javascript
-function controls(busy)
-```
-
-Обновляет доступность действий открытого редактора в модуле самостоятельных сверок.
-
-Использует `$`.
-
-Непосредственные вызовы: `$`.
-
-Прямые присваивания полям/свойствам: `$(id).disabled`.
-
-## loadAssignment
-
-[static/reconciliations.js:118](../../../static/reconciliations.js#L118) · `FunctionDeclaration`.
-
-```javascript
-async function loadAssignment(current, preserve = false)
-```
-
-Загружает допустимые сверки и текущее назначение счёта.
-
-Использует `/api/reconciliations`, `/api/invoice`.
-
-Непосредственные вызовы: `$`, `controls`, `Promise.all`, `request`, `apiUrl`, `links.get`, `catalog.items.map(item => '<option value="' + escapeHtml(item.id) + '">' + escapeHtml(item.title + (item.client ? ' · ' + item.client : '')) + '</option>').join`, `catalog.items.map`, `catalog.items.some`, `$('invoiceReconciliationSelect').insertAdjacentHTML`, `escapeHtml`.
-
-Прямые присваивания полям/свойствам: `current.loading`, `current.invoice`, `current.items`, `current.link`, `$('invoiceReconciliationSelect').innerHTML`, `$('invoiceReconciliationSelect').value`, `current.ready`, `$('invoiceReconciliationState').textContent`, `$('saveInvoiceReconciliation').disabled`.
-
-## open
-
-[static/reconciliations.js:140](../../../static/reconciliations.js#L140) · `FunctionDeclaration`.
-
-```javascript
-async function open(invoice)
-```
-
-Открывает компонент и загружает его исходные данные в модуле самостоятельных сверок.
-
-Использует `$`, `$('invoiceReconciliationDialog').showModal`, `loadAssignment`.
-
-Непосредственные вызовы: `$`, `$('invoiceReconciliationDialog').showModal`, `loadAssignment`, `$('invoiceReconciliationSelect').focus`.
-
-Прямые присваивания полям/свойствам: `$('invoiceReconciliationName').textContent`, `$('invoiceReconciliationState').textContent`.
-
-## close
-
-[static/reconciliations.js:151](../../../static/reconciliations.js#L151) · `FunctionDeclaration`.
-
-```javascript
-function close()
-```
-
-Закрывает компонент и освобождает его временное состояние в модуле самостоятельных сверок.
-
-Использует `$('invoiceReconciliationDialog').close`, `$`.
-
-Непосредственные вызовы: `$('invoiceReconciliationDialog').close`, `$`.

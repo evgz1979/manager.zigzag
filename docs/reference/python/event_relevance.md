@@ -1,8 +1,8 @@
 # event_relevance.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [event_relevance.py:1](../../../event_relevance.py#L1).
+Исходник: [event_relevance.py](../../../event_relevance.py).
 
 Актуальность события — независимый читаемый блок карточки папки.
 
@@ -10,9 +10,33 @@
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-info"></a>
+
+## info
+
+[event_relevance.py](../../../event_relevance.py) · `function`.
+
+```python
+def info(record, error=''):
+```
+
+Формирует представление состояния и ошибок для интерфейса.
+
+Формирует возвращаемое значение из проверенного локального состояния.
+
+Непосредственные вызовы: `read`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+{'value': value, 'revision': record['revision'] if record else None, 'sync_pending': record['sync_pending'] if record else False, 'sync_error': record['sync_error'] if record else '', 'error': error or (f'Проверьте раздел [{BLOCK}] в !.txt события' if record and value is None else '')}
+```
+
+<a id="symbol-is_event"></a>
+
 ## is_event
 
-[event_relevance.py:11](../../../event_relevance.py#L11) · `function`.
+[event_relevance.py](../../../event_relevance.py) · `function`.
 
 ```python
 def is_event(path, owner):
@@ -30,9 +54,11 @@ def is_event(path, owner):
 Path(path).parent.as_posix() == owner and (not is_service_folder(path)) and (not any((part.startswith('.') for part in Path(path).parts)))
 ```
 
+<a id="symbol-read"></a>
+
 ## read
 
-[event_relevance.py:18](../../../event_relevance.py#L18) · `function`.
+[event_relevance.py](../../../event_relevance.py) · `function`.
 
 ```python
 def read(blocks):
@@ -50,9 +76,11 @@ def read(blocks):
 'none' if body is None else next((key for (key, label) in LABELS.items() if body.strip() == label), None)
 ```
 
+<a id="symbol-write"></a>
+
 ## write
 
-[event_relevance.py:25](../../../event_relevance.py#L25) · `function`.
+[event_relevance.py](../../../event_relevance.py) · `function`.
 
 ```python
 def write(blocks, value):
@@ -70,24 +98,4 @@ def write(blocks, value):
 
 ```python
 {**blocks, BLOCK: LABELS[value]}
-```
-
-## info
-
-[event_relevance.py:35](../../../event_relevance.py#L35) · `function`.
-
-```python
-def info(record, error=''):
-```
-
-Формирует представление состояния и ошибок для интерфейса.
-
-Формирует возвращаемое значение из проверенного локального состояния.
-
-Непосредственные вызовы: `read`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-{'value': value, 'revision': record['revision'] if record else None, 'sync_pending': record['sync_pending'] if record else False, 'sync_error': record['sync_error'] if record else '', 'error': error or (f'Проверьте раздел [{BLOCK}] в !.txt события' if record and value is None else '')}
 ```

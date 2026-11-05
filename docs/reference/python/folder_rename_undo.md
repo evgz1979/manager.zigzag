@@ -1,8 +1,8 @@
 # folder_rename_undo.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [folder_rename_undo.py:1](../../../folder_rename_undo.py#L1).
+Исходник: [folder_rename_undo.py](../../../folder_rename_undo.py).
 
 Database path rewrite and standalone undo for a folder renamed in the UI.
 
@@ -10,9 +10,29 @@ Database path rewrite and standalone undo for a folder renamed in the UI.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-check"></a>
+
+## check
+
+[folder_rename_undo.py](../../../folder_rename_undo.py) · `function`.
+
+```python
+def check(db, source, destination, session=None):
+```
+
+Проверяет предпосылки безопасного выполнения операции.
+
+Работает с таблицами orders, mobile_operations.
+
+Непосредственные вызовы: `metadata_paths`, `table`, `db.execute`, `any`, `inside`, `json.loads`, `ValueError`, `json.loads(row[0]).get`.
+
+Явные исключения: `ValueError`.
+
+<a id="symbol-inside"></a>
+
 ## inside
 
-[folder_rename_undo.py:13](../../../folder_rename_undo.py#L13) · `function`.
+[folder_rename_undo.py](../../../folder_rename_undo.py) · `function`.
 
 ```python
 def inside(path, prefix):
@@ -30,29 +50,29 @@ def inside(path, prefix):
 path == prefix or path.startswith(prefix + '/')
 ```
 
-## table
+<a id="symbol-metadata_paths"></a>
 
-[folder_rename_undo.py:19](../../../folder_rename_undo.py#L19) · `function`.
+## metadata_paths
 
-```python
-def table(db, name):
-```
-
-Проверяет наличие таблицы SQLite перед совместимой перепривязкой.
-
-Работает с таблицами sqlite_master.
-
-Непосредственные вызовы: `bool`, `db.execute('SELECT 1 FROM sqlite_master WHERE name=?', (name,)).fetchone`, `db.execute`.
-
-Выражения возврата (ветки читаются в исходнике):
+[folder_rename_undo.py](../../../folder_rename_undo.py) · `function`.
 
 ```python
-bool(db.execute('SELECT 1 FROM sqlite_master WHERE name=?', (name,)).fetchone())
+def metadata_paths(db, source, destination, *, apply=False):
 ```
+
+Вычисляет затрагиваемые пути SQLite для самостоятельного отката.
+
+Работает с таблицами folder_renames, metadata_file_moves, metadata_publications.
+
+Непосредственные вызовы: `unicodedata.normalize`, `exists`, `db.execute`, `json.loads`, `pair.get`, `inside`, `ValueError`, `any`, `list`, `len`.
+
+Явные исключения: `ValueError`.
+
+<a id="symbol-remap"></a>
 
 ## remap
 
-[folder_rename_undo.py:25](../../../folder_rename_undo.py#L25) · `function`.
+[folder_rename_undo.py](../../../folder_rename_undo.py) · `function`.
 
 ```python
 def remap(path, source, destination):
@@ -70,41 +90,11 @@ def remap(path, source, destination):
 destination + path[len(source):] if inside(path, source) else path
 ```
 
-## metadata_paths
-
-[folder_rename_undo.py:31](../../../folder_rename_undo.py#L31) · `function`.
-
-```python
-def metadata_paths(db, source, destination, *, apply=False):
-```
-
-Вычисляет затрагиваемые пути SQLite для самостоятельного отката.
-
-Работает с таблицами folder_renames, metadata_file_moves, metadata_publications.
-
-Непосредственные вызовы: `unicodedata.normalize`, `exists`, `db.execute`, `json.loads`, `pair.get`, `inside`, `ValueError`, `any`, `list`, `len`.
-
-Явные исключения: `ValueError`.
-
-## check
-
-[folder_rename_undo.py:64](../../../folder_rename_undo.py#L64) · `function`.
-
-```python
-def check(db, source, destination, session=None):
-```
-
-Проверяет предпосылки безопасного выполнения операции.
-
-Работает с таблицами orders, mobile_operations.
-
-Непосредственные вызовы: `metadata_paths`, `table`, `db.execute`, `any`, `inside`, `json.loads`, `ValueError`, `json.loads(row[0]).get`.
-
-Явные исключения: `ValueError`.
+<a id="symbol-rewrite"></a>
 
 ## rewrite
 
-[folder_rename_undo.py:87](../../../folder_rename_undo.py#L87) · `function`.
+[folder_rename_undo.py](../../../folder_rename_undo.py) · `function`.
 
 ```python
 def rewrite(db, source, destination):
@@ -116,9 +106,33 @@ def rewrite(db, source, destination):
 
 Непосредственные вызовы: `metadata_paths`, `table`, `list`, `db.execute`, `inside`, `remap`, `identities.append`, `db.execute('SELECT order_path FROM todo_missing_folders WHERE path=?', (path,)).fetchone`, `values.append`, `db.executemany`.
 
+<a id="symbol-table"></a>
+
+## table
+
+[folder_rename_undo.py](../../../folder_rename_undo.py) · `function`.
+
+```python
+def table(db, name):
+```
+
+Проверяет наличие таблицы SQLite перед совместимой перепривязкой.
+
+Работает с таблицами sqlite_master.
+
+Непосредственные вызовы: `bool`, `db.execute('SELECT 1 FROM sqlite_master WHERE name=?', (name,)).fetchone`, `db.execute`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+bool(db.execute('SELECT 1 FROM sqlite_master WHERE name=?', (name,)).fetchone())
+```
+
+<a id="symbol-undo"></a>
+
 ## undo
 
-[folder_rename_undo.py:131](../../../folder_rename_undo.py#L131) · `function`.
+[folder_rename_undo.py](../../../folder_rename_undo.py) · `function`.
 
 ```python
 def undo(session, perform=False):

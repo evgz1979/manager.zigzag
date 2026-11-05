@@ -1,8 +1,8 @@
 # invoice_documents.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [invoice_documents.py:1](../../../invoice_documents.py#L1).
+Исходник: [invoice_documents.py](../../../invoice_documents.py).
 
 Immutable closing documents linked to an invoice, with versioned row metadata.
 
@@ -10,45 +10,57 @@ Immutable closing documents linked to an invoice, with versioned row metadata.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
-## schema
+<a id="symbol-content"></a>
 
-[invoice_documents.py:21](../../../invoice_documents.py#L21) · `function`.
+## content
+
+[invoice_documents.py](../../../invoice_documents.py) · `function`.
 
 ```python
-def schema(db):
+def content(store, path, invoice_id, document_id):
 ```
 
-Создаёт отсутствующие таблицы и совместимые расширения схемы.
+Читает сохранённые байты документа после проверки владельца.
 
 Работает с таблицами invoice_documents.
 
-Непосредственные вызовы: `db.execute`.
+Непосредственные вызовы: `identity`, `store.connect`, `parent`, `next`, `db.execute('SELECT * FROM invoice_documents WHERE id=? AND invoice_id=?', (key, row['id'])).fetchone`, `db.execute`, `FileNotFoundError`, `metadata`, `ValueError`, `len`, `hashlib.sha256(body).hexdigest`, `hashlib.sha256`.
 
-## identity
-
-[invoice_documents.py:37](../../../invoice_documents.py#L37) · `function`.
-
-```python
-def identity(value):
-```
-
-Проверяет или вычисляет устойчивую идентичность объекта.
-
-При недопустимом состоянии возбуждает ValueError.
-
-Непосредственные вызовы: `isinstance`, `str`, `uuid.UUID`, `ValueError`.
-
-Явные исключения: `ValueError`.
+Явные исключения: `FileNotFoundError`, `ValueError`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-value
+(body, document['name'], document['mime'])
 ```
+
+<a id="symbol-copy_name"></a>
+
+## copy_name
+
+[invoice_documents.py](../../../invoice_documents.py) · `function`.
+
+```python
+def copy_name(name, key):
+```
+
+Подбирает имя публикуемой копии без замены существующих файлов.
+
+Возвращает `stem + suffix`.
+
+Непосредственные вызовы: `Path`, `len`, `os.fsencode`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+stem + suffix
+```
+
+<a id="symbol-filename"></a>
 
 ## filename
 
-[invoice_documents.py:48](../../../invoice_documents.py#L48) · `function`.
+[invoice_documents.py](../../../invoice_documents.py) · `function`.
 
 ```python
 def filename(value):
@@ -68,31 +80,35 @@ def filename(value):
 value
 ```
 
-## read
+<a id="symbol-identity"></a>
 
-[invoice_documents.py:59](../../../invoice_documents.py#L59) · `function`.
+## identity
+
+[invoice_documents.py](../../../invoice_documents.py) · `function`.
 
 ```python
-def read(data):
+def identity(value):
 ```
 
-Разбирает строгий блок назначенных счёту закрывающих документов.
+Проверяет или вычисляет устойчивую идентичность объекта.
 
-Возвращает `[]`; либо `None`.
+При недопустимом состоянии возбуждает ValueError.
 
-Непосредственные вызовы: `isinstance`, `set`, `type`, `len`, `identity`, `filename`, `any`, `seen.add`.
+Непосредственные вызовы: `isinstance`, `str`, `uuid.UUID`, `ValueError`.
+
+Явные исключения: `ValueError`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-[]
-None
-items
+value
 ```
+
+<a id="symbol-metadata"></a>
 
 ## metadata
 
-[invoice_documents.py:88](../../../invoice_documents.py#L88) · `function`.
+[invoice_documents.py](../../../invoice_documents.py) · `function`.
 
 ```python
 def metadata(row):
@@ -108,49 +124,11 @@ def metadata(row):
 {**{key: row[key] for key in ('id', 'name', 'mime', 'size', 'sha256')}, 'deleted': False}
 ```
 
-## copy_name
-
-[invoice_documents.py:94](../../../invoice_documents.py#L94) · `function`.
-
-```python
-def copy_name(name, key):
-```
-
-Подбирает имя публикуемой копии без замены существующих файлов.
-
-Возвращает `stem + suffix`.
-
-Непосредственные вызовы: `Path`, `len`, `os.fsencode`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-stem + suffix
-```
-
-## with_copy_status
-
-[invoice_documents.py:104](../../../invoice_documents.py#L104) · `function`.
-
-```python
-def with_copy_status(db, record):
-```
-
-Добавляет состояние публикации копии к данным документа.
-
-Работает с таблицами invoice_documents.
-
-Непосредственные вызовы: `dict`, `db.execute`, `copies.get(item['id'], {}).get`, `copies.get`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-record
-```
+<a id="symbol-parent"></a>
 
 ## parent
 
-[invoice_documents.py:113](../../../invoice_documents.py#L113) · `function`.
+[invoice_documents.py](../../../invoice_documents.py) · `function`.
 
 ```python
 def parent(store, db, path, invoice_id, *, write=False):
@@ -170,9 +148,35 @@ def parent(store, db, path, invoice_id, *, write=False):
 (row, data, items)
 ```
 
+<a id="symbol-read"></a>
+
+## read
+
+[invoice_documents.py](../../../invoice_documents.py) · `function`.
+
+```python
+def read(data):
+```
+
+Разбирает строгий блок назначенных счёту закрывающих документов.
+
+Возвращает `[]`; либо `None`.
+
+Непосредственные вызовы: `isinstance`, `set`, `type`, `len`, `identity`, `filename`, `any`, `seen.add`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+[]
+None
+items
+```
+
+<a id="symbol-save"></a>
+
 ## save
 
-[invoice_documents.py:128](../../../invoice_documents.py#L128) · `function`.
+[invoice_documents.py](../../../invoice_documents.py) · `function`.
 
 ```python
 def save(store, db, row, data, items):
@@ -190,32 +194,27 @@ def save(store, db, row, data, items):
 store.record(store.current(db, row['path'], row['id']))
 ```
 
-## upload
+<a id="symbol-schema"></a>
 
-[invoice_documents.py:138](../../../invoice_documents.py#L138) · `function`.
+## schema
+
+[invoice_documents.py](../../../invoice_documents.py) · `function`.
 
 ```python
-def upload(store, payload):
+def schema(db):
 ```
 
-Принимает проверенный документ и сохраняет его содержимое.
+Создаёт отсутствующие таблицы и совместимые расширения схемы.
 
 Работает с таблицами invoice_documents.
 
-Непосредственные вызовы: `identity`, `payload.get`, `filename`, `isinstance`, `len`, `ValueError`, `base64.b64decode`, `content.startswith`, `hashlib.sha256(content).hexdigest`, `hashlib.sha256`, `store.connect`, `db.execute`, `parent`, `db.execute('SELECT id,invoice_id,version,name,sha256,size FROM invoice_documents WHERE id=?', (key,)).fetchone`, `InvoiceConflict`, `any`, `store.record`, `type`, `time.time`, `copy_name`, `save`.
+Непосредственные вызовы: `db.execute`.
 
-Явные исключения: `ValueError`, `InvoiceConflict`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-store.record(row)
-save(store, db, row, data, [*items, item])
-```
+<a id="symbol-set_deleted"></a>
 
 ## set_deleted
 
-[invoice_documents.py:176](../../../invoice_documents.py#L176) · `function`.
+[invoice_documents.py](../../../invoice_documents.py) · `function`.
 
 ```python
 def set_deleted(store, payload, deleted):
@@ -236,31 +235,11 @@ store.record(row)
 save(store, db, row, data, [{**item, 'deleted': deleted} if item['id'] == key else item for item in items])
 ```
 
-## content
-
-[invoice_documents.py:197](../../../invoice_documents.py#L197) · `function`.
-
-```python
-def content(store, path, invoice_id, document_id):
-```
-
-Читает сохранённые байты документа после проверки владельца.
-
-Работает с таблицами invoice_documents.
-
-Непосредственные вызовы: `identity`, `store.connect`, `parent`, `next`, `db.execute('SELECT * FROM invoice_documents WHERE id=? AND invoice_id=?', (key, row['id'])).fetchone`, `db.execute`, `FileNotFoundError`, `metadata`, `ValueError`, `len`, `hashlib.sha256(body).hexdigest`, `hashlib.sha256`.
-
-Явные исключения: `FileNotFoundError`, `ValueError`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-(body, document['name'], document['mime'])
-```
+<a id="symbol-sync"></a>
 
 ## sync
 
-[invoice_documents.py:215](../../../invoice_documents.py#L215) · `function`.
+[invoice_documents.py](../../../invoice_documents.py) · `function`.
 
 ```python
 def sync(store):
@@ -273,3 +252,50 @@ def sync(store):
 Непосредственные вызовы: `store.connect`, `db.execute`, `db.execute('SELECT * FROM invoice_documents WHERE id=?', (key,)).fetchone`, `db.execute('SELECT path,data,state FROM invoices WHERE id=?', (document['invoice_id'],)).fetchone`, `json.loads(invoice['data']).get`, `json.loads`, `read`, `next`, `metadata`, `hashlib.sha256(document['content']).hexdigest`, `hashlib.sha256`, `ValueError`, `copy_name`, `store.publish_copy`, `str`.
 
 Явные исключения: `ValueError`.
+
+<a id="symbol-upload"></a>
+
+## upload
+
+[invoice_documents.py](../../../invoice_documents.py) · `function`.
+
+```python
+def upload(store, payload):
+```
+
+Принимает проверенный документ и сохраняет его содержимое.
+
+Работает с таблицами invoice_documents.
+
+Непосредственные вызовы: `identity`, `payload.get`, `filename`, `isinstance`, `len`, `ValueError`, `base64.b64decode`, `content.startswith`, `hashlib.sha256(content).hexdigest`, `hashlib.sha256`, `store.connect`, `db.execute`, `parent`, `db.execute('SELECT id,invoice_id,version,name,sha256,size FROM invoice_documents WHERE id=?', (key,)).fetchone`, `InvoiceConflict`, `any`, `store.record`, `type`, `time.time`, `copy_name`, `save`.
+
+Явные исключения: `ValueError`, `InvoiceConflict`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+store.record(row)
+save(store, db, row, data, [*items, item])
+```
+
+<a id="symbol-with_copy_status"></a>
+
+## with_copy_status
+
+[invoice_documents.py](../../../invoice_documents.py) · `function`.
+
+```python
+def with_copy_status(db, record):
+```
+
+Добавляет состояние публикации копии к данным документа.
+
+Работает с таблицами invoice_documents.
+
+Непосредственные вызовы: `dict`, `db.execute`, `copies.get(item['id'], {}).get`, `copies.get`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+record
+```

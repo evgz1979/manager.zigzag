@@ -1,26 +1,16 @@
 # calendar_renderer.swift
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [calendar_renderer.swift:1](../../../calendar_renderer.swift#L1).
+Исходник: [calendar_renderer.swift](../../../calendar_renderer.swift).
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
-## fail
-
-[calendar_renderer.swift:6](../../../calendar_renderer.swift#L6) · `func`.
-
-```swift
-func fail() -> Never
-```
-
-Завершает помощник с диагностикой в stderr и ненулевым кодом.
-
-Вызывающий Python получает отказ вместо частичного успешного результата.
+<a id="symbol-CalendarRenderer"></a>
 
 ## CalendarRenderer
 
-[calendar_renderer.swift:13](../../../calendar_renderer.swift#L13) · `class`.
+[calendar_renderer.swift](../../../calendar_renderer.swift) · `class`.
 
 ```swift
 final class CalendarRenderer: NSObject, WKNavigationDelegate, WKScriptMessageHandler
@@ -30,9 +20,11 @@ final class CalendarRenderer: NSObject, WKNavigationDelegate, WKScriptMessageHan
 
 PNG возвращается через обработчик сообщения JavaScript в stdout процесса.
 
-## init
+<a id="symbol-CalendarRenderer.init"></a>
 
-[calendar_renderer.swift:17](../../../calendar_renderer.swift#L17) · `init`.
+## CalendarRenderer.init
+
+[calendar_renderer.swift](../../../calendar_renderer.swift) · `init`.
 
 ```swift
 override init()
@@ -42,45 +34,25 @@ override init()
 
 Конкретные параметры и правила загрузки определены в теле и полях типа.
 
-## webView
+<a id="symbol-CalendarRenderer.userContentController"></a>
 
-[calendar_renderer.swift:27](../../../calendar_renderer.swift#L27) · `func`.
+## CalendarRenderer.userContentController
 
-```swift
-func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!)
-```
-
-Обрабатывает событие навигации изолированного WKWebView.
-
-Успех запускает makeCalendar, ошибка завершает процесс, посторонняя навигация запрещена.
-
-## webView
-
-[calendar_renderer.swift:32](../../../calendar_renderer.swift#L32) · `func`.
+[calendar_renderer.swift](../../../calendar_renderer.swift) · `func`.
 
 ```swift
-func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error)
+func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage)
 ```
 
-Обрабатывает событие навигации изолированного WKWebView.
+Принимает PNG от JavaScript общего снимка календаря.
 
-Успех запускает makeCalendar, ошибка завершает процесс, посторонняя навигация запрещена.
+Проверяет base64 и предел 10 МБ; пишет байты в stdout и завершает процесс.
 
-## webView
+<a id="symbol-CalendarRenderer.webView-13857fa54331"></a>
 
-[calendar_renderer.swift:35](../../../calendar_renderer.swift#L35) · `func`.
+## CalendarRenderer.webView
 
-```swift
-func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error)
-```
-
-Обрабатывает событие навигации изолированного WKWebView.
-
-Успех запускает makeCalendar, ошибка завершает процесс, посторонняя навигация запрещена.
-
-## webView
-
-[calendar_renderer.swift:38](../../../calendar_renderer.swift#L38) · `func`.
+[calendar_renderer.swift](../../../calendar_renderer.swift) · `func`.
 
 ```swift
 func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void)
@@ -90,14 +62,58 @@ func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigatio
 
 Успех запускает makeCalendar, ошибка завершает процесс, посторонняя навигация запрещена.
 
-## userContentController
+<a id="symbol-CalendarRenderer.webView-6f4b18b5c611"></a>
 
-[calendar_renderer.swift:43](../../../calendar_renderer.swift#L43) · `func`.
+## CalendarRenderer.webView
+
+[calendar_renderer.swift](../../../calendar_renderer.swift) · `func`.
 
 ```swift
-func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage)
+func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!)
 ```
 
-Принимает PNG от JavaScript общего снимка календаря.
+Обрабатывает событие навигации изолированного WKWebView.
 
-Проверяет base64 и предел 10 МБ; пишет байты в stdout и завершает процесс.
+Успех запускает makeCalendar, ошибка завершает процесс, посторонняя навигация запрещена.
+
+<a id="symbol-CalendarRenderer.webView-8f1111111d9a"></a>
+
+## CalendarRenderer.webView
+
+[calendar_renderer.swift](../../../calendar_renderer.swift) · `func`.
+
+```swift
+func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error)
+```
+
+Обрабатывает событие навигации изолированного WKWebView.
+
+Успех запускает makeCalendar, ошибка завершает процесс, посторонняя навигация запрещена.
+
+<a id="symbol-CalendarRenderer.webView-f57af9318001"></a>
+
+## CalendarRenderer.webView
+
+[calendar_renderer.swift](../../../calendar_renderer.swift) · `func`.
+
+```swift
+func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error)
+```
+
+Обрабатывает событие навигации изолированного WKWebView.
+
+Успех запускает makeCalendar, ошибка завершает процесс, посторонняя навигация запрещена.
+
+<a id="symbol-fail"></a>
+
+## fail
+
+[calendar_renderer.swift](../../../calendar_renderer.swift) · `func`.
+
+```swift
+func fail() -> Never
+```
+
+Завершает помощник с диагностикой в stderr и ненулевым кодом.
+
+Вызывающий Python получает отказ вместо частичного успешного результата.

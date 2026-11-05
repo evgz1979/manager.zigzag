@@ -1,8 +1,8 @@
 # file_comments.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [file_comments.py:1](../../../file_comments.py#L1).
+Исходник: [file_comments.py](../../../file_comments.py).
 
 Legacy portable comment format and file binding; current comments live in SQLite.
 
@@ -10,9 +10,11 @@ Legacy portable comment format and file binding; current comments live in SQLite
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-FileCommentConflict"></a>
+
 ## FileCommentConflict
 
-[file_comments.py:15](../../../file_comments.py#L15) · `class`.
+[file_comments.py](../../../file_comments.py) · `class`.
 
 ```python
 class FileCommentConflict(ValueError):
@@ -22,9 +24,11 @@ class FileCommentConflict(ValueError):
 
 Вызывающий обработчик использует тип исключения для отказа без подмены данных.
 
+<a id="symbol-binding"></a>
+
 ## binding
 
-[file_comments.py:21](../../../file_comments.py#L21) · `function`.
+[file_comments.py](../../../file_comments.py) · `function`.
 
 ```python
 def binding(file):
@@ -42,9 +46,35 @@ def binding(file):
 hashlib.sha256(json.dumps([unicodedata.normalize('NFC', part) for part in identity], ensure_ascii=False).encode()).hexdigest()
 ```
 
+<a id="symbol-parse"></a>
+
+## parse
+
+[file_comments.py](../../../file_comments.py) · `function`.
+
+```python
+def parse(raw, name):
+```
+
+Разбирает исходное содержимое, сохраняя неизвестные поля или блоки.
+
+При недопустимом состоянии возбуждает ValueError.
+
+Непосредственные вызовы: `raw.decode('utf-8-sig').replace`, `raw.decode`, `text.partition`, `header.splitlines`, `len`, `lines[1].startswith`, `json.loads`, `ValueError`, `body.removesuffix('\n').split`, `body.removesuffix`, `any`, `line.startswith`, `'\n'.join`, `hashlib.sha256(raw).hexdigest`, `hashlib.sha256`.
+
+Явные исключения: `ValueError`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+{'comment': '\n'.join((line[2:] for line in note_lines)), 'revision': hashlib.sha256(raw).hexdigest()}
+```
+
+<a id="symbol-paths"></a>
+
 ## paths
 
-[file_comments.py:31](../../../file_comments.py#L31) · `function`.
+[file_comments.py](../../../file_comments.py) · `function`.
 
 ```python
 def paths(file):
@@ -64,9 +94,11 @@ def paths(file):
 (name, key, folder, target)
 ```
 
+<a id="symbol-read"></a>
+
 ## read
 
-[file_comments.py:44](../../../file_comments.py#L44) · `function`.
+[file_comments.py](../../../file_comments.py) · `function`.
 
 ```python
 def read(file):
@@ -87,31 +119,11 @@ def read(file):
 parse(raw, name)
 ```
 
-## parse
-
-[file_comments.py:58](../../../file_comments.py#L58) · `function`.
-
-```python
-def parse(raw, name):
-```
-
-Разбирает исходное содержимое, сохраняя неизвестные поля или блоки.
-
-При недопустимом состоянии возбуждает ValueError.
-
-Непосредственные вызовы: `raw.decode('utf-8-sig').replace`, `raw.decode`, `text.partition`, `header.splitlines`, `len`, `lines[1].startswith`, `json.loads`, `ValueError`, `body.removesuffix('\n').split`, `body.removesuffix`, `any`, `line.startswith`, `'\n'.join`, `hashlib.sha256(raw).hexdigest`, `hashlib.sha256`.
-
-Явные исключения: `ValueError`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-{'comment': '\n'.join((line[2:] for line in note_lines)), 'revision': hashlib.sha256(raw).hexdigest()}
-```
+<a id="symbol-save"></a>
 
 ## save
 
-[file_comments.py:74](../../../file_comments.py#L74) · `function`.
+[file_comments.py](../../../file_comments.py) · `function`.
 
 ```python
 def save(file, comment, revision):

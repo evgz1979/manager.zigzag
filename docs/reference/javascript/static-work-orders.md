@@ -1,28 +1,34 @@
 # static/work-orders.js
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [static/work-orders.js:1](../../../static/work-orders.js#L1).
+Исходник: [static/work-orders.js](../../../static/work-orders.js).
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
-## visible
+<a id="symbol-refresh"></a>
 
-[static/work-orders.js:6](../../../static/work-orders.js#L6) · `ArrowFunctionExpression`.
+## refresh
+
+[static/work-orders.js](../../../static/work-orders.js) · `FunctionDeclaration`.
 
 ```javascript
-const visible = (folder) =>
+async function refresh(force = false)
 ```
 
-Проверяет, относится ли открытая папка к области текущего компонента.
+Перечитывает данные открытого компонента по установленным правилам в модуле подборки заказов поставщиков.
 
-Использует `folder.path.split`, `/^#\s*work$/i.test`.
+Использует `/api/work-order-links`.
 
-Непосредственные вызовы: `folder.path.split`, `/^#\s*work$/i.test`.
+Непосредственные вызовы: `$`, `visible`, `render`, `request`, `apiUrl`.
+
+Прямые присваивания полям/свойствам: `$("workLinksSection").hidden`, `$("workLinksState").textContent`.
+
+<a id="symbol-render"></a>
 
 ## render
 
-[static/work-orders.js:10](../../../static/work-orders.js#L10) · `FunctionDeclaration`.
+[static/work-orders.js](../../../static/work-orders.js) · `FunctionDeclaration`.
 
 ```javascript
 function render()
@@ -41,25 +47,11 @@ function render()
 
 Прямые присваивания полям/свойствам: `$("workLinksCount").textContent`, `$("editWorkLinks").disabled`, `$("editWorkLinks").textContent`, `$("workLinksList").innerHTML`, `$("workLinksState").textContent`.
 
-## refresh
-
-[static/work-orders.js:27](../../../static/work-orders.js#L27) · `FunctionDeclaration`.
-
-```javascript
-async function refresh(force = false)
-```
-
-Перечитывает данные открытого компонента по установленным правилам в модуле подборки заказов поставщиков.
-
-Использует `/api/work-order-links`.
-
-Непосредственные вызовы: `$`, `visible`, `render`, `request`, `apiUrl`.
-
-Прямые присваивания полям/свойствам: `$("workLinksSection").hidden`, `$("workLinksState").textContent`.
+<a id="symbol-renderOptions"></a>
 
 ## renderOptions
 
-[static/work-orders.js:52](../../../static/work-orders.js#L52) · `FunctionDeclaration`.
+[static/work-orders.js](../../../static/work-orders.js) · `FunctionDeclaration`.
 
 ```javascript
 function renderOptions()
@@ -72,3 +64,19 @@ function renderOptions()
 Непосредственные вызовы: `model.items.filter`, `normalize`, `$("workLinksSearch").value.trim`, `$`, `options.filter`, `matches.map((item) => '<label class="work-link-option"><input type="checkbox" data-work-order-id="' + escapeHtml(item.id) + '"' + (selection.has(item.id) ? ' checked' : '') + '><span><strong>' + escapeHtml(item.title) + '</strong><small>' + escapeHtml(item.supplier || "") + (item.registered ? "" : " · Убран из списка") + '</small><small>' + escapeHtml(item.path || "Запись недоступна") + '</small></span></label>').join`, `matches.map`.
 
 Прямые присваивания полям/свойствам: `$("workLinksOptions").innerHTML`.
+
+<a id="symbol-visible"></a>
+
+## visible
+
+[static/work-orders.js](../../../static/work-orders.js) · `ArrowFunctionExpression`.
+
+```javascript
+const visible = (folder) =>
+```
+
+Проверяет, относится ли открытая папка к области текущего компонента.
+
+Использует `folder.path.split`, `/^#\s*work$/i.test`.
+
+Непосредственные вызовы: `folder.path.split`, `/^#\s*work$/i.test`.

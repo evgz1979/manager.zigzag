@@ -1,14 +1,16 @@
 # image_report.swift
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [image_report.swift:1](../../../image_report.swift#L1).
+Исходник: [image_report.swift](../../../image_report.swift).
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-Item"></a>
+
 ## Item
 
-[image_report.swift:8](../../../image_report.swift#L8) · `struct`.
+[image_report.swift](../../../image_report.swift) · `struct`.
 
 ```swift
 struct Item: Decodable
@@ -18,9 +20,11 @@ struct Item: Decodable
 
 Decodable разбирает поля из JSON, переданного процессу через stdin.
 
+<a id="symbol-fail"></a>
+
 ## fail
 
-[image_report.swift:15](../../../image_report.swift#L15) · `func`.
+[image_report.swift](../../../image_report.swift) · `func`.
 
 ```swift
 func fail(_ message: String) -> Never
@@ -30,9 +34,11 @@ func fail(_ message: String) -> Never
 
 Вызывающий Python получает отказ вместо частичного успешного результата.
 
+<a id="symbol-nextCell"></a>
+
 ## nextCell
 
-[image_report.swift:44](../../../image_report.swift#L44) · `func`.
+[image_report.swift](../../../image_report.swift) · `func`.
 
 ```swift
 func nextCell() -> CGRect
@@ -42,9 +48,11 @@ func nextCell() -> CGRect
 
 При заполнении страницы начинает следующую и обновляет позицию сетки.
 
+<a id="symbol-reportImage"></a>
+
 ## reportImage
 
-[image_report.swift:63](../../../image_report.swift#L63) · `func`.
+[image_report.swift](../../../image_report.swift) · `func`.
 
 ```swift
 func reportImage(_ path: String) -> CGImage

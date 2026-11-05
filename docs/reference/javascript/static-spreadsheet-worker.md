@@ -1,14 +1,16 @@
 # static/spreadsheet-worker.js
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [static/spreadsheet-worker.js:1](../../../static/spreadsheet-worker.js#L1).
+Исходник: [static/spreadsheet-worker.js](../../../static/spreadsheet-worker.js).
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-page"></a>
+
 ## page
 
-[static/spreadsheet-worker.js:9](../../../static/spreadsheet-worker.js#L9) · `FunctionDeclaration`.
+[static/spreadsheet-worker.js](../../../static/spreadsheet-worker.js) · `FunctionDeclaration`.
 
 ```javascript
 function page(sheetIndex, offset)
@@ -20,9 +22,11 @@ function page(sheetIndex, offset)
 
 Непосредственные вызовы: `Error`, `XLSX.utils.decode_range`, `Math.min`, `Math.floor`, `Math.max`, `line.push`, `value`, `cells.push`, `heights.push`, `widths.push`, `merges.push`.
 
-## value
+<a id="symbol-page.value"></a>
 
-[static/spreadsheet-worker.js:25](../../../static/spreadsheet-worker.js#L25) · `FunctionDeclaration`.
+## page.value
+
+[static/spreadsheet-worker.js](../../../static/spreadsheet-worker.js) · `FunctionDeclaration`.
 
 ```javascript
 function value(row, column)

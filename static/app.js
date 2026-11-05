@@ -3177,6 +3177,7 @@ function applyCalendarInvoicePlan(saved) {
     is_trip: saved.data._calendar_trip ?? false,
     is_watch_todos: saved.data._calendar_watch_todos ?? false,
     is_carryover: saved.data._calendar_carryover ?? false,
+    is_notified: saved.data._calendar_notified === undefined ? false : saved.data._calendar_notified,
   });
 }
 
@@ -3216,7 +3217,8 @@ function openCalendarEventMenu(slot, x, y) {
   const canColor = !plan && (Boolean(free) || !order.work_supplier && order.calendar_colors !== null);
   const color = free ? order.color : order.calendar_colors?.[period]?.[date];
   const carryover = Boolean(plan) && order.is_carryover === true;
-  state.calendarMenu = { free: Boolean(free), plan: Boolean(plan), path: order.path, id: order.id, revision: order.revision, date, period, inactive, completed, trip, watch_todos, carryover, color, canColor, slot };
+  const notified = Boolean(plan) && order.is_notified === true;
+  state.calendarMenu = { free: Boolean(free), plan: Boolean(plan), path: order.path, id: order.id, revision: order.revision, date, period, inactive, completed, trip, watch_todos, carryover, notified, color, canColor, slot };
   const menu = $("calendarEventMenu");
   $("calendarEventMenuName").textContent = text;
   $("calendarEventDayMoves").hidden = period === "week";
@@ -3239,6 +3241,9 @@ function openCalendarEventMenu(slot, x, y) {
   $("calendarEventCarryover").hidden = !plan || !["incoming", "outgoing"].includes(order.operation);
   $("calendarEventCarryover").disabled = typeof (order.is_carryover ?? false) !== "boolean";
   $("calendarEventCarryover").setAttribute("aria-checked", String(carryover));
+  $("calendarEventNotified").hidden = !plan || !["incoming", "outgoing"].includes(order.operation);
+  $("calendarEventNotified").disabled = order.is_notified !== undefined && typeof order.is_notified !== "boolean";
+  $("calendarEventNotified").setAttribute("aria-checked", String(notified));
   $("calendarEventDelete").hidden = plan ? Boolean(order.path) : period !== 'day';
   $("calendarEventColors").hidden = !canColor;
   menu.querySelectorAll("[data-calendar-color]").forEach((button) => button.setAttribute("aria-checked", String(button.dataset.calendarColor === (color || "green"))));
@@ -3300,6 +3305,7 @@ async function toggleCalendarEventFlag(flag) {
     if (flag === 'trip') notify(menu.trip ? 'Отметка «Выезд» снята' : 'Отмечено «Выезд»');
     if (flag === 'watch_todos') notify(menu.watch_todos ? 'Отметка «Смотри ту-ду» снята' : 'Отмечено «Смотри ту-ду»');
     if (flag === 'carryover') notify(menu.carryover ? 'Платёж возвращён к своей дате' : 'Платёж помещён в перенос слева');
+    if (flag === 'notified') notify(menu.notified ? 'Отметка «Сообщил» снята' : 'Отмечено «Сообщил»');
   } catch (error) {
     notify(error.message, true);
     if (error.status === 409) { try { await loadOrders(); } catch (_) { /* Keep the last calendar. */ } }
@@ -3318,7 +3324,7 @@ function applyCalendarDeletion(entry, saved, deleted) {
     state.calendarInvoicePlans = state.calendarInvoicePlans.filter((plan) => plan.id !== saved.id);
     if (!deleted) state.calendarInvoicePlans.push({ ...entry.originalPlan, revision: saved.revision,
       date: saved.data.date, period: saved.data.period || 'day', operation: saved.data.operation,
-      amount: saved.data.amount, text: saved.data.text || '', is_inactive: saved.data._calendar_inactive || false, is_completed: saved.data._calendar_completed ?? false, is_trip: saved.data._calendar_trip ?? false, is_watch_todos: saved.data._calendar_watch_todos ?? false, is_carryover: saved.data._calendar_carryover ?? false });
+      amount: saved.data.amount, text: saved.data.text || '', is_inactive: saved.data._calendar_inactive || false, is_completed: saved.data._calendar_completed ?? false, is_trip: saved.data._calendar_trip ?? false, is_watch_todos: saved.data._calendar_watch_todos ?? false, is_carryover: saved.data._calendar_carryover ?? false, is_notified: saved.data._calendar_notified === undefined ? false : saved.data._calendar_notified });
   } else if (entry.free) applyFreeCalendarEvent(saved);
   else applyOrderRecord(null, saved);
 }
@@ -4400,6 +4406,7 @@ $("calendarEventMenu").addEventListener("click", (event) => {
   if (event.target.closest("#calendarEventTrip")) { run(() => toggleCalendarEventFlag('trip')); return; }
   if (event.target.closest("#calendarEventWatchTodos:not(:disabled)")) { run(() => toggleCalendarEventFlag('watch_todos')); return; }
   if (event.target.closest("#calendarEventCarryover:not(:disabled)")) { run(() => toggleCalendarEventFlag('carryover')); return; }
+  if (event.target.closest("#calendarEventNotified:not(:disabled)")) { run(() => toggleCalendarEventFlag('notified')); return; }
   const color = event.target.closest("[data-calendar-color]");
   if (color) { run(() => colorCalendarEvent(color.dataset.calendarColor)); return; }
   const button = event.target.closest("[data-calendar-move]");

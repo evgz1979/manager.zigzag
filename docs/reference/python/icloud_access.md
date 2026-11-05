@@ -1,8 +1,8 @@
 # icloud_access.py
 
-Срез исходников: **3 ноября 2026 года**. [Все модули](../README.md).
+Сгенерировано из текущих объявлений. [Все модули](../README.md).
 
-Исходник: [icloud_access.py:1](../../../icloud_access.py#L1).
+Исходник: [icloud_access.py](../../../icloud_access.py).
 
 Ограниченное чтение карточек с восстановлением доступа к файлам iCloud.
 
@@ -10,9 +10,11 @@
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-CloudReadPending"></a>
+
 ## CloudReadPending
 
-[icloud_access.py:17](../../../icloud_access.py#L17) · `class`.
+[icloud_access.py](../../../icloud_access.py) · `class`.
 
 ```python
 class CloudReadPending(OSError):
@@ -22,9 +24,11 @@ class CloudReadPending(OSError):
 
 Вызывающий обработчик использует тип исключения для отказа без подмены данных.
 
+<a id="symbol-CloudReadPending.__init__"></a>
+
 ## CloudReadPending.__init__
 
-[icloud_access.py:20](../../../icloud_access.py#L20) · `function`.
+[icloud_access.py](../../../icloud_access.py) · `function`.
 
 ```python
 def __init__(self, path):
@@ -38,9 +42,11 @@ def __init__(self, path):
 
 Прямые присваивания полям/свойствам: `self.path`.
 
+<a id="symbol-CloudReadPending.__str__"></a>
+
 ## CloudReadPending.__str__
 
-[icloud_access.py:26](../../../icloud_access.py#L26) · `function`.
+[icloud_access.py](../../../icloud_access.py) · `function`.
 
 ```python
 def __str__(self):
@@ -56,49 +62,11 @@ def __str__(self):
 f'iCloud пока не предоставил файл «{self.path.name}». Данные в базе, выгрузка остаётся в очереди; повторим автоматически'
 ```
 
-## renderer
-
-[icloud_access.py:32](../../../icloud_access.py#L32) · `function`.
-
-```python
-def renderer():
-```
-
-Получает собранный Swift-помощник для текущего исходника.
-
-Возвращает `native_renderers.build(app / 'icloud_read.swift', app / 'data', 'icloud-read', 60)`.
-
-Непосредственные вызовы: `Path(__file__).resolve`, `Path`, `native_renderers.build`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-native_renderers.build(app / 'icloud_read.swift', app / 'data', 'icloud-read', 60)
-```
-
-## _plain_read
-
-[icloud_access.py:40](../../../icloud_access.py#L40) · `function`.
-
-```python
-def _plain_read(path, max_bytes=MAX_BYTES):
-```
-
-Читает локальный файл напрямую с проверкой ограничения размера.
-
-Возвращает `stream.read(max_bytes + 1)`.
-
-Непосредственные вызовы: `path.open`, `stream.read`.
-
-Выражения возврата (ветки читаются в исходнике):
-
-```python
-stream.read(max_bytes + 1)
-```
+<a id="symbol-_coordinated_read"></a>
 
 ## _coordinated_read
 
-[icloud_access.py:47](../../../icloud_access.py#L47) · `function`.
+[icloud_access.py](../../../icloud_access.py) · `function`.
 
 ```python
 def _coordinated_read(path, max_bytes=MAX_BYTES):
@@ -116,9 +84,33 @@ def _coordinated_read(path, max_bytes=MAX_BYTES):
 result.stdout
 ```
 
+<a id="symbol-_plain_read"></a>
+
+## _plain_read
+
+[icloud_access.py](../../../icloud_access.py) · `function`.
+
+```python
+def _plain_read(path, max_bytes=MAX_BYTES):
+```
+
+Читает локальный файл напрямую с проверкой ограничения размера.
+
+Возвращает `stream.read(max_bytes + 1)`.
+
+Непосредственные вызовы: `path.open`, `stream.read`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+stream.read(max_bytes + 1)
+```
+
+<a id="symbol-read_bytes"></a>
+
 ## read_bytes
 
-[icloud_access.py:55](../../../icloud_access.py#L55) · `function`.
+[icloud_access.py](../../../icloud_access.py) · `function`.
 
 ```python
 def read_bytes(path, *, max_bytes=MAX_BYTES, coordinated=False):
@@ -138,9 +130,33 @@ def read_bytes(path, *, max_bytes=MAX_BYTES, coordinated=False):
 raw
 ```
 
+<a id="symbol-renderer"></a>
+
+## renderer
+
+[icloud_access.py](../../../icloud_access.py) · `function`.
+
+```python
+def renderer():
+```
+
+Получает собранный Swift-помощник для текущего исходника.
+
+Возвращает `native_renderers.build(app / 'icloud_read.swift', app / 'data', 'icloud-read', 60)`.
+
+Непосредственные вызовы: `Path(__file__).resolve`, `Path`, `native_renderers.build`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+native_renderers.build(app / 'icloud_read.swift', app / 'data', 'icloud-read', 60)
+```
+
+<a id="symbol-sync_error"></a>
+
 ## sync_error
 
-[icloud_access.py:79](../../../icloud_access.py#L79) · `function`.
+[icloud_access.py](../../../icloud_access.py) · `function`.
 
 ```python
 def sync_error(error):
