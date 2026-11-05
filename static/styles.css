@@ -406,6 +406,8 @@ h2 { font-size: 13px; font-weight: 600; }
 .file-card { position: relative; min-width: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #fff; }
 .file-card:hover { border-color: #b9c9bb; }
 .file-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.file-download { display: flex; min-height: 36px; margin: 0 9px 9px; font-size: 11px; }
+.file-download:hover { background: #f0f5f2; }
 .file-select-label { position: absolute; z-index: 1; top: 4px; left: 4px; display: grid; place-items: center; width: 24px; height: 24px; cursor: pointer; }
 .file-main { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 0; border-radius: 0; }
 .file-main:hover:not(:disabled) { background: #fff; }

@@ -666,11 +666,27 @@ function expandCardDeadlineWeeks(direction)
 function fileCard(file)
 ```
 
-Строит карточку файла с превью и сохранённым комментарием.
+Строит карточку файла с превью, комментарием и прямым скачиванием CDR.
 
-Использует `/api/thumbnail`, `/api/freza-preview`, `/api/preview`.
+Превью загружается лениво; ссылка скачивания передаёт оригинал через `/api/file`.
 
-Непосредственные вызовы: `apiUrl`, `["image", "cdr"].includes`, `escapeHtml`, `icon`, `state.selectedFiles.has`, `file.comment?.trim`.
+Непосредственные вызовы: `apiUrl`, `["image", "cdr"].includes`, `escapeHtml`, `icon`, `state.selectedFiles.has`, `file.comment?.trim`, `fileDownloadButton`.
+
+<a id="symbol-fileDownloadButton"></a>
+
+## fileDownloadButton
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function fileDownloadButton(file)
+```
+
+Строит ссылку скачивания оригинала на устройство текущего браузера.
+
+Использует прежний `/api/file?download=1`, не запуская приложение на M4.
+
+Непосредственные вызовы: `escapeHtml`, `apiUrl`.
 
 <a id="symbol-filteredFiles"></a>
 
@@ -3054,22 +3070,23 @@ function renderPurchases()
 function renderSketches()
 ```
 
-Показывает непосредственные CDR и их актуальность в карточке заказа.
+Показывает непосредственные CDR, скачивание и актуальность в карточке заказа.
 
-Использует `/api/thumbnail`.
+Использует `/api/thumbnail` и `/api/file`; сохраняет фокус статуса или скачивания.
 
 Непосредственные вызовы: `document.activeElement?.closest`, `$`, `files.map((item) => {
     const relevance = item.relevance, saving = folder.sketchSavingFolders?.has(item.folder);
     const message = saving ? "Сохраняю…" : relevance.error || (relevance.sync_pending
       ? relevance.sync_error ? "В базе сохранено · не выгружено: " + relevance.sync_error : "В базе сохранено · ожидает выгрузки" : "");
     return '<div class="event-folder sketch-tile" data-relevance-state="' + escapeHtml(relevance.value || "none") + '">' +
-      '<button class="subfolder sketch-open" data-sketch-open="' + escapeHtml(item.path) + '" data-sketch-key="' + escapeHtml(item.key) + '" title="' + escapeHtml(item.name + " · Открыть в CorelDRAW на M4") + '" aria-label="' + escapeHtml("Открыть в CorelDRAW: " + item.name) + '"' + (item.opening ? ' disabled' : '') + '>' +
+      '<button class="subfolder sketch-open" data-sketch-open="' + escapeHtml(item.path) + '" data-sketch-key="' + escapeHtml(item.key) + '" title="' + escapeHtml(item.name + " · Открыть в CorelDRAW на M4") + '" aria-label="' + escapeHtml("Открыть в CorelDRAW на M4: " + item.name) + '"' + (item.opening ? ' disabled' : '') + '>' +
       '<span class="sketch-picture"><img data-thumbnail-path="' + escapeHtml(item.path) + '" data-thumbnail-key="' + escapeHtml(item.thumbnail_key) + '" src="' + escapeHtml(apiUrl("/api/thumbnail", item.path, { v: item.thumbnail_key })) + '" alt="" loading="lazy" decoding="async"><span class="sketch-fallback">CDR</span></span><span class="sketch-name">' + escapeHtml(item.name) + '</span></button>' +
+      fileDownloadButton(item) +
       '<div class="event-relevance" role="group" aria-label="' + escapeHtml("Актуальность эскиза " + item.name) + '">' +
       Object.entries(eventRelevanceLabels).map(([value, label]) => '<button type="button" data-sketch-file="' + escapeHtml(item.path) + '" data-sketch-status="' + value +
         '" aria-pressed="' + (value === relevance.value) + '"' + (saving || relevance.error || !relevance.revision ? ' disabled' : '') + '>' + label + '</button>').join("") + '</div>' +
       (message ? '<p class="event-export' + (relevance.error || relevance.sync_error ? ' error' : '') + '" role="status">' + escapeHtml(message) + '</p>' : '') + '</div>';
-  }).join`, `files.map`, `[...$("sketchTiles").querySelectorAll("[data-sketch-status]")].find((button) => button.dataset.sketchFile === focusPath && button.dataset.sketchStatus === focusValue)?.focus`, `[...$("sketchTiles").querySelectorAll("[data-sketch-status]")].find`, `$("sketchTiles").querySelectorAll`.
+  }).join`, `files.map`, `[...$("sketchTiles").querySelectorAll(focusSelector)].find((button) => (button.dataset.sketchFile || button.dataset.downloadFile) === focusPath && button.dataset.sketchStatus === focusValue)?.focus`, `[...$("sketchTiles").querySelectorAll(focusSelector)].find`, `$("sketchTiles").querySelectorAll`.
 
 Прямые присваивания полям/свойствам: `$("sketchSection").hidden`, `$("sketchCount").textContent`, `$("sketchTiles").innerHTML`.
 

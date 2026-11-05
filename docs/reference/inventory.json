@@ -1175,6 +1175,7 @@
           {"name": "eventAction", "type": "FunctionDeclaration", "anchor": "symbol-eventAction"},
           {"name": "expandCardDeadlineWeeks", "type": "FunctionDeclaration", "anchor": "symbol-expandCardDeadlineWeeks"},
           {"name": "fileCard", "type": "FunctionDeclaration", "anchor": "symbol-fileCard"},
+          {"name": "fileDownloadButton", "type": "FunctionDeclaration", "anchor": "symbol-fileDownloadButton"},
           {"name": "filteredFiles", "type": "FunctionDeclaration", "anchor": "symbol-filteredFiles"},
           {"name": "findListOrder", "type": "FunctionDeclaration", "anchor": "symbol-findListOrder"},
           {"name": "flushDeadlineComments", "type": "FunctionDeclaration", "anchor": "symbol-flushDeadlineComments"},

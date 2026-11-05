@@ -439,12 +439,21 @@ async function saveClientActivity(inactive, acceptFile = false) {
   }
 }
 
-// Показывает непосредственные CDR и их актуальность в карточке заказа.
-// Использует `/api/thumbnail`.
+// Строит ссылку скачивания оригинала на устройство текущего браузера.
+// Использует прежний `/api/file?download=1`, не запуская приложение на M4.
+function fileDownloadButton(file) {
+  return '<a class="secondary-button file-download" data-download-file="' + escapeHtml(file.path) + '" href="' +
+    escapeHtml(apiUrl("/api/file", file.path, { download: "1" })) + '" download="' + escapeHtml(file.name) +
+    '" title="' + escapeHtml("Скачать на это устройство: " + file.name) + '" aria-label="' + escapeHtml("Скачать файл: " + file.name) + '">Скачать</a>';
+}
+
+// Показывает непосредственные CDR, скачивание и актуальность в карточке заказа.
+// Использует `/api/thumbnail` и `/api/file`; сохраняет фокус статуса или скачивания.
 function renderSketches() {
   const folder = state.folder, files = folder.sketches || [];
-  const focused = document.activeElement?.closest("[data-sketch-status]");
-  const focusPath = focused?.dataset.sketchFile, focusValue = focused?.dataset.sketchStatus;
+  const focusSelector = "[data-sketch-status], [data-download-file]";
+  const focused = document.activeElement?.closest(focusSelector);
+  const focusPath = focused?.dataset.sketchFile || focused?.dataset.downloadFile, focusValue = focused?.dataset.sketchStatus;
   $("sketchSection").hidden = !files.length;
   $("sketchCount").textContent = files.length;
   $("sketchTiles").innerHTML = files.map((item) => {
@@ -452,14 +461,15 @@ function renderSketches() {
     const message = saving ? "Сохраняю…" : relevance.error || (relevance.sync_pending
       ? relevance.sync_error ? "В базе сохранено · не выгружено: " + relevance.sync_error : "В базе сохранено · ожидает выгрузки" : "");
     return '<div class="event-folder sketch-tile" data-relevance-state="' + escapeHtml(relevance.value || "none") + '">' +
-      '<button class="subfolder sketch-open" data-sketch-open="' + escapeHtml(item.path) + '" data-sketch-key="' + escapeHtml(item.key) + '" title="' + escapeHtml(item.name + " · Открыть в CorelDRAW на M4") + '" aria-label="' + escapeHtml("Открыть в CorelDRAW: " + item.name) + '"' + (item.opening ? ' disabled' : '') + '>' +
+      '<button class="subfolder sketch-open" data-sketch-open="' + escapeHtml(item.path) + '" data-sketch-key="' + escapeHtml(item.key) + '" title="' + escapeHtml(item.name + " · Открыть в CorelDRAW на M4") + '" aria-label="' + escapeHtml("Открыть в CorelDRAW на M4: " + item.name) + '"' + (item.opening ? ' disabled' : '') + '>' +
       '<span class="sketch-picture"><img data-thumbnail-path="' + escapeHtml(item.path) + '" data-thumbnail-key="' + escapeHtml(item.thumbnail_key) + '" src="' + escapeHtml(apiUrl("/api/thumbnail", item.path, { v: item.thumbnail_key })) + '" alt="" loading="lazy" decoding="async"><span class="sketch-fallback">CDR</span></span><span class="sketch-name">' + escapeHtml(item.name) + '</span></button>' +
+      fileDownloadButton(item) +
       '<div class="event-relevance" role="group" aria-label="' + escapeHtml("Актуальность эскиза " + item.name) + '">' +
       Object.entries(eventRelevanceLabels).map(([value, label]) => '<button type="button" data-sketch-file="' + escapeHtml(item.path) + '" data-sketch-status="' + value +
         '" aria-pressed="' + (value === relevance.value) + '"' + (saving || relevance.error || !relevance.revision ? ' disabled' : '') + '>' + label + '</button>').join("") + '</div>' +
       (message ? '<p class="event-export' + (relevance.error || relevance.sync_error ? ' error' : '') + '" role="status">' + escapeHtml(message) + '</p>' : '') + '</div>';
   }).join("");
-  if (focusPath) [...$("sketchTiles").querySelectorAll("[data-sketch-status]")].find((button) => button.dataset.sketchFile === focusPath && button.dataset.sketchStatus === focusValue)?.focus();
+  if (focusPath) [...$("sketchTiles").querySelectorAll(focusSelector)].find((button) => (button.dataset.sketchFile || button.dataset.downloadFile) === focusPath && button.dataset.sketchStatus === focusValue)?.focus();
 }
 
 // Применяет полученную группу актуальности эскизов к локальному состоянию.
@@ -1103,8 +1113,8 @@ function filteredFiles() {
   return files;
 }
 
-// Строит карточку файла с превью и сохранённым комментарием.
-// Использует `/api/thumbnail`, `/api/freza-preview`, `/api/preview`.
+// Строит карточку файла с превью, комментарием и прямым скачиванием CDR.
+// Превью загружается лениво; ссылка скачивания передаёт оригинал через `/api/file`.
 function fileCard(file) {
   const url = apiUrl(file.thumbnail_key ? "/api/thumbnail" : file.preview === "cdr" ? "/api/freza-preview" : "/api/preview", file.path, file.thumbnail_key ? { v: file.thumbnail_key } : {});
   const media = file.thumbnail_key || ["image", "cdr"].includes(file.preview)
@@ -1112,7 +1122,8 @@ function fileCard(file) {
     : '<span class="file-symbol">' + icon("file") + '<span>' + escapeHtml(file.extension) + "</span></span>";
   return '<article class="file-card type-' + file.type + (state.selectedFiles.has(file.path) ? ' selected' : '') + '"><label class="file-select-label"><input type="checkbox" class="file-select" data-select-file="' + escapeHtml(file.path) + '" aria-label="Выбрать файл: ' + escapeHtml(file.name) + '"' + (state.selectedFiles.has(file.path) ? ' checked' : '') + '></label><button class="file-main" data-file="' + escapeHtml(file.path) + '" data-comment-key="' + escapeHtml(file.comment_key || "") + '" title="' +
     escapeHtml(file.name + (file.folder ? "\n" + file.folder : "")) + '" aria-label="' + escapeHtml(file.name) + '"><div class="file-thumbnail">' + media +
-    '</div><span class="file-name">' + escapeHtml(file.name) + '</span>' + (file.comment?.trim() ? '<span class="file-comment-caption">' + escapeHtml(file.comment) + '</span>' : '') + '</button></article>';
+    '</div><span class="file-name">' + escapeHtml(file.name) + '</span>' + (file.comment?.trim() ? '<span class="file-comment-caption">' + escapeHtml(file.comment) + '</span>' : '') + '</button>' +
+    (file.extension === "CDR" ? fileDownloadButton(file) : '') + '</article>';
 }
 
 // Обновляет подпись комментария у соответствующей карточки файла.
