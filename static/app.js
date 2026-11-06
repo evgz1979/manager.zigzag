@@ -472,6 +472,30 @@ function renderSketches() {
   if (focusPath) [...$("sketchTiles").querySelectorAll(focusSelector)].find((button) => (button.dataset.sketchFile || button.dataset.downloadFile) === focusPath && button.dataset.sketchStatus === focusValue)?.focus();
 }
 
+// Показывает файлы существующих # cutter/# freza непосредственно под эскизами.
+// Использует общий просмотрщик; вложенные файлы сгруппированы по относительной папке.
+function renderOrderFileFolders() {
+  const folder = state.folder, folders = folder.orderFileFolders || [];
+  const container = $("orderFileFolders");
+  container.hidden = !folders.length;
+  container.innerHTML = folders.map((item) => {
+    const files = folder.files.filter((file) => file.path.startsWith(item.path + "/"));
+    const groups = new Map();
+    for (const file of files) {
+      if (!groups.has(file.folder)) groups.set(file.folder, []);
+      groups.get(file.folder).push(file);
+    }
+    return '<section class="folder-section" aria-label="' + escapeHtml(item.name) + '">' +
+      '<div class="section-heading"><h2>' + escapeHtml(item.name) + '</h2><span>' + files.length + '</span>' +
+      '<button type="button" class="secondary-button" data-path="' + escapeHtml(item.path) + '">Открыть папку</button></div>' +
+      [...groups.entries()].map(([path, group]) => '<section class="file-group">' +
+        (path !== item.path.slice(folder.path.length + 1) ? '<button type="button" class="file-group-heading" data-path="' +
+          escapeHtml(folder.path + "/" + path) + '">' + icon("folder") + '<span>' + escapeHtml(path) + '</span></button>' : '') +
+        '<div class="file-grid">' + group.map((file) => fileCard(file, false)).join("") + '</div></section>').join("") +
+      (!files.length ? '<p class="todo-empty">В этой папке пока нет файлов</p>' : '') + '</section>';
+  }).join("");
+}
+
 // Применяет полученную группу актуальности эскизов к локальному состоянию.
 // Использует `item.name.normalize`, `JSON.stringify`.
 function applySketchGroup(folder, path, record) {
@@ -777,6 +801,7 @@ function renderFolder(preserveForm = false) {
   if ($("folderSection").nextElementSibling !== foldersAnchor) foldersAnchor.before($("folderSection"));
   renderSubfolders();
   renderSketches();
+  renderOrderFileFolders();
   renderDescendantTodos();
   $("orderDetails").hidden = !folder.path;
   $("folderDetailsTitle").textContent = reconciliation ? "Сверка" : folder.frezaTask ? "Задание на фрезеровку" : noteOnly ? "Заметка" : "Карточка заказа";
@@ -851,7 +876,8 @@ function renderFolder(preserveForm = false) {
     const requested = new URLSearchParams(location.search).get("task");
     const first = printFiles().find((file) => file.path === requested) || printFiles()[0];
     if (first) run(() => openPrintTask(first.path));
-  } else renderFiles();
+  } else if (!$("filesSection").hidden) renderFiles();
+  else $("files").replaceChildren();
   renderCardDeadlines();
   mountOrderList();
   if (isFolderOrderList()) renderOrders();
@@ -1114,13 +1140,15 @@ function filteredFiles() {
 }
 
 // Строит карточку файла с превью, комментарием и прямым скачиванием CDR.
-// Превью загружается лениво; ссылка скачивания передаёт оригинал через `/api/file`.
-function fileCard(file) {
+// При selectable=false скрывает выбор; скачивание передаёт оригинал через `/api/file`.
+function fileCard(file, selectable = true) {
   const url = apiUrl(file.thumbnail_key ? "/api/thumbnail" : file.preview === "cdr" ? "/api/freza-preview" : "/api/preview", file.path, file.thumbnail_key ? { v: file.thumbnail_key } : {});
   const media = file.thumbnail_key || ["image", "cdr"].includes(file.preview)
     ? '<img class="' + (file.preview === "cdr" ? "cdr-preview" : "") + '"' + (file.thumbnail_key ? ' data-thumbnail-path="' + escapeHtml(file.path) + '" data-thumbnail-key="' + escapeHtml(file.thumbnail_key) + '"' : '') + ' src="' + escapeHtml(url) + '" alt="" loading="lazy" decoding="async"><span class="thumbnail-fallback">' + icon("file") + '<small>' + escapeHtml(file.extension) + "</small></span>"
     : '<span class="file-symbol">' + icon("file") + '<span>' + escapeHtml(file.extension) + "</span></span>";
-  return '<article class="file-card type-' + file.type + (state.selectedFiles.has(file.path) ? ' selected' : '') + '"><label class="file-select-label"><input type="checkbox" class="file-select" data-select-file="' + escapeHtml(file.path) + '" aria-label="Выбрать файл: ' + escapeHtml(file.name) + '"' + (state.selectedFiles.has(file.path) ? ' checked' : '') + '></label><button class="file-main" data-file="' + escapeHtml(file.path) + '" data-comment-key="' + escapeHtml(file.comment_key || "") + '" title="' +
+  return '<article class="file-card type-' + file.type + (state.selectedFiles.has(file.path) ? ' selected' : '') + '">' +
+    (selectable ? '<label class="file-select-label"><input type="checkbox" class="file-select" data-select-file="' + escapeHtml(file.path) + '" aria-label="Выбрать файл: ' + escapeHtml(file.name) + '"' + (state.selectedFiles.has(file.path) ? ' checked' : '') + '></label>' : '') +
+    '<button class="file-main" data-file="' + escapeHtml(file.path) + '" data-comment-key="' + escapeHtml(file.comment_key || "") + '" title="' +
     escapeHtml(file.name + (file.folder ? "\n" + file.folder : "")) + '" aria-label="' + escapeHtml(file.name) + '"><div class="file-thumbnail">' + media +
     '</div><span class="file-name">' + escapeHtml(file.name) + '</span>' + (file.comment?.trim() ? '<span class="file-comment-caption">' + escapeHtml(file.comment) + '</span>' : '') + '</button>' +
     (file.extension === "CDR" ? fileDownloadButton(file) : '') + '</article>';
@@ -1132,7 +1160,7 @@ function updateFileCommentCaption(path, text, key) {
   const file = state.folder?.files.find((item) => item.path === path);
   if (!file || !key || file.comment_key !== key) return;
   file.comment = text;
-  const button = [...$("files").querySelectorAll("[data-file]")].find((item) => item.dataset.file === path);
+  const button = [...document.querySelectorAll("#files [data-file], #orderFileFolders [data-file]")].find((item) => item.dataset.file === path);
   if (!button || button.dataset.commentKey !== key) return;
   let caption = button.querySelector(".file-comment-caption");
   if (!text.trim()) { caption?.remove(); return; }
@@ -1174,7 +1202,7 @@ function renderFiles() {
     return '<section class="file-group">' +
       (state.fileSort === "folders" ? '<button class="file-group-heading" data-path="' + escapeHtml(path) + '">' +
         icon("folder") + "<span>" + escapeHtml(folder || "В выбранной папке") + '</span><small>' + group.length + "</small></button>" : "") +
-      '<div class="file-grid">' + group.map(fileCard).join("") + "</div></section>";
+      '<div class="file-grid">' + group.map((file) => fileCard(file)).join("") + "</div></section>";
   }).join("") + (files.length > state.limit ? '<button id="loadMoreFiles" class="load-more">Показать ещё · осталось ' + (files.length - state.limit) + "</button>" : "");
   $("files").querySelectorAll("img").forEach((image) => image.addEventListener("error", () => {
     image.hidden = true;
@@ -4318,6 +4346,17 @@ $("files").addEventListener("click", (event) => {
   else if (folder) run(() => navigate(folder.dataset.path));
   else if (event.target.closest("#loadMoreFiles")) { state.limit += 120; renderFiles(); }
 });
+$("orderFileFolders").addEventListener("click", (event) => {
+  const file = event.target.closest("[data-file]"), folder = event.target.closest("[data-path]");
+  if (file) run(() => showPreview(file.dataset.file));
+  else if (folder) run(() => navigate(folder.dataset.path));
+});
+$("orderFileFolders").addEventListener("error", (event) => {
+  if (event.target instanceof HTMLImageElement) {
+    event.target.hidden = true;
+    event.target.closest(".file-thumbnail")?.classList.add("preview-unavailable");
+  }
+}, true);
 $("files").addEventListener("change", (event) => {
   const input = event.target.closest("[data-select-file]");
   if (!input) return;

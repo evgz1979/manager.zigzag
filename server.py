@@ -1170,8 +1170,8 @@ def freza_preview_target(relative):
     raise FileNotFoundError("В задании пока нет изображения или CDR для превью")
 
 
-# Собирает представление открытой папки с учётом её роли и разрешённых чтений.
-# Работает с таблицами metadata_records.
+# Собирает представление папки и файлы непосредственных # cutter/# freza заказа.
+# В заказе обходит только эти две ветки; остальные вложения доступны внутри папок.
 def read_folder(relative="", show_inactive=False):
     target = safe_path(relative)
     if not target.is_dir():
@@ -1196,6 +1196,11 @@ def read_folder(relative="", show_inactive=False):
         "subfolders" if not print_view and status["folderKind"] in {"client", "object", "catalog_group", "supplier_root", "work_root", "moneys_root", "work_section", "moneys_section", "reconciliations_root", "reconciliation"} else "folder")
     hide_files = files_scope != "folder"
     folder_count = len(directories) if hide_files or print_view else 0
+    order_file_folders = [folder for folder in directories
+                          if folder.name.startswith("#") and folder.name[1:].strip().casefold() in {"cutter", "freza"}
+                          and not folder.is_symlink()] if status["folderKind"] == "order" and not freza_task else []
+    order_file_folders.sort(key=lambda folder: (folder.name[1:].strip().casefold(), sort_key(folder)))
+    file_roots = [target] if not hide_files else order_file_folders
 
     # Сохраняет ошибку обхода, не выдавая неполный результат за полный.
     # Передаёт работу `warnings.append`.
@@ -1203,12 +1208,13 @@ def read_folder(relative="", show_inactive=False):
         warnings.append(f"Не удалось прочитать папку: {error.filename}")
 
     thumbnail_entries = []
-    for current, dirs, names in (() if hide_files else os.walk(target, onerror=walk_error, followlinks=False)):
+    for current, dirs, names in (entry for root in file_roots for entry in os.walk(root, onerror=walk_error, followlinks=False)):
         current_path = Path(current)
         dirs[:] = [name for name in dirs if visible(current_path / name)]
         if print_view:
             dirs[:] = []  # The print editor owns only immediate task sources.
-        folder_count += len(dirs)
+        if not hide_files:
+            folder_count += len(dirs)
         if target == DATA_ROOT:
             dirs[:] = []  # List clients at home without scanning all their orders.
         for name in names:
@@ -1322,6 +1328,7 @@ def read_folder(relative="", show_inactive=False):
             "purchaseSupplier": supplier_purchases.supplier_name(relative),
             "root": str(DATA_ROOT), "breadcrumbs": breadcrumbs,
             "directories": nodes, "files": files, "sketches": sketch_files,
+            "orderFileFolders": [{"name": folder.name, "path": relative_path(folder)} for folder in order_file_folders],
             "objectOrders": object_list,
             "workOrderList": work_list,
             "fileCount": len(files), "folderCount": folder_count,

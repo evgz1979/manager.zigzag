@@ -1290,6 +1290,7 @@
           {"name": "renderOrderComment", "type": "FunctionDeclaration", "anchor": "symbol-renderOrderComment"},
           {"name": "renderOrderDeadlines", "type": "FunctionDeclaration", "anchor": "symbol-renderOrderDeadlines"},
           {"name": "renderOrderFavoriteButton", "type": "FunctionDeclaration", "anchor": "symbol-renderOrderFavoriteButton"},
+          {"name": "renderOrderFileFolders", "type": "FunctionDeclaration", "anchor": "symbol-renderOrderFileFolders"},
           {"name": "renderOrderHeading", "type": "FunctionDeclaration", "anchor": "symbol-renderOrderHeading"},
           {"name": "renderOrderLinks", "type": "FunctionDeclaration", "anchor": "symbol-renderOrderLinks"},
           {"name": "renderOrderLinks.section", "type": "ArrowFunctionExpression", "anchor": "symbol-renderOrderLinks.section"},
