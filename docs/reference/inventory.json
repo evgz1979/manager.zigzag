@@ -31,7 +31,8 @@
           {"name": "CalendarEvents.set_inactive", "type": "function", "anchor": "symbol-CalendarEvents.set_inactive"},
           {"name": "CalendarEvents.set_trip", "type": "function", "anchor": "symbol-CalendarEvents.set_trip"},
           {"name": "CalendarEvents.validate", "type": "function", "anchor": "symbol-CalendarEvents.validate"},
-          {"name": "schema", "type": "function", "anchor": "symbol-schema"}
+          {"name": "schema", "type": "function", "anchor": "symbol-schema"},
+          {"name": "validate_comment", "type": "function", "anchor": "symbol-validate_comment"}
         ]
       },
       {

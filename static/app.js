@@ -3075,7 +3075,7 @@ function cancelCalendarTodoPreviewSwitch() {
   calendarTodoPreview.pendingAnchor = null;
 }
 
-// Закрывает окно задач календаря и отменяет отложенные действия.
+// Закрывает общее окно задач или комментария и отменяет отложенные действия.
 // Управляет отложенным обновлением через таймер или кадр браузера.
 function closeCalendarTodoPreview(restoreFocus = false) {
   const anchor = calendarTodoPreview.anchor;
@@ -3091,7 +3091,7 @@ function closeCalendarTodoPreview(restoreFocus = false) {
   }
 }
 
-// Размещает окно задач вплотную к границе исходного события.
+// Размещает окно задач или комментария вплотную к границе события.
 // Использует `$`, `anchor.getBoundingClientRect`, `preview.getBoundingClientRect`.
 function positionCalendarTodoPreview() {
   const anchor = calendarTodoPreview.anchor;
@@ -3102,32 +3102,41 @@ function positionCalendarTodoPreview() {
   preview.style.top = Math.max(8, Math.min(below + bounds.height <= innerHeight - 8 ? below : box.top - bounds.height, innerHeight - bounds.height - 8)) + "px";
 }
 
-// Показывает актуальные задачи заказа исходного события.
-// Обращается к DOM текущего документа или переданного контейнера.
+// Показывает актуальные задачи заказа либо комментарий свободного события.
+// Комментарий выводит через textContent с переносами строк; опрос сохраняет прокрутку и фокус.
 function renderCalendarTodoPreview() {
   const anchor = calendarTodoPreview.anchor;
   if (!anchor) return;
-  const order = findListOrder(anchor.dataset.calendarTodos);
-  if (!anchor.isConnected || !order || !anchor.dataset.calendarTodos || state.view !== "orders") { closeCalendarTodoPreview(); return; }
+  const commentId = anchor.dataset.calendarComment;
+  const record = commentId ? state.calendarEvents.find((event) => event.id === commentId) : findListOrder(anchor.dataset.calendarTodos);
+  if (!anchor.isConnected || anchor.disabled || !record || (commentId ? record.deleted || typeof record.comment !== "string" || !record.comment.trim() : !anchor.dataset.calendarTodos) || state.view !== "orders") { closeCalendarTodoPreview(); return; }
   const box = anchor.getBoundingClientRect(), viewport = $("calendarViewport").getBoundingClientRect();
   if (box.bottom <= viewport.top || box.top >= viewport.bottom) { closeCalendarTodoPreview(); return; }
-  $("calendarTodoPreviewTitle").textContent = order.title;
-  $("calendarTodoPreviewCount").textContent = orderTodoSummary(order).count;
-  const markup = renderOrderTodos(order), body = $("calendarTodoPreviewBody");
-  if (calendarTodoPreview.markup !== markup) {
+  $("calendarTodoPreviewHeading").textContent = commentId ? "Комментарий" : "Смотри ту-ду";
+  $("calendarTodoPreviewTitle").textContent = commentId ? record.text : record.title;
+  $("calendarTodoPreviewCount").hidden = Boolean(commentId);
+  $("calendarTodoPreviewCount").textContent = commentId ? "" : orderTodoSummary(record).count;
+  $("calendarTodoPreviewFooter").hidden = Boolean(commentId);
+  $("closeCalendarTodoPreview").setAttribute("aria-label", commentId ? "Закрыть комментарий" : "Закрыть To-do");
+  const markup = commentId ? record.comment : renderOrderTodos(record), body = $("calendarTodoPreviewBody");
+  const signature = (commentId ? "comment:" : "todos:") + markup;
+  body.classList.toggle("calendar-comment-preview-body", Boolean(commentId));
+  body.setAttribute("aria-label", commentId ? "Комментарий события" : "Актуальные задачи заказа и вложенных папок");
+  if (calendarTodoPreview.markup !== signature) {
     const top = body.scrollTop, focused = body.contains(document.activeElement), path = document.activeElement?.dataset.order;
-    body.innerHTML = markup;
-    calendarTodoPreview.markup = markup;
+    if (commentId) body.textContent = markup;
+    else body.innerHTML = markup;
+    calendarTodoPreview.markup = signature;
     if (focused) ([...body.querySelectorAll('[data-order]')].find((link) => link.dataset.order === path) || body).focus({ preventScroll: true });
     body.scrollTop = top;
   }
   positionCalendarTodoPreview();
 }
 
-// Открывает или закрепляет окно задач выбранного события.
-// Управляет отложенным обновлением через таймер или кадр браузера.
+// Открывает или закрепляет общее окно задач либо комментария события.
+// Значок и Alt+↓ закрепляют окно; наведение сохраняет прежние задержки и подавление после Escape.
 function openCalendarTodoPreview(anchor, pinned = false) {
-  if (!anchor?.dataset.calendarTodos || state.calendarMenu || (!pinned && calendarTodoPreview.suppressed === anchor)) return;
+  if (!(anchor?.dataset.calendarTodos || anchor?.dataset.calendarComment) || state.calendarMenu || (!pinned && calendarTodoPreview.suppressed === anchor)) return;
   if (calendarTodoPreview.pinned && !pinned) return;
   cancelCalendarTodoPreviewSwitch();
   clearTimeout(calendarTodoPreview.timer);
@@ -3155,7 +3164,7 @@ function hoverCalendarTodoPreview(anchor) {
   calendarTodoPreview.switchTimer = setTimeout(() => openCalendarTodoPreview(anchor), calendarTodoPreview.anchor ? 350 : 500);
 }
 
-// Планирует закрытие окна задач после ухода мыши.
+// Планирует закрытие общего окна задач или комментария после ухода мыши.
 // Управляет отложенным обновлением через таймер или кадр браузера.
 function scheduleCalendarTodoPreviewClose() {
   clearTimeout(calendarTodoPreview.timer);
@@ -3164,12 +3173,14 @@ function scheduleCalendarTodoPreviewClose() {
   }, 500);
 }
 
-// Обновляет независимые отметки и доступные действия редактора события.
-// Использует `$`, `Boolean`.
+// Обновляет доступные действия редактора и поле комментария свободного события.
+// При сохранении блокирует оба поля; у событий заказа комментарий скрыт и отключён.
 function renderCalendarEventControls() {
   const edit = state.calendarEvent;
   if (!edit) return;
   $("calendarEventText").disabled = Boolean(edit.saving);
+  $("calendarEventCommentField").hidden = !edit.free;
+  $("calendarEventComment").disabled = Boolean(edit.saving || !edit.free);
   $("saveCalendarEvent").disabled = Boolean(edit.saving || edit.conflict);
   $("cancelCalendarEvent").disabled = Boolean(edit.saving);
   $("refreshCalendarEvent").hidden = !edit.conflict;
@@ -3470,8 +3481,8 @@ async function colorCalendarEvent(color) {
   }
 }
 
-// Открывает текстовый редактор выбранного события или план платежа.
-// Использует `closeCalendarEventMenu`, `state.calendarEvents.find`, `findListOrder`.
+// Открывает редактор названия события и необязательного комментария без заказа.
+// Запоминает оба исходных поля для защиты черновика; комментарий заказа не редактирует.
 function openCalendarEvent(slot) {
   closeCalendarEventMenu(false);
   const free = slot.dataset.calendarFree, date = slot.dataset.calendarDate;
@@ -3482,12 +3493,13 @@ function openCalendarEvent(slot) {
   const entries = !free && calendarEventEntries(order, period);
   if (entries === null) { notify("События этого заказа имеют неизвестный формат и сохранены без изменений", true); return; }
   const previous = free ? order?.text || "" : entries?.[date] || "";
+  const previousComment = free ? order?.comment ?? "" : "";
   const inactive = free ? Boolean(order?.is_inactive) : Boolean(order.calendar_inactive?.[period]?.includes(date));
   const completed = free ? order?.is_completed === 1 : Boolean(order.calendar_completed?.[period]?.includes(date));
   const trip = free ? order?.is_trip === 1 : Boolean(order.calendar_trip?.[period]?.includes(date));
   const watch_todos = !free && Boolean(order.calendar_watch_todos?.[period]?.includes(date));
   const color = free ? order?.color : order.calendar_colors?.[period]?.[date];
-  state.calendarEvent = { free: Boolean(free), path: order?.path, id: order?.id || freeCalendarIdentity(), revision: order?.revision || 0, date, period, previous, inactive, completed, trip, watch_todos, color, saving: false, conflict: false };
+  state.calendarEvent = { free: Boolean(free), path: order?.path, id: order?.id || freeCalendarIdentity(), revision: order?.revision || 0, date, period, previous, previousComment, inactive, completed, trip, watch_todos, color, saving: false, conflict: false };
   $("calendarEventTitle").textContent = period === "week" ? "Событие на неделю" : "Событие календаря";
   $("calendarEventOrder").textContent = free ? "Без привязки к заказу" : (order.work_supplier ? [order.title, order.work_supplier] : [order.title, order.client, order.object]).filter(Boolean).join(" · ");
   const start = new Date(date + "T00:00:00Z");
@@ -3495,6 +3507,7 @@ function openCalendarEvent(slot) {
   const end = new Date(start); end.setUTCDate(end.getUTCDate() + 6);
   $("calendarEventDate").textContent = period === "week" ? "На неделю: " + format.format(start) + " — " + format.format(end) : format.format(start);
   $("calendarEventText").value = previous;
+  $("calendarEventComment").value = previousComment;
   $("calendarEventState").textContent = "";
   renderCalendarEventControls();
   $("calendarEventDialog").showModal();
@@ -3509,8 +3522,8 @@ function closeCalendarEvent() {
   $("calendarEventDialog").close();
 }
 
-// Сохраняет текст события с UUID, периодом и ожидаемой версией.
-// Использует `/api/calendar-event`, `/api/order-calendar-event`.
+// Сохраняет название и необязательный комментарий свободного события с UUID/revision.
+// Комментарий отправляет только свободному событию; оба поля сохраняет при ошибке.
 async function saveCalendarEvent() {
   const edit = state.calendarEvent;
   if (!edit || edit.saving || edit.conflict) return;
@@ -3521,7 +3534,7 @@ async function saveCalendarEvent() {
   $("calendarEventState").textContent = "Сохраняю…";
   renderCalendarEventControls();
   try {
-    const saved = await request(edit.free ? "/api/calendar-event" : "/api/order-calendar-event", { path: edit.path, id: edit.id, revision: edit.revision, date: edit.date, text, period: edit.period });
+    const saved = await request(edit.free ? "/api/calendar-event" : "/api/order-calendar-event", { path: edit.path, id: edit.id, revision: edit.revision, date: edit.date, text, period: edit.period, ...(edit.free ? { comment: $("calendarEventComment").value } : {}) });
     if (edit.free) applyFreeCalendarEvent(saved);
     else applyOrderRecord(null, saved);
     edit.saving = false;
@@ -3530,7 +3543,7 @@ async function saveCalendarEvent() {
     notify("Событие сохранено");
   } catch (error) {
     edit.conflict = error.status === 409;
-    $("calendarEventState").textContent = error.message + (edit.conflict ? " Нажми «Проверить изменения» перед повторным сохранением. Твой текст оставлен в поле." : " Твой текст оставлен в поле.");
+    $("calendarEventState").textContent = error.message + (edit.conflict ? " Нажми «Проверить изменения» перед повторным сохранением. Твой ввод сохранён в форме." : " Твой ввод сохранён в форме.");
   } finally {
     edit.saving = false;
     renderCalendarEventControls();
@@ -3548,10 +3561,11 @@ async function refreshCalendarEvent() {
     if (edit.free) {
       const current = await request("/api/calendar-event?id=" + encodeURIComponent(edit.id));
       if (current.deleted) throw new Error("Событие удалено в другом окне. Твой текст оставлен в поле; закрой форму, чтобы создать новое событие.");
-      if (current.version !== 1) throw new Error("Формат события изменился. Твой текст оставлен в поле.");
+      if (current.version !== 1 || (current.comment !== undefined && typeof current.comment !== "string")) throw new Error("Формат события изменился. Твой ввод сохранён в форме.");
       if (current.date !== edit.date || current.period !== edit.period) throw new Error("Событие перенесено в другое окно календаря. Твой текст оставлен в поле; закрой форму и открой событие на новой дате.");
       edit.revision = current.revision;
       edit.previous = current.text;
+      edit.previousComment = current.comment ?? "";
       edit.inactive = Boolean(current.is_inactive);
       edit.completed = current.is_completed === 1;
       edit.trip = current.is_trip === 1;
@@ -3571,7 +3585,7 @@ async function refreshCalendarEvent() {
       edit.conflict = false;
       applyOrderRecord(null, order);
     }
-    $("calendarEventState").textContent = "В базе сейчас: " + (edit.previous || "события нет") + ". Твой текст оставлен в поле; проверь его перед сохранением.";
+    $("calendarEventState").textContent = "В базе сейчас: " + (edit.previous || "события нет") + (edit.free ? ". Комментарий: " + (edit.previousComment || "нет") : "") + ". Твой ввод сохранён в форме; проверь его перед сохранением.";
     renderOrders({ force: true });
   } catch (error) {
     $("calendarEventState").textContent = error.message;
@@ -4401,10 +4415,10 @@ $("fileSearch").addEventListener("input", (event) => { state.fileQuery = event.t
 $("fileSort").addEventListener("change", (event) => { state.fileSort = event.target.value; state.limit = 120; renderFiles(); });
 $("orderSearch").addEventListener("input", (event) => { state.orderQuery = event.target.value; renderOrders(); });
 $("calendarWeeks").addEventListener("click", (event) => {
-  const todoIcon = event.target.closest('.calendar-todo-icon');
+  const todoIcon = event.target.closest('.calendar-todo-icon, .calendar-comment-icon');
   if (todoIcon) {
     event.preventDefault();
-    const anchor = todoIcon.closest('[data-calendar-todos]');
+    const anchor = todoIcon.closest('[data-calendar-todos], [data-calendar-comment]');
     openCalendarTodoPreview(anchor, true);
     $("calendarTodoPreviewBody").focus({ preventScroll: true });
     return;
@@ -4436,7 +4450,7 @@ $("calendarWeeks").addEventListener("contextmenu", (event) => {
   openCalendarEventMenu(slot, event.clientX, event.clientY);
 });
 $("calendarWeeks").addEventListener("keydown", (event) => {
-  const todoAnchor = event.target.closest('[data-calendar-todos]');
+  const todoAnchor = event.target.closest('[data-calendar-todos], [data-calendar-comment]');
   if (todoAnchor && event.altKey && event.key === 'ArrowDown') {
     event.preventDefault(); event.stopPropagation();
     openCalendarTodoPreview(todoAnchor, true);
@@ -4476,18 +4490,18 @@ window.addEventListener("resize", () => closeCalendarEventMenu(false));
 window.addEventListener("scroll", () => { if (state.calendarMenu) closeCalendarEventMenu(false); }, true);
 window.addEventListener("blur", () => closeCalendarEventMenu(false));
 $("calendarWeeks").addEventListener('pointerover', (event) => {
-  const anchor = event.target.closest('[data-calendar-todos]');
+  const anchor = event.target.closest('[data-calendar-todos], [data-calendar-comment]');
   if (anchor) hoverCalendarTodoPreview(anchor);
 });
 $("calendarWeeks").addEventListener('pointerout', (event) => {
-  const anchor = event.target.closest('[data-calendar-todos]');
+  const anchor = event.target.closest('[data-calendar-todos], [data-calendar-comment]');
   if (!anchor || anchor.contains(event.relatedTarget)) return;
   if (calendarTodoPreview.pendingAnchor === anchor) cancelCalendarTodoPreviewSwitch();
   calendarTodoPreview.suppressed = null;
   if (!$("calendarTodoPreview").contains(event.relatedTarget)) scheduleCalendarTodoPreviewClose();
 });
 $("calendarWeeks").addEventListener('focusin', (event) => {
-  const anchor = event.target.closest('[data-calendar-todos]');
+  const anchor = event.target.closest('[data-calendar-todos], [data-calendar-comment]');
   if (anchor) openCalendarTodoPreview(anchor);
 });
 $("calendarWeeks").addEventListener('focusout', (event) => {
@@ -4975,7 +4989,7 @@ $("previewDialog").addEventListener("keydown", (event) => {
   if (event.key === "ArrowRight") { event.preventDefault(); stepPreview(1); }
 });
 window.addEventListener("popstate", () => run(() => openLocation()));
-window.addEventListener("beforeunload", (event) => { if (hasPendingDeadlineComments() || state.dirty || state.printTask?.dirty || state.printSaving || state.fileComment?.dirty || state.fileCommentSaving || state.upload?.busy || (state.calendarEvent && (state.calendarEvent.saving || $("calendarEventText").value !== state.calendarEvent.previous))) { event.preventDefault(); event.returnValue = ""; } });
+window.addEventListener("beforeunload", (event) => { if (hasPendingDeadlineComments() || state.dirty || state.printTask?.dirty || state.printSaving || state.fileComment?.dirty || state.fileCommentSaving || state.upload?.busy || (state.calendarEvent && (state.calendarEvent.saving || $("calendarEventText").value !== state.calendarEvent.previous || (state.calendarEvent.free && $("calendarEventComment").value !== state.calendarEvent.previousComment)))) { event.preventDefault(); event.returnValue = ""; } });
 
 $("chooseUploadFiles").addEventListener("click", () => $("uploadFileInput").click());
 $("uploadFileInput").addEventListener("change", (event) => {

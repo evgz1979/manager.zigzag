@@ -324,7 +324,7 @@ function closeCalendarEventMenu(restoreFocus = true)
 function closeCalendarTodoPreview(restoreFocus = false)
 ```
 
-Закрывает окно задач календаря и отменяет отложенные действия.
+Закрывает общее окно задач или комментария и отменяет отложенные действия.
 
 Управляет отложенным обновлением через таймер или кадр браузера.
 
@@ -1399,13 +1399,13 @@ function notify(message, error = false, action = null)
 function openCalendarEvent(slot)
 ```
 
-Открывает текстовый редактор выбранного события или план платежа.
+Открывает редактор названия события и необязательного комментария без заказа.
 
-Использует `closeCalendarEventMenu`, `state.calendarEvents.find`, `findListOrder`.
+Запоминает оба исходных поля для защиты черновика; комментарий заказа не редактирует.
 
 Непосредственные вызовы: `closeCalendarEventMenu`, `state.calendarEvents.find`, `findListOrder`, `state.calendarMoving.has`, `orderRowSaving`, `calendarEventEntries`, `notify`, `Boolean`, `order.calendar_inactive?.[period]?.includes`, `order.calendar_completed?.[period]?.includes`, `order.calendar_trip?.[period]?.includes`, `order.calendar_watch_todos?.[period]?.includes`, `freeCalendarIdentity`, `$`, `(order.work_supplier ? [order.title, order.work_supplier] : [order.title, order.client, order.object]).filter(Boolean).join`, `(order.work_supplier ? [order.title, order.work_supplier] : [order.title, order.client, order.object]).filter`, `Date`, `Intl.DateTimeFormat`, `end.setUTCDate`, `end.getUTCDate`, `format.format`, `renderCalendarEventControls`, `$("calendarEventDialog").showModal`, `$("calendarEventText").focus`.
 
-Прямые присваивания полям/свойствам: `state.calendarEvent`, `$("calendarEventTitle").textContent`, `$("calendarEventOrder").textContent`, `$("calendarEventDate").textContent`, `$("calendarEventText").value`, `$("calendarEventState").textContent`.
+Прямые присваивания полям/свойствам: `state.calendarEvent`, `$("calendarEventTitle").textContent`, `$("calendarEventOrder").textContent`, `$("calendarEventDate").textContent`, `$("calendarEventText").value`, `$("calendarEventComment").value`, `$("calendarEventState").textContent`.
 
 <a id="symbol-openCalendarEventMenu"></a>
 
@@ -1435,9 +1435,9 @@ function openCalendarEventMenu(slot, x, y)
 function openCalendarTodoPreview(anchor, pinned = false)
 ```
 
-Открывает или закрепляет окно задач выбранного события.
+Открывает или закрепляет общее окно задач либо комментария события.
 
-Управляет отложенным обновлением через таймер или кадр браузера.
+Значок и Alt+↓ закрепляют окно; наведение сохраняет прежние задержки и подавление после Escape.
 
 Непосредственные вызовы: `cancelCalendarTodoPreviewSwitch`, `clearTimeout`, `closeCalendarTodoPreview`, `$`, `anchor.setAttribute`, `renderCalendarTodoPreview`.
 
@@ -1857,7 +1857,7 @@ function orderTodoText(order)
 function positionCalendarTodoPreview()
 ```
 
-Размещает окно задач вплотную к границе исходного события.
+Размещает окно задач или комментария вплотную к границе события.
 
 Использует `$`, `anchor.getBoundingClientRect`, `preview.getBoundingClientRect`.
 
@@ -1969,7 +1969,7 @@ async function refreshCalendarEvent()
 
 Непосредственные вызовы: `renderCalendarEventControls`, `request`, `encodeURIComponent`, `Error`, `Boolean`, `applyFreeCalendarEvent`, `apiUrl`, `calendarEventEntries`, `order.calendar_inactive?.[edit.period]?.includes`, `order.calendar_completed?.[edit.period]?.includes`, `order.calendar_trip?.[edit.period]?.includes`, `order.calendar_watch_todos?.[edit.period]?.includes`, `applyOrderRecord`, `$`, `renderOrders`.
 
-Прямые присваивания полям/свойствам: `edit.saving`, `edit.revision`, `edit.previous`, `edit.inactive`, `edit.completed`, `edit.trip`, `edit.color`, `edit.conflict`, `edit.watch_todos`, `$("calendarEventState").textContent`.
+Прямые присваивания полям/свойствам: `edit.saving`, `edit.revision`, `edit.previous`, `edit.previousComment`, `edit.inactive`, `edit.completed`, `edit.trip`, `edit.color`, `edit.conflict`, `edit.watch_todos`, `$("calendarEventState").textContent`.
 
 <a id="symbol-refreshEventProposal"></a>
 
@@ -2227,13 +2227,13 @@ async function removeSelectedFiles()
 function renderCalendarEventControls()
 ```
 
-Обновляет независимые отметки и доступные действия редактора события.
+Обновляет доступные действия редактора и поле комментария свободного события.
 
-Использует `$`, `Boolean`.
+При сохранении блокирует оба поля; у событий заказа комментарий скрыт и отключён.
 
 Непосредственные вызовы: `$`, `Boolean`.
 
-Прямые присваивания полям/свойствам: `$("calendarEventText").disabled`, `$("saveCalendarEvent").disabled`, `$("cancelCalendarEvent").disabled`, `$("refreshCalendarEvent").hidden`, `$("refreshCalendarEvent").disabled`, `$("deleteCalendarEvent").hidden`, `$("deleteCalendarEvent").disabled`.
+Прямые присваивания полям/свойствам: `$("calendarEventText").disabled`, `$("calendarEventCommentField").hidden`, `$("calendarEventComment").disabled`, `$("saveCalendarEvent").disabled`, `$("cancelCalendarEvent").disabled`, `$("refreshCalendarEvent").hidden`, `$("refreshCalendarEvent").disabled`, `$("deleteCalendarEvent").hidden`, `$("deleteCalendarEvent").disabled`.
 
 <a id="symbol-renderCalendarTodoPreview"></a>
 
@@ -2245,13 +2245,13 @@ function renderCalendarEventControls()
 function renderCalendarTodoPreview()
 ```
 
-Показывает актуальные задачи заказа исходного события.
+Показывает актуальные задачи заказа либо комментарий свободного события.
 
-Обращается к DOM текущего документа или переданного контейнера.
+Комментарий выводит через textContent с переносами строк; опрос сохраняет прокрутку и фокус.
 
-Непосредственные вызовы: `findListOrder`, `closeCalendarTodoPreview`, `anchor.getBoundingClientRect`, `$("calendarViewport").getBoundingClientRect`, `$`, `orderTodoSummary`, `renderOrderTodos`, `body.contains`, `([...body.querySelectorAll('[data-order]')].find((link) => link.dataset.order === path) || body).focus`, `[...body.querySelectorAll('[data-order]')].find`, `body.querySelectorAll`, `positionCalendarTodoPreview`.
+Непосредственные вызовы: `state.calendarEvents.find`, `findListOrder`, `record.comment.trim`, `closeCalendarTodoPreview`, `anchor.getBoundingClientRect`, `$("calendarViewport").getBoundingClientRect`, `$`, `Boolean`, `orderTodoSummary`, `$("closeCalendarTodoPreview").setAttribute`, `renderOrderTodos`, `body.classList.toggle`, `body.setAttribute`, `body.contains`, `([...body.querySelectorAll('[data-order]')].find((link) => link.dataset.order === path) || body).focus`, `[...body.querySelectorAll('[data-order]')].find`, `body.querySelectorAll`, `positionCalendarTodoPreview`.
 
-Прямые присваивания полям/свойствам: `$("calendarTodoPreviewTitle").textContent`, `$("calendarTodoPreviewCount").textContent`, `body.innerHTML`, `calendarTodoPreview.markup`, `body.scrollTop`.
+Прямые присваивания полям/свойствам: `$("calendarTodoPreviewHeading").textContent`, `$("calendarTodoPreviewTitle").textContent`, `$("calendarTodoPreviewCount").hidden`, `$("calendarTodoPreviewCount").textContent`, `$("calendarTodoPreviewFooter").hidden`, `body.textContent`, `body.innerHTML`, `calendarTodoPreview.markup`, `body.scrollTop`.
 
 <a id="symbol-renderCardDeadlines"></a>
 
@@ -3482,9 +3482,9 @@ function run(action)
 async function saveCalendarEvent()
 ```
 
-Сохраняет текст события с UUID, периодом и ожидаемой версией.
+Сохраняет название и необязательный комментарий свободного события с UUID/revision.
 
-Использует `/api/calendar-event`, `/api/order-calendar-event`.
+Комментарий отправляет только свободному событию; оба поля сохраняет при ошибке.
 
 Непосредственные вызовы: `$`, `text.trim`, `renderCalendarEventControls`, `request`, `applyFreeCalendarEvent`, `applyOrderRecord`, `closeCalendarEvent`, `renderOrders`, `notify`.
 
@@ -3659,7 +3659,7 @@ function saveTodosSoon(delay = 0)
 function scheduleCalendarTodoPreviewClose()
 ```
 
-Планирует закрытие окна задач после ухода мыши.
+Планирует закрытие общего окна задач или комментария после ухода мыши.
 
 Управляет отложенным обновлением через таймер или кадр браузера.
 

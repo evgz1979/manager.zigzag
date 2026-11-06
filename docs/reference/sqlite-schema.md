@@ -13,6 +13,12 @@ ALTER TABLE calendar_events ADD COLUMN color TEXT NOT NULL DEFAULT 'gray'
 [schema](python/calendar_events.md#symbol-schema)
 
 ```sql
+ALTER TABLE calendar_events ADD COLUMN comment TEXT NOT NULL DEFAULT ''
+```
+
+[schema](python/calendar_events.md#symbol-schema)
+
+```sql
 ALTER TABLE calendar_events ADD COLUMN is_completed INTEGER NOT NULL DEFAULT 0
 ```
 
@@ -36,7 +42,8 @@ CREATE TABLE IF NOT EXISTS calendar_events (
         date TEXT NOT NULL, text TEXT NOT NULL, revision INTEGER NOT NULL,
         created REAL NOT NULL, updated REAL NOT NULL, deleted INTEGER NOT NULL DEFAULT 0,
         color TEXT NOT NULL DEFAULT 'gray', is_inactive INTEGER NOT NULL DEFAULT 0,
-        is_completed INTEGER NOT NULL DEFAULT 0, is_trip INTEGER NOT NULL DEFAULT 0)
+        is_completed INTEGER NOT NULL DEFAULT 0, is_trip INTEGER NOT NULL DEFAULT 0,
+        comment TEXT NOT NULL DEFAULT '')
 ```
 
 ## client_activity.py

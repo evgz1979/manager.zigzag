@@ -282,13 +282,13 @@ function renderCompactOrders(container, compact)
 function renderFreeEvents()
 ```
 
-Строит свободные дневные и недельные события.
+Строит свободные события с отдельным значком непустого комментария.
 
-Обращается к DOM текущего документа или переданного контейнера.
+Значок и UUID открывают общее окно просмотра; название, узлы и фокус сохраняются.
 
-Непосредственные вызовы: `get`, `row.querySelector`, `Date`, `events.filter`, `JSON.stringify`, `area.contains`, `Map`, `[...area.querySelectorAll(".has-event")].map`, `area.querySelectorAll`, `Set`, `shiftDays`, `dateKey`, `weekNumber`, `fullDate.format`, `add.setAttribute`, `weekly.filter`, `existing.get`, `document.createElement`, `button.setAttribute`, `showTripMark`, `button.classList.toggle`, `[0, 1].includes`, `["gray", "red", "orange", "yellow", "green", "blue", "purple"].includes`, `button.classList.contains`, `column.insertBefore`, `retained.add`, `existing.values`, `retained.has`, `button.remove`, `(focused.isConnected ? focused : area.querySelector(".calendar-free-add:not(:disabled)") || get("calendarViewport")).focus`, `area.querySelector`.
+Непосредственные вызовы: `get`, `row.querySelector`, `Date`, `events.filter`, `JSON.stringify`, `area.contains`, `Map`, `[...area.querySelectorAll(".has-event")].map`, `area.querySelectorAll`, `Set`, `shiftDays`, `dateKey`, `weekNumber`, `fullDate.format`, `add.setAttribute`, `weekly.filter`, `existing.get`, `document.createElement`, `button.setAttribute`, `showTripMark`, `button.removeAttribute`, `Boolean`, `event.comment.trim`, `button.classList.toggle`, `button.insertAdjacentHTML`, `[0, 1].includes`, `["gray", "red", "orange", "yellow", "green", "blue", "purple"].includes`, `button.classList.contains`, `column.insertBefore`, `retained.add`, `existing.values`, `retained.has`, `button.remove`, `(focused.isConnected ? focused : area.querySelector(".calendar-free-add:not(:disabled)") || get("calendarViewport")).focus`, `area.querySelector`.
 
-Прямые присваивания полям/свойствам: `area.dataset.signature`, `add.dataset.calendarDate`, `add.dataset.calendarPeriod`, `add.disabled`, `button.type`, `button.className`, `button.dataset.calendarEvent`, `button.dataset.calendarFree`, `button.textContent`, `button.dataset.calendarColor`, `button.dataset.calendarDate`, `button.dataset.calendarPeriod`, `button.disabled`, `area.parentElement.scrollTop`.
+Прямые присваивания полям/свойствам: `area.dataset.signature`, `add.dataset.calendarDate`, `add.dataset.calendarPeriod`, `add.disabled`, `button.type`, `button.className`, `button.dataset.calendarEvent`, `button.dataset.calendarFree`, `button.textContent`, `button.dataset.calendarComment`, `button.dataset.calendarColor`, `button.dataset.calendarDate`, `button.dataset.calendarPeriod`, `button.disabled`, `area.parentElement.scrollTop`.
 
 <a id="symbol-renderInvoicePlans"></a>
 

@@ -230,11 +230,11 @@ dict(row) if row is not None else None
 def save(self, payload):
 ```
 
-Создаёт или меняет свободное событие с проверкой ожидаемой версии.
+Создаёт или меняет название и комментарий свободного события с UUID/revision.
 
-Работает с таблицами calendar_events.
+Отсутствующее поле comment сохраняет прежний текст; история и маркер отката атомарны.
 
-Непосредственные вызовы: `self.identity`, `payload.get`, `order_calendar.block_name`, `order_calendar.validate_key`, `order_calendar.validate_text`, `self.connect`, `db.execute`, `db.execute('SELECT * FROM calendar_events WHERE id=?', (identity,)).fetchone`, `OrderConflict`, `ValueError`, `time.time`, `self.validate`, `self.record`, `order_calendar.mark_relevance_contract`.
+Непосредственные вызовы: `self.identity`, `payload.get`, `order_calendar.block_name`, `order_calendar.validate_key`, `order_calendar.validate_text`, `validate_comment`, `self.connect`, `db.execute`, `db.execute('SELECT * FROM calendar_events WHERE id=?', (identity,)).fetchone`, `OrderConflict`, `ValueError`, `time.time`, `self.validate`, `self.record`, `order_calendar.mark_relevance_contract`.
 
 Явные исключения: `OrderConflict`, `ValueError`.
 
@@ -346,11 +346,11 @@ self._set_flag(payload, 'is_trip')
 def validate(row):
 ```
 
-Проверяет период, реальную дату, текст и цвет свободного события.
+Проверяет период, реальную дату, текст, комментарий и цвет свободного события.
 
 При недопустимом состоянии возбуждает ValueError.
 
-Непосредственные вызовы: `ValueError`, `order_calendar.block_name`, `order_calendar.validate_key`, `order_calendar.validate_text`.
+Непосредственные вызовы: `ValueError`, `order_calendar.block_name`, `order_calendar.validate_key`, `order_calendar.validate_text`, `validate_comment`.
 
 Явные исключения: `ValueError`.
 
@@ -369,3 +369,27 @@ def schema(db):
 Работает с таблицами calendar_events.
 
 Непосредственные вызовы: `local_metadata.schema`, `db.execute`, `local_metadata.audit`.
+
+<a id="symbol-validate_comment"></a>
+
+## validate_comment
+
+[calendar_events.py](../../../calendar_events.py) · `function`.
+
+```python
+def validate_comment(value):
+```
+
+Проверяет необязательный многострочный комментарий свободного события.
+
+Принимает строку до 10000 символов, нормализует переводы строк и крайние пробелы.
+
+Непосредственные вызовы: `isinstance`, `len`, `ValueError`, `value.replace('\r\n', '\n').replace('\r', '\n').strip`, `value.replace('\r\n', '\n').replace`, `value.replace`.
+
+Явные исключения: `ValueError`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+value.replace('\r\n', '\n').replace('\r', '\n').strip()
+```

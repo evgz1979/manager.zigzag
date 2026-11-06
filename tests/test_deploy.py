@@ -20,6 +20,18 @@ PREVIOUS = "20261019T170000Z-abcdef12"
 
 
 class DeploymentTests(unittest.TestCase):
+    def test_free_event_comments_block_incompatible_rollback(self):
+        release = self.base / 'without-event-comments'
+        release.mkdir()
+        (release / 'local_metadata.py').write_text('')
+        with sqlite3.connect(self.db) as db:
+            db.execute('CREATE TABLE metadata_settings (key TEXT PRIMARY KEY, value TEXT)')
+            db.execute("INSERT INTO metadata_settings VALUES ('calendar_event_comments','1')")
+        with self.assertRaisesRegex(RuntimeError, 'комментарии свободных событий'):
+            remote.check_event_rename_compatibility(self.db, release)
+        (release / 'calendar_events.py').write_text('CALENDAR_EVENT_COMMENTS_VERSION = 1')
+        remote.check_event_rename_compatibility(self.db, release)
+
     def test_payment_notified_marks_block_incompatible_rollback(self):
         release = self.base / 'without-payment-notified'
         release.mkdir()

@@ -8,12 +8,12 @@
 
 ## Python
 
-60 файлов; 829 именованных объявлений.
+60 файлов; 830 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
 | [calendar_delivery.py](python/calendar_delivery.md) | 5 |
-| [calendar_events.py](python/calendar_events.md) | 17 |
+| [calendar_events.py](python/calendar_events.md) | 18 |
 | [calendar_layout.py](python/calendar_layout.md) | 3 |
 | [calendar_todos.py](python/calendar_todos.md) | 2 |
 | [client_activity.py](python/client_activity.md) | 21 |

@@ -4,6 +4,7 @@ import uuid
 from unittest.mock import patch
 
 from calendar_events import CalendarEvents
+import local_metadata
 from orders import OrderConflict
 import test_server as fixtures
 
@@ -29,6 +30,72 @@ class FreeCalendarTests(unittest.TestCase):
                 'revision': record['revision'] if record else 0,
                 'date': record['date'] if record else '2026-12-31',
                 'period': record['period'] if record else 'day', 'text': '  Позвонить <клиенту>  ', **changes}
+
+    def test_comments_round_trip_retry_conflict_and_legacy_edit(self):
+        for period, day in [('day', '2026-12-31'), ('week', '2026-12-28')]:
+            with self.subTest(period=period):
+                payload = self.payload(period=period, date=day, comment='  Детали <b>без HTML</b>\r\nВторая строка 🧵  ')
+                status, _, body = self.http('/api/calendar-event', 'POST', json.dumps(payload))
+                self.assertEqual(status, 200, body)
+                saved = json.loads(body)
+                self.assertEqual(saved['comment'], 'Детали <b>без HTML</b>\nВторая строка 🧵')
+                self.assertEqual(self.events.save(payload), saved)
+                with self.assertRaises(OrderConflict):
+                    self.events.save({**payload, 'comment': 'Другой комментарий'})
+                changed = self.events.save(self.payload(saved, comment='Изменённый'))
+                with self.assertRaises(OrderConflict):
+                    self.events.save(self.payload(saved, comment='Устаревший'))
+                legacy = self.events.save(self.payload(changed, text='Новое название'))
+                self.assertEqual(legacy['comment'], 'Изменённый')
+                self.assertIn(legacy, json.loads(self.http('/api/orders')[2])['calendar_events'])
+                cleared = self.events.save(self.payload(legacy, comment='  \n '))
+                self.assertEqual(cleared['comment'], '')
+                with self.store.connect() as db:
+                    history = [json.loads(row[0]) for row in db.execute("SELECT data FROM metadata_history WHERE entity='calendar_events' AND identity=?", (saved['id'],))]
+                    self.assertEqual(db.execute("SELECT value FROM metadata_settings WHERE key='calendar_event_comments'").fetchone()[0], '1')
+                self.assertTrue(any(row['comment'] == saved['comment'] for row in history))
+                self.assertTrue(any(row['comment'] == 'Изменённый' for row in history))
+
+    def test_comments_survive_flags_move_delete_restore_and_restart(self):
+        saved = self.events.save(self.payload(comment='Сохранить детали'))
+        for operation, changes in [(self.events.color, {'color': 'blue'}),
+                                   (self.events.set_completed, {'is_completed': True}),
+                                   (self.events.set_inactive, {'is_inactive': True}),
+                                   (self.events.set_trip, {'is_trip': True}),
+                                   (self.events.move, {'days': 3})]:
+            saved = operation({**self.payload(saved), **changes})
+            self.assertEqual(saved['comment'], 'Сохранить детали')
+        deleted = self.events.set_deleted(self.payload(saved), True)
+        restored = self.events.set_deleted(self.payload(deleted), False)
+        self.assertEqual(CalendarEvents(manager.order_store()).get(saved['id'])['comment'], 'Сохранить детали')
+        self.assertEqual(restored['comment'], deleted['comment'])
+
+    def test_invalid_comments_leave_record_unchanged(self):
+        saved = self.events.save(self.payload(comment='Исходный'))
+        for invalid in (None, True, 5, [], {}, 'x' * 10001, 'a\x00b'):
+            with self.subTest(invalid=repr(invalid)[:60]), self.assertRaises(ValueError):
+                self.events.save(self.payload(saved, comment=invalid))
+        self.assertEqual(self.events.get(saved['id']), saved)
+        with self.store.connect() as db:
+            db.execute("UPDATE calendar_events SET comment=? WHERE id=?", ('x' * 10001, saved['id']))
+        unknown = self.events.get(saved['id'])
+        with self.assertRaises(ValueError):
+            self.events.save(self.payload(unknown, comment='Не заменять'))
+        self.assertEqual(self.events.get(saved['id']), unknown)
+
+    def test_comment_column_upgrade_preserves_events_and_updates_audit(self):
+        identity = str(uuid.uuid4())
+        with self.store.connect() as db:
+            db.execute("CREATE TABLE calendar_events (id TEXT PRIMARY KEY,version INTEGER,period TEXT,date TEXT,text TEXT,revision INTEGER,created REAL,updated REAL,deleted INTEGER,color TEXT,is_inactive INTEGER,is_completed INTEGER,is_trip INTEGER)")
+            db.execute("INSERT INTO calendar_events VALUES (?,1,'day','2026-12-31','Прежнее',7,1,2,0,'blue',0,1,1)", (identity,))
+            local_metadata.audit(db, 'calendar_events')
+        old = self.events.get(identity)
+        self.assertEqual((old['comment'], old['revision'], old['text'], old['is_trip']), ('', 7, 'Прежнее', 1))
+        changed = self.events.save(self.payload(old, comment='Добавлено'))
+        self.events.save(self.payload(changed, comment='Правка'))
+        with self.store.connect() as db:
+            history = [json.loads(row[0]) for row in db.execute("SELECT data FROM metadata_history WHERE entity='calendar_events'")]
+        self.assertEqual([row['comment'] for row in history], ['', 'Добавлено'])
 
     def test_daily_soft_delete_and_undo_reject_weekly_stale_and_unknown_events(self):
         original = self.payload()

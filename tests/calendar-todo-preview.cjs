@@ -5,14 +5,14 @@ const path = require('node:path');
 const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../static/app.js'), 'utf8');
 
-function fixture() {
+function fixture(comment = false) {
   let now = 0, nextTimer = 0;
   const timers = new Map(), elements = new Map();
   function element(id, parent = null) {
-    const item = { id, parent, dataset: {}, hidden: true, style: {}, handlers: {}, scrollTop: 0,
+    const item = { id, parent, dataset: {}, hidden: true, isConnected: true, style: {}, handlers: {}, scrollTop: 0,
       rect: { left: 100, top: 100, bottom: 112, width: 300, height: 12 },
       contains(other) { for (; other; other = other.parent) if (other === this) return true; return false; },
-      closest() { for (let node = this; node; node = node.parent) if (node.dataset.calendarTodos) return node; return null; },
+      closest() { for (let node = this; node; node = node.parent) if (node.dataset.calendarTodos || node.dataset.calendarComment) return node; return null; },
       addEventListener(name, handler) { (this.handlers[name] ||= []).push(handler); },
       removeAttribute() {}, setAttribute() {}, getBoundingClientRect() { return this.rect; },
       focus() { context.document.activeElement = this; },
@@ -25,6 +25,10 @@ function fixture() {
   const body = element('calendarTodoPreviewBody', popup), outside = element('outside');
   const first = element('first', weeks), second = element('second', weeks);
   first.dataset.calendarTodos = 'first-order'; second.dataset.calendarTodos = 'second-order';
+  if (comment) {
+    delete second.dataset.calendarTodos;
+    second.dataset.calendarComment = 'free-event';
+  }
   const child = element('second-icon', second);
   const context = vm.createContext({
     $: (id) => elements.get(id), document: { activeElement: outside }, state: { calendarMenu: null },
@@ -141,4 +145,24 @@ function fixture() {
   f.tick(1000);
   assert.equal(f.preview.anchor, f.second);
 }
-console.log('Calendar To-do hover regression checks passed');
+{
+  const f = fixture(true);
+  f.event(f.weeks, 'pointerover', f.second);
+  f.tick(499); assert.equal(f.popup.hidden, true);
+  f.tick(1); assert.equal(f.preview.anchor, f.second, 'comment uses the same hover delay');
+  f.event(f.weeks, 'pointerout', f.second, f.first);
+  f.event(f.weeks, 'pointerover', f.first, f.second);
+  f.tick(200);
+  f.event(f.weeks, 'pointerout', f.first, f.popup);
+  f.event(f.popup, 'pointerenter'); f.tick(1000);
+  assert.equal(f.preview.anchor, f.second, 'crossing a To-do row keeps the comment open');
+  f.context.openCalendarTodoPreview(f.second, true);
+  f.event(f.weeks, 'pointerover', f.first); f.tick(1000);
+  assert.equal(f.preview.anchor, f.second, 'pinned comments are not replaced by tasks');
+  f.context.closeCalendarTodoPreview(true);
+  f.context.openCalendarTodoPreview(f.second);
+  assert.equal(f.popup.hidden, true, 'focus return after closing does not reopen the comment');
+  f.context.openCalendarTodoPreview(f.second, true);
+  assert.equal(f.popup.hidden, false, 'explicit action reopens a dismissed comment');
+}
+console.log('Calendar To-do and comment hover regression checks passed');

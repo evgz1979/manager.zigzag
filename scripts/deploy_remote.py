@@ -316,6 +316,11 @@ def check_event_rename_compatibility(database, release_dir):
             if not source.is_file() or 'ORDER_CALENDAR_COLORS_VERSION = 1' not in source.read_text(encoding='utf-8'):
                 raise RuntimeError('В календаре есть цвета событий заказов. Старый код не переносит их; откат заблокирован')
         if (db.execute("SELECT 1 FROM sqlite_master WHERE name='metadata_settings'").fetchone()
+                and db.execute("SELECT 1 FROM metadata_settings WHERE key='calendar_event_comments' AND value='1'").fetchone()):
+            source = release_dir / 'calendar_events.py'
+            if not source.is_file() or 'CALENDAR_EVENT_COMMENTS_VERSION = 1' not in source.read_text(encoding='utf-8'):
+                raise RuntimeError('В календаре есть комментарии свободных событий. Старый код не поддерживает их; откат заблокирован')
+        if (db.execute("SELECT 1 FROM sqlite_master WHERE name='metadata_settings'").fetchone()
                 and db.execute("SELECT 1 FROM metadata_settings WHERE key='invoice_calendar_notified' AND value='1'").fetchone()):
             source = release_dir / 'invoices.py'
             if not source.is_file() or 'INVOICE_CALENDAR_NOTIFIED_VERSION = 1' not in source.read_text(encoding='utf-8'):

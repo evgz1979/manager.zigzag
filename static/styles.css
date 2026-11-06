@@ -619,9 +619,11 @@ h2 { font-size: 13px; font-weight: 600; }
 .calendar-event-slot:not(.has-event):hover:not(:disabled)::after { content: "+"; }
 .calendar-event-slot:focus-visible { outline: 1px solid var(--calendar-text); outline-offset: -1px; }
 .calendar-event-slot:disabled { cursor: default; }
+.calendar-event-dialog { max-height: 90dvh; overflow: auto; }
 .calendar-event-dialog .calendar-event-order { margin: 0; color: var(--text); overflow-wrap: anywhere; }
 .calendar-event-dialog .calendar-event-date { margin: -10px 0 0; font-size: 12px; color: var(--muted); }
 .calendar-event-dialog .calendar-event-state { margin: 0; font-size: 12px; }
+.calendar-event-dialog textarea { width: 100%; min-height: 80px; padding: 9px 11px; resize: vertical; }
 .calendar-event-dialog .confirm-actions { flex-wrap: wrap; }
 .calendar-event-menu { position: fixed; z-index: 100; width: 220px; max-width: calc(100vw - 16px); padding: 5px; border: 1px solid var(--line); border-radius: 8px; background: #fff; box-shadow: 0 5px 20px #152a2826; }
 .calendar-event-menu-name { margin: 3px 7px 6px; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1161,7 +1163,7 @@ h2 { font-size: 13px; font-weight: 600; }
 [aria-checked="true"] > .calendar-menu-mark { visibility: visible; }
 .calendar-menu-mark svg, .calendar-trip-icon { width: 13px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .calendar-trip-icon { display: inline-block; flex: 0 0 13px; margin-right: 2px; vertical-align: -2px; }
-.calendar-todo-icon { display: inline-block; width: 13px; height: 12px; flex: 0 0 13px; margin-right: 2px; vertical-align: -2px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; cursor: pointer; }
+.calendar-todo-icon, .calendar-comment-icon { display: inline-block; width: 13px; height: 12px; flex: 0 0 13px; margin-right: 2px; vertical-align: -2px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; cursor: pointer; }
 .calendar-menu-todo-mark { visibility: visible; opacity: .45; }
 [aria-checked="true"] > .calendar-menu-todo-mark { opacity: 1; }
 .calendar-event-menu button[hidden] { display: none; }
@@ -1171,6 +1173,7 @@ h2 { font-size: 13px; font-weight: 600; }
 .calendar-todo-preview h2 { margin: 0; font-size: 13px; }
 .calendar-todo-preview header p { margin: 6px 0 0; font-size: 12px; overflow-wrap: anywhere; }
 .calendar-todo-preview-body { min-height: 0; max-height: min(340px, 50dvh); margin-top: 12px; overflow: auto; overscroll-behavior: contain; }
+.calendar-comment-preview-body { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.6; user-select: text; }
 .calendar-todo-preview footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; font-size: 10px; color: var(--muted); }
 .calendar-todo-preview footer button { font-size: 11px; padding: 6px 9px; }
 .calendar-completed::before { content: "✓"; margin-right: 2px; font-weight: 400; flex-shrink: 0; }

@@ -323,8 +323,8 @@ const HomeCalendar = (() => {
     if (focused && document.activeElement === document.body) get("calendarViewport").focus({ preventScroll: true });
   }
 
-  // Строит свободные дневные и недельные события.
-  // Обращается к DOM текущего документа или переданного контейнера.
+  // Строит свободные события с отдельным значком непустого комментария.
+  // Значок и UUID открывают общее окно просмотра; название, узлы и фокус сохраняются.
   function renderFreeEvents() {
     for (const row of get("calendarWeeks").children) {
       const area = row.querySelector(".calendar-free-events"), week = new Date(row.dataset.week + "T00:00:00Z");
@@ -357,13 +357,25 @@ const HomeCalendar = (() => {
           }
           button.textContent = event.text;
           showTripMark(button, event.is_trip === 1);
+          button.removeAttribute("title");
+          button.removeAttribute("aria-description");
+          const hasComment = typeof event.comment === "string" && Boolean(event.comment.trim());
+          button.classList.toggle("calendar-has-comment", hasComment);
+          if (hasComment) {
+            button.dataset.calendarComment = event.id;
+            button.setAttribute("aria-keyshortcuts", "Alt+ArrowDown");
+            button.insertAdjacentHTML("afterbegin", '<svg class="calendar-comment-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a3 3 0 0 1-3 3H8l-5 4V6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3Z"/><path d="M7 8h10M7 12h7"/></svg>');
+          } else {
+            delete button.dataset.calendarComment;
+            button.removeAttribute("aria-keyshortcuts");
+          }
           button.dataset.calendarColor = event.color || "gray";
           button.classList.toggle("calendar-inactive", event.is_inactive === 1);
           button.classList.toggle("calendar-completed", event.is_completed === 1);
           button.dataset.calendarDate = key;
           button.dataset.calendarPeriod = period;
-          button.disabled = event.version !== 1 || ![0, 1].includes(event.is_inactive) || ![0, 1].includes(event.is_completed ?? 0) || ![0, 1].includes(event.is_trip ?? 0) || !["gray", "red", "orange", "yellow", "green", "blue", "purple"].includes(event.color) || add.disabled;
-          button.setAttribute("aria-label", (button.classList.contains("calendar-completed") ? "Выполнено · " : "") + (button.classList.contains("calendar-trip") ? "Выезд · " : "") + (button.classList.contains("calendar-inactive") ? "Неактуально · " : "") + "Изменить событие без заказа: " + event.text + " · " + label);
+          button.disabled = event.version !== 1 || (event.comment !== undefined && typeof event.comment !== "string") || ![0, 1].includes(event.is_inactive) || ![0, 1].includes(event.is_completed ?? 0) || ![0, 1].includes(event.is_trip ?? 0) || !["gray", "red", "orange", "yellow", "green", "blue", "purple"].includes(event.color) || add.disabled;
+          button.setAttribute("aria-label", (hasComment ? "Есть комментарий · " : "") + (button.classList.contains("calendar-completed") ? "Выполнено · " : "") + (button.classList.contains("calendar-trip") ? "Выезд · " : "") + (button.classList.contains("calendar-inactive") ? "Неактуально · " : "") + "Изменить событие без заказа: " + event.text + " · " + label);
           column.insertBefore(button, add);
           retained.add(button);
         }
