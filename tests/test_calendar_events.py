@@ -233,6 +233,74 @@ class FreeCalendarTests(unittest.TestCase):
                         self.events.move({**self.payload(moved), 'days': invalid})
                 self.assertEqual(self.events.get(moved['id']), moved)
 
+    def test_week_day_anchor_round_trips_keep_identity_comment_flags_and_history(self):
+        from datetime import date, timedelta
+        for week in ('2026-12-28', '2028-02-28'):
+            for offset in range(7):
+                with self.subTest(week=week, offset=offset):
+                    saved = self.events.save(self.payload(period='week', date=week, comment='Детали\nСохранить'))
+                    saved = self.events.color({**self.payload(saved), 'color': 'purple'})
+                    saved = self.events.set_completed({**self.payload(saved), 'is_completed': True})
+                    saved = self.events.set_trip({**self.payload(saved), 'is_trip': True})
+                    saved = self.events.set_inactive({**self.payload(saved), 'is_inactive': True})
+                    target = (date.fromisoformat(week) + timedelta(days=offset)).isoformat()
+                    other = self.events.save(self.payload(date=target, text='Другое событие'))
+                    status, _, body = self.http('/api/calendar-move', 'POST', json.dumps({**self.payload(saved), 'days': offset, 'target_period': 'day'}))
+                    self.assertEqual(status, 200, body)
+                    daily = json.loads(body)
+                    self.assertEqual((daily['id'], daily['date'], daily['period'], daily['revision']), (saved['id'], target, 'day', saved['revision'] + 1))
+                    for field in saved.keys() - {'date', 'period', 'revision', 'updated'}:
+                        self.assertEqual(daily[field], saved[field], field)
+                    restored = self.events.move({**self.payload(daily), 'days': 0, 'target_period': 'week'})
+                    self.assertEqual((restored['date'], restored['period'], restored['revision']), (week, 'week', daily['revision'] + 1))
+                    for field in saved.keys() - {'revision', 'updated'}:
+                        self.assertEqual(restored[field], saved[field], field)
+                    self.assertEqual(self.events.get(other['id']), other)
+                    with self.store.connect() as db:
+                        self.assertEqual(db.execute('SELECT count(*) FROM calendar_events WHERE id=?', (saved['id'],)).fetchone()[0], 1)
+                        history = [json.loads(row[0]) for row in db.execute("SELECT data FROM metadata_history WHERE entity='calendar_events' AND identity=?", (saved['id'],))]
+                    self.assertTrue(any(row['period'] == 'day' and row['date'] == target and row['comment'] == saved['comment'] for row in history))
+
+    def test_anchor_moves_reject_invalid_stale_deleted_and_unknown_events(self):
+        saved = self.events.save(self.payload(period='week', date='2026-12-28', comment='Исходный'))
+        for changes in ({'days': value, 'target_period': 'day'} for value in (-1, 7, True, None, '1')):
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                self.events.move({**self.payload(saved), **changes})
+        for value in (None, True, 'month', [], {}):
+            with self.subTest(target_period=value), self.assertRaises(ValueError):
+                self.events.move({**self.payload(saved), 'days': 0, 'target_period': value})
+        self.assertEqual(self.events.get(saved['id']), saved)
+        daily = self.events.move({**self.payload(saved), 'days': 0, 'target_period': 'day'})
+        with self.assertRaises(OrderConflict):
+            self.events.move({**self.payload(saved), 'days': 1, 'target_period': 'day'})
+        for days in (-7, 1, 7, True, '0'):
+            with self.subTest(days=days), self.assertRaises(ValueError):
+                self.events.move({**self.payload(daily), 'days': days, 'target_period': 'week'})
+        self.assertEqual(self.events.get(saved['id']), daily)
+        deleted = self.events.set_deleted(self.payload(daily), True)
+        with self.assertRaises(OrderConflict):
+            self.events.move({**self.payload(deleted), 'days': 0, 'target_period': 'week'})
+        restored = self.events.set_deleted(self.payload(deleted), False)
+        with self.store.connect() as db:
+            db.execute('UPDATE calendar_events SET version=2 WHERE id=?', (saved['id'],))
+        unknown = self.events.get(saved['id'])
+        with self.assertRaises(ValueError):
+            self.events.move({**self.payload(unknown), 'days': 0, 'target_period': 'week'})
+        self.assertEqual(self.events.get(saved['id']), unknown)
+
+    def test_anchor_date_bounds_and_existing_week_arrows(self):
+        saved = self.events.save(self.payload(period='week', date='9999-12-27'))
+        with self.assertRaises(ValueError):
+            self.events.move({**self.payload(saved), 'days': 6, 'target_period': 'day'})
+        self.assertEqual(self.events.get(saved['id']), saved)
+        daily = self.events.move({**self.payload(saved), 'days': 4, 'target_period': 'day'})
+        self.assertEqual(daily['date'], '9999-12-31')
+        self.assertEqual(self.events.move({**self.payload(daily), 'days': 0, 'target_period': 'week'})['date'], '9999-12-27')
+        weekly = self.events.save(self.payload(period='week', date='2026-12-28'))
+        shifted = self.events.move({**self.payload(weekly), 'days': 7})
+        moved = self.events.move({**self.payload(shifted), 'days': 6, 'target_period': 'day'})
+        self.assertEqual((moved['date'], moved['period']), ('2027-01-10', 'day'))
+
     def test_validation_and_unknown_formats_leave_records_unchanged(self):
         saved = self.events.save(self.payload())
         for changes in [{'revision': None}, {'revision': True}, {'id': '../outside'}, {'period': 'month'},

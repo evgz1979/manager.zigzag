@@ -3242,7 +3242,7 @@ function freeCalendarIdentity() {
 }
 
 // Открывает контекстное меню с действиями для точного вида события.
-// Для дневной записи показывает следующие семь гражданских дат независимо от часового пояса браузера.
+// Дневным показывает следующие семь дат; свободной недельной — пн–вс своей недели с переносом в день.
 function openCalendarEventMenu(slot, x, y) {
   closeCalendarTodoPreview();
   const free = slot.dataset.calendarFree, plan = slot.dataset.invoicePlan, date = slot.dataset.calendarDate;
@@ -3272,8 +3272,20 @@ function openCalendarEventMenu(slot, x, y) {
   const menu = $("calendarEventMenu");
   $("calendarEventMenuName").textContent = text;
   $("calendarEventDayMoves").hidden = period === "week";
-  $("calendarEventNextDays").hidden = period === "week";
-  $("calendarEventNextDays").querySelectorAll("[data-calendar-move]").forEach((button) => {
+  $("calendarEventToWeek").hidden = !free || period !== "day";
+  const start = new Date(date + "T00:00:00Z");
+  start.setUTCDate(start.getUTCDate() - (start.getUTCDay() + 6) % 7);
+  const end = new Date(start); end.setUTCDate(end.getUTCDate() + 6);
+  const weekLabel = "Закрепить на неделю: " + start.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }) + " — " + end.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+  $("calendarEventToWeek").title = weekLabel;
+  $("calendarEventToWeek").setAttribute("aria-label", weekLabel);
+  const weekToDay = Boolean(free) && period === "week";
+  $("calendarEventNextDays").hidden = period === "week" && !free;
+  $("calendarEventNextDays").setAttribute("aria-label", weekToDay ? "Перенести на день этой недели" : "Перенести на один из следующих семи дней");
+  $("calendarEventNextDays").querySelectorAll("[data-calendar-move]").forEach((button, index) => {
+    button.dataset.calendarMove = String(weekToDay ? index : index + 1);
+    if (weekToDay) button.dataset.calendarTargetPeriod = "day";
+    else delete button.dataset.calendarTargetPeriod;
     const target = new Date(date + "T00:00:00Z");
     target.setUTCDate(target.getUTCDate() + Number(button.dataset.calendarMove));
     button.textContent = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"][target.getUTCDay()];
@@ -3304,11 +3316,11 @@ function openCalendarEventMenu(slot, x, y) {
   [...menu.querySelectorAll("button")].find((button) => button.getClientRects().length).focus({ preventScroll: true });
 }
 
-// Сохраняет перенос события или плана на выбранное число дней либо неделю.
-// Использует `/api/invoice-plan-calendar-move`, `/api/calendar-move`, `/api/order-calendar-move`.
-async function moveCalendarEvent(days) {
+// Сохраняет перенос события, включая смену привязки свободного события день/неделя.
+// targetPeriod передаёт только свободной записи; остальные виды используют прежние сдвиги.
+async function moveCalendarEvent(days, targetPeriod = null) {
   const menu = state.calendarMenu;
-  if (!menu) return;
+  if (!menu || (targetPeriod && !menu.free)) return;
   const key = menu.free || menu.plan ? menu.id : menu.path;
   if (state.calendarMoving.has(key) || (!menu.free && !menu.plan && orderRowSaving(menu.path))) return;
   closeCalendarEventMenu();
@@ -3316,22 +3328,22 @@ async function moveCalendarEvent(days) {
   ++state.ordersRequest;
   try {
     const route = menu.plan ? "/api/invoice-plan-calendar-move" : menu.free ? "/api/calendar-move" : "/api/order-calendar-move";
-    const saved = await request(route, { path: menu.path, id: menu.id, revision: menu.revision, date: menu.date, days, period: menu.period });
+    const saved = await request(route, { path: menu.path, id: menu.id, revision: menu.revision, date: menu.date, days, period: menu.period, ...(targetPeriod ? { target_period: targetPeriod } : {}) });
     if (menu.plan) applyCalendarInvoicePlan(saved);
     else if (menu.free) applyFreeCalendarEvent(saved);
     else applyOrderRecord(null, saved);
-    const target = new Date(menu.date + "T00:00:00Z");
-    target.setUTCDate(target.getUTCDate() + days);
+    const target = new Date((menu.free ? saved.date : menu.date) + "T00:00:00Z");
+    if (!menu.free) target.setUTCDate(target.getUTCDate() + days);
     const label = menu.plan ? "План перенесён" : "Событие перенесено";
-    notify(label + (menu.period === "week" ? " на неделю с " : " на ") + target.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }));
+    notify(label + ((menu.free ? saved.period : menu.period) === "week" ? " на неделю с " : " на ") + target.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }));
   } catch (error) {
     notify(error.message, true);
     if (error.status === 409) { try { await loadOrders(); } catch (_) { /* Retain the last loaded calendar. */ } }
   } finally {
     state.calendarMoving.delete(key);
-    const focused = menu.plan && document.activeElement === menu.slot;
+    const focused = (menu.plan || menu.free) && document.activeElement === menu.slot;
     renderOrders({ force: true });
-    if (focused) ($("calendarWeeks").querySelector('[data-invoice-plan="' + menu.id + '"]') || $("calendarViewport")).focus({ preventScroll: true });
+    if (focused) ($("calendarWeeks").querySelector('[' + (menu.free ? 'data-calendar-free' : 'data-invoice-plan') + '="' + menu.id + '"]') || $("calendarViewport")).focus({ preventScroll: true });
   }
 }
 
@@ -4464,6 +4476,7 @@ $("calendarWeeks").addEventListener("keydown", (event) => {
   openCalendarEventMenu(slot, bounds.left, bounds.bottom);
 });
 $("calendarEventMenu").addEventListener("click", (event) => {
+  if (event.target.closest('#calendarEventToWeek')) { run(() => moveCalendarEvent(0, 'week')); return; }
   if (event.target.closest('#calendarEventDelete')) { run(deleteCalendarEventFromMenu); return; }
   if (event.target.closest("#calendarEventInactive")) { run(() => toggleCalendarEventFlag('inactive')); return; }
   if (event.target.closest("#calendarEventCompleted")) { run(() => toggleCalendarEventFlag('completed')); return; }
@@ -4474,7 +4487,7 @@ $("calendarEventMenu").addEventListener("click", (event) => {
   const color = event.target.closest("[data-calendar-color]");
   if (color) { run(() => colorCalendarEvent(color.dataset.calendarColor)); return; }
   const button = event.target.closest("[data-calendar-move]");
-  if (button) run(() => moveCalendarEvent(Number(button.dataset.calendarMove)));
+  if (button) run(() => moveCalendarEvent(Number(button.dataset.calendarMove), button.dataset.calendarTargetPeriod));
 });
 $("calendarEventMenu").addEventListener("keydown", (event) => {
   if (event.key === "Escape") { event.preventDefault(); closeCalendarEventMenu(); return; }

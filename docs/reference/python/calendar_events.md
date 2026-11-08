@@ -184,11 +184,11 @@ def list(self):
 def move(self, payload):
 ```
 
-Переносит объект или событие с проверкой исходного и целевого состояния.
+Переносит свободное событие, сохраняя UUID и меняя привязку день/неделя по явному выбору.
 
-Работает с таблицами calendar_events.
+Без target_period сохраняет прежний перенос; смена привязки сохраняет все поля с revision/историей.
 
-Непосредственные вызовы: `self.identity`, `payload.get`, `self.connect`, `db.execute`, `db.execute('SELECT * FROM calendar_events WHERE id=?', (identity,)).fetchone`, `OrderConflict`, `self.validate`, `type`, `ValueError`, `(date.fromisoformat(row['date']) + timedelta(days=days)).isoformat`, `date.fromisoformat`, `timedelta`, `time.time`, `self.record`.
+Непосредственные вызовы: `self.identity`, `payload.get`, `self.connect`, `db.execute`, `db.execute('SELECT * FROM calendar_events WHERE id=?', (identity,)).fetchone`, `OrderConflict`, `self.validate`, `order_calendar.block_name`, `set`, `range`, `type`, `ValueError`, `date.fromisoformat`, `timedelta`, `target.weekday`, `target.isoformat`, `time.time`, `self.record`.
 
 Явные исключения: `OrderConflict`, `ValueError`.
 

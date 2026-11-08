@@ -1310,14 +1310,14 @@ function mountOrderList()
 [static/app.js](../../../static/app.js) · `FunctionDeclaration`.
 
 ```javascript
-async function moveCalendarEvent(days)
+async function moveCalendarEvent(days, targetPeriod = null)
 ```
 
-Сохраняет перенос события или плана на выбранное число дней либо неделю.
+Сохраняет перенос события, включая смену привязки свободного события день/неделя.
 
-Использует `/api/invoice-plan-calendar-move`, `/api/calendar-move`, `/api/order-calendar-move`.
+targetPeriod передаёт только свободной записи; остальные виды используют прежние сдвиги.
 
-Непосредственные вызовы: `state.calendarMoving.has`, `orderRowSaving`, `closeCalendarEventMenu`, `state.calendarMoving.add`, `request`, `applyCalendarInvoicePlan`, `applyFreeCalendarEvent`, `applyOrderRecord`, `Date`, `target.setUTCDate`, `target.getUTCDate`, `notify`, `target.toLocaleDateString`, `loadOrders`, `state.calendarMoving.delete`, `renderOrders`, `($("calendarWeeks").querySelector('[data-invoice-plan="' + menu.id + '"]') || $("calendarViewport")).focus`, `$("calendarWeeks").querySelector`, `$`.
+Непосредственные вызовы: `state.calendarMoving.has`, `orderRowSaving`, `closeCalendarEventMenu`, `state.calendarMoving.add`, `request`, `applyCalendarInvoicePlan`, `applyFreeCalendarEvent`, `applyOrderRecord`, `Date`, `target.setUTCDate`, `target.getUTCDate`, `notify`, `target.toLocaleDateString`, `loadOrders`, `state.calendarMoving.delete`, `renderOrders`, `($("calendarWeeks").querySelector('[' + (menu.free ? 'data-calendar-free' : 'data-invoice-plan') + '="' + menu.id + '"]') || $("calendarViewport")).focus`, `$("calendarWeeks").querySelector`, `$`.
 
 Прямые присваивания полям/свойствам: `state.ordersRequest`.
 
@@ -1419,11 +1419,11 @@ function openCalendarEventMenu(slot, x, y)
 
 Открывает контекстное меню с действиями для точного вида события.
 
-Для дневной записи показывает следующие семь гражданских дат независимо от часового пояса браузера.
+Дневным показывает следующие семь дат; свободной недельной — пн–вс своей недели с переносом в день.
 
-Непосредственные вызовы: `closeCalendarTodoPreview`, `state.calendarInvoicePlans.find`, `state.calendarEvents.find`, `findListOrder`, `slot.getAttribute`, `calendarEventEntries`, `state.calendarMoving.has`, `orderRowSaving`, `[0, 1].includes`, `notify`, `closeCalendarEventMenu`, `Boolean`, `order.calendar_inactive?.[period]?.includes`, `order.calendar_completed?.[period]?.includes`, `order.calendar_trip?.[period]?.includes`, `order.calendar_watch_todos?.[period]?.includes`, `$`, `$("calendarEventNextDays").querySelectorAll("[data-calendar-move]").forEach`, `$("calendarEventNextDays").querySelectorAll`, `$("calendarEventInactive").setAttribute`, `String`, `$("calendarEventCompleted").setAttribute`, `$("calendarEventTrip").setAttribute`, `$("calendarEventWatchTodos").setAttribute`, `["incoming", "outgoing"].includes`, `$("calendarEventCarryover").setAttribute`, `$("calendarEventNotified").setAttribute`, `menu.querySelectorAll("[data-calendar-color]").forEach`, `menu.querySelectorAll`, `menu.getBoundingClientRect`, `Math.max`, `Math.min`, `[...menu.querySelectorAll("button")].find((button) => button.getClientRects().length).focus`, `[...menu.querySelectorAll("button")].find`.
+Непосредственные вызовы: `closeCalendarTodoPreview`, `state.calendarInvoicePlans.find`, `state.calendarEvents.find`, `findListOrder`, `slot.getAttribute`, `calendarEventEntries`, `state.calendarMoving.has`, `orderRowSaving`, `[0, 1].includes`, `notify`, `closeCalendarEventMenu`, `Boolean`, `order.calendar_inactive?.[period]?.includes`, `order.calendar_completed?.[period]?.includes`, `order.calendar_trip?.[period]?.includes`, `order.calendar_watch_todos?.[period]?.includes`, `$`, `Date`, `start.setUTCDate`, `start.getUTCDate`, `start.getUTCDay`, `end.setUTCDate`, `end.getUTCDate`, `start.toLocaleDateString`, `end.toLocaleDateString`, `$("calendarEventToWeek").setAttribute`, `$("calendarEventNextDays").setAttribute`, `$("calendarEventNextDays").querySelectorAll("[data-calendar-move]").forEach`, `$("calendarEventNextDays").querySelectorAll`, `$("calendarEventInactive").setAttribute`, `String`, `$("calendarEventCompleted").setAttribute`, `$("calendarEventTrip").setAttribute`, `$("calendarEventWatchTodos").setAttribute`, `["incoming", "outgoing"].includes`, `$("calendarEventCarryover").setAttribute`, `$("calendarEventNotified").setAttribute`, `menu.querySelectorAll("[data-calendar-color]").forEach`, `menu.querySelectorAll`, `menu.getBoundingClientRect`, `Math.max`, `Math.min`, `[...menu.querySelectorAll("button")].find((button) => button.getClientRects().length).focus`, `[...menu.querySelectorAll("button")].find`.
 
-Прямые присваивания полям/свойствам: `state.calendarMenu`, `$("calendarEventMenuName").textContent`, `$("calendarEventDayMoves").hidden`, `$("calendarEventNextDays").hidden`, `$("calendarEventMoveDivider").hidden`, `$("calendarEventWatchTodos").hidden`, `$("calendarEventWatchTodos").disabled`, `$("calendarEventCarryover").hidden`, `$("calendarEventCarryover").disabled`, `$("calendarEventNotified").hidden`, `$("calendarEventNotified").disabled`, `$("calendarEventDelete").hidden`, `$("calendarEventColors").hidden`, `menu.hidden`, `menu.style.left`, `menu.style.top`.
+Прямые присваивания полям/свойствам: `state.calendarMenu`, `$("calendarEventMenuName").textContent`, `$("calendarEventDayMoves").hidden`, `$("calendarEventToWeek").hidden`, `$("calendarEventToWeek").title`, `$("calendarEventNextDays").hidden`, `$("calendarEventMoveDivider").hidden`, `$("calendarEventWatchTodos").hidden`, `$("calendarEventWatchTodos").disabled`, `$("calendarEventCarryover").hidden`, `$("calendarEventCarryover").disabled`, `$("calendarEventNotified").hidden`, `$("calendarEventNotified").disabled`, `$("calendarEventDelete").hidden`, `$("calendarEventColors").hidden`, `menu.hidden`, `menu.style.left`, `menu.style.top`.
 
 <a id="symbol-openCalendarTodoPreview"></a>
 

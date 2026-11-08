@@ -171,8 +171,8 @@ class CalendarEvents:
                        (int(deleted), time.time(), identity))
             return self.record(db.execute('SELECT * FROM calendar_events WHERE id=?', (identity,)).fetchone())
 
-    # Переносит объект или событие с проверкой исходного и целевого состояния.
-    # Работает с таблицами calendar_events.
+    # Переносит свободное событие, сохраняя UUID и меняя привязку день/неделя по явному выбору.
+    # Без target_period сохраняет прежний перенос; смена привязки сохраняет все поля с revision/историей.
     def move(self, payload):
         identity, revision = self.identity(payload)
         days = payload.get("days")
@@ -182,15 +182,22 @@ class CalendarEvents:
             if row is None or row["deleted"] or revision != row["revision"]:
                 raise OrderConflict("Событие изменилось или удалено в другом окне. Обнови календарь")
             self.validate(row)
-            allowed = {-7, 7} if row["period"] == "week" else {-7, -1, 1, 2, 3, 4, 5, 6, 7}
+            target_period = payload.get("target_period", row["period"])
+            order_calendar.block_name(target_period)
+            if target_period == row["period"]:
+                allowed = {-7, 7} if row["period"] == "week" else {-7, -1, 1, 2, 3, 4, 5, 6, 7}
+            else:
+                allowed = set(range(7)) if target_period == "day" else {0}
             if type(days) is not int or days not in allowed:
-                raise ValueError("Дневное событие можно сдвинуть на 1–7 дней вперёд, день или неделю назад; недельное — на неделю")
+                raise ValueError("Выбери допустимый перенос: день недели, привязку к своей неделе или прежний сдвиг даты")
             try:
-                target = (date.fromisoformat(row["date"]) + timedelta(days=days)).isoformat()
+                target = date.fromisoformat(row["date"]) + timedelta(days=days)
+                if target_period == "week":
+                    target -= timedelta(days=target.weekday())
             except (ValueError, OverflowError):
                 raise ValueError("Дата переноса выходит за допустимый диапазон") from None
-            db.execute("UPDATE calendar_events SET date=?,revision=revision+1,updated=? WHERE id=?",
-                       (target, time.time(), identity))
+            db.execute("UPDATE calendar_events SET date=?,period=?,revision=revision+1,updated=? WHERE id=?",
+                       (target.isoformat(), target_period, time.time(), identity))
             return self.record(db.execute("SELECT * FROM calendar_events WHERE id=?", (identity,)).fetchone())
 
     # Меняет выбранный цвет события, сохраняя остальные признаки.
