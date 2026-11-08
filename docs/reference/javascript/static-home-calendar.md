@@ -232,9 +232,9 @@ function orderGroups(source)
 
 Собирает обычные заказы под заголовками клиентов, поставщиков оставляет отдельными строками.
 
-Различает точные пути клиентов и сохраняет порядок заказов источника внутри группы.
+Сначала возвращает поставщиков; сохраняет порядок внутри частей и точные пути клиентов.
 
-Непосредственные вызовы: `Map`, `Boolean`, `JSON.stringify`, `identity.normalize`, `groups.has`, `groups.set`, `groups.get(key).orders.push`, `groups.get`, `groups.values`.
+Непосредственные вызовы: `Map`, `Boolean`, `JSON.stringify`, `identity.normalize`, `groups.has`, `groups.set`, `groups.get(key).orders.push`, `groups.get`, `groups.values`, `ordered.filter`.
 
 <a id="symbol-pendingRecord"></a>
 

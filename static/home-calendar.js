@@ -194,7 +194,7 @@ const HomeCalendar = (() => {
   }
 
   // Собирает обычные заказы под заголовками клиентов, поставщиков оставляет отдельными строками.
-  // Различает точные пути клиентов и сохраняет порядок заказов источника внутри группы.
+  // Сначала возвращает поставщиков; сохраняет порядок внутри частей и точные пути клиентов.
   function orderGroups(source) {
     const groups = new Map();
     for (const order of source) {
@@ -205,7 +205,8 @@ const HomeCalendar = (() => {
       if (!groups.has(key)) groups.set(key, { key, label, supplier, orders: [] });
       groups.get(key).orders.push(order);
     }
-    return [...groups.values()];
+    const ordered = [...groups.values()];
+    return [...ordered.filter(group => group.supplier), ...ordered.filter(group => !group.supplier)];
   }
 
   // Обновляет отдельную строку заголовка клиентской группы календаря.
