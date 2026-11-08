@@ -84,9 +84,9 @@ function createSnapshot(now = new Date())
 
 Создаёт отдельный DOM календаря для рендера общего PNG.
 
-Обращается к DOM текущего документа или переданного контейнера.
+Исключает строки прошлой истории и их пустые заголовки, сохраняя группировку и подписи.
 
-Непосредственные вызовы: `snapshotRange`, `document.createElement`, `snapshot.setAttribute`, `fullDate.format`, `snapshot.append`, `get("homeCalendar").querySelector(".calendar-weekdays").cloneNode`, `get("homeCalendar").querySelector`, `get`, `dateKey`, `shiftDays`, `[...get("calendarWeeks").children].find`, `Error`, `row.cloneNode`, `Set`, `orders.filter(order => visibleOrderWeeks(order, moscowDate(now)).includes(key)).map`, `orders.filter`, `clone.querySelectorAll`, `visible.has`, `item.remove`, `snapshot.querySelectorAll`, `element.removeAttribute`.
+Непосредственные вызовы: `snapshotRange`, `document.createElement`, `snapshot.setAttribute`, `fullDate.format`, `snapshot.append`, `get("homeCalendar").querySelector(".calendar-weekdays").cloneNode`, `get("homeCalendar").querySelector`, `get`, `dateKey`, `shiftDays`, `[...get("calendarWeeks").children].find`, `Error`, `row.cloneNode`, `Set`, `orders.filter(order => visibleOrderWeeks(order, moscowDate(now)).includes(key)).map`, `orders.filter`, `clone.querySelectorAll`, `visible.has`, `item.remove`, `heading.remove`, `snapshot.querySelectorAll`, `element.removeAttribute`.
 
 Прямые присваивания полям/свойствам: `snapshot.className`, `snapshot.inert`, `title.textContent`.
 
@@ -220,6 +220,22 @@ const value = (name) =>
 
 Непосредственные вызовы: `Number`, `parts.find`.
 
+<a id="symbol-orderGroups"></a>
+
+## orderGroups
+
+[static/home-calendar.js](../../../static/home-calendar.js) · `FunctionDeclaration`.
+
+```javascript
+function orderGroups(source)
+```
+
+Собирает обычные заказы под заголовками клиентов, поставщиков оставляет отдельными строками.
+
+Различает точные пути клиентов и сохраняет порядок заказов источника внутри группы.
+
+Непосредственные вызовы: `Map`, `Boolean`, `JSON.stringify`, `identity.normalize`, `groups.has`, `groups.set`, `groups.get(key).orders.push`, `groups.get`, `groups.values`.
+
 <a id="symbol-pendingRecord"></a>
 
 ## pendingRecord
@@ -264,11 +280,11 @@ function planHeader(date, label, period = 'day')
 function renderCompactOrders(container, compact)
 ```
 
-Строит синие ссылки мелких заказов в первой колонке недели.
+Строит прежний плоский список синих ссылок мелких заказов без заголовков клиентов.
 
-Использует `Map`, `[...container.children].map`, `Set`.
+Сохраняет подписи, нижнюю левую область, узлы ссылок и фокус без показа скрытых событий.
 
-Непосредственные вызовы: `Map`, `[...container.children].map`, `Set`, `existing.get`, `document.createElement`, `encodeURIComponent`, `link.setAttribute`, `container.insertBefore`, `retained.add`, `container.contains`, `retained.has`, `link.remove`, `get("calendarViewport").focus`, `get`.
+Непосредственные вызовы: `container.contains`, `Map`, `[...container.children].map`, `Set`, `existing.get`, `document.createElement`, `encodeURIComponent`, `link.setAttribute`, `container.insertBefore`, `retained.add`, `retained.has`, `link.remove`, `(focused.isConnected ? focused : get("calendarViewport")).focus`, `get`.
 
 Прямые присваивания полям/свойствам: `link.className`, `link.href`, `link.dataset.calendarOrder`, `link.textContent`.
 
@@ -318,13 +334,13 @@ function renderInvoicePlans()
 function renderWeekOrders()
 ```
 
-Строит обычные строки заказов и их события выбранной недели.
+Строит заголовки клиентов обычных заказов и отдельные строки поставщиков.
 
-Обращается к DOM текущего документа или переданного контейнера.
+Переиспользует узлы строк и групп, сохраняя фокус, прокрутку и привязку событий.
 
-Непосредственные вызовы: `Map`, `visibleOrderWeeks`, `byWeek.has`, `byWeek.set`, `byWeek.get(week).push`, `byWeek.get`, `get`, `row.querySelector`, `eligible.filter`, `renderCompactOrders`, `JSON.stringify`, `weekly.map`, `list.contains`, `[...list.children].map`, `Set`, `Boolean`, `existing.get`, `document.createElement`, `markers.setAttribute`, `orderMarkers.map((marker) => '<span class="calendar-order-marker calendar-order-' + marker.name + '">' + marker.content + '</span>').join`, `orderMarkers.map`, `link.append`, `item.append`, `item.classList.toggle`, `item.style.setProperty`, `String`, `item.style.removeProperty`, `orderMarkers.filter`, `orderMarkers.forEach`, `encodeURIComponent`, `link.setAttribute`, `[...(supplier ? [order.work_supplier, title] : [title, order.client]), order.object, ...activeMarkers.map((marker) => marker.label)].filter(Boolean).join`, `[...(supplier ? [order.work_supplier, title] : [title, order.client]), order.object, ...activeMarkers.map((marker) => marker.label)].filter`, `activeMarkers.map`, `link.querySelector`, `Date`, `shiftDays`, `dateKey`, `slot.classList.toggle`, `showTripMark`, `order.calendar_trip?.[isWeek ? "week" : "day"]?.includes`, `showTodoMark`, `order.calendar_watch_todos?.[isWeek ? "week" : "day"]?.includes`, `order.calendar_inactive?.[isWeek ? "week" : "day"]?.includes`, `order.calendar_completed?.[isWeek ? "week" : "day"]?.includes`, `Array.isArray`, `order.deadline_weeks.includes`, `slot.setAttribute`, `slot.removeAttribute`, `weekNumber`, `fullDate.format`, `slot.classList.contains`, `list.insertBefore`, `retained.add`, `retained.has`, `item.remove`, `list.append`, `(focused.isConnected ? focused : list.querySelector("a") || get("calendarViewport")).focus`, `list.querySelector`.
+Непосредственные вызовы: `Map`, `visibleOrderWeeks`, `byWeek.has`, `byWeek.set`, `byWeek.get(week).push`, `byWeek.get`, `get`, `row.querySelector`, `eligible.filter`, `renderCompactOrders`, `JSON.stringify`, `weekly.map`, `list.contains`, `[...list.children].map`, `[...list.querySelectorAll(".calendar-order-group")].map`, `list.querySelectorAll`, `Set`, `orderGroups`, `headings.get`, `document.createElement`, `updateGroupHeading`, `list.insertBefore`, `retained.add`, `Boolean`, `existing.get`, `markers.setAttribute`, `orderMarkers.map((marker) => '<span class="calendar-order-marker calendar-order-' + marker.name + '">' + marker.content + '</span>').join`, `orderMarkers.map`, `link.append`, `item.append`, `item.classList.toggle`, `item.style.setProperty`, `String`, `item.style.removeProperty`, `orderMarkers.filter`, `orderMarkers.forEach`, `encodeURIComponent`, `link.setAttribute`, `[group.label, title, order.object, ...activeMarkers.map((marker) => marker.label)].filter(Boolean).join`, `[group.label, title, order.object, ...activeMarkers.map((marker) => marker.label)].filter`, `activeMarkers.map`, `link.querySelector`, `Date`, `shiftDays`, `dateKey`, `slot.classList.toggle`, `showTripMark`, `order.calendar_trip?.[isWeek ? "week" : "day"]?.includes`, `showTodoMark`, `order.calendar_watch_todos?.[isWeek ? "week" : "day"]?.includes`, `order.calendar_inactive?.[isWeek ? "week" : "day"]?.includes`, `order.calendar_completed?.[isWeek ? "week" : "day"]?.includes`, `Array.isArray`, `order.deadline_weeks.includes`, `slot.setAttribute`, `slot.removeAttribute`, `weekNumber`, `fullDate.format`, `slot.classList.contains`, `retained.has`, `item.remove`, `list.append`, `(focused.isConnected ? focused : list.querySelector("a") || get("calendarViewport")).focus`, `list.querySelector`.
 
-Прямые присваивания полям/свойствам: `list.dataset.signature`, `item.dataset.orderKey`, `item.className`, `link.className`, `markers.className`, `markers.innerHTML`, `title.className`, `client.className`, `slot.type`, `slot.className`, `markers.hidden`, `link.href`, `link.dataset.calendarOrder`, `link.querySelector(".calendar-order-title").textContent`, `client.textContent`, `client.hidden`, `slot.dataset.calendarEvent`, `slot.dataset.calendarDate`, `slot.dataset.calendarPeriod`, `slot.dataset.calendarColor`, `slot.textContent`, `slot.disabled`, `empty.className`, `empty.textContent`, `list.parentElement.scrollTop`.
+Прямые присваивания полям/свойствам: `list.dataset.signature`, `item.dataset.orderKey`, `item.className`, `link.className`, `markers.className`, `markers.innerHTML`, `title.className`, `client.className`, `object.className`, `slot.type`, `slot.className`, `item.dataset.groupKey`, `markers.hidden`, `link.href`, `link.dataset.calendarOrder`, `link.querySelector(".calendar-order-title").textContent`, `client.textContent`, `client.hidden`, `object.textContent`, `object.hidden`, `slot.dataset.calendarEvent`, `slot.dataset.calendarDate`, `slot.dataset.calendarPeriod`, `slot.dataset.calendarColor`, `slot.textContent`, `slot.disabled`, `empty.className`, `empty.textContent`, `list.parentElement.scrollTop`.
 
 <a id="symbol-scrollToIndex"></a>
 
@@ -459,6 +475,24 @@ function snapshotRange(now = new Date(), calendarOrders = orders, freeEvents = e
 Предыдущую неделю удерживает только видимое актуальное невыполненное событие.
 
 Непосредственные вызовы: `moscowDate`, `monday`, `dateKey`, `shiftDays`, `calendarOrders.some`, `[...freeEvents, ...plans].some`.
+
+<a id="symbol-updateGroupHeading"></a>
+
+## updateGroupHeading
+
+[static/home-calendar.js](../../../static/home-calendar.js) · `FunctionDeclaration`.
+
+```javascript
+function updateGroupHeading(heading, group)
+```
+
+Обновляет отдельную строку заголовка клиентской группы календаря.
+
+Название выводится безопасным текстом; поставщикам заголовки не создаются.
+
+Непосредственные вызовы: `document.createElement`, `label.setAttribute`, `heading.append`.
+
+Прямые присваивания полям/свойствам: `heading.className`, `heading.dataset.groupKey`, `heading.firstElementChild.textContent`, `heading.firstElementChild.title`.
 
 <a id="symbol-updateHeading"></a>
 

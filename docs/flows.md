@@ -81,6 +81,8 @@ sequenceDiagram
 
 ## Три вида календарных записей
 
+[renderWeekOrders](reference/javascript/static-home-calendar.md#symbol-renderWeekOrders) собирает через [orderGroups](reference/javascript/static-home-calendar.md#symbol-orderGroups) отдельные заголовки клиентов только для обычных заказов. Группы различаются точным путём, подписи содержат название и мелко объект. Поставщики остаются отдельными строками «поставщик · название» без заголовков; [renderCompactOrders](reference/javascript/static-home-calendar.md#symbol-renderCompactOrders) строит прежний плоский список синих ссылок. Заголовки и ссылки переиспользуются при опросе; восемь ячеек обычного заказа/поставщика остаются в его строке. В снимке после исключения закрытых строк истории удаляются и опустевшие заголовки по ключу группы следующей строки, включая соседство с отдельным поставщиком.
+
 | Вид | Источник | Сохранение |
 | --- | --- | --- |
 | Событие заказа/поставщика | JSON-блоки `orders.extra_blocks` | Частичные методы `OrderStore` и преобразователи `order_calendar` |

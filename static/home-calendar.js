@@ -193,8 +193,38 @@ const HomeCalendar = (() => {
     scrollToIndex(index < 0 ? range.weeks.length - VISIBLE_WEEKS : index);
   }
 
-  // Строит обычные строки заказов и их события выбранной недели.
-  // Обращается к DOM текущего документа или переданного контейнера.
+  // Собирает обычные заказы под заголовками клиентов, поставщиков оставляет отдельными строками.
+  // Различает точные пути клиентов и сохраняет порядок заказов источника внутри группы.
+  function orderGroups(source) {
+    const groups = new Map();
+    for (const order of source) {
+      const supplier = Boolean(order.work_supplier);
+      const label = supplier ? order.work_supplier : order.client || "Без клиента";
+      const identity = order.client_path || order.client || "";
+      const key = supplier ? JSON.stringify(["supplier", order.id, order.path]) : JSON.stringify(["client", identity.normalize("NFC")]);
+      if (!groups.has(key)) groups.set(key, { key, label, supplier, orders: [] });
+      groups.get(key).orders.push(order);
+    }
+    return [...groups.values()];
+  }
+
+  // Обновляет отдельную строку заголовка клиентской группы календаря.
+  // Название выводится безопасным текстом; поставщикам заголовки не создаются.
+  function updateGroupHeading(heading, group) {
+    heading.className = "calendar-order-group";
+    heading.dataset.groupKey = group.key;
+    if (!heading.firstElementChild) {
+      const label = document.createElement("span");
+      label.setAttribute("role", "heading");
+      label.setAttribute("aria-level", "3");
+      heading.append(label);
+    }
+    heading.firstElementChild.textContent = group.label;
+    heading.firstElementChild.title = group.label;
+  }
+
+  // Строит заголовки клиентов обычных заказов и отдельные строки поставщиков.
+  // Переиспользует узлы строк и групп, сохраняя фокус, прокрутку и привязку событий.
   function renderWeekOrders() {
     const byWeek = new Map();
     for (const order of orders) {
@@ -208,83 +238,98 @@ const HomeCalendar = (() => {
       const compact = eligible.filter(order => order.calendar_compact === true);
       renderCompactOrders(row.querySelector(".calendar-compact-orders"), compact);
       const weekly = eligible.filter(order => order.calendar_compact !== true);
-      const signature = compact.length + ":" + JSON.stringify(weekly.map((order) => [order.id, order.path, order.title, order.client, order.object, order.is_blue_plus, order.is_dollar, order.is_flagged, order.is_favorite, order.work_supplier, order.work_supplier_color, order.deadline_weeks, order.calendar_events, order.calendar_week_events, order.calendar_inactive, order.calendar_completed, order.calendar_trip, order.calendar_watch_todos, order.calendar_colors]));
+      const signature = compact.length + ":" + JSON.stringify(weekly.map((order) => [order.id, order.path, order.title, order.client, order.client_path, order.object, order.is_blue_plus, order.is_dollar, order.is_flagged, order.is_favorite, order.work_supplier, order.work_supplier_color, order.deadline_weeks, order.calendar_events, order.calendar_week_events, order.calendar_inactive, order.calendar_completed, order.calendar_trip, order.calendar_watch_todos, order.calendar_colors]));
       if (list.dataset.signature === signature) continue;
       list.dataset.signature = signature;
       const top = list.parentElement.scrollTop;
       const focused = list.contains(document.activeElement) ? document.activeElement : null;
       const existing = new Map([...list.children].map((item) => [item.dataset.orderKey, item]));
+      const headings = new Map([...list.querySelectorAll(".calendar-order-group")].map(item => [item.dataset.groupKey, item]));
       const retained = new Set();
       let before = list.firstElementChild;
-      for (const order of weekly) {
-        const supplier = Boolean(order.work_supplier), color = order.work_supplier_color;
-        const key = JSON.stringify([order.id, order.path]);
-        let item = existing.get(key);
-        if (!item) {
-          item = document.createElement("li");
-          item.dataset.orderKey = key;
-          item.className = "calendar-order-row";
-          const link = document.createElement("a"), markers = document.createElement("span"), title = document.createElement("span"), client = document.createElement("small");
-          link.className = "calendar-order-link";
-          markers.className = "calendar-order-markers";
-          markers.setAttribute("aria-hidden", "true");
-          markers.innerHTML = orderMarkers.map((marker) => '<span class="calendar-order-marker calendar-order-' + marker.name + '">' + marker.content + '</span>').join("");
-          title.className = "calendar-order-title";
-          client.className = "calendar-order-client";
-          link.append(markers, ...(supplier ? [client, title] : [title, client]));
-          item.append(link);
-          for (let day = -1; day < 7; day++) {
-            const slot = document.createElement("button");
-            slot.type = "button";
-            slot.className = "calendar-event-slot";
-            item.append(slot);
+      for (const group of orderGroups(weekly)) {
+        if (!group.supplier) {
+          const heading = headings.get(group.key) || document.createElement("li");
+          updateGroupHeading(heading, group);
+          if (heading !== before) list.insertBefore(heading, before);
+          before = heading.nextElementSibling;
+          retained.add(heading);
+        }
+        for (const order of group.orders) {
+          const supplier = Boolean(order.work_supplier), color = order.work_supplier_color;
+          const key = JSON.stringify([order.id, order.path]);
+          let item = existing.get(key);
+          if (!item) {
+            item = document.createElement("li");
+            item.dataset.orderKey = key;
+            item.className = "calendar-order-row";
+            const link = document.createElement("a"), markers = document.createElement("span"), client = document.createElement("small"), title = document.createElement("span"), object = document.createElement("small");
+            link.className = "calendar-order-link";
+            markers.className = "calendar-order-markers";
+            markers.setAttribute("aria-hidden", "true");
+            markers.innerHTML = orderMarkers.map((marker) => '<span class="calendar-order-marker calendar-order-' + marker.name + '">' + marker.content + '</span>').join("");
+            title.className = "calendar-order-title";
+            client.className = "calendar-order-client";
+            object.className = "calendar-order-object";
+            link.append(markers, client, title, object);
+            item.append(link);
+            for (let day = -1; day < 7; day++) {
+              const slot = document.createElement("button");
+              slot.type = "button";
+              slot.className = "calendar-event-slot";
+              item.append(slot);
+            }
           }
+          item.classList.toggle("calendar-supplier-order", supplier);
+          item.dataset.groupKey = group.key;
+          item.classList.toggle("supplier-neutral", supplier && Boolean(color?.neutral));
+          if (supplier) item.style.setProperty("--supplier-hue", String(color?.hue ?? 0));
+          else item.style.removeProperty("--supplier-hue");
+          const link = item.firstElementChild, title = order.title || order.path;
+          const activeMarkers = orderMarkers.filter((marker) => order[marker.field] === true);
+          const markers = link.firstElementChild;
+          orderMarkers.forEach((marker, index) => { markers.children[index].hidden = order[marker.field] !== true; });
+          markers.hidden = !activeMarkers.length;
+          link.href = "?path=" + encodeURIComponent(order.path);
+          link.dataset.calendarOrder = order.path;
+          link.setAttribute("aria-label", [group.label, title, order.object, ...activeMarkers.map((marker) => marker.label)].filter(Boolean).join(" · "));
+          link.querySelector(".calendar-order-title").textContent = title;
+          const client = link.querySelector(".calendar-order-client");
+          client.textContent = order.work_supplier || "";
+          client.hidden = !supplier;
+          const object = link.querySelector(".calendar-order-object");
+          object.textContent = supplier ? "" : order.object || "";
+          object.hidden = supplier || !order.object;
+          for (let day = -1; day < 7; day++) {
+            const week = new Date(row.dataset.week + "T00:00:00Z"), isWeek = day === -1;
+            const date = shiftDays(week, isWeek ? 0 : day), key = dateKey(date);
+            const entries = isWeek ? order.calendar_week_events : order.calendar_events;
+            const slot = item.children[day + 2], text = entries?.[key] || "";
+            slot.dataset.calendarEvent = order.path;
+            slot.dataset.calendarDate = key;
+            slot.dataset.calendarPeriod = isWeek ? "week" : "day";
+            const eventColor = !supplier && text && order.calendar_colors?.[isWeek ? "week" : "day"]?.[key];
+            if (eventColor) slot.dataset.calendarColor = eventColor;
+            else delete slot.dataset.calendarColor;
+            slot.classList.toggle("calendar-week-event-slot", isWeek);
+            slot.textContent = text;
+            showTripMark(slot, Boolean(text) && Boolean(order.calendar_trip?.[isWeek ? "week" : "day"]?.includes(key)));
+            showTodoMark(slot, Boolean(text) && Boolean(order.calendar_watch_todos?.[isWeek ? "week" : "day"]?.includes(key)), order.path);
+            slot.classList.toggle("calendar-inactive", Boolean(text) && Boolean(order.calendar_inactive?.[isWeek ? "week" : "day"]?.includes(key)));
+            slot.classList.toggle("calendar-completed", Boolean(text) && Boolean(order.calendar_completed?.[isWeek ? "week" : "day"]?.includes(key)));
+            const unselectedWeek = isWeek && Boolean(text) && Array.isArray(order.deadline_weeks) && !order.deadline_weeks.includes(key);
+            slot.classList.toggle("calendar-unselected-week", unselectedWeek);
+            slot.classList.toggle("has-event", Boolean(text));
+            if (text) slot.setAttribute("aria-haspopup", "menu");
+            else slot.removeAttribute("aria-haspopup");
+            slot.disabled = entries === null || (isWeek ? shiftDays(week, 6) < range.from || week > range.through : date < range.from || date > range.through);
+            const periodLabel = isWeek ? "Неделя " + weekNumber(week) + ": " + fullDate.format(week) + " — " + fullDate.format(shiftDays(week, 6)) : fullDate.format(date);
+            slot.setAttribute("aria-label", (slot.classList.contains("calendar-watch-todos") ? "Смотри ту-ду · " : "") + (slot.classList.contains("calendar-completed") ? "Выполнено · " : "") + (slot.classList.contains("calendar-trip") ? "Выезд · " : "") + (slot.classList.contains("calendar-inactive") ? "Неактуально · " : "") + (unselectedWeek ? "Отметка недели снята · " : "") + (text ? "Изменить событие: " + text : "Добавить событие") + " · " + title + " · " + periodLabel);
+          }
+          if (item !== before) list.insertBefore(item, before);
+          before = item.nextElementSibling;
+          retained.add(item);
         }
-        item.classList.toggle("calendar-supplier-order", supplier);
-        item.classList.toggle("supplier-neutral", supplier && Boolean(color?.neutral));
-        if (supplier) item.style.setProperty("--supplier-hue", String(color?.hue ?? 0));
-        else item.style.removeProperty("--supplier-hue");
-        const link = item.firstElementChild, title = order.title || order.path;
-        const activeMarkers = orderMarkers.filter((marker) => order[marker.field] === true);
-        const markers = link.firstElementChild;
-        orderMarkers.forEach((marker, index) => { markers.children[index].hidden = order[marker.field] !== true; });
-        markers.hidden = !activeMarkers.length;
-        link.href = "?path=" + encodeURIComponent(order.path);
-        link.dataset.calendarOrder = order.path;
-        link.setAttribute("aria-label", [...(supplier ? [order.work_supplier, title] : [title, order.client]), order.object, ...activeMarkers.map((marker) => marker.label)].filter(Boolean).join(" · "));
-        link.querySelector(".calendar-order-title").textContent = title;
-        const client = link.querySelector(".calendar-order-client"), name = supplier ? order.work_supplier : order.client;
-        client.textContent = name || "";
-        client.hidden = !name;
-        for (let day = -1; day < 7; day++) {
-          const week = new Date(row.dataset.week + "T00:00:00Z"), isWeek = day === -1;
-          const date = shiftDays(week, isWeek ? 0 : day), key = dateKey(date);
-          const entries = isWeek ? order.calendar_week_events : order.calendar_events;
-          const slot = item.children[day + 2], text = entries?.[key] || "";
-          slot.dataset.calendarEvent = order.path;
-          slot.dataset.calendarDate = key;
-          slot.dataset.calendarPeriod = isWeek ? "week" : "day";
-          const eventColor = !supplier && text && order.calendar_colors?.[isWeek ? "week" : "day"]?.[key];
-          if (eventColor) slot.dataset.calendarColor = eventColor;
-          else delete slot.dataset.calendarColor;
-          slot.classList.toggle("calendar-week-event-slot", isWeek);
-          slot.textContent = text;
-          showTripMark(slot, Boolean(text) && Boolean(order.calendar_trip?.[isWeek ? "week" : "day"]?.includes(key)));
-          showTodoMark(slot, Boolean(text) && Boolean(order.calendar_watch_todos?.[isWeek ? "week" : "day"]?.includes(key)), order.path);
-          slot.classList.toggle("calendar-inactive", Boolean(text) && Boolean(order.calendar_inactive?.[isWeek ? "week" : "day"]?.includes(key)));
-          slot.classList.toggle("calendar-completed", Boolean(text) && Boolean(order.calendar_completed?.[isWeek ? "week" : "day"]?.includes(key)));
-          const unselectedWeek = isWeek && Boolean(text) && Array.isArray(order.deadline_weeks) && !order.deadline_weeks.includes(key);
-          slot.classList.toggle("calendar-unselected-week", unselectedWeek);
-          slot.classList.toggle("has-event", Boolean(text));
-          if (text) slot.setAttribute("aria-haspopup", "menu");
-          else slot.removeAttribute("aria-haspopup");
-          slot.disabled = entries === null || (isWeek ? shiftDays(week, 6) < range.from || week > range.through : date < range.from || date > range.through);
-          const periodLabel = isWeek ? "Неделя " + weekNumber(week) + ": " + fullDate.format(week) + " — " + fullDate.format(shiftDays(week, 6)) : fullDate.format(date);
-          slot.setAttribute("aria-label", (slot.classList.contains("calendar-watch-todos") ? "Смотри ту-ду · " : "") + (slot.classList.contains("calendar-completed") ? "Выполнено · " : "") + (slot.classList.contains("calendar-trip") ? "Выезд · " : "") + (slot.classList.contains("calendar-inactive") ? "Неактуально · " : "") + (unselectedWeek ? "Отметка недели снята · " : "") + (text ? "Изменить событие: " + text : "Добавить событие") + " · " + title + " · " + periodLabel);
-        }
-        if (item !== before) list.insertBefore(item, before);
-        before = item.nextElementSibling;
-        retained.add(item);
       }
       for (const item of [...list.children]) if (!retained.has(item)) item.remove();
       if (!weekly.length && !compact.length) {
@@ -300,9 +345,10 @@ const HomeCalendar = (() => {
     }
   }
 
-  // Строит синие ссылки мелких заказов в первой колонке недели.
-  // Использует `Map`, `[...container.children].map`, `Set`.
+  // Строит прежний плоский список синих ссылок мелких заказов без заголовков клиентов.
+  // Сохраняет подписи, нижнюю левую область, узлы ссылок и фокус без показа скрытых событий.
   function renderCompactOrders(container, compact) {
+    const focused = container.contains(document.activeElement) ? document.activeElement : null;
     const existing = new Map([...container.children].map(link => [link.dataset.calendarOrder, link]));
     const retained = new Set();
     let before = container.firstElementChild;
@@ -318,9 +364,10 @@ const HomeCalendar = (() => {
       if (link !== before) container.insertBefore(link, before);
       before = link.nextElementSibling; retained.add(link);
     }
-    const focused = container.contains(document.activeElement);
     for (const link of [...container.children]) if (!retained.has(link)) link.remove();
-    if (focused && document.activeElement === document.body) get("calendarViewport").focus({ preventScroll: true });
+    if (focused && document.activeElement !== focused) {
+      (focused.isConnected ? focused : get("calendarViewport")).focus({ preventScroll: true });
+    }
   }
 
   // Строит свободные события с отдельным значком непустого комментария.
@@ -652,7 +699,7 @@ const HomeCalendar = (() => {
     return { start, end, count: hasPrevious ? 3 : 2 };
   }
   // Создаёт отдельный DOM календаря для рендера общего PNG.
-  // Обращается к DOM текущего документа или переданного контейнера.
+  // Исключает строки прошлой истории и их пустые заголовки, сохраняя группировку и подписи.
   function createSnapshot(now = new Date()) {
     const { start, end, count } = snapshotRange(now);
     const snapshot = document.createElement("section");
@@ -669,6 +716,9 @@ const HomeCalendar = (() => {
       const clone = row.cloneNode(true);
       const visible = new Set(orders.filter(order => visibleOrderWeeks(order, moscowDate(now)).includes(key)).map(order => JSON.stringify([order.id, order.path])));
       for (const item of clone.querySelectorAll(".calendar-order-row")) if (!visible.has(item.dataset.orderKey)) item.remove();
+      for (const heading of clone.querySelectorAll(".calendar-orders-list > .calendar-order-group")) {
+        if (heading.nextElementSibling?.dataset.groupKey !== heading.dataset.groupKey) heading.remove();
+      }
       snapshot.append(clone);
     }
     for (const element of snapshot.querySelectorAll("[id]")) element.removeAttribute("id");
