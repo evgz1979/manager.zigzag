@@ -550,10 +550,10 @@
     $("invoiceDraftHint").textContent = issued ? "Выпущен · для изменений создай новый на основе этого" : "Черновик сохраняется автоматически · одна страница";
   }
 
-  // Показывает компонент по полученным данным и текущему состоянию в модуле счетов и планов платежей.
-  // Использует `$`, `Object.entries`.
-  function show(record) {
-    editor = { record, dirty: false, saving: null, issuing: false, timer: null };
+  // Открывает прежний редактор счёта из карточки заказа или общего списка.
+  // Для общего списка сохраняет ключ возврата фокуса; поля и автосохранение используют путь самого счёта.
+  function show(record, returnFocus = null) {
+    editor = { record, dirty: false, saving: null, issuing: false, timer: null, returnFocus };
     $("invoiceTitle").textContent = (record.data.kind === "contract" ? "Счёт-договор" : "Счёт") + " № " + record.number;
     $("invoiceOrderPath").textContent = record.path;
     for (const [field, id] of Object.entries(fields)) $(id).value = record.data[field] || "";
@@ -587,6 +587,7 @@
       current.dirty = JSON.stringify(collect()) !== snapshot;
       message(current.dirty ? "Сохраняю оставшиеся правки…" : "Черновик сохранён в базе.");
       refreshList(true);
+      document.dispatchEvent(new Event('manager-invoice-saved'));
     } catch (error) { message(error.message + " Ввод остался в форме.", true); throw error; }
     finally { current.saving = null; controls(); }
     if (current.dirty) return save();
@@ -597,15 +598,17 @@
   async function close() {
     if (editor?.issuing) return;
     await save();
+    const returnFocus = editor?.returnFocus;
     clearTimeout(editor?.timer);
     editor = null; $("invoiceDialog").close(); refreshList(true);
+    if (returnFocus) [...$('billsCatalogRows').querySelectorAll('[data-bills-key]')].find(item => item.dataset.billsKey === returnFocus)?.focus({ preventScroll: true });
   }
 
-  // Создаёт новый черновик счёта по выбранному действию.
-  // Использует `/api/invoice-create`.
-  async function create(source) {
-    const path = state.folder?.path;
-    if (!path || !state.folder.order) return;
+  // Создаёт черновик из заказа или явную новую правку из общего списка.
+  // Повтор использует прежний UUID; выпущенный источник не меняется, редактор открывается только в исходном контексте.
+  async function create(source, ownerPath = null, returnFocus = null) {
+    const path = ownerPath || state.folder?.path, context = state.folder;
+    if (!path || (!source && (!context?.order || context.path !== path))) return;
     if (!pendingCreate || pendingCreate.path !== path || pendingCreate.source !== source) {
       pendingCreate = { path, source, id: newIdentity() };
     }
@@ -613,9 +616,23 @@
     try {
       const record = await request("/api/invoice-create", pendingCreate);
       pendingCreate = null;
-      if (state.folder?.path === path) show(record);
+      if (state.folder === context) show(record, returnFocus);
       await refreshList(true);
+      document.dispatchEvent(new Event('manager-invoice-saved'));
     } finally { $("newInvoice").disabled = false; }
+  }
+
+  // Загружает выбранный счёт и открывает его правку поверх общего списка.
+  // Черновик меняется на месте, выпущенный создаёт новый «На основе» только по явному действию copy.
+  async function openFromCatalog(path, identity, mode, returnFocus) {
+    const context = state.folder;
+    if (context?.folderKind !== 'bills_root' || editor?.issuing) return;
+    await save();
+    const record = await request(apiUrl('/api/invoice', path, { id: identity }));
+    if (state.folder !== context || state.view !== 'folder') return;
+    if (mode === 'edit' && record.state === 'draft') show(record, returnFocus);
+    else if (mode === 'copy' && record.state === 'issued') await create(record.id, record.path, returnFocus);
+    else throw new Error('Состояние счёта изменилось. Обнови список перед правкой.');
   }
 
   // Маршрутизирует выбранное действие пользователя внутри компонента.
@@ -805,6 +822,7 @@
       current.record = await request("/api/invoice-issue", { path: current.record.path, id: current.record.id, revision: current.record.revision });
       message("PDF выпущен и сохранён в базе. Копия в # bills поставлена в очередь.");
       await refreshList(true);
+      document.dispatchEvent(new Event('manager-invoice-saved'));
     } finally { current.issuing = false; controls(); }
   }));
   document.addEventListener("manager-folder-rendered", () => refreshList());
@@ -820,4 +838,5 @@
   });
   setInterval(() => { if (!document.hidden && state.view !== "orders" && !$("invoiceSection").hidden) refreshList(true); }, 5000);
   refreshList();
+  window.ManagerInvoices = { openFromCatalog };
 })();

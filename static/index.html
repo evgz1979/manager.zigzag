@@ -147,6 +147,19 @@
           <p id="reconciliationListState" class="todo-empty" role="status"></p>
         </section>
         <section id="folderSection" class="folder-section" aria-label="Подпапки"><div class="section-heading"><h2 id="foldersTitle">Папки</h2><span id="directoryCount"></span></div><label id="frezaTaskSearchLabel" class="search-field freza-task-search" hidden><svg><use href="#icon-search"/></svg><input id="frezaTaskSearch" type="search" placeholder="Найти задание…" aria-label="Поиск заданий на фрезеровку"></label><div id="subfolders" class="subfolders"></div></section>
+        <section id="billsCatalog" class="folder-section bills-section" aria-label="Все счета" hidden>
+          <div class="section-heading"><h2>Все счета</h2><span id="billsCatalogCount"></span></div>
+          <div class="bills-controls"><label class="search-field bills-search"><input id="billsCatalogSearch" type="search" placeholder="Найти счёт, клиента или заказ…" aria-label="Поиск по всем счетам"></label><label class="bills-client-filter">Клиент<select id="billsClientFilter"><option value="">Все клиенты</option></select></label></div>
+          <p class="bills-edit-hint">Выделенные счета: «Редактировать» — черновик, «Новая правка» — отдельный счёт на основе выпущенного.</p>
+          <div class="bills-table-scroll" tabindex="0" role="region" aria-label="Счета всех клиентов"><table class="reconciliation-table bills-table"><thead><tr><th scope="col" aria-sort="descending"><button type="button" class="bills-sort" data-bills-sort="date">Дата</button></th><th scope="col" aria-sort="none"><button type="button" class="bills-sort" data-bills-sort="label">Счёт</button></th><th scope="col" aria-sort="none"><button type="button" class="bills-sort" data-bills-sort="client">Клиент</button></th><th scope="col" aria-sort="none"><button type="button" class="bills-sort" data-bills-sort="order_title">Заказ</button></th><th scope="col" aria-sort="none"><button type="button" class="bills-sort" data-bills-sort="total">Сумма</button></th><th scope="col" aria-sort="none"><button type="button" class="bills-sort" data-bills-sort="list_status">Отметка</button></th></tr></thead><tbody id="billsCatalogRows"></tbody></table></div>
+          <p id="billsCatalogState" class="todo-empty" role="status"></p>
+        </section>
+        <section id="billsInbox" class="folder-section bills-section" aria-label="Входящие счета" hidden>
+          <div class="section-heading"><h2>Входящие счета</h2><span id="billsInboxCount"></span></div>
+          <p class="todo-empty">Файлы для дальнейшего распределения.</p>
+          <div class="bills-table-scroll" tabindex="0" role="region" aria-label="Файлы входящих счетов"><table class="reconciliation-table bills-table"><thead><tr><th scope="col">Файл</th><th scope="col">Размер</th><th scope="col">Изменён</th></tr></thead><tbody id="billsInboxRows"></tbody></table></div>
+          <p id="billsInboxState" class="todo-empty" role="status"></p>
+        </section>
         <details id="frezaLegacyFolders" class="folder-section" hidden><summary>Прежние подпапки <span id="frezaLegacyCount" class="count-badge"></span></summary><div id="frezaLegacyList" class="subfolders"></div></details>
         <section id="workOrdersSection" class="folder-section work-orders-section" aria-label="Заказы производства" hidden><div class="section-heading"><h2 id="workOrdersTitle">Заказы производства</h2><span id="workOrderDirectoryCount"></span></div><div id="workOrdersSlot"></div><div id="workOrderFolders" class="subfolders"></div></section>
         <section id="printWorkspace" class="print-workspace" aria-label="Задания на широкоформатную печать" hidden>
@@ -438,6 +451,7 @@
     <script src="/calendar-telegram.js"></script>
     <script src="/invoice-documents.js"></script>
     <script src="/reconciliations.js"></script>
+    <script src="/bills.js"></script>
     <script src="/invoices.js"></script>
     <script src="/work-orders.js"></script>
     <script src="/supplier-purchases.js"></script>

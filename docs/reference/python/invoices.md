@@ -6,7 +6,7 @@
 
 Invoice drafts, immutable issued PDFs and a durable folder-copy outbox.
 
-Импорты Python, включая локальные: `base64`, `binascii`, `contextlib`, `datetime`, `decimal`, `event_folder_undo`, `file_comments`, `file_trash`, `folder_layout`, `hashlib`, `invoice_documents`, `json`, `local_metadata`, `native_renderers`, `order_calendar`, `order_folders`, `orders`, `os`, `pathlib`, `re`, `subprocess`, `tempfile`, `threading`, `time`, `unicodedata`, `uuid`, `zoneinfo`.
+Импорты Python, включая локальные: `base64`, `binascii`, `contextlib`, `datetime`, `decimal`, `event_folder_undo`, `file_comments`, `file_trash`, `folder_layout`, `folder_structure`, `hashlib`, `invoice_documents`, `json`, `local_metadata`, `native_renderers`, `order_calendar`, `order_folders`, `orders`, `os`, `pathlib`, `re`, `subprocess`, `tempfile`, `threading`, `time`, `unicodedata`, `uuid`, `zoneinfo`.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
@@ -93,6 +93,28 @@ def calendar_plans(self, visible_orders):
 Работает с таблицами invoices.
 
 Непосредственные вызовы: `order.get`, `self.connect`, `db.execute`, `owners.get`, `json.loads`, `data.get`, `known_plan`, `result.append`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+result
+```
+
+<a id="symbol-InvoiceStore.catalog"></a>
+
+## InvoiceStore.catalog
+
+[invoices.py](../../../invoices.py) · `function`.
+
+```python
+def catalog(self):
+```
+
+Собирает общий список созданных и прикреплённых счетов всех клиентов.
+
+Без PDF/обхода файлов; client_path различает клиентов, edit_action учитывает регистрацию владельца, планы и корзина исключены.
+
+Непосредственные вызовы: `self.connect`, `db.execute`, `json.loads`, `data.get`, `result.append`, `self.source_label`, `client_name`, `client_path`, `row['path'].split`, `Path`, `isinstance`.
 
 Выражения возврата (ветки читаются в исходнике):
 

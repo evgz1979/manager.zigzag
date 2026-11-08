@@ -248,6 +248,7 @@
           {"name": "dated", "type": "function", "anchor": "symbol-dated"},
           {"name": "folder_role", "type": "function", "anchor": "symbol-folder_role"},
           {"name": "grouped_client", "type": "function", "anchor": "symbol-grouped_client"},
+          {"name": "in_bills", "type": "function", "anchor": "symbol-in_bills"},
           {"name": "in_freza", "type": "function", "anchor": "symbol-in_freza"},
           {"name": "in_reconciliations", "type": "function", "anchor": "symbol-in_reconciliations"},
           {"name": "is_catalog_group", "type": "function", "anchor": "symbol-is_catalog_group"},
@@ -334,6 +335,7 @@
           {"name": "InvoiceStore.__init__", "type": "function", "anchor": "symbol-InvoiceStore.__init__"},
           {"name": "InvoiceStore._save_plan_calendar_flag", "type": "function", "anchor": "symbol-InvoiceStore._save_plan_calendar_flag"},
           {"name": "InvoiceStore.calendar_plans", "type": "function", "anchor": "symbol-InvoiceStore.calendar_plans"},
+          {"name": "InvoiceStore.catalog", "type": "function", "anchor": "symbol-InvoiceStore.catalog"},
           {"name": "InvoiceStore.connect", "type": "function", "anchor": "symbol-InvoiceStore.connect"},
           {"name": "InvoiceStore.create", "type": "function", "anchor": "symbol-InvoiceStore.create"},
           {"name": "InvoiceStore.current", "type": "function", "anchor": "symbol-InvoiceStore.current"},
@@ -1371,6 +1373,22 @@
         ]
       },
       {
+        "path": "static/bills.js",
+        "symbols": [
+          {"name": "clientKey", "type": "FunctionDeclaration", "anchor": "symbol-clientKey"},
+          {"name": "compareRecords", "type": "FunctionDeclaration", "anchor": "symbol-compareRecords"},
+          {"name": "date", "type": "ArrowFunctionExpression", "anchor": "symbol-date"},
+          {"name": "refresh", "type": "FunctionDeclaration", "anchor": "symbol-refresh"},
+          {"name": "renderCatalog", "type": "FunctionDeclaration", "anchor": "symbol-renderCatalog"},
+          {"name": "renderClientFilter", "type": "FunctionDeclaration", "anchor": "symbol-renderClientFilter"},
+          {"name": "renderInbox", "type": "FunctionDeclaration", "anchor": "symbol-renderInbox"},
+          {"name": "renderSorting", "type": "FunctionDeclaration", "anchor": "symbol-renderSorting"},
+          {"name": "replaceRows", "type": "FunctionDeclaration", "anchor": "symbol-replaceRows"},
+          {"name": "selectClient", "type": "FunctionDeclaration", "anchor": "symbol-selectClient"},
+          {"name": "sortValue", "type": "FunctionDeclaration", "anchor": "symbol-sortValue"}
+        ]
+      },
+      {
         "path": "static/calendar-snapshot.js",
         "symbols": [
           {"name": "capture", "type": "FunctionDeclaration", "anchor": "symbol-capture"},
@@ -1508,6 +1526,7 @@
           {"name": "message", "type": "ArrowFunctionExpression", "anchor": "symbol-message"},
           {"name": "newIdentity", "type": "FunctionDeclaration", "anchor": "symbol-newIdentity"},
           {"name": "normalizePlanDate", "type": "FunctionDeclaration", "anchor": "symbol-normalizePlanDate"},
+          {"name": "openFromCatalog", "type": "FunctionDeclaration", "anchor": "symbol-openFromCatalog"},
           {"name": "pdfUrl", "type": "ArrowFunctionExpression", "anchor": "symbol-pdfUrl"},
           {"name": "planAmount", "type": "ArrowFunctionExpression", "anchor": "symbol-planAmount"},
           {"name": "planValues", "type": "FunctionDeclaration", "anchor": "symbol-planValues"},

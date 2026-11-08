@@ -594,7 +594,7 @@ function renderSubfolders() {
   const focusedSupplier = document.activeElement?.closest("[data-supplier-favorite]")?.dataset.supplierFavorite;
   const focusedFolder = document.activeElement?.closest("#subfolders [data-path]")?.dataset.path;
   const scroll = document.querySelector(".content-pane").scrollTop;
-  const visibleDirectories = folder.directories.filter((item) => (["work_root", "moneys_root"].includes(folder.folderKind) || !item.name.startsWith("#")) &&
+  const visibleDirectories = folder.directories.filter((item) => (["work_root", "moneys_root", "bills_root"].includes(folder.folderKind) || !item.name.startsWith("#")) &&
     !(isWorkOrderList() && folder.folderKind !== "work_root") &&
     !(isWorkOrderList() && state.workArchivedPaths.includes(item.path.normalize("NFC"))) &&
     !(isFolderOrderList() && state.objectOrders.some((order) => order.path.normalize("NFC") === item.path.normalize("NFC"))));
@@ -797,7 +797,7 @@ function renderFolder(preserveForm = false) {
   $("folderSummary").textContent = folder.frezaSection ? printCountLabel(folder.directories.filter((item) => !item.name.startsWith("#")).length) + " · превью и файлы" : printView ? printCountLabel(folder.fileCount) + " · название, ссылка и описание" : folder.filesLoading ? "Карточка из локальной базы · подпапки загружаются…" : folder.filesUnavailable ? "Карточка из локальной базы · папка сейчас недоступна" : folder.frezaTask ? "Файлов: " + folder.fileCount + " · " + formatSize(folder.totalSize) + " · добавляй файлы прямо в задание" : folder.filesScope === "events" ? folder.folderCount + " папок · файлы доступны в событиях" : folder.filesScope === "subfolders" ? folder.folderCount + " папок" : folder.path
     ? folder.fileCount + " файлов · " + folder.folderCount + " папок · " + formatSize(folder.totalSize)
     : "Выберите клиента или заказ в дереве слева";
-  const foldersAnchor = folder.canCreateEventFolder ? $("orderOverview") : $("frezaLegacyFolders");
+  const foldersAnchor = folder.folderKind === 'bills_root' ? $("billsCatalog") : folder.canCreateEventFolder ? $("orderOverview") : $("frezaLegacyFolders");
   if ($("folderSection").nextElementSibling !== foldersAnchor) foldersAnchor.before($("folderSection"));
   renderSubfolders();
   renderSketches();
@@ -862,7 +862,7 @@ function renderFolder(preserveForm = false) {
   $("notice").hidden = !warnings.length;
   $("notice").textContent = warnings.join(" · ");
   $("fileSearch").value = state.fileQuery;
-  $("filesSection").hidden = printView || ["events", "subfolders"].includes(folder.filesScope) || Boolean(folder.filesLoading || folder.filesUnavailable);
+  $("filesSection").hidden = printView || folder.folderKind === 'bills_inbox' || ["events", "subfolders"].includes(folder.filesScope) || Boolean(folder.filesLoading || folder.filesUnavailable);
   $("uploadDropZone").hidden = !folder.upload;
   renderUpload();
   $("printWorkspace").hidden = !printView;

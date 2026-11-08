@@ -48,7 +48,7 @@ class SupplierPurchaseTests(unittest.TestCase):
                 "index": 0, "text": self.items[0]["text"], "done": True, **changes}
 
     def test_live_view_uses_selected_suppliers_all_statuses_and_only_ordinary_registered_orders(self):
-        for path in ("# work/# glass/Производственный", "# moneys/# bills/Финансовая запись", "Клиент/Объект 2/2026-10-25 - Снят"):
+        for path in ("# work/# glass/Производственный", "# moneys/# Документы/Финансовая запись", "Клиент/Объект 2/2026-10-25 - Снят"):
             self.folder(path)
             row = self.store.add(path, {"status": "cancelled", "extra_blocks": self.order["extra_blocks"]})
             if not path.startswith("#"):

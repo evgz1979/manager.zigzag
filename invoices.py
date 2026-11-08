@@ -19,6 +19,7 @@ from zoneinfo import ZoneInfo
 
 from event_folder_undo import assert_unlocked
 from folder_layout import rename_exclusive
+from folder_structure import client_name, client_path
 import native_renderers
 import orders
 import file_comments
@@ -371,6 +372,27 @@ class InvoiceStore:
             condition = 'IS NOT NULL' if trashed else 'IS NULL'
             rows = db.execute("SELECT id,path,year,number,revision,state,data,filename,exported,sync_error,created,updated FROM invoices WHERE path=? AND json_extract(data,'$._trash') " + condition + ' ORDER BY created DESC,id', (path,))
             return [invoice_documents.with_copy_status(db, self.record(row)) for row in rows]
+
+    # Собирает общий список созданных и прикреплённых счетов всех клиентов.
+    # Без PDF/обхода файлов; client_path различает клиентов, edit_action учитывает регистрацию владельца, планы и корзина исключены.
+    def catalog(self):
+        with self.connect() as db:
+            rows = db.execute('''SELECT i.id,i.path,i.number,i.state,i.data,o.title AS order_title,o.registered AS owner_registered
+                FROM invoices i LEFT JOIN orders o ON o.path=i.path
+                WHERE i.state IN ('draft','issued','external') AND json_extract(i.data,'$._trash') IS NULL
+                ORDER BY json_extract(i.data,'$.date') DESC,i.created DESC,i.id''')
+            result = []
+            for row in rows:
+                data = json.loads(row['data'])
+                status = data.get('_list_status', 'none')
+                result.append({'id': row['id'], 'path': row['path'], 'state': row['state'],
+                    'edit_action': ('edit' if row['state'] == 'draft' else 'copy' if row['state'] == 'issued' else None) if row['owner_registered'] == 1 else None,
+                    'label': self.source_label(row), 'date': data.get('date', ''),
+                    'total': data.get('total'), 'comment': data.get('comment') or data.get('note', ''),
+                    'client': client_name(row['path']), 'client_path': client_path(row['path']) or row['path'].split('/')[0],
+                    'order_title': row['order_title'] or Path(row['path']).name,
+                    'list_status': status if isinstance(status, str) and status in LIST_STATUSES else None})
+            return result
 
     # Читает точный счёт по пути владельца и UUID.
     # Возвращает `invoice_documents.with_copy_status(db, self.record(self.current(db, path, identity)))`.

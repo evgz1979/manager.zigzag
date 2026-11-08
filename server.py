@@ -1170,8 +1170,8 @@ def freza_preview_target(relative):
     raise FileNotFoundError("В задании пока нет изображения или CDR для превью")
 
 
-# Собирает представление папки и файлы непосредственных # cutter/# freza заказа.
-# В заказе обходит только эти две ветки; остальные вложения доступны внутри папок.
+# Собирает представление папки и разрешённые файлы её роли.
+# У заказа обходит # cutter/# freza, у входящих счетов — только непосредственные файлы.
 def read_folder(relative="", show_inactive=False):
     target = safe_path(relative)
     if not target.is_dir():
@@ -1193,9 +1193,9 @@ def read_folder(relative="", show_inactive=False):
     freza_section = in_freza(relative) and len(Path(relative).parts) == 2
     freza_task = is_freza_task(relative)
     files_scope = "folder" if freza_task else "events" if status["folderKind"] == "order" or status.get("order") else (
-        "subfolders" if not print_view and status["folderKind"] in {"client", "object", "catalog_group", "supplier_root", "work_root", "moneys_root", "work_section", "moneys_section", "reconciliations_root", "reconciliation"} else "folder")
+        "subfolders" if not print_view and status["folderKind"] in {"client", "object", "catalog_group", "supplier_root", "work_root", "moneys_root", "work_section", "moneys_section", "reconciliations_root", "reconciliation", "bills_root"} else "folder")
     hide_files = files_scope != "folder"
-    folder_count = len(directories) if hide_files or print_view else 0
+    folder_count = len(directories) if hide_files or print_view or status['folderKind'] == 'bills_inbox' else 0
     order_file_folders = [folder for folder in directories
                           if folder.name.startswith("#") and folder.name[1:].strip().casefold() in {"cutter", "freza"}
                           and not folder.is_symlink()] if status["folderKind"] == "order" and not freza_task else []
@@ -1211,8 +1211,8 @@ def read_folder(relative="", show_inactive=False):
     for current, dirs, names in (entry for root in file_roots for entry in os.walk(root, onerror=walk_error, followlinks=False)):
         current_path = Path(current)
         dirs[:] = [name for name in dirs if visible(current_path / name)]
-        if print_view:
-            dirs[:] = []  # The print editor owns only immediate task sources.
+        if print_view or status['folderKind'] == 'bills_inbox':
+            dirs[:] = []  # Print sources and incoming bills list only immediate files.
         if not hide_files:
             folder_count += len(dirs)
         if target == DATA_ROOT:
@@ -1664,6 +1664,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
             elif parsed.path == "/api/invoices":
                 service = reconciliations.Reconciliations(order_store())
                 self.send_json({"items": service.with_links(invoice_store().list(relative)), "trash": service.with_links(invoice_store().list(relative, trashed=True))}, head=head)
+            elif parsed.path == '/api/invoice-catalog':
+                self.send_json({'items': invoice_store().catalog()}, head=head)
             elif parsed.path == '/api/reconciliations':
                 self.send_json({'items': reconciliations.Reconciliations(order_store()).catalog()}, head=head)
             elif parsed.path == '/api/reconciliation':

@@ -122,7 +122,7 @@ async function close()
 
 Управляет отложенным обновлением через таймер или кадр браузера.
 
-Непосредственные вызовы: `save`, `clearTimeout`, `$("invoiceDialog").close`, `$`, `refreshList`.
+Непосредственные вызовы: `save`, `clearTimeout`, `$("invoiceDialog").close`, `$`, `refreshList`, `[...$('billsCatalogRows').querySelectorAll('[data-bills-key]')].find(item => item.dataset.billsKey === returnFocus)?.focus`, `[...$('billsCatalogRows').querySelectorAll('[data-bills-key]')].find`, `$('billsCatalogRows').querySelectorAll`.
 
 <a id="symbol-closeExternal"></a>
 
@@ -199,14 +199,14 @@ function controls()
 [static/invoices.js](../../../static/invoices.js) · `FunctionDeclaration`.
 
 ```javascript
-async function create(source)
+async function create(source, ownerPath = null, returnFocus = null)
 ```
 
-Создаёт новый черновик счёта по выбранному действию.
+Создаёт черновик из заказа или явную новую правку из общего списка.
 
-Использует `/api/invoice-create`.
+Повтор использует прежний UUID; выпущенный источник не меняется, редактор открывается только в исходном контексте.
 
-Непосредственные вызовы: `newIdentity`, `$`, `request`, `show`, `refreshList`.
+Непосредственные вызовы: `newIdentity`, `$`, `request`, `show`, `refreshList`, `document.dispatchEvent`, `Event`.
 
 Прямые присваивания полям/свойствам: `$("newInvoice").disabled`.
 
@@ -361,6 +361,22 @@ function normalizePlanDate()
 Непосредственные вызовы: `$`, `Date`, `Number.isNaN`, `date.getTime`, `date.setUTCDate`, `date.getUTCDate`, `date.getUTCDay`, `date.toISOString().slice`, `date.toISOString`, `displayPlanDate`.
 
 Прямые присваивания полям/свойствам: `$("planInvoiceDateCaption").textContent`, `$("planInvoiceWeekHint").hidden`, `$("planInvoiceWeekHint").textContent`, `$("planInvoiceDate").value`.
+
+<a id="symbol-openFromCatalog"></a>
+
+## openFromCatalog
+
+[static/invoices.js](../../../static/invoices.js) · `FunctionDeclaration`.
+
+```javascript
+async function openFromCatalog(path, identity, mode, returnFocus)
+```
+
+Загружает выбранный счёт и открывает его правку поверх общего списка.
+
+Черновик меняется на месте, выпущенный создаёт новый «На основе» только по явному действию copy.
+
+Непосредственные вызовы: `save`, `request`, `apiUrl`, `show`, `create`, `Error`.
 
 <a id="symbol-pdfUrl"></a>
 
@@ -557,7 +573,7 @@ async function save()
 
 Использует `/api/invoice-save`.
 
-Непосредственные вызовы: `clearTimeout`, `save`, `collect`, `JSON.stringify`, `$`, `message`, `request`, `controls`, `refreshList`.
+Непосредственные вызовы: `clearTimeout`, `save`, `collect`, `JSON.stringify`, `$`, `message`, `request`, `controls`, `refreshList`, `document.dispatchEvent`, `Event`.
 
 Прямые присваивания полям/свойствам: `current.saving`, `current.record`, `current.saved`, `current.dirty`.
 
@@ -622,12 +638,12 @@ function selectExternalFile(file)
 [static/invoices.js](../../../static/invoices.js) · `FunctionDeclaration`.
 
 ```javascript
-function show(record)
+function show(record, returnFocus = null)
 ```
 
-Показывает компонент по полученным данным и текущему состоянию в модуле счетов и планов платежей.
+Открывает прежний редактор счёта из карточки заказа или общего списка.
 
-Использует `$`, `Object.entries`.
+Для общего списка сохраняет ключ возврата фокуса; поля и автосохранение используют путь самого счёта.
 
 Непосредственные вызовы: `$`, `Object.entries`, `Object.entries(sellerFields).map(([key, label]) => '<label>' + label + '<input id="invoiceSeller-' + key + '" maxlength="' + (key === "address" ? 500 : 300) + '" value="' + escapeHtml(record.data.seller[key] || "") + '"></label>').join`, `Object.entries(sellerFields).map`, `record.data.items.map(itemMarkup).join`, `record.data.items.map`, `JSON.stringify`, `collect`, `message`, `controls`, `totals`, `$("invoiceDialog").showModal`, `$("invoiceBuyer").focus`.
 

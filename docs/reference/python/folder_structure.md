@@ -94,7 +94,7 @@ def folder_role(root, relative):
 
 Формирует возвращаемое значение из проверенного локального состояния.
 
-Непосредственные вызовы: `Path`, `len`, `is_work_root`, `is_moneys_root`, `in_reconciliations`, `parts[2].startswith`, `is_service_folder`, `is_catalog_group`, `dated`, `is_supplier_root`, `supplier_prefix`, `grouped_client`, `enumerate`, `DATE.match`, `DATE_LIKE.match`, `YEAR.fullmatch`, `NUMBER.match`, `Path(root).joinpath`, `os.scandir`, `entry.is_dir`, `entry.name.startswith`, `entry.is_symlink`, `any`, `child.startswith`, `re.match`, `is_print_section`, `Path(*parts[:2]).as_posix`.
+Непосредственные вызовы: `Path`, `len`, `is_work_root`, `is_moneys_root`, `in_bills`, `parts[2].startswith`, `parts[2][1:].strip().casefold`, `parts[2][1:].strip`, `in_reconciliations`, `is_service_folder`, `is_catalog_group`, `dated`, `is_supplier_root`, `supplier_prefix`, `grouped_client`, `enumerate`, `DATE.match`, `DATE_LIKE.match`, `YEAR.fullmatch`, `NUMBER.match`, `Path(root).joinpath`, `os.scandir`, `entry.is_dir`, `entry.name.startswith`, `entry.is_symlink`, `any`, `child.startswith`, `re.match`, `is_print_section`, `Path(*parts[:2]).as_posix`.
 
 Выражения возврата (ветки читаются в исходнике):
 
@@ -123,6 +123,28 @@ def grouped_client(parts):
 ```python
 False
 not (dated(name) or DATE.match(name) or DATE_LIKE.match(name) or YEAR.fullmatch(name) or NUMBER.match(name))
+```
+
+<a id="symbol-in_bills"></a>
+
+## in_bills
+
+[folder_structure.py](../../../folder_structure.py) · `function`.
+
+```python
+def in_bills(relative):
+```
+
+Распознаёт общий раздел счетов внутри финансового корня.
+
+Пробел после # и регистр не важны; заказные # bills сюда не входят.
+
+Непосредственные вызовы: `Path`, `len`, `is_moneys_root`, `parts[1].startswith`, `parts[1][1:].strip().casefold`, `parts[1][1:].strip`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+len(parts) >= 2 and is_moneys_root(parts[0]) and parts[1].startswith('#') and (parts[1][1:].strip().casefold() == 'bills')
 ```
 
 <a id="symbol-in_freza"></a>

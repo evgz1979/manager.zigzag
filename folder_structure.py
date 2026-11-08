@@ -13,6 +13,7 @@ NUMBER = re.compile(r"^\d{2,}(?=$|\D)")
 LABELS = {"root": "Корень документов", "client": "Клиент", "object": "Объект", "year": "Группа года",
           "work_root": "Производство",
           "moneys_root": "Финансовая информация",
+          "bills_root": "Все счета", "bills_inbox": "Входящие счета", "bills_contents": "Документы счетов",
           "reconciliations_root": "Сверки", "reconciliation": "Сверка", "reconciliation_contents": "Документы сверки",
           "work_section": "Производственный раздел", "moneys_section": "Финансовый раздел",
           "supplier_root": "Заказы поставщикам · стекло и стеклопакеты",
@@ -37,6 +38,13 @@ def is_work_root(name):
 # Возвращает `name.startswith('#') and name[1:].strip().casefold() == 'moneys'`.
 def is_moneys_root(name):
     return name.startswith("#") and name[1:].strip().casefold() == "moneys"
+
+
+# Распознаёт общий раздел счетов внутри финансового корня.
+# Пробел после # и регистр не важны; заказные # bills сюда не входят.
+def in_bills(relative):
+    parts = Path(relative).parts
+    return len(parts) >= 2 and is_moneys_root(parts[0]) and parts[1].startswith('#') and parts[1][1:].strip().casefold() == 'bills'
 
 
 # Проверяет принадлежность пути разделу самостоятельных сверок.
@@ -185,6 +193,9 @@ def folder_role(root, relative):
         kind = "work_root"
     elif len(parts) == 1 and is_moneys_root(parts[0]):
         kind = "moneys_root"
+    elif in_bills(relative):
+        inbox = len(parts) == 3 and parts[2].startswith('#') and parts[2][1:].strip().casefold() == 'inbox'
+        kind = 'bills_root' if len(parts) == 2 else 'bills_inbox' if inbox else 'bills_contents'
     elif in_reconciliations(relative):
         kind = 'reconciliations_root' if len(parts) == 2 else 'reconciliation' if len(parts) == 3 and not parts[2].startswith('#') else 'reconciliation_contents'
     elif is_service_folder(relative):

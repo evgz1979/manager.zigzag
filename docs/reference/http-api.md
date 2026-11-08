@@ -234,6 +234,20 @@ self.send_json({'items': service.with_links(invoice_store().list(relative)), 'tr
 
 Вызовы ветки: `reconciliations.Reconciliations`, `order_store`, `service.with_links`, `invoice_store().list`, `invoice_store`.
 
+## GET / HEAD /api/invoice-catalog
+
+[ManagerHandler.handle_get](python/server.md#symbol-ManagerHandler.handle_get).
+
+Условие: `parsed.path == '/api/invoice-catalog'`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json({'items': invoice_store().catalog()}, head=head)
+```
+
+Вызовы ветки: `invoice_store().catalog`, `invoice_store`.
+
 ## GET / HEAD /api/reconciliations
 
 [ManagerHandler.handle_get](python/server.md#symbol-ManagerHandler.handle_get).

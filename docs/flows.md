@@ -121,6 +121,12 @@ sequenceDiagram
 
 ## Счёт, выпуск, копия
 
+[renderClientFilter](reference/javascript/static-bills.md#symbol-renderClientFilter) строит варианты клиентов по точному `client_path` всей сводки; [selectClient](reference/javascript/static-bills.md#symbol-selectClient) принимает выбор списка или нажатие имени в колонке. Клиент, поиск и сортировка применяются вместе в браузере; опрос и сохранение редактора обновляют строки без сброса фильтра, отсутствующий выбранный клиент остаётся выбранным.
+
+[openFromCatalog](reference/javascript/static-invoices.md#symbol-openFromCatalog) открывает правку поверх общего списка по свежим данным `/api/invoice`. `edit_action=edit` ведёт в прежнее сохранение черновика, `copy` — в прежнее создание «На основе» с устойчивым UUID запроса и новым номером; выпущенный источник не заменяется. Сохранение, создание и выпуск отправляют `manager-invoice-saved` для обновления сводки с сохранением выбора и фокуса. Каталог вычисляет доступное действие из типа счёта и регистрации владельца, не читая PDF.
+
+[InvoiceStore.catalog](reference/python/invoices.md#symbol-InvoiceStore.catalog) обслуживает общий список `# moneys/# bills` через GET `/api/invoice-catalog`: только сохранённые метаданные черновиков, выпущенных и прикреплённых счетов без планов и корзины. [refresh](reference/javascript/static-bills.md#symbol-refresh) обновляет таблицу с поиском каждые 5 секунд; [compareRecords](reference/javascript/static-bills.md#symbol-compareRecords) сохраняет выбранную сортировку по одной из шести колонок с датой первой и пустыми значениями в конце. Прежние ссылки открывают PDF из базы или исходный заказ. Вложенная `# inbox` использует непосредственный список файлов из [read_folder](reference/python/server.md#symbol-read_folder), без импорта и распределения.
+
 [InvoiceStore.create](reference/python/invoices.md#symbol-InvoiceStore.create) создаёт черновик; `save` проверяет версию и данные, `issue` присваивает предусмотренный номер и фиксирует PDF. Байты выпущенного документа сохраняются в SQLite. Повторять выпуск как обычное обновление полей нельзя: для нового содержания создаётся документ «На основе».
 
 Публикация в `# bills` повторяется по устойчивому состоянию. Имя существующего оригинала не занимается молча. Внешний PDF может загружаться как BLOB либо явно прикрепляться из `# bills` через [attach](reference/python/invoice_discovery.md#symbol-attach): отпечаток до/после чтения, предел размера, корректный PDF, защита от дубликата по точным байтам и устойчивой идентичности.

@@ -8,7 +8,7 @@
 
 ## Python
 
-60 файлов; 830 именованных объявлений.
+60 файлов; 832 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
@@ -28,14 +28,14 @@
 | [folder_notes.py](python/folder_notes.md) | 20 |
 | [folder_rename.py](python/folder_rename.md) | 6 |
 | [folder_rename_undo.py](python/folder_rename_undo.md) | 7 |
-| [folder_structure.py](python/folder_structure.md) | 17 |
+| [folder_structure.py](python/folder_structure.md) | 18 |
 | [hidden_orders.py](python/hidden_orders.md) | 4 |
 | [icloud_access.py](python/icloud_access.md) | 8 |
 | [image_reports.py](python/image_reports.md) | 2 |
 | [inbox_folder.py](python/inbox_folder.md) | 1 |
 | [invoice_discovery.py](python/invoice_discovery.md) | 6 |
 | [invoice_documents.py](python/invoice_documents.md) | 13 |
-| [invoices.py](python/invoices.md) | 46 |
+| [invoices.py](python/invoices.md) | 47 |
 | [local_metadata.py](python/local_metadata.md) | 26 |
 | [mobile_sync.py](python/mobile_sync.md) | 24 |
 | [native_renderers.py](python/native_renderers.md) | 1 |
@@ -75,18 +75,19 @@
 
 ## JavaScript
 
-20 файлов; 410 именованных объявлений.
+21 файлов; 422 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
 | [static/app.js](javascript/static-app.md) | 231 |
+| [static/bills.js](javascript/static-bills.md) | 11 |
 | [static/calendar-snapshot.js](javascript/static-calendar-snapshot.md) | 4 |
 | [static/calendar-telegram.js](javascript/static-calendar-telegram.md) | 6 |
 | [static/hidden-orders.js](javascript/static-hidden-orders.md) | 10 |
 | [static/home-calendar.js](javascript/static-home-calendar.md) | 33 |
 | [static/inbox.js](javascript/static-inbox.md) | 14 |
 | [static/invoice-documents.js](javascript/static-invoice-documents.md) | 17 |
-| [static/invoices.js](javascript/static-invoices.md) | 40 |
+| [static/invoices.js](javascript/static-invoices.md) | 41 |
 | [static/mobile.js](javascript/static-mobile.md) | 3 |
 | [static/money-overview.js](javascript/static-money-overview.md) | 8 |
 | [static/navigation.js](javascript/static-navigation.md) | 1 |
