@@ -3174,7 +3174,7 @@ function scheduleCalendarTodoPreviewClose() {
 }
 
 // Обновляет доступные действия редактора и поле комментария свободного события.
-// При сохранении блокирует оба поля; у событий заказа комментарий скрыт и отключён.
+// Блокирует ввод при сохранении; удаление доступно свободным обоих периодов и дневным событиям заказа.
 function renderCalendarEventControls() {
   const edit = state.calendarEvent;
   if (!edit) return;
@@ -3185,7 +3185,7 @@ function renderCalendarEventControls() {
   $("cancelCalendarEvent").disabled = Boolean(edit.saving);
   $("refreshCalendarEvent").hidden = !edit.conflict;
   $("refreshCalendarEvent").disabled = Boolean(edit.saving);
-  $("deleteCalendarEvent").hidden = edit.period !== 'day' || !edit.previous;
+  $("deleteCalendarEvent").hidden = (!edit.free && edit.period !== 'day') || !edit.previous;
   $("deleteCalendarEvent").disabled = Boolean(edit.saving || edit.conflict);
 }
 
@@ -3294,7 +3294,7 @@ function openCalendarEventMenu(slot, x, y) {
   $("calendarEventNotified").hidden = !plan || !["incoming", "outgoing"].includes(order.operation);
   $("calendarEventNotified").disabled = order.is_notified !== undefined && typeof order.is_notified !== "boolean";
   $("calendarEventNotified").setAttribute("aria-checked", String(notified));
-  $("calendarEventDelete").hidden = plan ? Boolean(order.path) : period !== 'day';
+  $("calendarEventDelete").hidden = plan ? Boolean(order.path) : !free && period !== 'day';
   $("calendarEventColors").hidden = !canColor;
   menu.querySelectorAll("[data-calendar-color]").forEach((button) => button.setAttribute("aria-checked", String(button.dataset.calendarColor === (color || "green"))));
   menu.hidden = false;
@@ -3398,13 +3398,13 @@ async function restoreCalendarDeletion(entry, revision) {
 }
 
 // Удаляет выбранную запись через API её конкретного вида.
-// Использует `/api/calendar-payment-remove`, `/api/calendar-event-remove`, `/api/order-calendar-event-remove`.
+// Свободные события удаляет на день/неделю, события заказа только на день; предлагает прежнюю отмену.
 async function removeCalendarRecord(entry) {
   if (entry.plan) {
     const plan = state.calendarInvoicePlans.find((record) => record.id === entry.id);
     if (!plan || plan.path || !['incoming', 'outgoing'].includes(plan.operation)) throw new Error('В календаре можно удалять только поступления и затраты без заказа');
     entry = { ...entry, originalPlan: { ...plan }, path: '' };
-  } else if (entry.period !== 'day') throw new Error('Удалять можно только события на день');
+  } else if (!entry.free && entry.period !== 'day') throw new Error('Событие заказа можно удалить только на день');
   const key = entry.plan || entry.free ? entry.id : entry.path;
   if (state.calendarMoving.has(key)) throw new Error('Дождись сохранения события');
   state.calendarMoving.add(key);
@@ -3438,11 +3438,11 @@ async function deleteCalendarEventFromMenu() {
   }
 }
 
-// Удаляет точное событие из открытого меню или редактора.
-// Использует `renderCalendarEventControls`, `removeCalendarRecord`, `closeCalendarEvent`.
+// Удаляет сохранённое свободное событие любого периода либо дневное событие заказа из формы.
+// При конфликте или ошибке оставляет ввод; после успеха закрывает форму и сохраняет действие отмены.
 async function deleteCalendarEventFromDialog() {
   const edit = state.calendarEvent;
-  if (!edit || edit.saving || edit.conflict || edit.period !== 'day' || !edit.previous) return;
+  if (!edit || edit.saving || edit.conflict || (!edit.free && edit.period !== 'day') || !edit.previous) return;
   edit.saving = true;
   renderCalendarEventControls();
   try {

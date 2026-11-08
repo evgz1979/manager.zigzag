@@ -582,9 +582,9 @@ function deadlineWeekInfo(start)
 async function deleteCalendarEventFromDialog()
 ```
 
-Удаляет точное событие из открытого меню или редактора.
+Удаляет сохранённое свободное событие любого периода либо дневное событие заказа из формы.
 
-Использует `renderCalendarEventControls`, `removeCalendarRecord`, `closeCalendarEvent`.
+При конфликте или ошибке оставляет ввод; после успеха закрывает форму и сохраняет действие отмены.
 
 Непосредственные вызовы: `renderCalendarEventControls`, `removeCalendarRecord`, `closeCalendarEvent`, `$`.
 
@@ -2159,7 +2159,7 @@ async function removeCalendarRecord(entry)
 
 Удаляет выбранную запись через API её конкретного вида.
 
-Использует `/api/calendar-payment-remove`, `/api/calendar-event-remove`, `/api/order-calendar-event-remove`.
+Свободные события удаляет на день/неделю, события заказа только на день; предлагает прежнюю отмену.
 
 Непосредственные вызовы: `state.calendarInvoicePlans.find`, `['incoming', 'outgoing'].includes`, `Error`, `state.calendarMoving.has`, `state.calendarMoving.add`, `request`, `applyCalendarDeletion`, `notify`, `state.calendarMoving.delete`, `renderOrders`.
 
@@ -2229,7 +2229,7 @@ function renderCalendarEventControls()
 
 Обновляет доступные действия редактора и поле комментария свободного события.
 
-При сохранении блокирует оба поля; у событий заказа комментарий скрыт и отключён.
+Блокирует ввод при сохранении; удаление доступно свободным обоих периодов и дневным событиям заказа.
 
 Непосредственные вызовы: `$`, `Boolean`.
 

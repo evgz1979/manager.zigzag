@@ -277,13 +277,13 @@ self._set_flag(payload, 'is_completed')
 def set_deleted(self, payload, deleted):
 ```
 
-Меняет признак корзины, сохраняя саму запись и её историю.
+Удаляет или восстанавливает свободное дневное либо недельное событие.
 
-Работает с таблицами calendar_events.
+Проверяет UUID/revision и формат; меняет только deleted, revision/updated с прежней историей.
 
-Непосредственные вызовы: `self.identity`, `self.connect`, `db.execute`, `db.execute('SELECT * FROM calendar_events WHERE id=?', (identity,)).fetchone`, `OrderConflict`, `self.validate`, `ValueError`, `bool`, `self.record`, `int`, `time.time`.
+Непосредственные вызовы: `self.identity`, `self.connect`, `db.execute`, `db.execute('SELECT * FROM calendar_events WHERE id=?', (identity,)).fetchone`, `OrderConflict`, `self.validate`, `bool`, `self.record`, `int`, `time.time`.
 
-Явные исключения: `OrderConflict`, `ValueError`.
+Явные исключения: `OrderConflict`.
 
 Выражения возврата (ветки читаются в исходнике):
 
