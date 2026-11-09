@@ -497,7 +497,7 @@
   // Экранирует значения полей и задаёт допустимую длину ввода каждой позиции.
   function itemMarkup(item) {
     return '<tr>' + [["name", "Наименование", 500], ["quantity", "Количество", 30], ["unit", "Единица", 16], ["price", "Цена", 30]].map(([key, label, limit]) =>
-      '<td><input data-field="' + key + '" aria-label="' + label + '" maxlength="' + limit + '" value="' + escapeHtml(item[key]) + '"' + (["quantity", "price"].includes(key) ? ' inputmode="decimal"' : '') + '></td>').join("") + '<td class="invoice-item-total"></td><td><button class="icon-button" type="button" data-invoice-remember title="Сохранить позицию в товары" aria-label="Сохранить позицию в товары">＋</button><button class="icon-button" type="button" data-invoice-remove aria-label="Удалить позицию">✕</button></td></tr>';
+      '<td><input data-field="' + key + '" aria-label="' + label + '" maxlength="' + limit + '" value="' + escapeHtml(item[key]) + '"' + (["quantity", "price"].includes(key) ? ' inputmode="decimal"' : '') + '></td>').join("") + '<td class="invoice-item-total"></td><td><button class="icon-button" type="button" data-invoice-remove aria-label="Удалить позицию">✕</button></td></tr>';
   }
 
   // Собирает значения полей редактора счёта для сохранения.
@@ -539,7 +539,7 @@
   function controls() {
     if (!editor) return;
     const issued = editor.record.state === "issued";
-    for (const input of $("invoiceForm").querySelectorAll(".invoice-editor-body input, .invoice-editor-body textarea, .invoice-editor-body select, [data-invoice-remove], [data-invoice-remember]")) input.disabled = issued || Boolean(editor.issuing);
+    for (const input of $("invoiceForm").querySelectorAll(".invoice-editor-body input, .invoice-editor-body textarea, .invoice-editor-body select, [data-invoice-remove]")) input.disabled = issued || Boolean(editor.issuing);
     InvoiceProducts.setEditable(!issued && !editor.issuing);
     $("addInvoiceItem").disabled = issued || Boolean(editor.issuing);
     for (const id of ["saveInvoice", "issueInvoice", "previewInvoice", "closeInvoice"]) $(id).disabled = Boolean(editor.saving || editor.issuing);
@@ -723,10 +723,6 @@
   InvoiceProducts.init(addItem, newIdentity);
   $("addInvoiceItem").addEventListener("click", () => addItem());
   $("invoiceItems").addEventListener("click", (event) => {
-    if (event.target.closest('[data-invoice-remember]') && editor?.record.state === 'draft' && !editor.issuing) {
-      const item = Object.fromEntries([...event.target.closest('tr').querySelectorAll('input')].map(input => [input.dataset.field, input.value]));
-      InvoiceProducts.open('product', item); return;
-    }
     if (!event.target.closest("[data-invoice-remove]") || editor?.record.state !== "draft") return;
     if ($("invoiceItems").rows.length === 1) { message("Оставь хотя бы одну позицию.", true); return; }
     event.target.closest("tr").remove(); changed();

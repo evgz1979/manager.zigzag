@@ -52,6 +52,48 @@ class InvoicePreferencesTests(unittest.TestCase):
                 self.resource(payload=candidate)
         self.assertEqual(self.resource(), saved)
 
+    def test_delete_preserves_other_products_groups_invoice_and_history(self):
+        manager.order_store().add(self.path, {'status': 'new', 'title': 'Вывеска'})
+        invoice = manager.invoice_store().create({'path': self.path, 'id': str(uuid.uuid4())})
+        group = dict(kind='group', id=str(uuid.uuid4()), revision=0, name='Вывески')
+        self.resource(payload=group)
+        first = self.product(1)
+        first['group_id'] = group['id']
+        self.resource(payload=first)
+        second = self.product(2)
+        previous = self.resource(payload=second)
+        invoice['data']['items'] = [dict(name=first['name'], quantity='1', unit=first['unit'], price=first['price'])]
+        invoice = manager.invoice_store().save(dict(path=self.path, id=invoice['id'], revision=invoice['revision'], data=invoice['data']))
+        result = self.resource(payload=dict(action='delete', kind='product', id=first['id'], revision=3, confirmed=True))
+        self.assertEqual(result['revision'], 4)
+        self.assertEqual([item['id'] for item in result['products']], [second['id']])
+        self.assertEqual(result['groups'], previous['groups'])
+        self.assertEqual(manager.invoice_store().get(self.path, invoice['id']), invoice)
+        with manager.invoice_store().connect() as db:
+            saved = db.execute("SELECT value FROM invoice_settings_history WHERE key='products' AND revision=3").fetchone()
+            self.assertEqual(json.loads(saved[0]), previous)
+
+    def test_delete_requires_confirmation_current_revision_and_known_product(self):
+        product = self.product()
+        before = self.resource(payload=product)
+        request = dict(action='delete', kind='product', id=product['id'], revision=1, confirmed=True)
+        for changes in ({'confirmed': False}, {'confirmed': 1}, {'kind': 'group'}, {'action': 'unknown'},
+                        {'revision': 0}, {'revision': True}, {'id': str(uuid.uuid4())}):
+            with self.assertRaises(ValueError):
+                self.resource(payload={**request, **changes})
+            self.assertEqual(self.resource(), before)
+
+    def test_removed_uuid_cannot_be_recreated_by_old_form_or_explicit_create(self):
+        product = self.product()
+        self.resource(payload=product)
+        result = self.resource(payload=dict(action='delete', kind='product', id=product['id'], revision=1, confirmed=True))
+        for action in ('save', 'update', 'create'):
+            with self.assertRaises(invoices.InvoiceConflict):
+                self.resource(payload={**product, 'revision': result['revision'], 'action': action})
+            self.assertEqual(self.resource(), result)
+        copied = {**product, 'id': str(uuid.uuid4()), 'revision': 2, 'action': 'create'}
+        self.assertEqual(self.resource(payload=copied)['products'][0]['id'], copied['id'])
+
     def test_invalid_products_are_atomic_and_unknown_catalog_is_preserved(self):
         for changes in ({'price': 'NaN'}, {'price': '-1'}, {'price': '1.001'}, {'price': '1000000000'},
                         {'group_id': str(uuid.uuid4())}, {'group_id': []}, {'name': '<script>\n'},

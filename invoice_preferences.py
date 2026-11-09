@@ -119,8 +119,8 @@ def read_catalog(db):
         raise ValueError('Неизвестный формат каталога товаров; сохранённые данные не изменены') from None
 
 
-# Сохраняет одну группу или товар по версии общего каталога.
-# История и запись атомарны; повтор прежней версии отклоняется без автоматического слияния.
+# Сохраняет группу или товар либо удаляет подтверждённый товар по версии каталога.
+# История атомарна; удалённый UUID не воскрешается старой формой, снимки счетов не меняются.
 def write_catalog(db, payload):
     previous = read_catalog(db)
     if type(payload.get('revision')) is not int or payload['revision'] != previous['revision']:
@@ -130,15 +130,35 @@ def write_catalog(db, payload):
         raise ValueError('Выбери товар или группу')
     result = json.loads(json.dumps(previous))
     items = result['groups' if kind == 'group' else 'products']
-    node = dict(id=key, name=text(payload.get('name'), 100 if kind == 'group' else 500, 'Название'))
-    if kind == 'product':
-        price = invoices.decimal(payload.get('price'), 'Цена', 2, invoices.Decimal('999999999.99'))
-        node.update(group_id=payload.get('group_id', ''), unit=text(payload.get('unit'), 16, 'Единица', empty=True), price=format(price, '.2f'))
     found = next((i for i, item in enumerate(items) if item['id'] == key), None)
-    if found is None:
-        items.append(node)
+    action = payload.get('action', 'save')
+    if not isinstance(action, str) or action not in {'save', 'create', 'update', 'delete'}:
+        raise ValueError('Неизвестное действие с каталогом')
+    if action == 'delete':
+        if kind != 'product' or payload.get('confirmed') is not True:
+            raise ValueError('Подтверди удаление товара из каталога')
+        if found is None:
+            raise invoices.InvoiceConflict('Товар уже удалён из каталога')
+        items.pop(found)
     else:
-        items[found] = node
+        if action == 'update' and found is None:
+            raise invoices.InvoiceConflict('Запись уже удалена. Создай новый товар; ввод остался в форме')
+        if action == 'create' and found is not None:
+            raise invoices.InvoiceConflict('Этот идентификатор уже занят. Проверь сохранённые изменения')
+        if kind == 'product' and found is None and db.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='invoice_settings_history'").fetchone():
+            removed = db.execute('''SELECT 1 FROM invoice_settings_history AS h, json_each(h.value,'$.products') AS p
+                WHERE h.key='products' AND json_extract(p.value,'$.id')=? LIMIT 1''', (key,)).fetchone()
+            if removed:
+                raise invoices.InvoiceConflict('Товар с этим идентификатором уже удалён. Создай новый товар')
+        node = dict(id=key, name=text(payload.get('name'), 100 if kind == 'group' else 500, 'Название'))
+        if kind == 'product':
+            price = invoices.decimal(payload.get('price'), 'Цена', 2, invoices.Decimal('999999999.99'))
+            node.update(group_id=payload.get('group_id', ''), unit=text(payload.get('unit'), 16, 'Единица', empty=True), price=format(price, '.2f'))
+        if found is None:
+            items.append(node)
+        else:
+            items[found] = node
     result['revision'] += 1
     validate_catalog(result)
     history(db, 'products', previous)

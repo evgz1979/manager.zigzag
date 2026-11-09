@@ -38,6 +38,24 @@ const el = id =>
 
 Непосредственные вызовы: `document.getElementById`.
 
+<a id="symbol-formControls"></a>
+
+## formControls
+
+[static/invoice-products.js](../../../static/invoice-products.js) · `FunctionDeclaration`.
+
+```javascript
+function formControls()
+```
+
+Обновляет кнопки и поля формы товара после записи или проверки конфликта.
+
+Удалённую в другом окне запись нельзя сохранить заново с прежним UUID; копия остаётся отдельным созданием.
+
+Непосредственные вызовы: `el`, `Boolean`.
+
+Прямые присваивания полям/свойствам: `el('invoiceProductFields').disabled`, `el('saveInvoiceProduct').disabled`, `el('cancelInvoiceProduct').disabled`, `el('reloadInvoiceProduct').disabled`, `el('deleteInvoiceProduct').hidden`, `el('deleteInvoiceProduct').disabled`.
+
 <a id="symbol-groups"></a>
 
 ## groups
@@ -86,7 +104,7 @@ function init(callback, identity)
 
 Принимает добавление позиции и генератор UUID редактора, не зависящий от HTTPS-контекста.
 
-Непосредственные вызовы: `el`, `el('newInvoiceProduct').addEventListener`, `el('newInvoiceProductGroup').addEventListener`, `el('editInvoiceProductGroup').addEventListener`, `el('refreshInvoiceProducts').addEventListener`, `el('invoiceProductGroup').addEventListener`, `el('invoiceProductsSearch').addEventListener`, `el('invoiceProductsList').addEventListener`, `el('invoiceProductForm').addEventListener`, `el('reloadInvoiceProduct').addEventListener`, `el('cancelInvoiceProduct').addEventListener`, `el('invoiceProductDialog').addEventListener`.
+Непосредственные вызовы: `el`, `el('newInvoiceProduct').addEventListener`, `el('newInvoiceProductGroup').addEventListener`, `el('editInvoiceProductGroup').addEventListener`, `el('refreshInvoiceProducts').addEventListener`, `el('invoiceProductGroup').addEventListener`, `el('invoiceProductsSearch').addEventListener`, `el('invoiceProductsList').addEventListener`, `el('invoiceProductForm').addEventListener`, `el('deleteInvoiceProduct').addEventListener`, `el('reloadInvoiceProduct').addEventListener`, `el('cancelInvoiceProduct').addEventListener`, `el('invoiceProductDialog').addEventListener`.
 
 Прямые присваивания полям/свойствам: `el('newInvoiceProduct').disabled`, `el('newInvoiceProductGroup').disabled`.
 
@@ -115,16 +133,34 @@ async function load()
 [static/invoice-products.js](../../../static/invoice-products.js) · `FunctionDeclaration`.
 
 ```javascript
-function open(kind, item = null)
+function open(kind, item = null, copy = false)
 ```
 
-Открывает отдельную форму группы или товара, в том числе из ручной строки счёта.
+Открывает отдельную форму группы, товара или его новой копии.
 
-Версия фиксируется до ввода; UUID создаёт прежний генератор редактора, доступный и по HTTP LAN.
+Копия получает новый UUID и прежние поля, источник не меняется; генератор работает и по HTTP LAN.
 
-Непосредственные вызовы: `createIdentity`, `el`, `groups`, `el('invoiceProductDialog').querySelectorAll`, `el('invoiceProductDialog').showModal`, `el('invoiceProductName').focus`.
+Непосредственные вызовы: `createIdentity`, `Boolean`, `el`, `groups`, `el('invoiceProductDialog').querySelectorAll`, `formControls`, `el('invoiceProductDialog').showModal`, `el('invoiceProductName').focus`.
 
 Прямые присваивания полям/свойствам: `el('invoiceProductTitle').textContent`, `el('invoiceProductName').maxLength`, `el('invoiceProductName').value`, `el('invoiceProductParent').value`, `el('invoiceProductUnit').value`, `el('invoiceProductPrice').value`, `node.hidden`, `el('invoiceProductState').textContent`, `el('reloadInvoiceProduct').hidden`.
+
+<a id="symbol-remove"></a>
+
+## remove
+
+[static/invoice-products.js](../../../static/invoice-products.js) · `FunctionDeclaration`.
+
+```javascript
+async function remove()
+```
+
+Удаляет сохранённый товар из каталога после явного подтверждения.
+
+Передаёт UUID и версию; ошибка сохраняет ввод без повтора, позиции счетов не меняются.
+
+Непосредственные вызовы: `catalog.products.find`, `window.confirm`, `formControls`, `el`, `api`, `groups`, `render`, `el('invoiceProductDialog').close`.
+
+Прямые присваивания полям/свойствам: `el('invoiceProductState').textContent`, `el('invoiceProductsState').textContent`, `el('reloadInvoiceProduct').hidden`.
 
 <a id="symbol-render"></a>
 
@@ -138,12 +174,14 @@ function render()
 
 Показывает товары выбранной группы и поиска без изменения строк счёта.
 
-Каждый товар имеет отдельные действия добавления и правки; сохранённая цена показана в рублях.
+Названия сортируются естественно по-русски А–Я; равные сохраняют порядок каталога, цена и действия в одной строке.
 
-Непосредственные вызовы: `el`, `el('invoiceProductsSearch').value.trim().toLocaleLowerCase`, `el('invoiceProductsSearch').value.trim`, `catalog?.groups.some`, `(catalog?.products || []).filter`, `products.map(item => '<div class="invoice-product-row"><button type="button" class="invoice-product-add" data-product-add="' + item.id + '"' +
-      (editable ? '' : ' disabled') + ' title="Добавить в счёт"><span>' + html(item.name) + '</span><small>' +
+Непосредственные вызовы: `el`, `el('invoiceProductsSearch').value.trim().toLocaleLowerCase`, `el('invoiceProductsSearch').value.trim`, `catalog?.groups.some`, `(catalog?.products || []).filter(item => (group === '*' || item.group_id === group) &&
+      (item.name + ' ' + (catalog.groups.find(g => g.id === item.group_id)?.name || '')).toLocaleLowerCase('ru').includes(query))
+      .sort`, `(catalog?.products || []).filter`, `products.map(item => '<div class="invoice-product-row"><button type="button" class="invoice-product-add" data-product-add="' + item.id + '"' +
+      (editable ? '' : ' disabled') + ' title="Добавить в счёт: ' + html(item.name) + '"><span>' + html(item.name) + '</span><small>' +
       html(new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(item.price))) + ' ₽' +
-      (item.unit ? ' / ' + html(item.unit) : '') + '</small></button><button class="icon-button" type="button" data-product-edit="' + item.id + '" aria-label="Изменить товар ' + html(item.name) + '" title="Изменить товар">✎</button></div>').join`, `products.map`.
+      (item.unit ? ' / ' + html(item.unit) : '') + '</small></button><button class="icon-button" type="button" data-product-copy="' + item.id + '" aria-label="Создать товар на основе ' + html(item.name) + '" title="Создать на основе"><svg aria-hidden="true"><use href="#icon-copy"/></svg></button><button class="icon-button" type="button" data-product-edit="' + item.id + '" aria-label="Изменить товар ' + html(item.name) + '" title="Изменить товар">✎</button></div>').join`, `products.map`.
 
 Прямые присваивания полям/свойствам: `el('editInvoiceProductGroup').disabled`, `el('invoiceProductsList').innerHTML`, `el('invoiceProductsState').textContent`.
 
@@ -161,9 +199,9 @@ async function review()
 
 Показывает актуальную запись и только затем разрешает явное сохранение с новой версией.
 
-Непосредственные вызовы: `el`, `load`, `catalog[editing.kind === 'group' ? 'groups' : 'products'].find`, `groups`.
+Непосредственные вызовы: `el`, `load`, `catalog[editing.kind === 'group' ? 'groups' : 'products'].find`, `groups`, `formControls`.
 
-Прямые присваивания полям/свойствам: `el('saveInvoiceProduct').disabled`, `el('reloadInvoiceProduct').disabled`, `editing.revision`, `el('invoiceProductState').textContent`, `el('reloadInvoiceProduct').hidden`.
+Прямые присваивания полям/свойствам: `el('saveInvoiceProduct').disabled`, `el('reloadInvoiceProduct').disabled`, `el('deleteInvoiceProduct').disabled`, `editing.revision`, `editing.existing`, `editing.removed`, `el('invoiceProductState').textContent`, `el('reloadInvoiceProduct').hidden`.
 
 <a id="symbol-save"></a>
 
@@ -179,9 +217,9 @@ async function save(event)
 
 Ошибка сохраняет весь ввод и UUID; повтор возможен только действием пользователя.
 
-Непосредственные вызовы: `event.preventDefault`, `el`, `Object.assign`, `api`, `groups`, `render`, `el('invoiceProductDialog').close`.
+Непосредственные вызовы: `event.preventDefault`, `el`, `Object.assign`, `formControls`, `api`, `groups`, `render`, `el('invoiceProductDialog').close`.
 
-Прямые присваивания полям/свойствам: `el('invoiceProductFields').disabled`, `el('saveInvoiceProduct').disabled`, `el('cancelInvoiceProduct').disabled`, `el('invoiceProductState').textContent`, `el('invoiceProductGroup').value`, `el('reloadInvoiceProduct').hidden`.
+Прямые присваивания полям/свойствам: `el('invoiceProductState').textContent`, `el('invoiceProductGroup').value`, `el('reloadInvoiceProduct').hidden`.
 
 <a id="symbol-setEditable"></a>
 

@@ -204,11 +204,11 @@ value
 def write_catalog(db, payload):
 ```
 
-Сохраняет одну группу или товар по версии общего каталога.
+Сохраняет группу или товар либо удаляет подтверждённый товар по версии каталога.
 
-История и запись атомарны; повтор прежней версии отклоняется без автоматического слияния.
+История атомарна; удалённый UUID не воскрешается старой формой, снимки счетов не меняются.
 
-Непосредственные вызовы: `read_catalog`, `type`, `payload.get`, `invoices.InvoiceConflict`, `identity`, `isinstance`, `ValueError`, `json.loads`, `json.dumps`, `dict`, `text`, `invoices.decimal`, `invoices.Decimal`, `node.update`, `format`, `next`, `enumerate`, `items.append`, `validate_catalog`, `history`, `db.execute`.
+Непосредственные вызовы: `read_catalog`, `type`, `payload.get`, `invoices.InvoiceConflict`, `identity`, `isinstance`, `ValueError`, `json.loads`, `json.dumps`, `next`, `enumerate`, `items.pop`, `db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='invoice_settings_history'").fetchone`, `db.execute`, `db.execute("SELECT 1 FROM invoice_settings_history AS h, json_each(h.value,'$.products') AS p\n                WHERE h.key='products' AND json_extract(p.value,'$.id')=? LIMIT 1", (key,)).fetchone`, `dict`, `text`, `invoices.decimal`, `invoices.Decimal`, `node.update`, `format`, `items.append`, `validate_catalog`, `history`.
 
 Явные исключения: `invoices.InvoiceConflict`, `ValueError`.
 

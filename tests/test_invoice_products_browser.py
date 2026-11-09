@@ -1,4 +1,4 @@
-"""Guard group/product creation on HTTP browsers without crypto.randomUUID."""
+"""Guard HTTP product forms, independent copies, deletion and Russian name sorting."""
 from pathlib import Path
 import shutil
 import subprocess

@@ -38,6 +38,7 @@ h1, h2, h3, p { margin: 0; }
 .invoice-product-fields { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 12px; }
 .invoice-product-fields [hidden] { display: none; }
 .invoice-product-values { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; }
+#invoiceProductDialog .confirm-actions { flex-wrap: wrap; }
 .mobile-header, .sidebar-backdrop, .sidebar-close { display: none; }
 .brand { display: flex; align-items: center; justify-content: space-between; padding: 25px 18px 23px; gap: 10px; }
 .brand-button { display: flex; align-items: center; gap: 12px; border: 0; background: none; padding: 0; text-align: left; font-size: 21px; font-weight: 650; letter-spacing: -.5px; }
@@ -1158,12 +1159,12 @@ h2 { font-size: 13px; font-weight: 600; }
 .invoice-items { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 630px; }
 .invoice-items th { text-align: left; font-size: 10px; color: #7a8390; font-weight: 500; padding: 5px 4px; }
 .invoice-items td { padding: 4px; border-bottom: 1px solid #eef0f3; }
-.invoice-items th:first-child { width: 39%; }
+.invoice-items th:first-child { width: 42%; }
 .invoice-items th:nth-child(2) { width: 10%; }
 .invoice-items th:nth-child(3) { width: 8%; }
 .invoice-items th:nth-child(4) { width: 17%; }
 .invoice-items th:nth-child(5) { width: 18%; }
-.invoice-items th:last-child { width: 8%; }
+.invoice-items th:last-child { width: 5%; }
 .invoice-items td:last-child { white-space: nowrap; }
 .invoice-items td input { padding: 7px 5px; font-size: 12px; }
 .invoice-items td:nth-child(2) input, .invoice-items td:nth-child(4) input { text-align: right; }
@@ -1172,8 +1173,8 @@ h2 { font-size: 13px; font-weight: 600; }
 .invoice-total-row { margin: 10px 0 15px; font-size: 12px; color: #697384; }
 .invoice-total-row strong { color: #253043; font-size: 17px; margin-left: 5px; }
 .invoice-work-dates { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; }
-.invoice-with-products { width: min(1240px, calc(100vw - 32px)); }
-.invoice-workspace { display: grid; grid-template-columns: 280px minmax(0, 1fr); min-height: 0; overflow: hidden; }
+.invoice-with-products { width: min(1460px, calc(100vw - 32px)); }
+.invoice-workspace { display: grid; grid-template-columns: min(500px, 40%) minmax(0, 1fr); min-height: 0; overflow: hidden; }
 .invoice-products { background: #f6f8fa; padding: 14px; border-right: 1px solid #e1e6ec; overflow: auto; }
 .invoice-products-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .invoice-products-heading h3 { margin: 0; font-size: 16px; }
@@ -1181,10 +1182,11 @@ h2 { font-size: 13px; font-weight: 600; }
 .invoice-product-group-picker label { flex: 1; min-width: 0; }
 .invoice-products-actions { display: flex; gap: 6px; margin-top: 10px; }
 .invoice-products-actions button { flex: 1; font-size: 12px; padding: 7px; }
-.invoice-products-list { display: grid; gap: 5px; }
-.invoice-product-row { display: flex; align-items: center; gap: 4px; background: white; border: 1px solid #e1e6ec; border-radius: 7px; }
-.invoice-product-add { text-align: left; flex: 1; min-width: 0; border: 0; background: transparent; padding: 9px; display: grid; gap: 5px; cursor: pointer; color: #263140; font: inherit; font-size: 13px; overflow-wrap: anywhere; }
-.invoice-product-add small { color: #667588; font-size: 11px; }
+.invoice-products-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
+.invoice-product-row { display: flex; min-width: 0; align-items: center; gap: 2px; background: white; border: 1px solid #e1e6ec; border-radius: 7px; }
+.invoice-product-add { text-align: left; flex: 1; min-width: 0; border: 0; background: transparent; padding: 6px 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; color: #263140; font: inherit; font-size: 13px; line-height: 18px; }
+.invoice-product-add > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.invoice-product-add small { flex-shrink: 0; color: #667588; font-size: 11px; white-space: nowrap; }
 .invoice-product-add:hover, .invoice-product-add:focus-visible { background: #e8f2ec; }
 .invoice-product-add:disabled { cursor: default; }
 .invoice-products .icon-button { flex: 0 0 28px; width: 28px; height: 28px; }

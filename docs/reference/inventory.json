@@ -1523,11 +1523,13 @@
         "symbols": [
           {"name": "api", "type": "FunctionDeclaration", "anchor": "symbol-api"},
           {"name": "el", "type": "ArrowFunctionExpression", "anchor": "symbol-el"},
+          {"name": "formControls", "type": "FunctionDeclaration", "anchor": "symbol-formControls"},
           {"name": "groups", "type": "FunctionDeclaration", "anchor": "symbol-groups"},
           {"name": "html", "type": "ArrowFunctionExpression", "anchor": "symbol-html"},
           {"name": "init", "type": "FunctionDeclaration", "anchor": "symbol-init"},
           {"name": "load", "type": "FunctionDeclaration", "anchor": "symbol-load"},
           {"name": "open", "type": "FunctionDeclaration", "anchor": "symbol-open"},
+          {"name": "remove", "type": "FunctionDeclaration", "anchor": "symbol-remove"},
           {"name": "render", "type": "FunctionDeclaration", "anchor": "symbol-render"},
           {"name": "review", "type": "FunctionDeclaration", "anchor": "symbol-review"},
           {"name": "save", "type": "FunctionDeclaration", "anchor": "symbol-save"},
