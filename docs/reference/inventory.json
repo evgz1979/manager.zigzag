@@ -1267,6 +1267,7 @@
           {"name": "removeCalendarRecord.run", "type": "ArrowFunctionExpression", "anchor": "symbol-removeCalendarRecord.run"},
           {"name": "removeEvent", "type": "FunctionDeclaration", "anchor": "symbol-removeEvent"},
           {"name": "removeSelectedFiles", "type": "FunctionDeclaration", "anchor": "symbol-removeSelectedFiles"},
+          {"name": "renderBrandCalendar", "type": "FunctionDeclaration", "anchor": "symbol-renderBrandCalendar"},
           {"name": "renderCalendarEventControls", "type": "FunctionDeclaration", "anchor": "symbol-renderCalendarEventControls"},
           {"name": "renderCalendarTodoPreview", "type": "FunctionDeclaration", "anchor": "symbol-renderCalendarTodoPreview"},
           {"name": "renderCardDeadlines", "type": "FunctionDeclaration", "anchor": "symbol-renderCardDeadlines"},

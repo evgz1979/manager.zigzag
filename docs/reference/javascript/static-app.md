@@ -2217,6 +2217,24 @@ async function removeSelectedFiles()
 
 Прямые присваивания полям/свойствам: `state.fileRemoving`, `$("confirmDeleteFiles").disabled`, `$("cancelDeleteFiles").disabled`, `$("confirmDeleteFiles").textContent`, `$("fileTrashState").textContent`.
 
+<a id="symbol-renderBrandCalendar"></a>
+
+## renderBrandCalendar
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function renderBrandCalendar(now = new Date())
+```
+
+Показывает текущую московскую ISO-неделю в шапке меню.
+
+Использует прежний расчёт/цвет недели заказа; меняет только свои узлы при смене даты, без запросов.
+
+Непосредственные вызовы: `Object.fromEntries`, `new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now).map`, `new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts`, `Intl.DateTimeFormat`, `$`, `Date`, `start.setUTCDate`, `start.getUTCDate`, `start.getUTCDay`, `deadlineWeekInfo`, `start.toISOString().slice`, `start.toISOString`, `badge.style.setProperty`, `badge.setAttribute`.
+
+Прямые присваивания полям/свойствам: `calendar.dataset.date`, `badge.textContent`, `badge.title`.
+
 <a id="symbol-renderCalendarEventControls"></a>
 
 ## renderCalendarEventControls

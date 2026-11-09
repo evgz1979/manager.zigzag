@@ -2282,6 +2282,23 @@ function deadlineWeekInfo(start) {
     current: start === state.deadlineWeekOptions[0]?.start };
 }
 
+// Показывает текущую московскую ISO-неделю в шапке меню.
+// Использует прежний расчёт/цвет недели заказа; меняет только свои узлы при смене даты, без запросов.
+function renderBrandCalendar(now = new Date()) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now).map((part) => [part.type, part.value]));
+  const key = parts.year + "-" + parts.month + "-" + parts.day, calendar = $("brandCalendar");
+  if (calendar.dataset.date === key) return;
+  calendar.dataset.date = key;
+  const start = new Date(key + "T00:00:00Z");
+  start.setUTCDate(start.getUTCDate() - (start.getUTCDay() + 6) % 7);
+  const week = deadlineWeekInfo(start.toISOString().slice(0, 10));
+  const badge = $("brandCurrentWeek");
+  badge.textContent = week.number;
+  badge.style.setProperty("--deadline-month-hue", week.hue);
+  badge.title = "Текущая неделя " + week.number + " · " + week.label;
+  badge.setAttribute("aria-label", badge.title);
+}
+
 // Строит легенду месяцев для цветов недель срока.
 // Использует `Map`, `options.map`.
 function renderDeadlineMonthLegend(options) {
@@ -4741,6 +4758,7 @@ for (const id of ["orderTitleInput", "reconciliationClient", "orderAmount", "ord
 }
 setInterval(() => {
   if (document.hidden) return;
+  renderBrandCalendar();
   if (folderActivity(state.folder) && !state.clientActivitySaving) {
     const folder = state.folder;
     request(apiUrl(activityRoute(folder), folder.path)).then((activity) => {
@@ -5029,6 +5047,10 @@ document.addEventListener("drop", (event) => {
   const files=Array.from(event.dataTransfer.files || []);
   run(() => uploadFiles(files));
 });
+
+renderBrandCalendar();
+document.addEventListener("visibilitychange", () => { if (!document.hidden) renderBrandCalendar(); });
+window.addEventListener("focus", () => renderBrandCalendar());
 
 run(async () => {
   try {
