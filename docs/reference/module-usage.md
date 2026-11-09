@@ -27,7 +27,8 @@
 | [inbox_folder.py](python/inbox_folder.md) | `server.py` | 1 | Нет |
 | [invoice_discovery.py](python/invoice_discovery.md) | `server.py` | 1 | Нет |
 | [invoice_documents.py](python/invoice_documents.md) | `invoices.py`, `server.py` | 2 | Нет |
-| [invoices.py](python/invoices.md) | `invoice_discovery.py`, `invoice_documents.py`, `server.py` | 12 | Нет |
+| [invoice_preferences.py](python/invoice_preferences.md) | `invoices.py`, `server.py` | 1 | Нет |
+| [invoices.py](python/invoices.md) | `invoice_discovery.py`, `invoice_documents.py`, `invoice_preferences.py`, `server.py` | 13 | Нет |
 | [local_metadata.py](python/local_metadata.md) | `calendar_events.py`, `calendar_layout.py`, `folder_notes.py`, `invoices.py`, `object_orders.py`, `order_calendar.py`, `order_creation.py`, `orders.py`, `reconciliations.py`, `server.py`, `supplier_purchases.py`, `telegram_calendar_commands.py`, `telegram_inbox.py`, `weekly_events_migration.py`, `work_orders.py` | 9 | Нет |
 | [mobile_sync.py](python/mobile_sync.md) | `orders.py`, `server.py` | 2 | Нет |
 | [native_renderers.py](python/native_renderers.md) | `calendar_delivery.py`, `icloud_access.py`, `image_reports.py`, `invoices.py`, `server.py`, `thumbnail_cache.py` | 3 | Нет |

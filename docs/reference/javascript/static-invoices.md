@@ -38,6 +38,22 @@ function action(work)
 
 Непосредственные вызовы: `Promise.resolve().then(work).catch`, `Promise.resolve().then`, `Promise.resolve`.
 
+<a id="symbol-addItem"></a>
+
+## addItem
+
+[static/invoices.js](../../../static/invoices.js) · `FunctionDeclaration`.
+
+```javascript
+function addItem(item = { name: "", quantity: "1", unit: "шт", price: "0" })
+```
+
+Добавляет ручную позицию или снимок товара в прежний редактор счёта.
+
+Пустая начальная строка заменяется товаром; прежние позиции и цены сохраняются, предел — 40 строк.
+
+Непосредственные вызовы: `$`, `first.querySelector('[data-field="name"]').value.trim`, `first.querySelector`, `Number`, `first.querySelector('[data-field="price"]').value.replace`, `first.remove`, `message`, `$("invoiceItems").insertAdjacentHTML`, `itemMarkup`, `$("invoiceItems").lastElementChild.querySelector("input").focus`, `$("invoiceItems").lastElementChild.querySelector`, `changed`.
+
 <a id="symbol-cash"></a>
 
 ## cash
@@ -68,7 +84,7 @@ function changed()
 
 Управляет отложенным обновлением через таймер или кадр браузера.
 
-Непосредственные вызовы: `JSON.stringify`, `collect`, `$`, `totals`, `clearTimeout`, `message`, `setTimeout`.
+Непосредственные вызовы: `JSON.stringify`, `collect`, `totals`, `clearTimeout`, `message`, `setTimeout`.
 
 Прямые присваивания полям/свойствам: `editor.dirty`, `editor.timer`.
 
@@ -170,7 +186,7 @@ function collect()
 
 Использует `Object.fromEntries`, `Object.entries(fields).map`, `Object.entries`.
 
-Непосредственные вызовы: `Object.fromEntries`, `Object.entries(fields).map`, `Object.entries`, `Object.keys(sellerFields).map`, `Object.keys`, `[...$("invoiceItems").rows].map`, `$`.
+Непосредственные вызовы: `Object.fromEntries`, `Object.entries(fields).map`, `Object.entries`, `[...$("invoiceItems").rows].map`, `$`.
 
 Прямые присваивания полям/свойствам: `data.seller`, `data.items`.
 
@@ -188,9 +204,9 @@ function controls()
 
 Обращается к DOM текущего документа или переданного контейнера.
 
-Непосредственные вызовы: `$("invoiceForm").querySelectorAll`, `$`, `Boolean`.
+Непосредственные вызовы: `$("invoiceForm").querySelectorAll`, `$`, `Boolean`, `InvoiceProducts.setEditable`.
 
-Прямые присваивания полям/свойствам: `input.disabled`, `$(id).disabled`, `$("saveInvoice").hidden`, `$("issueInvoice").hidden`, `$("addInvoiceItem").hidden`, `$("previewInvoice").textContent`, `$("invoiceDraftHint").textContent`.
+Прямые присваивания полям/свойствам: `input.disabled`, `$("addInvoiceItem").disabled`, `$(id).disabled`, `$("saveInvoice").hidden`, `$("issueInvoice").hidden`, `$("addInvoiceItem").hidden`, `$("previewInvoice").textContent`, `$("invoiceDraftHint").textContent`.
 
 <a id="symbol-create"></a>
 
@@ -573,7 +589,7 @@ async function save()
 
 Использует `/api/invoice-save`.
 
-Непосредственные вызовы: `clearTimeout`, `save`, `collect`, `JSON.stringify`, `$`, `message`, `request`, `controls`, `refreshList`, `document.dispatchEvent`, `Event`.
+Непосредственные вызовы: `clearTimeout`, `save`, `collect`, `JSON.stringify`, `message`, `request`, `controls`, `refreshList`, `document.dispatchEvent`, `Event`.
 
 Прямые присваивания полям/свойствам: `current.saving`, `current.record`, `current.saved`, `current.dirty`.
 
@@ -645,9 +661,9 @@ function show(record, returnFocus = null)
 
 Для общего списка сохраняет ключ возврата фокуса; поля и автосохранение используют путь самого счёта.
 
-Непосредственные вызовы: `$`, `Object.entries`, `Object.entries(sellerFields).map(([key, label]) => '<label>' + label + '<input id="invoiceSeller-' + key + '" maxlength="' + (key === "address" ? 500 : 300) + '" value="' + escapeHtml(record.data.seller[key] || "") + '"></label>').join`, `Object.entries(sellerFields).map`, `record.data.items.map(itemMarkup).join`, `record.data.items.map`, `JSON.stringify`, `collect`, `message`, `controls`, `totals`, `$("invoiceDialog").showModal`, `$("invoiceBuyer").focus`.
+Непосредственные вызовы: `$`, `Object.entries`, `record.data.items.map(itemMarkup).join`, `record.data.items.map`, `JSON.stringify`, `collect`, `message`, `controls`, `totals`, `$("invoiceDialog").showModal`, `$("invoiceBuyer").focus`, `InvoiceProducts.load().catch`, `InvoiceProducts.load`.
 
-Прямые присваивания полям/свойствам: `$("invoiceTitle").textContent`, `$("invoiceOrderPath").textContent`, `$(id).value`, `$("invoiceSellerFields").innerHTML`, `$("invoiceItems").innerHTML`, `$("invoiceRememberSeller").checked`, `editor.saved`.
+Прямые присваивания полям/свойствам: `$("invoiceTitle").textContent`, `$("invoiceOrderPath").textContent`, `$(id).value`, `$("invoiceItems").innerHTML`, `editor.saved`.
 
 <a id="symbol-showExternal"></a>
 

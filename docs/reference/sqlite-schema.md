@@ -123,6 +123,16 @@ CREATE TABLE IF NOT EXISTS invoice_documents (
         sync_error TEXT NOT NULL DEFAULT '')
 ```
 
+## invoice_preferences.py
+
+[history](python/invoice_preferences.md#symbol-history)
+
+```sql
+CREATE TABLE IF NOT EXISTS invoice_settings_history (
+        key TEXT NOT NULL, revision INTEGER NOT NULL, value TEXT NOT NULL, saved REAL NOT NULL,
+        PRIMARY KEY(key,revision))
+```
+
 ## invoices.py
 
 [InvoiceStore.connect](python/invoices.md#symbol-InvoiceStore.connect)

@@ -248,6 +248,34 @@ self.send_json({'items': invoice_store().catalog()}, head=head)
 
 Вызовы ветки: `invoice_store().catalog`, `invoice_store`.
 
+## GET / HEAD /api/invoice-products
+
+[ManagerHandler.handle_get](python/server.md#symbol-ManagerHandler.handle_get).
+
+Условие: `parsed.path in {'/api/invoice-seller', '/api/invoice-products'}`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json(invoice_preferences.resource(invoice_store(), parsed.path.rsplit('-', 1)[1]), head=head)
+```
+
+Вызовы ветки: `invoice_preferences.resource`, `invoice_store`, `parsed.path.rsplit`.
+
+## GET / HEAD /api/invoice-seller
+
+[ManagerHandler.handle_get](python/server.md#symbol-ManagerHandler.handle_get).
+
+Условие: `parsed.path in {'/api/invoice-seller', '/api/invoice-products'}`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json(invoice_preferences.resource(invoice_store(), parsed.path.rsplit('-', 1)[1]), head=head)
+```
+
+Вызовы ветки: `invoice_preferences.resource`, `invoice_store`, `parsed.path.rsplit`.
+
 ## GET / HEAD /api/reconciliations
 
 [ManagerHandler.handle_get](python/server.md#symbol-ManagerHandler.handle_get).
@@ -807,6 +835,36 @@ self.send_json({'text': body[:128 * 1024].decode('utf-8', errors='replace'), 'tr
 Условие: `route in {'/api/invoice-upload', '/api/invoice-document-upload', '/api/invoice-folder-attach'}`.
 
 Вызовы ветки: `self.headers.get`, `ValueError`, `self.headers.get_content_type`, `urllib.parse.urlsplit`.
+
+## POST /api/invoice-products
+
+[ManagerHandler.do_POST](python/server.md#symbol-ManagerHandler.do_POST).
+
+Условие: `route in {'/api/invoice-seller', '/api/invoice-products'}`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json({'error': 'Изменяй товары и реквизиты через страницу менеджера'}, 403)
+self.send_json(invoice_preferences.resource(invoice_store(), route.rsplit('-', 1)[1], payload))
+```
+
+Вызовы ветки: `self.headers.get`, `self.headers.get_content_type`, `urllib.parse.urlsplit`, `invoice_preferences.resource`, `invoice_store`, `route.rsplit`.
+
+## POST /api/invoice-seller
+
+[ManagerHandler.do_POST](python/server.md#symbol-ManagerHandler.do_POST).
+
+Условие: `route in {'/api/invoice-seller', '/api/invoice-products'}`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json({'error': 'Изменяй товары и реквизиты через страницу менеджера'}, 403)
+self.send_json(invoice_preferences.resource(invoice_store(), route.rsplit('-', 1)[1], payload))
+```
+
+Вызовы ветки: `self.headers.get`, `self.headers.get_content_type`, `urllib.parse.urlsplit`, `invoice_preferences.resource`, `invoice_store`, `route.rsplit`.
 
 ## POST /api/invoice-reconciliation
 

@@ -35,6 +35,7 @@ import file_comments
 from mobile_sync import MobileBridge, RUN_LOCK
 import image_reports
 import invoices
+import invoice_preferences
 import invoice_documents
 import invoice_discovery
 import native_renderers
@@ -1666,6 +1667,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json({"items": service.with_links(invoice_store().list(relative)), "trash": service.with_links(invoice_store().list(relative, trashed=True))}, head=head)
             elif parsed.path == '/api/invoice-catalog':
                 self.send_json({'items': invoice_store().catalog()}, head=head)
+            elif parsed.path in {'/api/invoice-seller', '/api/invoice-products'}:
+                self.send_json(invoice_preferences.resource(invoice_store(), parsed.path.rsplit('-', 1)[1]), head=head)
             elif parsed.path == '/api/reconciliations':
                 self.send_json({'items': reconciliations.Reconciliations(order_store()).catalog()}, head=head)
             elif parsed.path == '/api/reconciliation':
@@ -1980,6 +1983,14 @@ class ManagerHandler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
             if not isinstance(payload, dict):
                 raise ValueError("Некорректный запрос")
+            if route in {'/api/invoice-seller', '/api/invoice-products'}:
+                origin = self.headers.get('Origin')
+                if (self.headers.get('X-Manager-Invoice-Preferences') != '1' or self.headers.get_content_type() != 'application/json'
+                        or (origin and urllib.parse.urlsplit(origin).netloc != self.headers.get('Host'))):
+                    self.send_json({'error': 'Изменяй товары и реквизиты через страницу менеджера'}, 403)
+                    return
+                self.send_json(invoice_preferences.resource(invoice_store(), route.rsplit('-', 1)[1], payload))
+                return
             if route in {'/api/reconciliation-save', '/api/invoice-reconciliation'}:
                 origin = self.headers.get('Origin')
                 if (self.headers.get('X-Manager-Reconciliations') != '1' or self.headers.get_content_type() != 'application/json'

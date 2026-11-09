@@ -1,6 +1,6 @@
 # Как проходят основные операции
 
-Срез кода: **5 ноября 2026 года**. Сначала прочитай [устройство приложения](architecture.md). Здесь каждый сценарий связан с фактическими точками входа; подробные сигнатуры и вызовы — в [справочнике](reference/README.md).
+Срез кода: **9 ноября 2026 года**. Сначала прочитай [устройство приложения](architecture.md). Здесь каждый сценарий связан с фактическими точками входа; подробные сигнатуры и вызовы — в [справочнике](reference/README.md).
 
 ## Открытие главной
 
@@ -122,6 +122,8 @@ sequenceDiagram
 [snapshot](reference/python/inbox_folder.md#symbol-snapshot) только считает непосредственные видимые обычные файлы `#inbox`/`# inbox`, исключая ссылки. Неоднозначность и ошибка обозначают недоступность счётчика. Кнопка вызывает прежний `/api/open` с точным путём; файл не становится задачей Telegram и папка автоматически не создаётся.
 
 ## Счёт, выпуск, копия
+
+[write_catalog](reference/python/invoice_preferences.md#symbol-write_catalog) сохраняет группу или товар по версии всего каталога, вместе с прежним снимком в `invoice_settings_history`. Панель [open](reference/javascript/static-invoice-products.md#symbol-open) фиксирует версию до ввода; конфликт перечитывается явно и не затирает форму. Нажатие товара передаёт копию в [addItem](reference/javascript/static-invoices.md#symbol-addItem), затем работает прежнее автосохранение `InvoiceStore.save`. [saveSeller](reference/javascript/static-settings.md#symbol-saveSeller) сохраняет общие реквизиты отдельно от формы счёта и пароля; `InvoiceStore.create` берёт их снимок для нового документа. Изменение настройки не переписывает счета.
 
 [renderClientFilter](reference/javascript/static-bills.md#symbol-renderClientFilter) строит варианты клиентов по точному `client_path` всей сводки; [selectClient](reference/javascript/static-bills.md#symbol-selectClient) принимает выбор списка или нажатие имени в колонке. Клиент, поиск и сортировка применяются вместе в браузере; опрос и сохранение редактора обновляют строки без сброса фильтра, отсутствующий выбранный клиент остаётся выбранным.
 

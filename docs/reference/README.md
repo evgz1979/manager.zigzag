@@ -8,7 +8,7 @@
 
 ## Python
 
-60 файлов; 832 именованных объявлений.
+61 файлов; 842 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
@@ -35,6 +35,7 @@
 | [inbox_folder.py](python/inbox_folder.md) | 1 |
 | [invoice_discovery.py](python/invoice_discovery.md) | 6 |
 | [invoice_documents.py](python/invoice_documents.md) | 13 |
+| [invoice_preferences.py](python/invoice_preferences.md) | 10 |
 | [invoices.py](python/invoices.md) | 47 |
 | [local_metadata.py](python/local_metadata.md) | 26 |
 | [mobile_sync.py](python/mobile_sync.md) | 24 |
@@ -75,7 +76,7 @@
 
 ## JavaScript
 
-21 файлов; 423 именованных объявлений.
+22 файлов; 437 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
@@ -87,14 +88,15 @@
 | [static/home-calendar.js](javascript/static-home-calendar.md) | 33 |
 | [static/inbox.js](javascript/static-inbox.md) | 14 |
 | [static/invoice-documents.js](javascript/static-invoice-documents.md) | 17 |
-| [static/invoices.js](javascript/static-invoices.md) | 41 |
+| [static/invoice-products.js](javascript/static-invoice-products.md) | 11 |
+| [static/invoices.js](javascript/static-invoices.md) | 42 |
 | [static/mobile.js](javascript/static-mobile.md) | 3 |
 | [static/money-overview.js](javascript/static-money-overview.md) | 8 |
 | [static/navigation.js](javascript/static-navigation.md) | 1 |
 | [static/order-sorting.js](javascript/static-order-sorting.md) | 2 |
 | [static/reconciliations.js](javascript/static-reconciliations.md) | 10 |
 | [static/remote-access.js](javascript/static-remote-access.md) | 2 |
-| [static/settings.js](javascript/static-settings.md) | 2 |
+| [static/settings.js](javascript/static-settings.md) | 4 |
 | [static/spreadsheet-preview.js](javascript/static-spreadsheet-preview.md) | 7 |
 | [static/spreadsheet-worker.js](javascript/static-spreadsheet-worker.md) | 2 |
 | [static/supplier-purchases.js](javascript/static-supplier-purchases.md) | 9 |

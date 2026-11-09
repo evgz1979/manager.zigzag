@@ -266,20 +266,40 @@
         <footer class="invoice-dialog-actions"><span>PDF в # bills заказа</span><button id="externalInvoicePdf" class="secondary-button" type="button" hidden>Открыть PDF</button><button id="saveExternalInvoice" class="primary-button" type="submit">Прикрепить</button></footer>
       </form>
     </dialog>
-    <dialog id="invoiceDialog" class="invoice-dialog" aria-labelledby="invoiceTitle">
+    <dialog id="invoiceDialog" class="invoice-dialog invoice-with-products" aria-labelledby="invoiceTitle">
       <form id="invoiceForm">
         <header class="invoice-dialog-heading"><div><h2 id="invoiceTitle">Новый счёт</h2><p id="invoiceOrderPath"></p></div><button id="closeInvoice" class="icon-button" type="button" aria-label="Сохранить и закрыть счёт">✕</button></header>
-        <div class="invoice-editor-body">
+        <div class="invoice-workspace">
+          <aside id="invoiceProducts" class="invoice-products" aria-labelledby="invoiceProductsTitle">
+            <div class="invoice-products-heading"><h3 id="invoiceProductsTitle">Товары</h3><button id="refreshInvoiceProducts" class="icon-button" type="button" aria-label="Обновить товары" title="Обновить товары">↻</button></div>
+            <input id="invoiceProductsSearch" type="search" placeholder="Найти товар…" aria-label="Найти товар" autocomplete="off">
+            <div class="invoice-product-group-picker"><label>Группа<select id="invoiceProductGroup"><option value="*">Все группы</option></select></label><button id="editInvoiceProductGroup" class="icon-button" type="button" aria-label="Изменить группу" title="Изменить группу" disabled>✎</button></div>
+            <div class="invoice-products-actions"><button id="newInvoiceProductGroup" class="secondary-button" type="button">+ Группа</button><button id="newInvoiceProduct" class="secondary-button" type="button">+ Товар</button></div>
+            <p id="invoiceProductsState" class="invoice-state" role="status"></p><div id="invoiceProductsList" class="invoice-products-list"></div>
+          </aside>
+          <div class="invoice-editor-body">
           <div class="invoice-meta"><label>Документ<select id="invoiceKind"><option value="invoice">Счёт на оплату</option><option value="contract">Счёт-договор</option></select></label><label>Номер<input id="invoiceNumber" maxlength="40" required></label><label>Дата<input id="invoiceDate" type="date" required></label><label>Оплатить до<input id="invoiceDue" type="date"></label></div>
           <div class="invoice-buyer"><label>Покупатель<input id="invoiceBuyer" maxlength="300" placeholder="Название организации или ФИО"></label><label>ИНН<input id="invoiceBuyerInn" inputmode="numeric" maxlength="12"></label><label>КПП<input id="invoiceBuyerKpp" inputmode="numeric" maxlength="9"></label><label class="invoice-buyer-address">Адрес покупателя<input id="invoiceBuyerAddress" maxlength="500"></label></div>
           <div class="invoice-items-scroll"><table class="invoice-items"><caption class="visually-hidden">Позиции счёта</caption><thead><tr><th>Товары, работы, услуги</th><th>Кол-во</th><th>Ед.</th><th>Цена, ₽</th><th>Сумма, ₽</th><th><span class="visually-hidden">Удалить</span></th></tr></thead><tbody id="invoiceItems"></tbody></table></div>
           <div class="invoice-total-row"><button id="addInvoiceItem" class="secondary-button" type="button">+ Позиция</button><span>Без НДС · Итого <strong id="invoiceTotal">0,00 ₽</strong></span></div>
           <label class="invoice-note">Примечание<textarea id="invoiceNote" rows="2" maxlength="1000" placeholder="Необязательно"></textarea></label>
           <div id="invoiceContract" class="invoice-contract" hidden><div class="invoice-work-dates"><label>Начало работ<input id="invoiceWorkStart" type="date"></label><label>Окончание работ<input id="invoiceWorkEnd" type="date"></label></div><label>Краткие условия договора<textarea id="invoiceTerms" rows="4" maxlength="2500"></textarea></label></div>
-          <details class="invoice-seller"><summary>Реквизиты исполнителя</summary><div id="invoiceSellerFields" class="invoice-seller-fields"></div><label class="invoice-remember"><input id="invoiceRememberSeller" type="checkbox">Использовать эти реквизиты для новых счетов</label></details>
           <p id="invoiceEditorState" class="invoice-state" role="status"></p>
+          </div>
         </div>
         <footer class="invoice-dialog-actions"><span id="invoiceDraftHint">Черновик в базе · PDF на одной странице</span><button id="saveInvoice" class="secondary-button" type="submit">Сохранить черновик</button><button id="previewInvoice" class="secondary-button" type="button">Предпросмотр</button><button id="issueInvoice" class="primary-button" type="button">Выпустить PDF</button></footer>
+      </form>
+    </dialog>
+    <dialog id="invoiceProductDialog" class="confirm-dialog create-order-dialog" aria-labelledby="invoiceProductTitle">
+      <h2 id="invoiceProductTitle">Товар</h2>
+      <form id="invoiceProductForm">
+        <fieldset id="invoiceProductFields" class="invoice-product-fields">
+          <label>Название<input id="invoiceProductName" maxlength="500" required autocomplete="off"></label>
+          <label data-product-only>Группа<select id="invoiceProductParent"></select></label>
+          <div class="invoice-product-values" data-product-only><label>Единица<input id="invoiceProductUnit" maxlength="16" value="шт"></label><label>Цена, ₽<input id="invoiceProductPrice" inputmode="decimal" maxlength="30" value="0"></label></div>
+        </fieldset>
+        <p id="invoiceProductState" class="invoice-state" role="status"></p>
+        <div class="confirm-actions"><button id="cancelInvoiceProduct" class="secondary-button" type="button">Отмена</button><button id="reloadInvoiceProduct" class="secondary-button" type="button" hidden>Проверить изменения</button><button id="saveInvoiceProduct" class="primary-button" type="submit">Сохранить</button></div>
       </form>
     </dialog>
     <dialog id="orderLinksDialog" class="order-todo-dialog order-links-dialog" aria-labelledby="orderLinksTitle" aria-describedby="orderLinksOrder">
@@ -417,7 +437,11 @@
     </dialog>
     <dialog id="managerSettingsDialog" class="confirm-dialog create-order-dialog manager-settings-dialog" aria-labelledby="managerSettingsTitle">
       <h2 id="managerSettingsTitle">Настройки</h2>
-      <h3>Пароль внешнего входа</h3>
+      <section aria-labelledby="invoiceSellerSettingsTitle"><h3 id="invoiceSellerSettingsTitle">Реквизиты исполнителя</h3>
+        <p class="new-order-preview">Для новых счетов и новых правок. Сохранённые счета сохраняют свои реквизиты.</p>
+        <form id="invoiceSellerSettingsForm"><fieldset id="invoiceSellerSettingsFields" disabled></fieldset><p id="invoiceSellerSettingsState" class="invoice-state" role="status"></p><button id="saveInvoiceSellerSettings" class="primary-button" type="submit" disabled>Сохранить реквизиты</button><button id="reloadInvoiceSellerSettings" class="secondary-button" type="button">Обновить</button></form>
+      </section>
+      <details class="manager-password-settings"><summary>Пароль внешнего входа</summary>
       <p id="managerSettingsAddress" class="new-order-preview"></p>
       <form id="managerSettingsForm">
         <input type="hidden" name="username" autocomplete="username" value="manager">
@@ -429,8 +453,9 @@
           <button id="managerSettingsSave" class="primary-button" type="submit">Сменить пароль</button>
         </fieldset>
         <p id="managerSettingsState" class="todo-save-state" role="status"></p>
-        <div class="confirm-actions"><button id="managerSettingsClose" class="secondary-button" type="button">Закрыть</button></div>
       </form>
+      </details>
+      <div class="confirm-actions"><button id="managerSettingsClose" class="secondary-button" type="button">Закрыть</button></div>
     </dialog>
     <div id="toast" class="toast" role="status" hidden></div>
     <dialog id="invoiceReconciliationDialog" class="invoice-reconciliation-dialog">
@@ -453,6 +478,7 @@
     <script src="/invoice-documents.js"></script>
     <script src="/reconciliations.js"></script>
     <script src="/bills.js"></script>
+    <script src="/invoice-products.js"></script>
     <script src="/invoices.js"></script>
     <script src="/work-orders.js"></script>
     <script src="/supplier-purchases.js"></script>

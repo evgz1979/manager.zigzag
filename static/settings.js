@@ -1,4 +1,4 @@
-/* Password settings stay in this dialog and are never stored in browser storage. */
+/* Seller defaults are shared in SQLite; password inputs never enter browser storage. */
 (() => {
   const button = document.getElementById('managerSettingsButton');
   const dialog = document.getElementById('managerSettingsDialog');
@@ -10,6 +10,51 @@
   const status = document.getElementById('managerSettingsState');
   const close = document.getElementById('managerSettingsClose');
   let csrf = '', busy = false, request = 0;
+  let sellerRevision = null, sellerBusy = false, sellerLoading = 0;
+  const sellerForm = document.getElementById('invoiceSellerSettingsForm');
+  const sellerFields = document.getElementById('invoiceSellerSettingsFields');
+  const sellerStatus = document.getElementById('invoiceSellerSettingsState');
+  const sellerSave = document.getElementById('saveInvoiceSellerSettings');
+  const sellerLabels = { name: 'Исполнитель', inn: 'ИНН', kpp: 'КПП', address: 'Адрес', bank: 'Банк', bik: 'БИК', account: 'Расчётный счёт', correspondent: 'Корреспондентский счёт', signer: 'Подписант' };
+  for (const [key, caption] of Object.entries(sellerLabels)) {
+    const label = document.createElement('label'), input = document.createElement('input');
+    label.textContent = caption; input.dataset.sellerField = key; input.maxLength = key === 'address' ? 500 : 300;
+    if (['inn', 'kpp', 'bik', 'account', 'correspondent'].includes(key)) input.inputMode = 'numeric';
+    label.append(input); sellerFields.append(label);
+  }
+
+  // Загружает общие реквизиты отдельно от настроек пароля и открытого счёта.
+  // Явная проверка конфликта сохраняет ввод и показывает актуальные значения перед повторной записью.
+  async function loadSeller(preserve = false) {
+    const version = ++sellerLoading;
+    sellerStatus.textContent = 'Загрузка реквизитов…';
+    try {
+      const response = await fetch('/api/invoice-seller', { cache: 'no-store' }), data = await response.json();
+      if (!dialog.open || version !== sellerLoading) return;
+      if (!response.ok) throw new Error(data.error || 'Не удалось открыть реквизиты');
+      sellerRevision = data.revision;
+      if (!preserve) for (const input of sellerFields.querySelectorAll('input')) input.value = data.seller[input.dataset.sellerField] || '';
+      sellerFields.disabled = false; sellerSave.disabled = false;
+      sellerStatus.textContent = preserve ? 'Сейчас сохранено: ' + Object.entries(sellerLabels).map(([key, caption]) => caption + ': ' + (data.seller[key] || '—')).join('; ') + '. Твой ввод оставлен. Проверь и сохрани.' : '';
+    } catch (error) { if (version === sellerLoading) sellerStatus.textContent = error.message; }
+  }
+
+  // Сохраняет единые реквизиты по ожидаемой версии, не переписывая счета.
+  // Ошибка оставляет поля; ни конфликт, ни потеря ответа не вызывают автоматического повтора.
+  async function saveSeller(event) {
+    event.preventDefault();
+    if (sellerBusy || busy || sellerRevision === null) return;
+    const seller = Object.fromEntries([...sellerFields.querySelectorAll('input')].map(input => [input.dataset.sellerField, input.value]));
+    sellerBusy = true; sellerFields.disabled = true; sellerSave.disabled = true; close.disabled = true;
+    sellerStatus.textContent = 'Сохранение…';
+    try {
+      const response = await fetch('/api/invoice-seller', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Manager-Invoice-Preferences': '1' }, body: JSON.stringify({ revision: sellerRevision, seller }) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Не удалось сохранить реквизиты');
+      sellerRevision = data.revision; sellerStatus.textContent = 'Реквизиты сохранены для новых счетов.';
+    } catch (error) { sellerStatus.textContent = error.message + ' Ввод остался в форме. Нажми «Обновить», чтобы проверить сохранённые реквизиты.'; }
+    finally { sellerBusy = false; sellerFields.disabled = false; sellerSave.disabled = false; close.disabled = busy; }
+  }
 
   // Открывает настройки без замены содержимого страницы или её черновиков.
   // Токен и режим смены пароля загружаются только при явном открытии окна.
@@ -17,6 +62,7 @@
     const version = ++request;
     form.reset(); csrf = ''; fields.disabled = true; status.textContent = 'Загрузка…';
     dialog.showModal();
+    sellerRevision = null; sellerFields.disabled = true; sellerSave.disabled = true; loadSeller();
     try {
       const response = await fetch('/api/manager-settings', { cache: 'no-store' });
       const data = await response.json();
@@ -28,7 +74,6 @@
       document.getElementById('managerCurrentPasswordLabel').hidden = !data.require_current_password;
       current.required = data.require_current_password;
       fields.disabled = false; status.textContent = '';
-      (data.require_current_password ? current : password).focus();
     } catch (_) { if (dialog.open && version === request) status.textContent = 'Не удалось открыть настройки. Проверь соединение.'; }
   }
 
@@ -36,7 +81,7 @@
   // При ошибке соединения не повторяет запрос, поскольку пароль мог уже измениться.
   async function saveSettings(event) {
     event.preventDefault();
-    if (busy || !csrf) return;
+    if (busy || sellerBusy || !csrf) return;
     if (password.value !== confirmation.value) {
       status.textContent = 'Новые пароли должны совпадать.'; confirmation.focus(); return;
     }
@@ -59,8 +104,10 @@
   }
 
   button.addEventListener('click', openSettings);
+  sellerForm.addEventListener('submit', saveSeller);
+  document.getElementById('reloadInvoiceSellerSettings').addEventListener('click', () => { if (!sellerBusy) loadSeller(sellerRevision !== null); });
   form.addEventListener('submit', saveSettings);
   close.addEventListener('click', () => dialog.close());
-  dialog.addEventListener('cancel', event => { if (busy) event.preventDefault(); });
-  dialog.addEventListener('close', () => { ++request; form.reset(); csrf = ''; status.textContent = ''; });
+  dialog.addEventListener('cancel', event => { if (busy || sellerBusy) event.preventDefault(); });
+  dialog.addEventListener('close', () => { ++request; ++sellerLoading; form.reset(); sellerForm.reset(); csrf = ''; status.textContent = ''; sellerStatus.textContent = ''; });
 })();

@@ -6,7 +6,7 @@
 
 Invoice drafts, immutable issued PDFs and a durable folder-copy outbox.
 
-Импорты Python, включая локальные: `base64`, `binascii`, `contextlib`, `datetime`, `decimal`, `event_folder_undo`, `file_comments`, `file_trash`, `folder_layout`, `folder_structure`, `hashlib`, `invoice_documents`, `json`, `local_metadata`, `native_renderers`, `order_calendar`, `order_folders`, `orders`, `os`, `pathlib`, `re`, `subprocess`, `tempfile`, `threading`, `time`, `unicodedata`, `uuid`, `zoneinfo`.
+Импорты Python, включая локальные: `base64`, `binascii`, `contextlib`, `datetime`, `decimal`, `event_folder_undo`, `file_comments`, `file_trash`, `folder_layout`, `folder_structure`, `hashlib`, `invoice_documents`, `invoice_preferences`, `json`, `local_metadata`, `native_renderers`, `order_calendar`, `order_folders`, `orders`, `os`, `pathlib`, `re`, `subprocess`, `tempfile`, `threading`, `time`, `unicodedata`, `uuid`, `zoneinfo`.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
@@ -148,11 +148,11 @@ def connect(self):
 def create(self, payload):
 ```
 
-Создаёт новый черновик счёта, при необходимости на основе существующего.
+Создаёт новый черновик или копию с текущими общими реквизитами исполнителя.
 
-Работает с таблицами invoices, invoice_sequences, invoice_settings.
+Проверяет владельца, сохраняет UUID повтора; прежний документ и его позиции не меняет.
 
-Непосредственные вызовы: `payload.get`, `str`, `uuid.UUID`, `ValueError`, `self.connect`, `db.execute`, `self.owner`, `db.execute('SELECT * FROM invoices WHERE id=?', (identity,)).fetchone`, `InvoiceConflict`, `json.loads(existing['data']).get`, `json.loads`, `self.record`, `today`, `db.execute('SELECT value FROM invoice_sequences WHERE year=?', (year,)).fetchone`, `db.execute('SELECT 1 FROM invoices WHERE year=? AND number=?', (year, number)).fetchone`, `db.execute("SELECT value FROM invoice_settings WHERE key='seller'").fetchone`, `data.update`, `today().isoformat`, `(today() + timedelta(days=7)).isoformat`, `timedelta`, `orders.client_name`, `dict`, `self.current`, `validate`, `time.time`, `json.dumps`.
+Непосредственные вызовы: `payload.get`, `str`, `uuid.UUID`, `ValueError`, `self.connect`, `db.execute`, `self.owner`, `db.execute('SELECT * FROM invoices WHERE id=?', (identity,)).fetchone`, `InvoiceConflict`, `json.loads(existing['data']).get`, `json.loads`, `self.record`, `today`, `db.execute('SELECT value FROM invoice_sequences WHERE year=?', (year,)).fetchone`, `db.execute('SELECT 1 FROM invoices WHERE year=? AND number=?', (year, number)).fetchone`, `data.update`, `today().isoformat`, `(today() + timedelta(days=7)).isoformat`, `timedelta`, `orders.client_name`, `invoice_preferences.read_seller`, `self.current`, `validate`, `time.time`, `json.dumps`.
 
 Явные исключения: `ValueError`, `InvoiceConflict`.
 
@@ -528,9 +528,9 @@ def save(self, payload):
 
 Сохраняет проверенный черновик по UUID и ожидаемой версии.
 
-Работает с таблицами invoices, invoice_history, invoice_settings.
+Пишет историю; совместимый remember_seller обновляет общие реквизиты с отдельной версией.
 
-Непосредственные вызовы: `validate`, `payload.get`, `self.connect`, `db.execute`, `self.current`, `self.owner`, `type`, `InvoiceConflict`, `json.loads`, `int`, `db.execute('SELECT 1 FROM invoices WHERE year=? AND number=? AND id<>?', (year, data['number'], row['id'])).fetchone`, `time.time`, `json.dumps`, `self.record`.
+Непосредственные вызовы: `validate`, `payload.get`, `self.connect`, `db.execute`, `self.current`, `self.owner`, `type`, `InvoiceConflict`, `json.loads`, `int`, `db.execute('SELECT 1 FROM invoices WHERE year=? AND number=? AND id<>?', (year, data['number'], row['id'])).fetchone`, `time.time`, `json.dumps`, `invoice_preferences.write_seller`, `invoice_preferences.read_seller`, `self.record`.
 
 Явные исключения: `InvoiceConflict`.
 

@@ -6,6 +6,24 @@
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-loadSeller"></a>
+
+## loadSeller
+
+[static/settings.js](../../../static/settings.js) · `FunctionDeclaration`.
+
+```javascript
+async function loadSeller(preserve = false)
+```
+
+Загружает общие реквизиты отдельно от настроек пароля и открытого счёта.
+
+Явная проверка конфликта сохраняет ввод и показывает актуальные значения перед повторной записью.
+
+Непосредственные вызовы: `fetch`, `response.json`, `Error`, `sellerFields.querySelectorAll`, `Object.entries(sellerLabels).map(([key, caption]) => caption + ': ' + (data.seller[key] || '—')).join`, `Object.entries(sellerLabels).map`, `Object.entries`.
+
+Прямые присваивания полям/свойствам: `sellerStatus.textContent`, `input.value`, `sellerFields.disabled`, `sellerSave.disabled`.
+
 <a id="symbol-openSettings"></a>
 
 ## openSettings
@@ -20,9 +38,27 @@ async function openSettings()
 
 Токен и режим смены пароля загружаются только при явном открытии окна.
 
-Непосредственные вызовы: `form.reset`, `dialog.showModal`, `fetch`, `response.json`, `document.getElementById`, `(data.require_current_password ? current : password).focus`.
+Непосредственные вызовы: `form.reset`, `dialog.showModal`, `loadSeller`, `fetch`, `response.json`, `document.getElementById`.
 
-Прямые присваивания полям/свойствам: `fields.disabled`, `status.textContent`, `document.getElementById('managerSettingsAddress').textContent`, `document.getElementById('managerCurrentPasswordLabel').hidden`, `current.required`.
+Прямые присваивания полям/свойствам: `fields.disabled`, `status.textContent`, `sellerFields.disabled`, `sellerSave.disabled`, `document.getElementById('managerSettingsAddress').textContent`, `document.getElementById('managerCurrentPasswordLabel').hidden`, `current.required`.
+
+<a id="symbol-saveSeller"></a>
+
+## saveSeller
+
+[static/settings.js](../../../static/settings.js) · `FunctionDeclaration`.
+
+```javascript
+async function saveSeller(event)
+```
+
+Сохраняет единые реквизиты по ожидаемой версии, не переписывая счета.
+
+Ошибка оставляет поля; ни конфликт, ни потеря ответа не вызывают автоматического повтора.
+
+Непосредственные вызовы: `event.preventDefault`, `Object.fromEntries`, `[...sellerFields.querySelectorAll('input')].map`, `sellerFields.querySelectorAll`, `fetch`, `JSON.stringify`, `response.json`, `Error`.
+
+Прямые присваивания полям/свойствам: `sellerFields.disabled`, `sellerSave.disabled`, `close.disabled`, `sellerStatus.textContent`.
 
 <a id="symbol-saveSettings"></a>
 

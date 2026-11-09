@@ -864,9 +864,10 @@ class InvoiceStore:
                     db.execute("UPDATE invoices SET data=json_set(data,'$._trash.error',?,'$._trash.state',?) WHERE id=? AND json_extract(data,'$._trash.token')=?",
                                (error, 'pending' if error else 'complete', identity, marker['token']))
 
-    # Создаёт новый черновик счёта, при необходимости на основе существующего.
-    # Работает с таблицами invoices, invoice_sequences, invoice_settings.
+    # Создаёт новый черновик или копию с текущими общими реквизитами исполнителя.
+    # Проверяет владельца, сохраняет UUID повтора; прежний документ и его позиции не меняет.
     def create(self, payload):
+        import invoice_preferences
         path, identity = payload.get("path"), payload.get("id")
         try:
             if str(uuid.UUID(identity)) != identity:
@@ -875,7 +876,7 @@ class InvoiceStore:
             raise ValueError("Не указан идентификатор нового счёта") from None
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            owner = self.owner(db, path, active=True)
+            self.owner(db, path, active=True)
             existing = db.execute("SELECT * FROM invoices WHERE id=?", (identity,)).fetchone()
             if existing:
                 if existing["path"] != path:
@@ -894,17 +895,17 @@ class InvoiceStore:
                 if not db.execute("SELECT 1 FROM invoices WHERE year=? AND number=?", (year, number)).fetchone():
                     break
             db.execute("INSERT INTO invoice_sequences VALUES (?,?) ON CONFLICT(year) DO UPDATE SET value=excluded.value", (year, sequence))
-            settings = db.execute("SELECT value FROM invoice_settings WHERE key='seller'").fetchone()
             data = {key: "" for key in FIELDS}
             data.update(kind="invoice", number=number, date=today().isoformat(), due_date=(today() + timedelta(days=7)).isoformat(),
-                        buyer_name=orders.client_name(path), seller=json.loads(settings[0]) if settings else dict(DEFAULT_SELLER),
-                        terms=DEFAULT_TERMS, items=[{"name": owner["title"], "unit": "шт", "quantity": "1", "price": "0"}])
+                        buyer_name=orders.client_name(path), seller=invoice_preferences.read_seller(db)['seller'],
+                        terms=DEFAULT_TERMS, items=[{"name": "", "unit": "шт", "quantity": "1", "price": "0"}])
             if payload.get("source"):
                 source = self.current(db, path, payload["source"])
                 if source['state'] not in {'draft', 'issued'}:
                     raise ValueError("Этот документ нельзя использовать как черновик редактора")
                 data.update(json.loads(source["data"]))
                 data.update(number=number, date=today().isoformat(), due_date=(today() + timedelta(days=7)).isoformat(), work_start="", work_end="")
+                data['seller'] = invoice_preferences.read_seller(db)['seller']
             data = validate(data)
             stamp = time.time()
             db.execute("INSERT INTO invoices(id,path,year,number,revision,state,data,created,updated) VALUES (?,?,?,?,1,'draft',?,?,?)",
@@ -912,8 +913,9 @@ class InvoiceStore:
             return self.record(self.current(db, path, identity))
 
     # Сохраняет проверенный черновик по UUID и ожидаемой версии.
-    # Работает с таблицами invoices, invoice_history, invoice_settings.
+    # Пишет историю; совместимый remember_seller обновляет общие реквизиты с отдельной версией.
     def save(self, payload):
+        import invoice_preferences
         data = validate(payload.get("data"))
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
@@ -933,8 +935,7 @@ class InvoiceStore:
             db.execute("UPDATE invoices SET year=?,number=?,data=?,revision=revision+1,updated=? WHERE id=?",
                        (year, data["number"], json.dumps(data, ensure_ascii=False), time.time(), row["id"]))
             if payload.get("remember_seller") is True:
-                db.execute("INSERT INTO invoice_settings VALUES ('seller',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-                           (json.dumps(data["seller"], ensure_ascii=False),))
+                invoice_preferences.write_seller(db, data['seller'], invoice_preferences.read_seller(db)['revision'])
             return self.record(self.current(db, row["path"], row["id"]))
 
     # Выпускает неизменяемый документ из проверенного черновика.

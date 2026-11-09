@@ -328,6 +328,21 @@
         ]
       },
       {
+        "path": "invoice_preferences.py",
+        "symbols": [
+          {"name": "history", "type": "function", "anchor": "symbol-history"},
+          {"name": "identity", "type": "function", "anchor": "symbol-identity"},
+          {"name": "read_catalog", "type": "function", "anchor": "symbol-read_catalog"},
+          {"name": "read_seller", "type": "function", "anchor": "symbol-read_seller"},
+          {"name": "resource", "type": "function", "anchor": "symbol-resource"},
+          {"name": "seller_data", "type": "function", "anchor": "symbol-seller_data"},
+          {"name": "text", "type": "function", "anchor": "symbol-text"},
+          {"name": "validate_catalog", "type": "function", "anchor": "symbol-validate_catalog"},
+          {"name": "write_catalog", "type": "function", "anchor": "symbol-write_catalog"},
+          {"name": "write_seller", "type": "function", "anchor": "symbol-write_seller"}
+        ]
+      },
+      {
         "path": "invoices.py",
         "symbols": [
           {"name": "InvoiceConflict", "type": "class", "anchor": "symbol-InvoiceConflict"},
@@ -1504,10 +1519,27 @@
         ]
       },
       {
+        "path": "static/invoice-products.js",
+        "symbols": [
+          {"name": "api", "type": "FunctionDeclaration", "anchor": "symbol-api"},
+          {"name": "el", "type": "ArrowFunctionExpression", "anchor": "symbol-el"},
+          {"name": "groups", "type": "FunctionDeclaration", "anchor": "symbol-groups"},
+          {"name": "html", "type": "ArrowFunctionExpression", "anchor": "symbol-html"},
+          {"name": "init", "type": "FunctionDeclaration", "anchor": "symbol-init"},
+          {"name": "load", "type": "FunctionDeclaration", "anchor": "symbol-load"},
+          {"name": "open", "type": "FunctionDeclaration", "anchor": "symbol-open"},
+          {"name": "render", "type": "FunctionDeclaration", "anchor": "symbol-render"},
+          {"name": "review", "type": "FunctionDeclaration", "anchor": "symbol-review"},
+          {"name": "save", "type": "FunctionDeclaration", "anchor": "symbol-save"},
+          {"name": "setEditable", "type": "FunctionDeclaration", "anchor": "symbol-setEditable"}
+        ]
+      },
+      {
         "path": "static/invoices.js",
         "symbols": [
           {"name": "accept", "type": "ArrowFunctionExpression", "anchor": "symbol-accept"},
           {"name": "action", "type": "FunctionDeclaration", "anchor": "symbol-action"},
+          {"name": "addItem", "type": "FunctionDeclaration", "anchor": "symbol-addItem"},
           {"name": "cash", "type": "ArrowFunctionExpression", "anchor": "symbol-cash"},
           {"name": "changed", "type": "FunctionDeclaration", "anchor": "symbol-changed"},
           {"name": "checkInvoiceFolder", "type": "FunctionDeclaration", "anchor": "symbol-checkInvoiceFolder"},
@@ -1608,7 +1640,9 @@
       {
         "path": "static/settings.js",
         "symbols": [
+          {"name": "loadSeller", "type": "FunctionDeclaration", "anchor": "symbol-loadSeller"},
           {"name": "openSettings", "type": "FunctionDeclaration", "anchor": "symbol-openSettings"},
+          {"name": "saveSeller", "type": "FunctionDeclaration", "anchor": "symbol-saveSeller"},
           {"name": "saveSettings", "type": "FunctionDeclaration", "anchor": "symbol-saveSettings"}
         ]
       },
