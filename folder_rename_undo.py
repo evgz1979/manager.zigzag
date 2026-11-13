@@ -7,6 +7,8 @@ from pathlib import Path
 import sqlite3
 import unicodedata
 
+FILE_TRASH_PATHS_VERSION = 1
+
 
 # Проверяет принадлежность пути указанной области по границам компонентов.
 # Возвращает `path == prefix or path.startswith(prefix + '/')`.
@@ -28,7 +30,7 @@ def remap(path, source, destination):
 
 # Вычисляет затрагиваемые пути SQLite для самостоятельного отката.
 # Работает с таблицами folder_renames, metadata_file_moves, metadata_publications.
-def metadata_paths(db, source, destination, *, apply=False):
+def metadata_paths(db, source, destination, *, apply=False, file_trash_paths=False):
     """Self-contained: this module is copied into standalone restoration journals."""
     source,destination = (unicodedata.normalize("NFC",value) for value in (source,destination))
     exists = lambda name: db.execute("SELECT 1 FROM sqlite_master WHERE name=?", (name,)).fetchone()
@@ -38,7 +40,9 @@ def metadata_paths(db, source, destination, *, apply=False):
                 stored = pair['destination']
                 if pair.get('kind') == 'supplier-event-trash' and stored != source and inside(stored, source):
                     raise ValueError("Сначала восстанови события из корзины в этой папке")
-    if exists("metadata_file_moves"):
+    if file_trash_paths:
+        remap_file_trash(db, source, destination, apply=apply)
+    elif exists("metadata_file_moves"):
         for old, new in db.execute("SELECT source,destination FROM metadata_file_moves WHERE state!='restored'"):
             if any(inside(path, root) for path in (old,new) for root in (source,destination)):
                 raise ValueError("Сначала восстанови файлы из корзины в этой папке")
@@ -58,11 +62,38 @@ def metadata_paths(db, source, destination, *, apply=False):
                 db.execute("UPDATE metadata_publications SET source=? WHERE rowid=?", (destination+row[2][len(source):],row[0]))
 
 
+# Находит записи корзины, затронутые переносом, и проверяет их состояние.
+# Файл в общей корзине остаётся на месте, копия счёта внутри объекта переносится вместе с ним.
+def remap_file_trash(db, source, destination, *, apply=False):
+    if not table(db, "metadata_file_moves"):
+        return set()
+    destination_key = destination.casefold()
+    rows = []
+    sessions = set()
+    for session, old, stored, state in db.execute("SELECT session,source,destination,state FROM metadata_file_moves"):
+        if state != "restored" and (inside(old.casefold(), destination_key) or inside(stored.casefold(), destination_key)):
+            raise ValueError("По новому пути есть файл или копия счёта в корзине: " + old)
+        if not (inside(old, source) or inside(stored, source)):
+            continue
+        if state not in ("trashed", "restored"):
+            raise ValueError("Перенос файла в корзину или обратно прерван: " + old + ". Заверши его в корзине и повтори перенос объекта")
+        new = remap(old, source, destination)
+        new_stored = remap(stored, source, destination)
+        if new != old and db.execute("SELECT 1 FROM metadata_file_moves WHERE session=? AND source=?", (session, new)).fetchone():
+            raise ValueError("В том же сеансе корзины уже есть новый путь: " + new)
+        rows.append((session, old, new, new_stored))
+        sessions.add(session)
+    if apply and rows:
+        db.execute("INSERT OR IGNORE INTO metadata_settings VALUES ('file_trash_paths','1')")
+        for session, old, new, stored in rows:
+            db.execute("UPDATE metadata_file_moves SET source=?,destination=? WHERE session=? AND source=?", (new, stored, session, old))
+    return sessions
+
 
 # Проверяет предпосылки безопасного выполнения операции.
 # Работает с таблицами orders, mobile_operations.
-def check(db, source, destination, session=None):
-    metadata_paths(db,source,destination)
+def check(db, source, destination, session=None, *, file_trash_paths=False):
+    metadata_paths(db,source,destination,file_trash_paths=file_trash_paths)
     for name in ("event_renames", "folder_renames"):
         if table(db, name):
             for other, mappings in db.execute(f"SELECT session,mappings FROM {name} WHERE state='pending'"):
@@ -84,9 +115,9 @@ def check(db, source, destination, session=None):
 
 # Переписывает связанные пути SQLite в одной внешней транзакции.
 # Работает с таблицами reconciliations, orders, folder_notes, todo_missing_folders, mobile_files.
-def rewrite(db, source, destination):
+def rewrite(db, source, destination, *, file_trash_paths=False):
     """Called inside one transaction; preserve every field and pending export."""
-    metadata_paths(db,source,destination,apply=True)
+    metadata_paths(db,source,destination,apply=True,file_trash_paths=file_trash_paths)
     if table(db, 'reconciliations'):
         for identity, path in list(db.execute('SELECT id,path FROM reconciliations')):
             if inside(path, source):
@@ -148,7 +179,8 @@ def undo(session, perform=False):
         committed = bool(row[1])
         for pair in mappings:
             source,destination = pair["source"],pair["destination"]
-            check(db,destination if committed else source,source if committed else destination,str(session))
+            options = {"file_trash_paths": True} if pair.get("file_trash_paths") else {}
+            check(db,destination if committed else source,source if committed else destination,str(session),**options)
         keep = []
         root = Path(layout.load_plan(session)["root"])
         for directory in meta.get("created_years",[]):
@@ -167,7 +199,8 @@ def undo(session, perform=False):
         count = layout.undo(session, True, coordinate_database=True,**options)
         if committed:
             for pair in reversed(mappings):
-                rewrite(db,pair["destination"],pair["source"])
+                options = {"file_trash_paths": True} if pair.get("file_trash_paths") else {}
+                rewrite(db,pair["destination"],pair["source"],**options)
         db.execute("UPDATE folder_renames SET state='undone',paths_applied=0 WHERE session=?", (str(session),))
     return count
 

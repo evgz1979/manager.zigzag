@@ -781,7 +781,7 @@ class InvoiceStore:
                     raise InvoiceConflict('Корзина счёта изменилась. Обнови список')
             session = file_trash.session_path(self.store.root, marker['token'])
             if (session / '.plan.json').exists():
-                result = file_trash.restore(self.store.root, marker['token'])
+                result = file_trash.restore(self.store.root, marker['token'], database=self.store.database)
                 if result['error']:
                     raise InvoiceConflict(result['error'])
             else:

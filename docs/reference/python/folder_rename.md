@@ -107,7 +107,7 @@ def relocate(store, db, view, destination, *, details=None, verify=None, progres
 
 Вызывается под блокировками и BEGIN IMMEDIATE; дополнительная сверка проходит до перепривязки.
 
-Непосредственные вызовы: `store.root.resolve`, `restore.check`, `folder_role`, `db.execute`, `restore.inside`, `(root / row[0]).is_dir`, `str`, `store.database.resolve`, `row.keys`, `restore.table`, `layout.Plan`, `sorted`, `Path`, `layout_scope`, `plan.move`, `FolderRenameConflict`, `plan.create_session`, `layout.save_json`, `shutil.copyfile`, `closing`, `sqlite3.connect`, `store.database.resolve().as_uri`, `original.backup`, `backup.execute('PRAGMA quick_check').fetchone`, `backup.execute`, `ValueError`, `json.dumps`, `db.commit`, `report`, `layout.apply`, `verify`, `restore.remap`, `restore.rewrite`, `db.rollback`, `restore.undo`, `layout.append`, `session.relative_to(root).as_posix`, `session.relative_to`, `print`.
+Непосредственные вызовы: `store.root.resolve`, `(details or {}).get`, `restore.check`, `folder_role`, `db.execute`, `restore.inside`, `(root / row[0]).is_dir`, `str`, `store.database.resolve`, `row.keys`, `restore.table`, `layout.Plan`, `sorted`, `Path`, `layout_scope`, `plan.move`, `FolderRenameConflict`, `plan.create_session`, `layout.save_json`, `shutil.copyfile`, `closing`, `sqlite3.connect`, `store.database.resolve().as_uri`, `original.backup`, `backup.execute('PRAGMA quick_check').fetchone`, `backup.execute`, `ValueError`, `json.dumps`, `db.commit`, `report`, `layout.apply`, `verify`, `restore.remap`, `restore.rewrite`, `db.rollback`, `restore.undo`, `layout.append`, `session.relative_to(root).as_posix`, `session.relative_to`, `print`.
 
 Явные исключения: `FolderRenameConflict`, `ValueError`.
 

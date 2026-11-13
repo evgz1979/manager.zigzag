@@ -2429,6 +2429,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 if route == "/api/files-trash-list":
                     try:
                         sessions = file_trash.list_sessions(DATA_ROOT, errors=errors,
+                                                           database=order_store().database if DATABASE_ONLY else None,
                             reader=lambda path: icloud_access.read_bytes(path, max_bytes=20 * 1024 * 1024))
                     except (OSError, ValueError, sqlite3.Error):
                         errors.append({"session": None})
@@ -2438,7 +2439,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
             elif route == "/api/files-trash-restore":
                 with file_comments.LOCK:
                     guard_database(order_store().database, "", include_children=True)
-                    result = file_trash.restore(DATA_ROOT, payload.get("session"))
+                    result = file_trash.restore(DATA_ROOT, payload.get("session"),
+                                                database=order_store().database if DATABASE_ONLY else None)
                 self.send_json(result)
                 return
             elif route == "/api/status":

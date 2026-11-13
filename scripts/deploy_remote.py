@@ -370,6 +370,12 @@ def check_event_rename_compatibility(database, release_dir):
                 and db.execute("SELECT 1 FROM sqlite_master WHERE name='folder_renames'").fetchone()
                 and db.execute("SELECT 1 FROM folder_renames WHERE state='pending' LIMIT 1").fetchone()):
             raise RuntimeError("Есть прерванное переименование папки. Завершите откат перед переключением на старый код")
+        if db.execute("SELECT 1 FROM sqlite_master WHERE name='metadata_settings'").fetchone() and db.execute(
+                "SELECT 1 FROM metadata_settings WHERE key='file_trash_paths' AND value='1'").fetchone():
+            for name in ("file_trash.py", "folder_rename_undo.py"):
+                source = release_dir / name
+                if not source.is_file() or "FILE_TRASH_PATHS_VERSION = 1" not in source.read_text(encoding="utf-8"):
+                    raise RuntimeError("В корзине есть перепривязанные пути. Этот релиз не поддерживает восстановление файлов после переноса объекта")
 
 
 # Подготавливает и переключает проверенный релиз, сохраняя рабочую базу.

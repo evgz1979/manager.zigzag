@@ -159,6 +159,8 @@ sequenceDiagram
 
 [start](reference/python/object_move.md#symbol-start) принимает подтверждённый перенос объекта и возвращает идентификатор фонового задания. [inventory](reference/python/object_move.md#symbol-inventory) обходит всё поддерево через дескрипторы каталогов и считает SHA-256 обычных файлов с ограниченной памятью. [relocate](reference/python/folder_rename.md#symbol-relocate) записывает намерение и выполняет один перенос папки без перезаписи. Затем проверяет дерево и SHA-256 по новому пути до транзакции перепривязки SQLite. Браузер опрашивает независимый статус задания, поэтому ожидание iCloud видно даже во время файловой блокировки.
 
+[prepare_relocation](reference/python/file_trash.md#symbol-prepare_relocation) проверяет затронутые сеансы корзины и обновляет автономный рецепт. [remap_file_trash](reference/python/folder_rename_undo.md#symbol-remap_file_trash) перепривязывает их вместе с заказами в транзакции переноса или отката. [resolve_paths](reference/python/file_trash.md#symbol-resolve_paths) связывает шаги прежнего плана с текущими путями из SQLite, сохраняя номера шагов, токен и проверку идентичности сохранённых файлов.
+
 ## Просмотр документа
 
 Просмотр оригинала начинается с проверки пути и типа. iCloud-чтение проходит через [read_bytes](reference/python/icloud_access.md#symbol-read_bytes), с пределом и таймаутом. PDFKit и ImageIO создают производные представления, оригинал не переписывается. Кеши привязаны к версии исходника.

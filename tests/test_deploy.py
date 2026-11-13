@@ -308,6 +308,19 @@ class DeploymentTests(unittest.TestCase):
         (release / 'folder_rename_undo.py').touch()
         remote.check_event_rename_compatibility(self.db, release)
 
+    def test_old_code_cannot_restore_trash_to_paths_before_object_move(self):
+        release = self.base / 'old-trash'
+        release.mkdir()
+        (release / 'local_metadata.py').touch()
+        with sqlite3.connect(self.db) as db:
+            db.execute('CREATE TABLE metadata_settings (key TEXT PRIMARY KEY, value TEXT)')
+            db.execute("INSERT INTO metadata_settings VALUES ('file_trash_paths','1')")
+        with self.assertRaisesRegex(RuntimeError, 'перепривязанные пути'):
+            remote.check_event_rename_compatibility(self.db, release)
+        for name in ('file_trash.py', 'folder_rename_undo.py'):
+            (release / name).write_text('FILE_TRASH_PATHS_VERSION = 1')
+        remote.check_event_rename_compatibility(self.db, release)
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.base = Path(self.temporary.name).resolve()

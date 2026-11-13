@@ -17,7 +17,7 @@ Database path rewrite and standalone undo for a folder renamed in the UI.
 [folder_rename_undo.py](../../../folder_rename_undo.py) · `function`.
 
 ```python
-def check(db, source, destination, session=None):
+def check(db, source, destination, session=None, *, file_trash_paths=False):
 ```
 
 Проверяет предпосылки безопасного выполнения операции.
@@ -57,14 +57,14 @@ path == prefix or path.startswith(prefix + '/')
 [folder_rename_undo.py](../../../folder_rename_undo.py) · `function`.
 
 ```python
-def metadata_paths(db, source, destination, *, apply=False):
+def metadata_paths(db, source, destination, *, apply=False, file_trash_paths=False):
 ```
 
 Вычисляет затрагиваемые пути SQLite для самостоятельного отката.
 
 Работает с таблицами folder_renames, metadata_file_moves, metadata_publications.
 
-Непосредственные вызовы: `unicodedata.normalize`, `exists`, `db.execute`, `json.loads`, `pair.get`, `inside`, `ValueError`, `any`, `list`, `len`.
+Непосредственные вызовы: `unicodedata.normalize`, `exists`, `db.execute`, `json.loads`, `pair.get`, `inside`, `ValueError`, `remap_file_trash`, `any`, `list`, `len`.
 
 Явные исключения: `ValueError`.
 
@@ -90,6 +90,31 @@ def remap(path, source, destination):
 destination + path[len(source):] if inside(path, source) else path
 ```
 
+<a id="symbol-remap_file_trash"></a>
+
+## remap_file_trash
+
+[folder_rename_undo.py](../../../folder_rename_undo.py) · `function`.
+
+```python
+def remap_file_trash(db, source, destination, *, apply=False):
+```
+
+Находит записи корзины, затронутые переносом, и проверяет их состояние.
+
+Файл в общей корзине остаётся на месте, копия счёта внутри объекта переносится вместе с ним.
+
+Непосредственные вызовы: `table`, `set`, `destination.casefold`, `db.execute`, `inside`, `old.casefold`, `stored.casefold`, `ValueError`, `remap`, `db.execute('SELECT 1 FROM metadata_file_moves WHERE session=? AND source=?', (session, new)).fetchone`, `rows.append`, `sessions.add`.
+
+Явные исключения: `ValueError`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+set()
+sessions
+```
+
 <a id="symbol-rewrite"></a>
 
 ## rewrite
@@ -97,7 +122,7 @@ destination + path[len(source):] if inside(path, source) else path
 [folder_rename_undo.py](../../../folder_rename_undo.py) · `function`.
 
 ```python
-def rewrite(db, source, destination):
+def rewrite(db, source, destination, *, file_trash_paths=False):
 ```
 
 Переписывает связанные пути SQLite в одной внешней транзакции.
@@ -142,7 +167,7 @@ def undo(session, perform=False):
 
 Работает с таблицами folder_renames.
 
-Непосредственные вызовы: `Path`, `json.loads`, `(session / '.folder-paths.json').read_text`, `importlib.util.spec_from_file_location`, `importlib.util.module_from_spec`, `spec.loader.exec_module`, `layout.undo`, `meta.get`, `closing`, `sqlite3.connect`, `Path(meta['database']).as_uri`, `db.execute`, `db.execute('SELECT state,paths_applied FROM folder_renames WHERE session=?', (str(session),)).fetchone`, `str`, `ValueError`, `bool`, `check`, `layout.load_plan`, `Path(pair['destination']).parent.as_posix`, `target.is_dir`, `any`, `target.iterdir`, `inside`, `table`, `keep.append`, `db.commit`, `reversed`, `rewrite`.
+Непосредственные вызовы: `Path`, `json.loads`, `(session / '.folder-paths.json').read_text`, `importlib.util.spec_from_file_location`, `importlib.util.module_from_spec`, `spec.loader.exec_module`, `layout.undo`, `meta.get`, `closing`, `sqlite3.connect`, `Path(meta['database']).as_uri`, `db.execute`, `db.execute('SELECT state,paths_applied FROM folder_renames WHERE session=?', (str(session),)).fetchone`, `str`, `ValueError`, `bool`, `pair.get`, `check`, `layout.load_plan`, `Path(pair['destination']).parent.as_posix`, `target.is_dir`, `any`, `target.iterdir`, `inside`, `table`, `keep.append`, `db.commit`, `reversed`, `rewrite`.
 
 Явные исключения: `ValueError`.
 

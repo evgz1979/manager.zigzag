@@ -10,7 +10,9 @@ import unittest
 from unittest.mock import patch
 
 from event_folder_undo import EventRenamePending
+import file_trash
 import object_move
+import test_external_invoices as external
 import test_server as fixtures
 
 manager = fixtures.manager
@@ -107,6 +109,80 @@ class ObjectMoveTests(unittest.TestCase):
         self.assertEqual((self.root / self.source / ".скрытый").read_bytes(), b"edited")
         self.assertFalse((self.root / self.destination).exists())
         self.assertEqual(object_move.status(store, "a" * 32)["phase"], "failed")
+
+    def test_file_trash_keeps_storage_and_restores_comment_to_current_path(self):
+        store, order, _ = self.populate()
+        suffix = self.order_suffix + "/# docs/Фото/схема.cdr"
+        old = self.source + suffix
+        old_parent = str((self.root / old).parent.relative_to(self.root))
+        other = "Клиент/Другой объект/другой.txt"
+        self.file(other, b"unrelated")
+        files = file_trash.preview(self.root, "Клиент", [old, other])["files"]
+        deleted = file_trash.remove(self.root, "Клиент", files, True, store.database)
+        session = file_trash.session_path(self.root, deleted["session"])
+        plan_bytes = (session / ".plan.json").read_bytes()
+        legacy_helper = session / ".restore.py"
+        legacy_helper.write_text("# Previous standalone helper\n", encoding="utf-8")
+        moved = object_move.move(store, self.payload(store), lambda **_: None, nullcontext)
+        new = self.destination + suffix
+        self.assertFalse((self.root / new).exists())
+        self.assertEqual(file_trash.list_sessions(self.root)[0]["files"], [new, other])
+        self.assertEqual((session / ".plan.json").read_bytes(), plan_bytes)
+        result = subprocess.run([sys.executable, str(legacy_helper)], check=True, capture_output=True)
+        restored = json.loads(result.stdout)
+        self.assertFalse(restored["error"], restored)
+        self.assertEqual((self.root / new).read_bytes(), b"image")
+        self.assertEqual((self.root / other).read_bytes(), b"unrelated")
+        self.assertEqual(manager.metadata_store().get("comment", new)["comment"], "Чертёж")
+        self.assertFalse((self.root / old_parent).exists())
+        move_session = self.root / moved["journal"]
+        subprocess.run([sys.executable, str(move_session / ".restore.py"), str(move_session), "--apply"], check=True, capture_output=True)
+        self.assertEqual((self.root / old).read_bytes(), b"image")
+        self.assertEqual(manager.metadata_store().get("comment", old)["comment"], "Чертёж")
+
+    def test_invoice_copy_stays_trashed_and_can_be_restored_after_move(self):
+        store, order, _ = self.populate()
+        invoices = manager.invoice_store()
+        fixture = external.ExternalInvoiceTests()
+        record = invoices.upload(fixture.payload(path=order["path"]))
+        invoices.sync()
+        record = invoices.get(order["path"], record["id"])
+        deleted = invoices.remove({**record, "confirmed": True})
+        invoices.sync()
+        self.assertEqual(invoices.list(order["path"], trashed=True)[0]["trash"]["state"], "complete")
+        object_move.move(store, self.payload(store), lambda **_: None, nullcontext)
+        new = self.destination + self.order_suffix
+        trashed = next(row for row in invoices.list(new, trashed=True) if row["id"] == deleted["id"])
+        self.assertEqual(trashed["trash"]["token"], deleted["trash"]["token"])
+        self.assertTrue((self.root / new / "# bills/.trash" / deleted["trash"]["token"] / record["filename"]).is_file())
+        result = invoices.restore(trashed)
+        self.assertEqual(result["id"], record["id"])
+        self.assertEqual((self.root / result["pdf_path"]).read_bytes(), external.ExternalInvoiceTests.pdf)
+
+    def test_incomplete_file_trash_stops_before_moving_anything(self):
+        store, order, _ = self.populate()
+        old = order["path"] + "/# docs/Фото/схема.cdr"
+        files = file_trash.preview(self.root, order["path"], [old])["files"]
+        with patch.object(file_trash, "rename", side_effect=OSError("iCloud временно недоступен")):
+            removed = file_trash.remove(self.root, order["path"], files, True, store.database)
+        self.assertTrue(removed["error"])
+        with self.assertRaisesRegex(ValueError, "в корзину или обратно прерван"):
+            object_move.move(store, self.payload(store), lambda **_: None, nullcontext)
+        self.assertTrue((self.root / old).is_file())
+        self.assertFalse((self.root / self.destination).exists())
+
+    def test_undo_move_rebinds_files_still_in_trash(self):
+        store, order, _ = self.populate()
+        old = order["path"] + "/# docs/Фото/схема.cdr"
+        files = file_trash.preview(self.root, order["path"], [old])["files"]
+        deleted = file_trash.remove(self.root, order["path"], files, True, store.database)
+        moved = object_move.move(store, self.payload(store), lambda **_: None, nullcontext)
+        session = self.root / moved["journal"]
+        subprocess.run([sys.executable, str(session / ".restore.py"), str(session), "--apply"], check=True, capture_output=True)
+        self.assertEqual(file_trash.list_sessions(self.root)[0]["files"], [old])
+        self.assertFalse((self.root / old).exists())
+        self.assertFalse(file_trash.restore(self.root, deleted["session"])["error"])
+        self.assertEqual(manager.metadata_store().get("comment", old)["comment"], "Чертёж")
 
     def test_destination_changed_or_saved_data_conflict_keeps_source(self):
         store, order, _ = self.populate()

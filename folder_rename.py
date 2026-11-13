@@ -92,7 +92,8 @@ def relocate(store, db, view, destination, *, details=None, verify=None, progres
     root, source = store.root.resolve(), view["path"]
     action = "Перенос" if verify else "Переименование"
     report = progress or (lambda phase: None)
-    restore.check(db, source, destination)
+    options = {"file_trash_paths": True} if (details or {}).get("file_trash_paths") else {}
+    restore.check(db, source, destination, **options)
     kind = folder_role(root, source)["folderKind"]
     registered = [(row[0], folder_role(root, row[0])["folderKind"]) for row in db.execute("SELECT path FROM orders")
                   if restore.inside(row[0], source) and (root / row[0]).is_dir()]
@@ -125,13 +126,13 @@ def relocate(store, db, view, destination, *, details=None, verify=None, progres
             verify(session)
         report("metadata")
         db.execute("BEGIN IMMEDIATE")
-        restore.check(db, source, destination, str(session))
+        restore.check(db, source, destination, str(session), **options)
         if folder_role(root, destination)["folderKind"] != kind:
             raise ValueError("Сохрани тип папки: дату/номер заказа, числовой префикс группы или # служебной папки")
         for path, old_kind in registered:
             if folder_role(root, restore.remap(path, source, destination))["folderKind"] != old_kind:
                 raise ValueError("Перенос меняет структуру вложенных заказов")
-        restore.rewrite(db, source, destination)
+        restore.rewrite(db, source, destination, **options)
         db.execute("UPDATE folder_renames SET state='complete',paths_applied=1 WHERE session=?", (str(session),))
         db.commit()
     except Exception as error:

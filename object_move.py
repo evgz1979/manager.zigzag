@@ -14,6 +14,7 @@ import unicodedata
 from contextlib import closing
 import sqlite3
 
+import file_trash
 import folder_layout as layout
 import folder_notes
 import folder_rename
@@ -276,7 +277,7 @@ def move(store, payload, progress, locks):
     view, destination = move_paths(store, payload)
     source = view["path"]
     with store.connect() as db:
-        folder_rename.restore.check(db, source, destination)
+        folder_rename.restore.check(db, source, destination, file_trash_paths=True)
         check_pending(db, source)
         check_destination(db, destination)
 
@@ -299,6 +300,10 @@ def move(store, payload, progress, locks):
         if fresh != view or fresh_destination != destination:
             raise FolderRenameConflict("Папки изменились во время проверки. Открой перенос заново")
         inventory(root, source, expected=entries)
+        trash_source, trash_destination = (unicodedata.normalize("NFC", path) for path in (source, destination))
+        sessions = folder_rename.restore.remap_file_trash(db, trash_source, trash_destination)
+        if sessions:
+            file_trash.prepare_relocation(root, store.database, sessions, trash_source)
         db.execute("BEGIN IMMEDIATE")
         check_pending(db, source)
         check_destination(db, destination)
@@ -316,7 +321,7 @@ def move(store, payload, progress, locks):
             require_absent(root / source)
 
         result = folder_rename.relocate(store, db, view, destination,
-                                       details={"kind": KIND, "id": payload["id"], "counts": totals},
+                                       details={"kind": KIND, "id": payload["id"], "counts": totals, "file_trash_paths": True},
                                        verify=verify, progress=lambda phase: progress(phase=phase, current=""))
     return {**result, **totals}
 

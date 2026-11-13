@@ -6,7 +6,7 @@
 
 Recoverable file removal with a portable journal and standalone restoration.
 
-Импорты Python, включая локальные: `contextlib`, `ctypes`, `datetime`, `fcntl`, `hashlib`, `json`, `os`, `pathlib`, `re`, `shutil`, `sqlite3`, `stat`, `threading`, `time`, `unicodedata`, `uuid`, `zoneinfo`.
+Импорты Python, включая локальные: `argparse`, `contextlib`, `ctypes`, `datetime`, `fcntl`, `hashlib`, `icloud_access`, `json`, `order_document`, `os`, `pathlib`, `re`, `shutil`, `sqlite3`, `stat`, `threading`, `time`, `unicodedata`, `uuid`, `zoneinfo`.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
@@ -133,7 +133,7 @@ def fingerprint(path):
 [file_trash.py](../../../file_trash.py) · `function`.
 
 ```python
-def list_sessions(root, *, reader=None, errors=None):
+def list_sessions(root, *, reader=None, errors=None, database=None):
 ```
 
 Читает сохранённые сеансы корзины для интерфейса восстановления.
@@ -148,6 +148,24 @@ def list_sessions(root, *, reader=None, errors=None):
 []
 sorted(result, key=lambda record: record['created'], reverse=True)
 ```
+
+<a id="symbol-prepare_relocation"></a>
+
+## prepare_relocation
+
+[file_trash.py](../../../file_trash.py) · `function`.
+
+```python
+def prepare_relocation(root, database, sessions, source):
+```
+
+Проверяет завершённые сеансы перед переносом объекта и обновляет их автономный рецепт.
+
+Исходный план и журнал сохраняются побайтно, а файлы остаются в корзине.
+
+Непосредственные вызовы: `unicodedata.normalize`, `closing`, `sqlite3.connect`, `Path(database).as_uri`, `Path`, `sorted`, `read_plan`, `plan.get`, `TrashConflict`, `set`, `db.execute`, `path.startswith`, `stored.startswith`, `operations.get`, `same`, `stored_files.add`, `helper.is_symlink`, `helper.exists`, `read_bytes`, `atomic_write`, `Path(__file__).read_text`.
+
+Явные исключения: `TrashConflict`.
 
 <a id="symbol-preview"></a>
 
@@ -180,14 +198,14 @@ def preview(root, folder, paths):
 [file_trash.py](../../../file_trash.py) · `function`.
 
 ```python
-def read_plan(root, token, *, reader=None):
+def read_plan(root, token, *, reader=None, database=None):
 ```
 
 Читает и проверяет сохранённый план операции.
 
 При недопустимом состоянии возбуждает ValueError.
 
-Непосредственные вызовы: `session_path`, `checked`, `(session.relative_to(root) / '.plan.json').as_posix`, `session.relative_to`, `json.loads`, `reader(plan_path).decode`, `reader`, `plan_path.read_text`, `plan.get`, `str`, `ValueError`, `(Path(plan['folder']) / '.trash' / token).as_posix`, `Path`.
+Непосредственные вызовы: `session_path`, `checked`, `(session.relative_to(root) / '.plan.json').as_posix`, `session.relative_to`, `json.loads`, `reader(plan_path).decode`, `reader`, `plan_path.read_text`, `plan.get`, `str`, `ValueError`, `Path(database).resolve`, `Path`, `resolve_paths`, `(Path(plan['folder']) / '.trash' / token).as_posix`.
 
 Явные исключения: `ValueError`.
 
@@ -239,6 +257,24 @@ def rename(source, destination):
 
 Явные исключения: `OSError`.
 
+<a id="symbol-resolve_paths"></a>
+
+## resolve_paths
+
+[file_trash.py](../../../file_trash.py) · `function`.
+
+```python
+def resolve_paths(plan):
+```
+
+Получает текущие пути файлов из SQLite, сохраняя исходный план и порядок его шагов.
+
+Общий склад определяется прежним путём хранения, копия счёта — единственной записью сеанса.
+
+Непосредственные вызовы: `plan.get`, `closing`, `sqlite3.connect`, `Path(plan['database']).as_uri`, `Path`, `tuple`, `unicodedata.normalize('NFC', item['path']).casefold`, `unicodedata.normalize`, `list`, `db.execute`, `path.casefold`, `db.execute('SELECT 1 FROM sqlite_master WHERE name=?', (table,)).fetchone`, `json.loads`, `unicodedata.normalize('NFC', pair[key]).casefold`, `any`, `path.startswith`, `TrashConflict`, `len`, `by_storage.get`, `str`, `Path(operation['source']).relative_to`, `(Path(storage) / Path(operation['destination']).relative_to(old_storage)).as_posix`, `Path(operation['destination']).relative_to`, `(Path(new).parent / origin).as_posix`, `os.path.commonpath`.
+
+Явные исключения: `TrashConflict`.
+
 <a id="symbol-restore"></a>
 
 ## restore
@@ -246,14 +282,14 @@ def rename(source, destination):
 [file_trash.py](../../../file_trash.py) · `function`.
 
 ```python
-def restore(root, token):
+def restore(root, token, *, database=None):
 ```
 
 Проверяет сеанс и возвращает файлы и комментарии без перезаписи назначения.
 
 При недопустимом состоянии возбуждает TrashConflict.
 
-Непосредственные вызовы: `Path(root).resolve`, `Path`, `read_plan`, `(session / '.lock').open`, `fcntl.flock`, `set`, `journal.exists`, `journal.read_text(encoding='utf-8').splitlines`, `journal.read_text`, `line.endswith`, `json.loads`, `intents.add`, `reversed`, `list`, `enumerate`, `checked`, `os.path.lexists`, `same`, `database_move`, `TrashConflict`, `original.parent.is_dir`, `str`, `original.parent.relative_to`, `append`, `rename`, `restored.append`, `restore_invoice_record`, `describe`, `save`, `uuid.uuid4`.
+Непосредственные вызовы: `Path(root).resolve`, `Path`, `read_plan`, `(session / '.lock').open`, `fcntl.flock`, `set`, `journal.exists`, `journal.read_text(encoding='utf-8').splitlines`, `journal.read_text`, `line.endswith`, `json.loads`, `intents.add`, `undone.add`, `reversed`, `list`, `enumerate`, `checked`, `os.path.lexists`, `same`, `database_move`, `append`, `TrashConflict`, `original.parent.is_dir`, `str`, `original.parent.relative_to`, `rename`, `restored.append`, `restore_invoice_record`, `describe`, `save`, `uuid.uuid4`.
 
 Явные исключения: `TrashConflict`.
 

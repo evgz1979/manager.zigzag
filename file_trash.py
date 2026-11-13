@@ -19,6 +19,7 @@ from contextlib import closing
 LOCK = threading.RLock()
 HISTORY = Path('.folder-layout-history/.file-trash')
 PROTECTED = {'!.txt', '!order.txt', '!status.txt', '.order.json', 'status.txt', '.status.txt'}
+FILE_TRASH_PATHS_VERSION = 1
 
 
 # Обозначает конфликт изменения в этом модуле.
@@ -124,14 +125,74 @@ def session_path(root, token):
     return checked(root, (HISTORY / ('.' + token)).as_posix(), hidden=True)
 
 
+# Получает текущие пути файлов из SQLite, сохраняя исходный план и порядок его шагов.
+# Общий склад определяется прежним путём хранения, копия счёта — единственной записью сеанса.
+def resolve_paths(plan):
+    if not plan.get('database'):
+        return
+    with closing(sqlite3.connect(Path(plan['database']).as_uri()+'?mode=rw',uri=True,timeout=15)) as db:
+        paths = tuple(unicodedata.normalize('NFC', item['path']).casefold() for item in plan['files'])
+        rows = list(db.execute("SELECT source,destination FROM metadata_file_moves WHERE session=?", (plan['session'],)))
+        paths += tuple(path.casefold() for row in rows for path in row)
+        for table in ('event_renames', 'folder_renames'):
+            if not db.execute("SELECT 1 FROM sqlite_master WHERE name=?", (table,)).fetchone():
+                continue
+            for session, mappings in db.execute(f"SELECT session,mappings FROM {table} WHERE state='pending'"):
+                for pair in json.loads(mappings):
+                    for key in ('source', 'destination'):
+                        prefix = unicodedata.normalize('NFC', pair[key]).casefold()
+                        if any(path == prefix or path.startswith(prefix + '/') for path in paths):
+                            raise TrashConflict('Пути корзины заблокированы переносом папки: ' + session)
+    if not rows:
+        return
+    by_storage = {stored: path for path, stored in rows}
+    invoice = plan.get('invoice_id')
+    if len(by_storage) != len(rows) or (invoice and (len(rows) != 1 or len(plan['files']) != 1)):
+        raise TrashConflict('Неоднозначные пути в сеансе корзины')
+    paths = {}
+    for operation in plan['operations']:
+        old = operation['file']
+        if operation['source'] != old:
+            continue
+        stored = unicodedata.normalize('NFC', operation['destination'])
+        if invoice:
+            new, new_stored = rows[0]
+            if Path(stored).parts[-3:] != Path(new_stored).parts[-3:]:
+                raise TrashConflict('Копия счёта не соответствует сеансу корзины')
+        else:
+            new, new_stored = by_storage.get(stored, old), stored
+        if unicodedata.normalize('NFC', old) != new:
+            paths[old] = (new, str(Path(new_stored).parent))
+    for operation in plan['operations']:
+        old = operation['file']
+        if old not in paths:
+            continue
+        new, storage = paths[old]
+        origin = Path(operation['source']).relative_to(Path(old).parent)
+        if invoice:
+            old_storage = Path(plan['folder']) / '.trash' / plan['session']
+            operation['destination'] = (Path(storage) / Path(operation['destination']).relative_to(old_storage)).as_posix()
+        operation['file'] = new
+        operation['source'] = (Path(new).parent / origin).as_posix()
+    for item in plan['files']:
+        if item['path'] in paths:
+            item['path'] = paths[item['path']][0]
+    if paths:
+        parents = [str(Path(item['path']).parent) for item in plan['files']]
+        plan['folder'] = os.path.commonpath(parents)
+
+
 # Читает и проверяет сохранённый план операции.
 # При недопустимом состоянии возбуждает ValueError.
-def read_plan(root, token, *, reader=None):
+def read_plan(root, token, *, reader=None, database=None):
     session = session_path(root, token)
     plan_path = checked(root, (session.relative_to(root) / '.plan.json').as_posix(), hidden=True)
     plan = json.loads(reader(plan_path).decode('utf-8') if reader else plan_path.read_text(encoding='utf-8'))
     if plan.get('kind') != 'file-trash' or plan.get('root') != str(root) or plan.get('session') != token:
         raise ValueError('План корзины не соответствует корню документов')
+    if database is not None and plan.get('database'):
+        plan['database'] = str(Path(database).resolve())
+    resolve_paths(plan)
     for operation in plan['operations']:
         checked(root, operation['source'], hidden=True)
         destination = checked(root, operation['destination'], hidden=True)
@@ -141,6 +202,42 @@ def read_plan(root, token, *, reader=None):
         if storage not in destination.parents:
             raise ValueError('Некорректное место хранения удалённого файла')
     return session, plan
+
+
+# Проверяет завершённые сеансы перед переносом объекта и обновляет их автономный рецепт.
+# Исходный план и журнал сохраняются побайтно, а файлы остаются в корзине.
+def prepare_relocation(root, database, sessions, source):
+    from icloud_access import read_bytes
+    from order_document import atomic_write
+
+    prefix = unicodedata.normalize('NFC', source) + '/'
+    with closing(sqlite3.connect(Path(database).as_uri()+'?mode=ro',uri=True,timeout=15)) as db:
+        for token in sorted(sessions):
+            session, plan = read_plan(root, token, database=database,
+                                      reader=lambda path: read_bytes(path, max_bytes=20 * 1024 * 1024))
+            if not plan.get('database'):
+                raise TrashConflict('Сеанс корзины не связан с рабочей базой: ' + token)
+            operations = {unicodedata.normalize('NFC', item['source']): item for item in plan['operations'] if item['source'] == item['file']}
+            stored_files = set()
+            for path, stored in db.execute("SELECT source,destination FROM metadata_file_moves WHERE session=? AND state='trashed'", (token,)):
+                if not (path.startswith(prefix) or stored.startswith(prefix)):
+                    continue
+                operation = operations.get(path)
+                if (not operation or unicodedata.normalize('NFC', operation['destination']) != stored
+                        or not same(root / operation['destination'], operation['identity'])):
+                    raise TrashConflict('Не удалось подтвердить сохранённый файл в корзине: ' + path)
+                stored_files.add(path)
+            for item in plan['operations']:
+                path = unicodedata.normalize('NFC', item['file'])
+                if item['source'] == item['file'] or path not in stored_files:
+                    continue
+                if not same(root / item['destination'], item['identity']):
+                    raise TrashConflict('Не удалось подтвердить историю файла в корзине: ' + path)
+            helper = session / '.restore.py'
+            if helper.is_symlink():
+                raise TrashConflict('Средство восстановления в корзине заменено ссылкой: ' + token)
+            if not helper.exists() or b'FILE_TRASH_PATHS_VERSION = 1' not in read_bytes(helper):
+                atomic_write(helper, Path(__file__).read_text(encoding='utf-8'))
 
 
 # Готовит краткое описание сохранённого сеанса для интерфейса.
@@ -327,7 +424,7 @@ def restore_invoice_record(plan):
 
 # Читает сохранённые сеансы корзины для интерфейса восстановления.
 # Возвращает `[]`; либо `sorted(result, key=lambda record: record['created'], reverse=True)`.
-def list_sessions(root, *, reader=None, errors=None):
+def list_sessions(root, *, reader=None, errors=None, database=None):
     root = Path(root).resolve()
     folder = checked(root, HISTORY.as_posix(), hidden=True)
     if not folder.exists():
@@ -337,7 +434,7 @@ def list_sessions(root, *, reader=None, errors=None):
         if not session.name.startswith('.') or not re.fullmatch('[a-f0-9]{32}', session.name[1:]):
             continue
         try:
-            _, plan = read_plan(root, session.name[1:], reader=reader)
+            _, plan = read_plan(root, session.name[1:], reader=reader, database=database)
             record = describe(root, plan)
         except (FileNotFoundError, json.JSONDecodeError):
             continue  # An interrupted preparation never moved any user files.
@@ -353,15 +450,15 @@ def list_sessions(root, *, reader=None, errors=None):
 
 # Проверяет сеанс и возвращает файлы и комментарии без перезаписи назначения.
 # При недопустимом состоянии возбуждает TrashConflict.
-def restore(root, token):
+def restore(root, token, *, database=None):
     root = Path(root).resolve()
     with LOCK:
-        session, plan = read_plan(root, token)
+        session, plan = read_plan(root, token, database=database)
         error = ''
         restored = []
         with (session / '.lock').open('a') as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
-            intents = set()
+            intents, undone = set(), set()
             journal = session / '.journal.jsonl'
             if journal.exists():
                 for line in journal.read_text(encoding='utf-8').splitlines(keepends=True):
@@ -369,8 +466,10 @@ def restore(root, token):
                         record = json.loads(line)
                         if record['phase'] == 'intent':
                             intents.add(record['id'])
+                        elif record['phase'] == 'undone':
+                            undone.add(record['id'])
             for index, operation in reversed(list(enumerate(plan['operations']))):
-                if index not in intents:
+                if index not in intents or index in undone:
                     continue
                 try:
                     stored = checked(root, operation['destination'], hidden=True)
@@ -378,6 +477,7 @@ def restore(root, token):
                     if not os.path.lexists(stored):
                         if same(original, operation['identity']):
                             database_move(plan,operation,restore=True,finish=True)
+                            append(session, phase='undone', id=index)
                             continue
                         raise TrashConflict('Не найден сохранённый файл: ' + operation['file'])
                     if not same(stored, operation['identity']):
@@ -408,6 +508,10 @@ def restore(root, token):
 
 
 if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--database', type=Path)
+    args = parser.parse_args()
     session = Path(__file__).resolve().parent
     plan = json.loads((session / '.plan.json').read_text(encoding='utf-8'))
-    print(json.dumps(restore(plan['root'], plan['session']), ensure_ascii=False, indent=2))
+    print(json.dumps(restore(plan['root'], plan['session'], database=args.database), ensure_ascii=False, indent=2))

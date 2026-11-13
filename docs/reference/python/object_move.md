@@ -6,7 +6,7 @@
 
 Move an entire client object, with a verified file inventory and background progress.
 
-Импорты Python, включая локальные: `contextlib`, `ctypes`, `errno`, `folder_layout`, `folder_notes`, `folder_rename`, `folder_structure`, `hashlib`, `json`, `order_folders`, `order_todos`, `orders`, `os`, `pathlib`, `re`, `sqlite3`, `stat`, `sys`, `threading`, `time`, `unicodedata`.
+Импорты Python, включая локальные: `contextlib`, `ctypes`, `errno`, `file_trash`, `folder_layout`, `folder_notes`, `folder_rename`, `folder_structure`, `hashlib`, `json`, `order_folders`, `order_todos`, `orders`, `os`, `pathlib`, `re`, `sqlite3`, `stat`, `sys`, `threading`, `time`, `unicodedata`.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
@@ -285,7 +285,7 @@ def move(store, payload, progress, locks):
 
 SQLite получает новые пути только после совпадения всех отпечатков и SHA-256.
 
-Непосредственные вызовы: `store.root.resolve`, `progress`, `enable_cloud_reads`, `move_paths`, `store.connect`, `folder_rename.restore.check`, `check_pending`, `check_destination`, `scan`, `len`, `sum`, `entries.values`, `locks`, `FolderRenameConflict`, `inventory`, `db.execute`, `folder_rename.relocate`.
+Непосредственные вызовы: `store.root.resolve`, `progress`, `enable_cloud_reads`, `move_paths`, `store.connect`, `folder_rename.restore.check`, `check_pending`, `check_destination`, `scan`, `len`, `sum`, `entries.values`, `locks`, `FolderRenameConflict`, `inventory`, `unicodedata.normalize`, `folder_rename.restore.remap_file_trash`, `file_trash.prepare_relocation`, `db.execute`, `folder_rename.relocate`.
 
 Явные исключения: `FolderRenameConflict`.
 
