@@ -19,7 +19,7 @@ from zoneinfo import ZoneInfo
 
 from event_folder_undo import assert_unlocked
 from folder_layout import rename_exclusive
-from folder_structure import client_name, client_path
+from folder_structure import client_name, client_path, in_reconciliations
 import native_renderers
 import orders
 import file_comments
@@ -796,12 +796,14 @@ class InvoiceStore:
             return self.get(payload['path'], payload['id'])
 
     # Публикует сохранённую копию документа в папку без подмены оригиналов.
-    # При недопустимом состоянии возбуждает ValueError.
+    # При недопустимом состоянии возбуждает ValueError. Для прежних счетов сверок # bills не создаёт.
     def publish_copy(self, row):
         folder = self.store.target(row["path"]) / "# bills"
         if folder.is_symlink():
             raise ValueError("# bills является ссылкой; PDF остался в базе")
         if not folder.exists():
+            if in_reconciliations(row["path"], legacy=True):
+                raise ValueError("В сверке папка # bills не создаётся; документ остался в базе")
             # Reuse the project's journal and standalone mkdir undo.
             from folder_layout import Plan
             from order_folders import layout_scope

@@ -149,6 +149,8 @@ sequenceDiagram
 
 [Reconciliations.catalog](reference/python/reconciliations.md#symbol-Reconciliations.catalog) возвращает известные сверки для списка; явное `open` выполняет безопасный переход старых карточек. В `reconciliation_invoices` UUID счёта — первичный ключ, поэтому одновременно назначить его двум сверкам нельзя. `assign` проверяет актуальный контекст и меняет назначение, не удаляя счёт.
 
+[read_folder](reference/python/server.md#symbol-read_folder) добавляет файлы непосредственной `# docs` в ответ страницы сверки. [renderOrderFileFolders](reference/javascript/static-app.md#symbol-renderOrderFileFolders) показывает их под таблицей счетов через общий блок файлов заказов. При восстановлении создания [complete_service_folders](reference/python/order_creation.md#symbol-complete_service_folders) пропускает дочерние шаги сверки из старого плана. [publish_copy](reference/python/invoices.md#symbol-InvoiceStore.publish_copy) сохраняет оригинал в SQLite, если у прежней сверки отсутствует `# bills`.
+
 Переименование сохраняет UUID сверки, назначения и историю, но меняет путь/revision. Пустая заметка старого импорта считается безопасным исключением только при строгом наборе признаков; проверка находится в [untouched_empty_note](reference/python/reconciliations.md#symbol-untouched_empty_note).
 
 ## Переименование и корзина

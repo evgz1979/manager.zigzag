@@ -22,9 +22,9 @@ def complete_service_folders(store, path, session, plan, journal):
 
 Досоздаёт только собственные отсутствующие служебные папки заказа.
 
-При недопустимом состоянии возбуждает ValueError.
+Для сверки пропускает дочерние шаги старого плана и завершает журнал по выполненным шагам.
 
-Непосредственные вызовы: `enumerate`, `Path(relative).parent.as_posix`, `Path`, `ValueError`, `layout.safe_path`, `plan.get`, `target.is_dir`, `layout.identity`, `layout.exists`, `layout.append`, `target.mkdir`, `any`, `len`.
+Непосредственные вызовы: `len`, `in_reconciliations`, `enumerate`, `Path(relative).parent.as_posix`, `Path`, `ValueError`, `layout.safe_path`, `plan.get`, `target.is_dir`, `layout.identity`, `layout.exists`, `layout.append`, `target.mkdir`, `any`.
 
 Явные исключения: `ValueError`.
 

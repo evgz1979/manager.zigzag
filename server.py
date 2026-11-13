@@ -1194,7 +1194,7 @@ def freza_preview_target(relative):
 
 
 # Собирает представление папки и разрешённые файлы её роли.
-# У заказа обходит # cutter, # freza и # docs, у входящих счетов — только непосредственные файлы.
+# У заказа обходит # cutter, # freza и # docs, у сверки — только # docs, у входящих счетов — непосредственные файлы.
 def read_folder(relative="", show_inactive=False):
     target = safe_path(relative)
     if not target.is_dir():
@@ -1219,10 +1219,14 @@ def read_folder(relative="", show_inactive=False):
         "subfolders" if not print_view and status["folderKind"] in {"client", "object", "catalog_group", "supplier_root", "work_root", "moneys_root", "work_section", "moneys_section", "reconciliations_root", "reconciliation", "bills_root"} else "folder")
     hide_files = files_scope != "folder"
     folder_count = len(directories) if hide_files or print_view or status['folderKind'] == 'bills_inbox' else 0
-    order_file_folder_kinds = ("cutter", "freza", "docs")
+    order_file_folder_kinds = ()
+    if status["folderKind"] == "order" and not freza_task:
+        order_file_folder_kinds = ("cutter", "freza", "docs")
+    elif status["folderKind"] == "reconciliation":
+        order_file_folder_kinds = ("docs",)
     order_file_folders = [folder for folder in directories
                           if folder.name.startswith("#") and folder.name[1:].strip().casefold() in order_file_folder_kinds
-                          and not folder.is_symlink()] if status["folderKind"] == "order" and not freza_task else []
+                          and not folder.is_symlink()]
     order_file_folders.sort(key=lambda folder: (order_file_folder_kinds.index(folder.name[1:].strip().casefold()), sort_key(folder)))
     file_roots = [target] if not hide_files else order_file_folders
 

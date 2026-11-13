@@ -7,7 +7,7 @@ from datetime import date
 from pathlib import Path
 
 import folder_layout as layout
-from folder_structure import folder_role, section_prefix, is_print_section, in_freza, in_reconciliations, YEAR, DATE, DATE_LIKE, NUMBER
+from folder_structure import folder_role, section_prefix, is_print_section, in_freza, YEAR, DATE, DATE_LIKE, NUMBER
 
 LOCK = threading.RLock()
 
@@ -71,8 +71,8 @@ def create_object(root, relative, title):
         return {"path":path,"name":name,"journal":session.relative_to(root).as_posix()}
 
 
-# Создаёт новый объект после проверки области и входных данных.
-# При недопустимом состоянии возбуждает ValueError, FileNotFoundError, OrderFolderConflict.
+# Создаёт папку заказа или сверки и при наличии базы регистрирует карточку.
+# Для сверки планирует только её собственную папку; при конфликте останавливает создание.
 def create(root, relative, order_date, title, *, store=None):
     root = Path(root).resolve()
     if store and store.root.resolve() != root:
@@ -119,15 +119,17 @@ def create(root, relative, order_date, title, *, store=None):
         if layout.exists(destination):
             raise OrderFolderConflict("Папка или файл с таким именем уже существует. Измените дату или название")
         path = destination.relative_to(root).as_posix()
+        reconciliation = role == "reconciliations_root"
         plan = layout.Plan(root, [Path(relative).parts[0]], **layout_scope(relative))
         if store:
             plan.order_registration = {"database": str(store.database.resolve()), "path": path,
-                                       "table": "reconciliations" if in_reconciliations(path) else "orders"}
+                                       "table": "reconciliations" if reconciliation else "orders"}
         if not parent.exists():
             plan.mkdir(parent.relative_to(root).as_posix())
         plan.mkdir(path)
-        for service in (() if in_freza(relative) or in_reconciliations(relative) else ('# bills', '# cdr')):
-            plan.mkdir((Path(path) / service).as_posix())
+        if not reconciliation and not in_freza(relative):
+            for service in ('# bills', '# cdr'):
+                plan.mkdir((Path(path) / service).as_posix())
         if not plan.operations:
             raise OrderFolderConflict("Папка или файл с таким именем уже существует. Измените дату или название")
         before = {"parent": relative, "identity": layout.identity(root/relative),

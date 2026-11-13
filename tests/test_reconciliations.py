@@ -93,6 +93,35 @@ class ReconciliationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Сверка сохранена'):
             folder_layout.undo(self.root / created['journal'], True)
 
+    def test_folder_api_lists_only_documents_from_a_direct_docs_folder(self):
+        path = self.reconciliation()['path']
+        self.assertFalse(manager.read_folder(path)['orderFileFolders'])
+        docs = path + '/#  DoCs'
+        self.folder(docs)
+        empty = manager.read_folder(path)
+        self.assertEqual(empty['orderFileFolders'], [{'name': '#  DoCs', 'path': docs}])
+        self.assertEqual(empty['files'], [])
+
+        document = docs + '/Акты/Акт.txt'
+        for file in (document, docs + '/.secret', path + '/root.txt', path + '/Другое/# docs/Акт.txt',
+                     path + '/# bills/Счёт.pdf', path + '/# cdr/Эскиз.cdr'):
+            self.file(file, b'original')
+        (self.root / docs / 'link.txt').symlink_to(self.root / document)
+        status, _, body = self.http(self.url('/api/folder', path))
+        self.assertEqual(status, 200, body)
+        listing = json.loads(body)
+        self.assertEqual(listing['filesScope'], 'subfolders')
+        self.assertEqual(listing['orderFileFolders'], [{'name': '#  DoCs', 'path': docs}])
+        self.assertEqual([(file['path'], file['folder']) for file in listing['files']], [(document, '#  DoCs/Акты')])
+        status, _, body = self.http(self.url('/api/file', document, download='1'))
+        self.assertEqual((status, body), (200, b'original'))
+
+    def test_legacy_invoice_copy_does_not_recreate_bills_in_a_reconciliation(self):
+        path = self.reconciliation()['path']
+        with self.assertRaisesRegex(ValueError, 'документ остался в базе'):
+            manager.invoice_store().publish_copy({'path': path, 'filename': 'Счёт.pdf', 'pdf': b'%PDF-1.4 original'})
+        self.assertFalse((self.root / path / '# bills').exists())
+
     def test_folder_note_migrates_and_unknown_todos_never_get_replaced(self):
         old = '# moneys/# reports/01'
         self.folder(old)
@@ -185,6 +214,24 @@ class ReconciliationTests(unittest.TestCase):
         self.assertEqual(record['id'], data['order_id'])
         self.assertEqual(len(self.service.catalog()), 1)
         self.assertFalse(self.store.list())
+
+    def test_pending_legacy_plan_does_not_recreate_service_folders(self):
+        path = self.section + '/2026-10-29 - Повтор'
+        plan = folder_layout.Plan(self.root, ['# moneys'], service_roots=[self.section])
+        for relative in (path, path + '/# bills', path + '/# cdr'):
+            plan.mkdir(relative)
+        session = plan.create_session(['Старый план создания сверки'], {})
+        order_creation.prepare(self.store, path, 'Повтор', session)
+        folder_layout.append(session, {'phase': 'intent', 'id': 1, **plan.operations[0]})
+        target = self.root / path
+        target.mkdir()
+        folder_layout.append(session, {'phase': 'commit', 'id': 1, 'identity': folder_layout.identity(target)})
+
+        order_creation.recover(self.store)
+        self.assertEqual(self.service.get(path)['title'], 'Повтор')
+        self.assertEqual(list(target.iterdir()), [])
+        complete = folder_layout.records(session)[-1]
+        self.assertEqual((complete['phase'], complete['operations']), ('complete', 1))
 
     def test_one_assignment_is_atomic_and_preserves_invoice_and_order(self):
         invoice, first, second = self.invoice(), self.reconciliation('Первая'), self.reconciliation('Вторая')

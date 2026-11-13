@@ -13,13 +13,15 @@ KIND = "order_creation"
 
 
 # Досоздаёт только собственные отсутствующие служебные папки заказа.
-# При недопустимом состоянии возбуждает ValueError.
+# Для сверки пропускает дочерние шаги старого плана и завершает журнал по выполненным шагам.
 def complete_service_folders(store, path, session, plan, journal):
     """Finish only our missing mkdir steps after the order folder is proven owned."""
     completed = {item['id']: item for item in journal if item['phase'] == 'commit'}
+    operation_count = len(completed)
+    reconciliation = in_reconciliations(path, legacy=True)
     for index, operation in enumerate(plan['operations'], 1):
         relative = operation['destination']
-        if Path(relative).parent.as_posix() != path:
+        if reconciliation or Path(relative).parent.as_posix() != path:
             continue
         if operation['operation'] != 'mkdir' or Path(relative).name not in {'# bills', '# cdr'}:
             raise ValueError('Неизвестный шаг создания служебной папки; проверь журнал')
@@ -33,8 +35,9 @@ def complete_service_folders(store, path, session, plan, journal):
         layout.append(session, {'phase': 'intent', 'id': index, **operation})
         target.mkdir()
         layout.append(session, {'phase': 'commit', 'id': index, 'identity': layout.identity(target)})
+        operation_count += 1
     if not any(item['phase'] == 'complete' for item in journal):
-        layout.append(session, {'phase': 'complete', 'operations': len(plan['operations'])})
+        layout.append(session, {'phase': 'complete', 'operations': operation_count})
 
 
 # Создаёт подготовленное состояние операции до её применения.
