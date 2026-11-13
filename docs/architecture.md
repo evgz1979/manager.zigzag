@@ -67,7 +67,7 @@ flowchart TD
 | Календарь | `order_calendar.py`, `order_deadlines.py`, `calendar_events.py`, `calendar_layout.py` | Сроки, текстовые события, свободные события и независимые отметки |
 | Telegram | `telegram_calendar.py`, `calendar_delivery.py`, `calendar_todos.py`, `telegram_inbox.py`, `telegram_calendar_commands.py` | Получение, устойчивая команда, общий PNG и задачи |
 | Деньги | `invoices.py`, `invoice_documents.py`, `invoice_discovery.py`, `reconciliations.py` | Счета, платежные планы, PDF, вложения и назначения сверкам |
-| Файловые операции | `order_folders.py`, `order_creation.py`, `event_folders.py`, `folder_rename.py`, `file_trash.py`, `event_trash.py`, `object_years.py` | Создание, намерения, проверка владения, переносы и обратимые журналы |
+| Файловые операции | `order_folders.py`, `order_creation.py`, `event_folders.py`, `folder_rename.py`, `file_trash.py`, `event_trash.py`, `object_years.py`, `object_move.py` | Создание, намерения, проверка содержимого при переносе и обратимые журналы |
 | Просмотр | `icloud_access.py`, `thumbnail_cache.py`, `sketches.py`, `spreadsheet_preview.py`, `image_reports.py`, Swift | Ограниченное чтение и производные изображения/PDF |
 | Эксплуатация | `recovery_backup.py`, `native_renderers.py`, `scripts/deploy*.py`, `remote_access.py` | Копии, сборка, релизы и защищённый вход |
 

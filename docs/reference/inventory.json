@@ -224,6 +224,7 @@
           {"name": "available", "type": "function", "anchor": "symbol-available"},
           {"name": "name", "type": "function", "anchor": "symbol-name"},
           {"name": "preview", "type": "function", "anchor": "symbol-preview"},
+          {"name": "relocate", "type": "function", "anchor": "symbol-relocate"},
           {"name": "rename", "type": "function", "anchor": "symbol-rename"},
           {"name": "target", "type": "function", "anchor": "symbol-target"}
         ]
@@ -467,6 +468,36 @@
           {"name": "ObjectActivity.matches", "type": "function", "anchor": "symbol-ObjectActivity.matches"},
           {"name": "ObjectActivity.refresh", "type": "function", "anchor": "symbol-ObjectActivity.refresh"},
           {"name": "ObjectActivity.refresh.on_error", "type": "function", "anchor": "symbol-ObjectActivity.refresh.on_error"}
+        ]
+      },
+      {
+        "path": "object_move.py",
+        "symbols": [
+          {"name": "available", "type": "function", "anchor": "symbol-available"},
+          {"name": "check_destination", "type": "function", "anchor": "symbol-check_destination"},
+          {"name": "check_pending", "type": "function", "anchor": "symbol-check_pending"},
+          {"name": "checked_id", "type": "function", "anchor": "symbol-checked_id"},
+          {"name": "client_revision", "type": "function", "anchor": "symbol-client_revision"},
+          {"name": "enable_cloud_reads", "type": "function", "anchor": "symbol-enable_cloud_reads"},
+          {"name": "file_digest", "type": "function", "anchor": "symbol-file_digest"},
+          {"name": "fingerprint", "type": "function", "anchor": "symbol-fingerprint"},
+          {"name": "inventory", "type": "function", "anchor": "symbol-inventory"},
+          {"name": "inventory.counted", "type": "function", "anchor": "symbol-inventory.counted"},
+          {"name": "inventory.record", "type": "function", "anchor": "symbol-inventory.record"},
+          {"name": "inventory.report", "type": "function", "anchor": "symbol-inventory.report"},
+          {"name": "inventory.scan", "type": "function", "anchor": "symbol-inventory.scan"},
+          {"name": "move", "type": "function", "anchor": "symbol-move"},
+          {"name": "move.scan", "type": "function", "anchor": "symbol-move.scan"},
+          {"name": "move.verify", "type": "function", "anchor": "symbol-move.verify"},
+          {"name": "move_paths", "type": "function", "anchor": "symbol-move_paths"},
+          {"name": "preview", "type": "function", "anchor": "symbol-preview"},
+          {"name": "require_absent", "type": "function", "anchor": "symbol-require_absent"},
+          {"name": "saved_status", "type": "function", "anchor": "symbol-saved_status"},
+          {"name": "start", "type": "function", "anchor": "symbol-start"},
+          {"name": "start.progress", "type": "function", "anchor": "symbol-start.progress"},
+          {"name": "start.work", "type": "function", "anchor": "symbol-start.work"},
+          {"name": "status", "type": "function", "anchor": "symbol-status"},
+          {"name": "target", "type": "function", "anchor": "symbol-target"}
         ]
       },
       {
@@ -941,6 +972,7 @@
           {"name": "next_print_name", "type": "function", "anchor": "symbol-next_print_name"},
           {"name": "normalized", "type": "function", "anchor": "symbol-normalized"},
           {"name": "object_activity_store", "type": "function", "anchor": "symbol-object_activity_store"},
+          {"name": "object_move_locks", "type": "function", "anchor": "symbol-object_move_locks"},
           {"name": "order_store", "type": "function", "anchor": "symbol-order_store"},
           {"name": "order_sync_worker", "type": "function", "anchor": "symbol-order_sync_worker"},
           {"name": "order_todo_worker", "type": "function", "anchor": "symbol-order_todo_worker"},
@@ -962,6 +994,7 @@
           {"name": "read_tree.children_of", "type": "function", "anchor": "symbol-read_tree.children_of"},
           {"name": "read_tree.matching_node", "type": "function", "anchor": "symbol-read_tree.matching_node"},
           {"name": "read_tree.node_of", "type": "function", "anchor": "symbol-read_tree.node_of"},
+          {"name": "refresh_after_object_move", "type": "function", "anchor": "symbol-refresh_after_object_move"},
           {"name": "relative_path", "type": "function", "anchor": "symbol-relative_path"},
           {"name": "safe_path", "type": "function", "anchor": "symbol-safe_path"},
           {"name": "save_note", "type": "function", "anchor": "symbol-save_note"},
@@ -1251,6 +1284,8 @@
           {"name": "openOrderLinks", "type": "FunctionDeclaration", "anchor": "symbol-openOrderLinks"},
           {"name": "openOrderTodos", "type": "FunctionDeclaration", "anchor": "symbol-openOrderTodos"},
           {"name": "openPrintTask", "type": "FunctionDeclaration", "anchor": "symbol-openPrintTask"},
+          {"name": "openRelocatedFolder", "type": "FunctionDeclaration", "anchor": "symbol-openRelocatedFolder"},
+          {"name": "openRelocatedFolder.moved", "type": "ArrowFunctionExpression", "anchor": "symbol-openRelocatedFolder.moved"},
           {"name": "openSketch", "type": "FunctionDeclaration", "anchor": "symbol-openSketch"},
           {"name": "orderDeadlineRange", "type": "FunctionDeclaration", "anchor": "symbol-orderDeadlineRange"},
           {"name": "orderGroupCollapsed", "type": "FunctionDeclaration", "anchor": "symbol-orderGroupCollapsed"},
@@ -1373,7 +1408,6 @@
           {"name": "stepPreview", "type": "FunctionDeclaration", "anchor": "symbol-stepPreview"},
           {"name": "subfolderButton", "type": "FunctionDeclaration", "anchor": "symbol-subfolderButton"},
           {"name": "submitFolderRename", "type": "FunctionDeclaration", "anchor": "symbol-submitFolderRename"},
-          {"name": "submitFolderRename.moved", "type": "ArrowFunctionExpression", "anchor": "symbol-submitFolderRename.moved"},
           {"name": "toggleCalendarCompact", "type": "FunctionDeclaration", "anchor": "symbol-toggleCalendarCompact"},
           {"name": "toggleCalendarEventFlag", "type": "FunctionDeclaration", "anchor": "symbol-toggleCalendarEventFlag"},
           {"name": "toggleFolder", "type": "FunctionDeclaration", "anchor": "symbol-toggleFolder"},
@@ -1610,6 +1644,18 @@
         "path": "static/navigation.js",
         "symbols": [
           {"name": "setOpen", "type": "FunctionDeclaration", "anchor": "symbol-setOpen"}
+        ]
+      },
+      {
+        "path": "static/object-move.js",
+        "symbols": [
+          {"name": "close", "type": "FunctionDeclaration", "anchor": "symbol-close"},
+          {"name": "monitor", "type": "FunctionDeclaration", "anchor": "symbol-monitor"},
+          {"name": "openForm", "type": "FunctionDeclaration", "anchor": "symbol-openForm"},
+          {"name": "renderProgress", "type": "FunctionDeclaration", "anchor": "symbol-renderProgress"},
+          {"name": "showDestination", "type": "FunctionDeclaration", "anchor": "symbol-showDestination"},
+          {"name": "storedJob", "type": "FunctionDeclaration", "anchor": "symbol-storedJob"},
+          {"name": "submit", "type": "FunctionDeclaration", "anchor": "symbol-submit"}
         ]
       },
       {

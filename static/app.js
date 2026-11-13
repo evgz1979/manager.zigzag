@@ -222,8 +222,9 @@ async function uploadFiles(files) {
 
 // Отправляет запрос серверу и преобразует HTTP-ошибку в исключение интерфейса.
 // Использует `/api/reconciliation-save`, `/api/invoice-reconciliation`.
-async function request(url, payload) {
-  const response = await fetch(url, payload === undefined ? {} : {
+async function request(url, payload, options = {}) {
+  const response = await fetch(url, payload === undefined ? options : {
+    ...options,
     method: "POST", headers: { "Content-Type": "application/json", ...(['/api/reconciliation-save', '/api/invoice-reconciliation'].includes(url) ? { 'X-Manager-Reconciliations': '1' } : {}) }, body: JSON.stringify(payload),
   });
   const result = await response.json();
@@ -867,6 +868,7 @@ function renderFolder(preserveForm = false) {
   $("createOrderFolderButton").textContent = folder.folderKind === 'reconciliations_root' ? '+ Создать сверку' : folder.frezaSection ? "+ Новое задание" : folder.folderKind === "moneys_section" ? "+ Создать запись" : ["supplier_root", "work_section"].includes(folder.folderKind) ? "+ Создать заказ поставщику" : "+ Создать заказ";
   $("createEventFolderButton").hidden = folder.canCreateEventFolder !== true;
   $("renameFolderButton").hidden = folder.canRenameFolder !== true;
+  $("moveObjectButton").hidden = folder.canMoveObject !== true;
   $("deleteEventButton").hidden = folder.canDeleteEvent !== true;
   $("openEventTrash").hidden = folder.hasEventTrash !== true;
   if (!preserveForm) {
@@ -3849,6 +3851,7 @@ async function showOrders({ history = true } = {}) {
   $("createOrderFolderButton").hidden = true;
   $("createEventFolderButton").hidden = true;
   $("renameFolderButton").hidden = true;
+  $("moveObjectButton").hidden = true;
   $("deleteEventButton").hidden = true;
   $("openEventTrash").hidden = true;
   $("notice").hidden = true;
@@ -4038,15 +4041,22 @@ async function submitFolderRename() {
     controls.forEach((id) => { $(id).disabled = false; });
   }
   $("renameFolderDialog").close();
+  await openRelocatedFolder(result);
+  notify("Папка переименована");
+}
+
+// Обновляет дерево, адрес страницы и общую сводку после перемещения папки.
+// Сохраняет раскрытые ветки и открывает результат по новому пути.
+async function openRelocatedFolder(result) {
   // Обновляет путь элемента интерфейса после подтверждённого переноса папок.
   // Использует `path.startsWith`, `path.slice`.
   const moved = (path) => path === result.source || path.startsWith(result.source + "/") ? result.path + path.slice(result.source.length) : path;
   state.expanded = new Set([...state.expanded].map(moved));
+  await navigate(result.path, { history: false });
+  if (state.folder?.path !== result.path) throw new Error("Папка перемещена. Не удалось открыть её по новому пути");
   window.history.replaceState(null, "", "?path=" + encodeURIComponent(result.path));
   await reloadClientTrees();
-  await navigate(result.path, { history: false });
   await loadOrders();
-  notify("Папка переименована");
 }
 
 // Открывает подходящий просмотрщик выбранного файла.

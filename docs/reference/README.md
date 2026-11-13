@@ -8,7 +8,7 @@
 
 ## Python
 
-61 файлов; 843 именованных объявлений.
+62 файлов; 871 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
@@ -26,7 +26,7 @@
 | [file_uploads.py](python/file_uploads.md) | 11 |
 | [folder_layout.py](python/folder_layout.md) | 15 |
 | [folder_notes.py](python/folder_notes.md) | 20 |
-| [folder_rename.py](python/folder_rename.md) | 6 |
+| [folder_rename.py](python/folder_rename.md) | 7 |
 | [folder_rename_undo.py](python/folder_rename_undo.md) | 7 |
 | [folder_structure.py](python/folder_structure.md) | 18 |
 | [hidden_orders.py](python/hidden_orders.md) | 4 |
@@ -41,6 +41,7 @@
 | [mobile_sync.py](python/mobile_sync.md) | 24 |
 | [native_renderers.py](python/native_renderers.md) | 1 |
 | [object_activity.py](python/object_activity.md) | 4 |
+| [object_move.py](python/object_move.md) | 25 |
 | [object_orders.py](python/object_orders.md) | 11 |
 | [object_years.py](python/object_years.md) | 4 |
 | [order_calendar.py](python/order_calendar.md) | 31 |
@@ -62,7 +63,7 @@
 | [scripts/rebind_order.py](python/scripts-rebind_order.md) | 8 |
 | [scripts/remote_access_password.py](python/scripts-remote_access_password.md) | 10 |
 | [scripts/verify_recovery_backup.py](python/scripts-verify_recovery_backup.md) | 1 |
-| [server.py](python/server.md) | 95 |
+| [server.py](python/server.md) | 97 |
 | [sketches.py](python/sketches.md) | 12 |
 | [spreadsheet_preview.py](python/spreadsheet_preview.md) | 1 |
 | [supplier_purchases.py](python/supplier_purchases.md) | 14 |
@@ -76,11 +77,11 @@
 
 ## JavaScript
 
-22 файлов; 440 именованных объявлений.
+23 файлов; 448 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
-| [static/app.js](javascript/static-app.md) | 234 |
+| [static/app.js](javascript/static-app.md) | 235 |
 | [static/bills.js](javascript/static-bills.md) | 11 |
 | [static/calendar-snapshot.js](javascript/static-calendar-snapshot.md) | 4 |
 | [static/calendar-telegram.js](javascript/static-calendar-telegram.md) | 6 |
@@ -93,6 +94,7 @@
 | [static/mobile.js](javascript/static-mobile.md) | 3 |
 | [static/money-overview.js](javascript/static-money-overview.md) | 8 |
 | [static/navigation.js](javascript/static-navigation.md) | 1 |
+| [static/object-move.js](javascript/static-object-move.md) | 7 |
 | [static/order-sorting.js](javascript/static-order-sorting.md) | 2 |
 | [static/reconciliations.js](javascript/static-reconciliations.md) | 10 |
 | [static/remote-access.js](javascript/static-remote-access.md) | 2 |

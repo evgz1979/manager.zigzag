@@ -767,7 +767,7 @@ class InvoiceStore:
     # Возвращает сохранённый счёт или план из корзины по ожидаемой версии.
     # Работает с таблицами invoice_history, invoices.
     def restore(self, payload, *, calendar_only=False):
-        with orders.SYNC_LOCK, file_comments.LOCK:
+        with file_comments.LOCK, orders.SYNC_LOCK:
             with self.connect() as db:
                 row = self.current(db, payload.get('path'), payload.get('id'), trashed=True)
                 if calendar_only:
@@ -834,7 +834,7 @@ class InvoiceStore:
         with self.connect() as db:
             identities = [row[0] for row in db.execute("SELECT id FROM invoices WHERE json_extract(data,'$._trash.state')='pending'")]
         for identity in identities:
-            with orders.SYNC_LOCK, file_comments.LOCK:
+            with file_comments.LOCK, orders.SYNC_LOCK:
                 with self.connect() as db:
                     row = db.execute('SELECT * FROM invoices WHERE id=?', (identity,)).fetchone()
                     if any(part.startswith('.') for part in Path(row['path']).parts):

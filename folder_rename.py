@@ -83,46 +83,70 @@ def rename(store, payload):
         destination = (Path(source).parent / new_name).as_posix()
         if not available(destination) or layout.exists(root / destination):
             raise FolderRenameConflict("Это имя уже занято или недоступно. Данные не перезаписаны")
-        restore.check(db, source, destination)
-        kind = folder_role(root, source)["folderKind"]
-        registered = [(row[0], folder_role(root, row[0])["folderKind"]) for row in db.execute("SELECT path FROM orders")
-                      if restore.inside(row[0], source) and (root / row[0]).is_dir()]
-        before = {"database": str(store.database.resolve()), **view, "destination": destination,
-                  "tables": {table: [{key: row[key] for key in row.keys() if key != "pdf"} for row in db.execute(f"SELECT * FROM {table}") if restore.inside(row["path"], source)]
-                             for table in ("orders", "folder_notes", "todo_catalog", "todo_missing_folders", "client_activity", "object_activity", "invoices", "reconciliations") if restore.table(db, table)}}
-        plan = layout.Plan(root, list({Path(source).parts[0], Path(destination).parts[0]}), **layout_scope(source))
-        plan.database_paths = True
-        plan.move(source, destination, "Переименовать открытую папку с сохранением всех путей SQLite")
-        session = plan.create_session(["Переименование из менеджера, без новой регистрации заказов.",
-                                      "Откат только через .restore.py, согласующий папку и пути базы."], before)
-        layout.save_json(session / ".folder-paths.json", {"database": str(store.database.resolve()), "source": source, "destination": destination})
-        shutil.copyfile(restore.__file__, session / ".restore.py")
-        # Snapshot before any persistent intent or document mutation.
-        with closing(sqlite3.connect(store.database.resolve().as_uri() + "?mode=ro", uri=True)) as original:
-            with closing(sqlite3.connect(session / ".before.sqlite3")) as backup:
-                original.backup(backup)
-        db.execute("CREATE TABLE IF NOT EXISTS folder_renames (session TEXT PRIMARY KEY,state TEXT NOT NULL,mappings TEXT NOT NULL,paths_applied INTEGER NOT NULL)")
-        db.execute("INSERT INTO folder_renames VALUES (?,'pending',?,0)",
-                   (str(session), json.dumps([{"source": source, "destination": destination}], ensure_ascii=False)))
+        return relocate(store, db, view, destination)
+
+
+# Переносит папку и согласует пути SQLite с файловым журналом и снимком базы.
+# Вызывается под блокировками и BEGIN IMMEDIATE; дополнительная сверка проходит до перепривязки.
+def relocate(store, db, view, destination, *, details=None, verify=None, progress=None):
+    root, source = store.root.resolve(), view["path"]
+    action = "Перенос" if verify else "Переименование"
+    report = progress or (lambda phase: None)
+    restore.check(db, source, destination)
+    kind = folder_role(root, source)["folderKind"]
+    registered = [(row[0], folder_role(root, row[0])["folderKind"]) for row in db.execute("SELECT path FROM orders")
+                  if restore.inside(row[0], source) and (root / row[0]).is_dir()]
+    before = {"database": str(store.database.resolve()), **view, "destination": destination,
+              "tables": {table: [{key: row[key] for key in row.keys() if key != "pdf"} for row in db.execute(f"SELECT * FROM {table}") if restore.inside(row["path"], source)]
+                         for table in ("orders", "folder_notes", "todo_catalog", "todo_missing_folders", "client_activity", "object_activity", "invoices", "reconciliations") if restore.table(db, table)}}
+    plan = layout.Plan(root, sorted({Path(source).parts[0], Path(destination).parts[0]}), **layout_scope(source))
+    plan.database_paths = True
+    plan.move(source, destination, action + " целой папки с сохранением всех путей SQLite")
+    if plan.operations[0]["identity"] != view["identity"]:
+        raise FolderRenameConflict("Исходная папка была заменена. Открой форму заново")
+    session = plan.create_session([action + " из менеджера, без новой регистрации заказов.",
+                                   "Откат через .restore.py из этого журнала."], before)
+    mapping = {"source": source, "destination": destination, **(details or {})}
+    layout.save_json(session / ".folder-paths.json", {"database": str(store.database.resolve()), "mappings": [mapping]})
+    shutil.copyfile(restore.__file__, session / ".restore.py")
+    # Snapshot before any persistent intent or document mutation.
+    with closing(sqlite3.connect(store.database.resolve().as_uri() + "?mode=ro", uri=True)) as original:
+        with closing(sqlite3.connect(session / ".before.sqlite3")) as backup:
+            original.backup(backup)
+            if verify and backup.execute("PRAGMA quick_check").fetchone()[0] != "ok":
+                raise ValueError("Резервная копия базы не прошла проверку")
+    db.execute("CREATE TABLE IF NOT EXISTS folder_renames (session TEXT PRIMARY KEY,state TEXT NOT NULL,mappings TEXT NOT NULL,paths_applied INTEGER NOT NULL)")
+    db.execute("INSERT INTO folder_renames VALUES (?,'pending',?,0)", (str(session), json.dumps([mapping], ensure_ascii=False)))
+    db.commit()
+    try:
+        report("moving")
+        layout.apply(session)
+        if verify:
+            verify(session)
+        report("metadata")
+        db.execute("BEGIN IMMEDIATE")
+        restore.check(db, source, destination, str(session))
+        if folder_role(root, destination)["folderKind"] != kind:
+            raise ValueError("Сохрани тип папки: дату/номер заказа, числовой префикс группы или # служебной папки")
+        for path, old_kind in registered:
+            if folder_role(root, restore.remap(path, source, destination))["folderKind"] != old_kind:
+                raise ValueError("Перенос меняет структуру вложенных заказов")
+        restore.rewrite(db, source, destination)
+        db.execute("UPDATE folder_renames SET state='complete',paths_applied=1 WHERE session=?", (str(session),))
         db.commit()
+    except Exception as error:
+        db.rollback()
+        report("rollback")
         try:
-            db.execute("BEGIN IMMEDIATE")
-            layout.apply(session)
-            if folder_role(root, destination)["folderKind"] != kind:
-                raise ValueError("Сохрани тип папки: дату/номер заказа, числовой префикс группы или # служебной папки")
-            for path, old_kind in registered:
-                if folder_role(root, restore.remap(path, source, destination))["folderKind"] != old_kind:
-                    raise ValueError("Новое имя меняет структуру вложенных заказов")
-            restore.rewrite(db, source, destination)
-            db.execute("UPDATE folder_renames SET state='complete',paths_applied=1 WHERE session=?", (str(session),))
-            db.commit()
-        except Exception as error:
-            db.rollback()
-            try:
-                restore.undo(session, True)
-            except (OSError, ValueError, sqlite3.Error) as undo_error:
-                layout.append(session, {"phase": "rollback_failed", "error": str(undo_error)})
-                raise FolderRenameConflict("Данные сохранены. Переименование требует отката из журнала: " + str(session)) from error
-            raise FolderRenameConflict("Переименование отменено, прежний путь восстановлен: " + str(error)) from error
-        layout.save_json(session / ".result.json", {"status": "renamed", "source": source, "path": destination})
-        return {"path": destination, "source": source, "name": new_name, "journal": session.relative_to(root).as_posix()}
+            restore.undo(session, True)
+        except (OSError, ValueError, sqlite3.Error) as undo_error:
+            layout.append(session, {"phase": "rollback_failed", "error": str(undo_error)})
+            raise FolderRenameConflict(action + " требует восстановления из журнала: " + str(session)) from error
+        raise FolderRenameConflict(action + " отменён. Прежний путь сохранён. " + str(error)) from error
+    result = {"path": destination, "source": source, "name": Path(destination).name, "journal": session.relative_to(root).as_posix()}
+    try:
+        layout.save_json(session / ".result.json", {"status": "moved" if verify else "renamed", **result})
+    except OSError as error:
+        # SQLite and the operation journal already record the committed move.
+        print(f"{action}: итог не записан в {session}: {error}", flush=True)
+    return result

@@ -11,7 +11,7 @@ from contextlib import contextmanager, closing
 from pathlib import Path
 
 import icloud_access
-from event_folder_undo import assert_unlocked
+from event_folder_undo import EventRenamePending, assert_unlocked
 
 MIGRATION_LOCK = threading.Lock()
 PUBLICATION_LOCK = threading.Lock()
@@ -139,6 +139,11 @@ class MetadataStore:
     def error(self, kind, path, error):
         path = unicodedata.normalize("NFC",path)
         with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            try:
+                assert_unlocked(db, path)
+            except EventRenamePending:
+                return
             db.execute("INSERT OR REPLACE INTO metadata_imports VALUES (?,?,?,?)", (kind,path,str(error),time.time()))
 
     # Фиксирует успешное завершение первоначального импорта записи.

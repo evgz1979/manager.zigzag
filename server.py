@@ -15,6 +15,7 @@ import threading
 import unicodedata
 import urllib.parse
 from datetime import datetime
+from contextlib import contextmanager
 from functools import lru_cache
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -55,6 +56,7 @@ import event_relevance
 from order_todos import OrderTodos
 import file_trash
 import object_years
+import object_move
 import object_orders
 import file_uploads
 import work_orders
@@ -889,6 +891,21 @@ def schedule_order_sync():
     threading.Thread(target=sync, daemon=True).start()
 
 
+# Сериализует перенос объекта с мобильным обменом и записями файловых редакторов.
+# Внутри операции порядок следующих блокировок совпадает с переименованием папок.
+@contextmanager
+def object_move_locks():
+    with RUN_LOCK, file_comments.LOCK, PRINT_LOCK, STATUS_LOCK:
+        yield
+
+
+# Обновляет фоновые сводки и очереди после проверенного переноса объекта.
+# Запускается после освобождения блокировок операции.
+def refresh_after_object_move():
+    schedule_order_sync()
+    schedule_todo_refresh()
+
+
 # Создаёт адаптер заметок папок с прежним подготовщиком импорта.
 # Возвращает `FolderNotes(order_store(), status_document)`.
 def folder_note_store():
@@ -1343,6 +1360,7 @@ def read_folder(relative="", show_inactive=False):
             "newFileName": next_print_name(target) if print_view else "",
             "canCreateObjectFolder": status["folderKind"]=="client",
             "canGroupOrdersByYear": status["folderKind"]=="object",
+            "canMoveObject": object_move.available(relative_path(target), status["folderKind"]),
             "canCreateOrderFolder": not print_view and (status["folderKind"] in {"object", "supplier_root", "work_root", "work_section", "moneys_section", "reconciliations_root"} or (status["folderKind"]=="year" and order_folders.year_container(DATA_ROOT,relative))),
             "canCreateEventFolder": status["folderKind"] == "order" and not freza_task,
             "canRenameFolder": folder_rename.available(relative_path(target)),
@@ -1731,6 +1749,10 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(folder_rename.preview(order_store(), relative), head=head)
             elif parsed.path == "/api/object-years":
                 self.send_json(object_years.preview(order_store(),relative),head=head)
+            elif parsed.path == "/api/object-move":
+                self.send_json(object_move.preview(order_store(), relative), head=head)
+            elif parsed.path == "/api/object-move-status":
+                self.send_json(object_move.status(order_store(), query.get("id", [""])[0]), head=head)
             elif parsed.path == "/api/order":
                 record = order_store().get(relative)
                 if not record:
@@ -2098,6 +2120,14 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 schedule_order_sync()
                 schedule_todo_refresh()
                 return
+            elif route == "/api/object-move":
+                origin = self.headers.get("Origin")
+                if (self.headers.get("X-Manager-Object-Move") != "1" or self.headers.get_content_type() != "application/json"
+                        or (origin and urllib.parse.urlsplit(origin).netloc != self.headers.get("Host"))):
+                    self.send_json({"error": "Запускай перенос из формы объекта"}, 403)
+                    return
+                self.send_json(object_move.start(order_store(), payload, object_move_locks, refresh_after_object_move), 202)
+                return
             elif route == "/api/event-folder-create":
                 guard_database(order_store().database, payload.get("path", ""), include_children=True)
                 self.send_json(event_folders.create(DATA_ROOT, payload, folder_note_store()), 201)
@@ -2363,8 +2393,10 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json({"path": relative, "comment_key": key, **record})
                 return
             elif route == "/api/image-report":
-                guard_database(order_store().database, payload.get("path", ""), include_children=True)
-                self.send_json(create_image_report(payload.get("path", ""), payload.get("files")), 201)
+                with order_folders.LOCK:
+                    guard_database(order_store().database, payload.get("path", ""), include_children=True)
+                    report = create_image_report(payload.get("path", ""), payload.get("files"))
+                self.send_json(report, 201)
                 return
             elif route == "/api/files-trash-preview":
                 self.send_json(file_trash.preview(DATA_ROOT, payload.get("path", ""), payload.get("files")))

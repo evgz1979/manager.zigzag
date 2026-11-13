@@ -93,6 +93,30 @@ def preview(store, relative):
 {'path': relative, 'name': path.name, 'revision': hashlib.sha256(json.dumps(fingerprint, sort_keys=True).encode()).hexdigest(), **fingerprint}
 ```
 
+<a id="symbol-relocate"></a>
+
+## relocate
+
+[folder_rename.py](../../../folder_rename.py) · `function`.
+
+```python
+def relocate(store, db, view, destination, *, details=None, verify=None, progress=None):
+```
+
+Переносит папку и согласует пути SQLite с файловым журналом и снимком базы.
+
+Вызывается под блокировками и BEGIN IMMEDIATE; дополнительная сверка проходит до перепривязки.
+
+Непосредственные вызовы: `store.root.resolve`, `restore.check`, `folder_role`, `db.execute`, `restore.inside`, `(root / row[0]).is_dir`, `str`, `store.database.resolve`, `row.keys`, `restore.table`, `layout.Plan`, `sorted`, `Path`, `layout_scope`, `plan.move`, `FolderRenameConflict`, `plan.create_session`, `layout.save_json`, `shutil.copyfile`, `closing`, `sqlite3.connect`, `store.database.resolve().as_uri`, `original.backup`, `backup.execute('PRAGMA quick_check').fetchone`, `backup.execute`, `ValueError`, `json.dumps`, `db.commit`, `report`, `layout.apply`, `verify`, `restore.remap`, `restore.rewrite`, `db.rollback`, `restore.undo`, `layout.append`, `session.relative_to(root).as_posix`, `session.relative_to`, `print`.
+
+Явные исключения: `FolderRenameConflict`, `ValueError`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+result
+```
+
 <a id="symbol-rename"></a>
 
 ## rename
@@ -107,14 +131,14 @@ def rename(store, payload):
 
 Работает с таблицами orders, folder_renames.
 
-Непосредственные вызовы: `store.root.resolve`, `store.connect`, `db.execute`, `preview`, `payload.get`, `FolderRenameConflict`, `name`, `unicodedata.normalize`, `Path`, `ValueError`, `(Path(source).parent / new_name).as_posix`, `available`, `layout.exists`, `restore.check`, `folder_role`, `restore.inside`, `(root / row[0]).is_dir`, `str`, `store.database.resolve`, `row.keys`, `restore.table`, `layout.Plan`, `list`, `layout_scope`, `plan.move`, `plan.create_session`, `layout.save_json`, `shutil.copyfile`, `closing`, `sqlite3.connect`, `store.database.resolve().as_uri`, `original.backup`, `json.dumps`, `db.commit`, `layout.apply`, `restore.remap`, `restore.rewrite`, `db.rollback`, `restore.undo`, `layout.append`, `session.relative_to(root).as_posix`, `session.relative_to`.
+Непосредственные вызовы: `store.root.resolve`, `store.connect`, `db.execute`, `preview`, `payload.get`, `FolderRenameConflict`, `name`, `unicodedata.normalize`, `Path`, `ValueError`, `(Path(source).parent / new_name).as_posix`, `available`, `layout.exists`, `relocate`.
 
 Явные исключения: `FolderRenameConflict`, `ValueError`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-{'path': destination, 'source': source, 'name': new_name, 'journal': session.relative_to(root).as_posix()}
+relocate(store, db, view, destination)
 ```
 
 <a id="symbol-target"></a>

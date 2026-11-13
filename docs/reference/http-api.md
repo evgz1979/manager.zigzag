@@ -570,6 +570,36 @@ self.send_json(object_years.preview(order_store(), relative), head=head)
 
 Вызовы ветки: `object_years.preview`, `order_store`.
 
+## GET / HEAD /api/object-move
+
+[ManagerHandler.handle_get](python/server.md#symbol-ManagerHandler.handle_get).
+
+Условие: `parsed.path == '/api/object-move'`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json(object_move.preview(order_store(), relative), head=head)
+```
+
+Вызовы ветки: `object_move.preview`, `order_store`.
+
+## GET / HEAD /api/object-move-status
+
+[ManagerHandler.handle_get](python/server.md#symbol-ManagerHandler.handle_get).
+
+Условие: `parsed.path == '/api/object-move-status'`.
+
+Ключи query, читаемые в ветке: `id`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json(object_move.status(order_store(), query.get('id', [''])[0]), head=head)
+```
+
+Вызовы ветки: `object_move.status`, `order_store`.
+
 ## GET / HEAD /api/order
 
 [ManagerHandler.handle_get](python/server.md#symbol-ManagerHandler.handle_get).
@@ -1208,6 +1238,21 @@ self.send_json(result)
 ```
 
 Вызовы ветки: `object_years.group`, `order_store`, `schedule_order_sync`, `schedule_todo_refresh`.
+
+## POST /api/object-move
+
+[ManagerHandler.do_POST](python/server.md#symbol-ManagerHandler.do_POST).
+
+Условие: `route == '/api/object-move'`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json({'error': 'Запускай перенос из формы объекта'}, 403)
+self.send_json(object_move.start(order_store(), payload, object_move_locks, refresh_after_object_move), 202)
+```
+
+Вызовы ветки: `self.headers.get`, `self.headers.get_content_type`, `urllib.parse.urlsplit`, `object_move.start`, `order_store`.
 
 ## POST /api/event-folder-create
 
@@ -2067,10 +2112,10 @@ self.send_json({'path': relative, 'comment_key': key, **record})
 Выражения JSON-ответа (значения раскрываются в вызываемом методе):
 
 ```python
-self.send_json(create_image_report(payload.get('path', ''), payload.get('files')), 201)
+self.send_json(report, 201)
 ```
 
-Вызовы ветки: `guard_database`, `order_store`, `create_image_report`.
+Вызовы ветки: `guard_database`, `create_image_report`, `order_store`.
 
 ## POST /api/files-trash-preview
 

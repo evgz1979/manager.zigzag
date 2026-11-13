@@ -38,7 +38,7 @@ def assert_unlocked(db, path, *, include_children=False):
 
 Работает с таблицами sqlite_master.
 
-Непосредственные вызовы: `db.execute('SELECT 1 FROM sqlite_master WHERE name=?', (name,)).fetchone`, `db.execute`, `any`, `inside`, `json.loads`, `EventRenamePending`.
+Непосредственные вызовы: `db.execute('SELECT 1 FROM sqlite_master WHERE name=?', (name,)).fetchone`, `db.execute`, `json.loads`, `pair.get`, `unicodedata.normalize('NFC', path).casefold`, `unicodedata.normalize`, `unicodedata.normalize('NFC', pair[field]).casefold`, `any`, `inside`, `EventRenamePending`.
 
 Явные исключения: `EventRenamePending`.
 

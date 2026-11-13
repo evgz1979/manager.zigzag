@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS folder_notes (
 
 ## folder_rename.py
 
-[rename](python/folder_rename.md#symbol-rename)
+[relocate](python/folder_rename.md#symbol-relocate)
 
 ```sql
 CREATE TABLE IF NOT EXISTS folder_renames (session TEXT PRIMARY KEY,state TEXT NOT NULL,mappings TEXT NOT NULL,paths_applied INTEGER NOT NULL)

@@ -87,7 +87,7 @@ def attach(store, payload):
     if not isinstance(name, str) or not name or name.startswith('.') or any(c in '/\\:' or ord(c) < 32 or ord(c) == 127 for c in name) or Path(name).suffix.casefold() != '.pdf' or len(os.fsencode(name)) > 255:
         raise ValueError('Выбери PDF из списка найденных счетов')
     comment = invoices.external_comment(payload.get('comment', ''))
-    with orders.SYNC_LOCK, file_comments.LOCK:
+    with file_comments.LOCK, orders.SYNC_LOCK:
         with store.connect() as db:
             owner = store.owner(db, payload.get('path'), active=True)
             path, owner_id = owner['path'], owner['id']

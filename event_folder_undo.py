@@ -27,9 +27,15 @@ def assert_unlocked(db, path, *, include_children=False):
         if not db.execute("SELECT 1 FROM sqlite_master WHERE name=?", (name,)).fetchone():
             continue
         for session, mappings in db.execute(f"SELECT session,mappings FROM {name} WHERE state='pending'"):
-            if any(inside(path, pair[key]) or (include_children and (not path or inside(pair[key], path)))
-                   for pair in json.loads(mappings) for key in ("source", "destination")):
-                raise EventRenamePending("Переименование прервано. Данные сохранены; выполните откат из журнала: " + session)
+            for pair in json.loads(mappings):
+                if pair.get("kind") == "client-object-move":
+                    key = unicodedata.normalize("NFC", path).casefold()
+                    roots = [unicodedata.normalize("NFC", pair[field]).casefold() for field in ("source", "destination")]
+                    if any(inside(key, root) or (include_children and (not key or inside(root, key))) for root in roots):
+                        raise EventRenamePending("Пути заблокированы переносом объекта. Проверь его состояние или журнал: " + session)
+                elif any(inside(path, pair[key]) or (include_children and (not path or inside(pair[key], path)))
+                         for key in ("source", "destination")):
+                    raise EventRenamePending("Переименование прервано. Данные сохранены; выполните откат из журнала: " + session)
 
 
 # Блокирует работу с путём, затронутым незавершённым переименованием.

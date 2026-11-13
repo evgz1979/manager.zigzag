@@ -248,7 +248,7 @@ def error(self, kind, path, error):
 
 Работает с таблицами metadata_imports.
 
-Непосредственные вызовы: `unicodedata.normalize`, `self.connect`, `db.execute`, `str`, `time.time`.
+Непосредственные вызовы: `unicodedata.normalize`, `self.connect`, `db.execute`, `assert_unlocked`, `str`, `time.time`.
 
 <a id="symbol-MetadataStore.get"></a>
 
