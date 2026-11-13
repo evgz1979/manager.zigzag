@@ -160,14 +160,14 @@ bool(db.execute('SELECT 1 FROM sqlite_master WHERE name=?', (name,)).fetchone())
 [folder_rename_undo.py](../../../folder_rename_undo.py) · `function`.
 
 ```python
-def undo(session, perform=False):
+def undo(session, perform=False, *, database=None):
 ```
 
 Выполняет сохранённые обратные операции после проверки текущего состояния.
 
 Работает с таблицами folder_renames.
 
-Непосредственные вызовы: `Path`, `json.loads`, `(session / '.folder-paths.json').read_text`, `importlib.util.spec_from_file_location`, `importlib.util.module_from_spec`, `spec.loader.exec_module`, `layout.undo`, `meta.get`, `closing`, `sqlite3.connect`, `Path(meta['database']).as_uri`, `db.execute`, `db.execute('SELECT state,paths_applied FROM folder_renames WHERE session=?', (str(session),)).fetchone`, `str`, `ValueError`, `bool`, `pair.get`, `check`, `layout.load_plan`, `Path(pair['destination']).parent.as_posix`, `target.is_dir`, `any`, `target.iterdir`, `inside`, `table`, `keep.append`, `db.commit`, `reversed`, `rewrite`.
+Непосредственные вызовы: `Path`, `json.loads`, `(session / '.folder-paths.json').read_text`, `importlib.util.spec_from_file_location`, `importlib.util.module_from_spec`, `spec.loader.exec_module`, `layout.undo`, `meta.get`, `Path(database).resolve`, `closing`, `sqlite3.connect`, `database.as_uri`, `db.execute`, `db.execute('SELECT state,paths_applied FROM folder_renames WHERE session=?', (str(session),)).fetchone`, `str`, `ValueError`, `bool`, `pair.get`, `check`, `layout.load_plan`, `Path(pair['destination']).parent.as_posix`, `target.is_dir`, `any`, `target.iterdir`, `inside`, `table`, `keep.append`, `db.commit`, `reversed`, `rewrite`.
 
 Явные исключения: `ValueError`.
 

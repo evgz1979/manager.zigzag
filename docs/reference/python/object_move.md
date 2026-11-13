@@ -439,7 +439,7 @@ def start(store, payload, locks, after_move):
 
 Повтор того же идентификатора возвращает статус, а параллельный перенос отклоняется.
 
-Непосредственные вызовы: `checked_id`, `payload.get`, `ValueError`, `any`, `isinstance`, `saved_status`, `JOBS.get`, `dict`, `JOBS.items`, `FolderRenameConflict`, `threading.Thread(target=work, name='client-object-move', daemon=True).start`, `threading.Thread`, `progress`, `str`.
+Непосредственные вызовы: `checked_id`, `payload.get`, `ValueError`, `any`, `isinstance`, `saved_status`, `JOBS.get`, `dict`, `JOBS.items`, `FolderRenameConflict`, `threading.Thread`, `JOB_THREADS.add`, `thread.start`, `JOB_THREADS.discard`, `progress`, `str`.
 
 Явные исключения: `ValueError`, `FolderRenameConflict`.
 
@@ -480,7 +480,7 @@ def work():
 
 Сбой последующего обновления индексов не меняет результат уже сохранённой операции.
 
-Непосредственные вызовы: `move`, `progress`, `str`, `after_move`.
+Непосредственные вызовы: `move`, `progress`, `str`, `after_move`, `JOB_THREADS.discard`, `threading.current_thread`.
 
 <a id="symbol-status"></a>
 
@@ -530,3 +530,19 @@ def target(root, relative):
 ```python
 path
 ```
+
+<a id="symbol-wait_for_jobs"></a>
+
+## wait_for_jobs
+
+[object_move.py](../../../object_move.py) · `function`.
+
+```python
+def wait_for_jobs():
+```
+
+Дожидается завершения уже принятых фоновых переносов перед остановкой сервера.
+
+Вызывать после завершения HTTP-обработчиков, способных создать новые задания.
+
+Непосредственные вызовы: `tuple`, `thread.join`.

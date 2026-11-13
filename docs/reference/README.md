@@ -8,7 +8,7 @@
 
 ## Python
 
-62 файлов; 874 именованных объявлений.
+64 файлов; 908 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
@@ -41,7 +41,7 @@
 | [mobile_sync.py](python/mobile_sync.md) | 24 |
 | [native_renderers.py](python/native_renderers.md) | 1 |
 | [object_activity.py](python/object_activity.md) | 4 |
-| [object_move.py](python/object_move.md) | 25 |
+| [object_move.py](python/object_move.md) | 26 |
 | [object_orders.py](python/object_orders.md) | 11 |
 | [object_years.py](python/object_years.md) | 4 |
 | [order_calendar.py](python/order_calendar.md) | 31 |
@@ -59,11 +59,13 @@
 | [scripts/build_documentation.py](python/scripts-build_documentation.md) | 22 |
 | [scripts/deploy.py](python/scripts-deploy.md) | 3 |
 | [scripts/deploy_remote.py](python/scripts-deploy_remote.md) | 17 |
+| [scripts/handoff.py](python/scripts-handoff.md) | 8 |
+| [scripts/handoff_host.py](python/scripts-handoff_host.md) | 23 |
 | [scripts/rebind_glass_notes.py](python/scripts-rebind_glass_notes.md) | 6 |
 | [scripts/rebind_order.py](python/scripts-rebind_order.md) | 8 |
 | [scripts/remote_access_password.py](python/scripts-remote_access_password.md) | 10 |
 | [scripts/verify_recovery_backup.py](python/scripts-verify_recovery_backup.md) | 1 |
-| [server.py](python/server.md) | 97 |
+| [server.py](python/server.md) | 99 |
 | [sketches.py](python/sketches.md) | 12 |
 | [spreadsheet_preview.py](python/spreadsheet_preview.md) | 1 |
 | [supplier_purchases.py](python/supplier_purchases.md) | 14 |

@@ -1,4 +1,4 @@
-/* Shared browser and M4 calendar image rendering. */
+/* Shared browser and server calendar image rendering. */
 const CalendarSnapshot = (() => {
   let renderer;
   // Лениво загружает локальную библиотеку HTML-снимка.

@@ -170,8 +170,13 @@ def prepare_launcher(release_dir, root, documents):
         atomic_write(bundle / "Contents/Info.plist", plistlib.dumps(info))
         subprocess.run(["/usr/bin/clang", "-Wall", "-Wextra", "-Werror", str(source), "-o", str(binary)], check=True)
         subprocess.run(["/usr/bin/codesign", "--force", "--sign", "-", "--identifier", "local.zigzag.manager.app", str(bundle)], check=True)
-        print("На M4 подготовлен Zigzag Manager.app; macOS может запросить доступ к NVMe и iCloud.", flush=True)
-        subprocess.run(["/usr/bin/open", "-g", "-W", str(bundle), "--args", "--authorize", str(root), str(documents)], check=True, timeout=300)
+        print("Подготовлен Zigzag Manager.app. macOS может запросить доступ к данным и iCloud.", flush=True)
+        authorization = ["--authorize", str(root), str(documents)]
+        # На некоторых версиях macOS open -W теряет уже завершившийся быстрый процесс.
+        opened = subprocess.run(["/usr/bin/open", "-g", "-W", str(bundle), "--args", *authorization],
+                                check=False, timeout=300)
+        if opened.returncode:
+            subprocess.run([str(binary), *authorization], check=True, timeout=300)
         atomic_write(ready, b"ready\n")
     return binary
 
@@ -392,6 +397,8 @@ def deploy(settings, action, release):
         return
     with (root / ".deploy.lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        if (root / ".handoff-parked.json").exists():
+            raise RuntimeError("Рабочая установка M4 остановлена для выездного режима. Сначала верни базу с MacBook.")
         state_path = root / ".deployment.json"
         state = json.loads(state_path.read_text()) if state_path.exists() else {}
         previous = state.get("release")

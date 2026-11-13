@@ -142,6 +142,6 @@ def restore(store, token):
                     session = Path(row['session'])
                     if session.parent != store.root.resolve() / '.folder-layout-history' or session.is_symlink():
                         raise ValueError('Недоступный журнал корзины')
-                    paths.undo(session, True)
+                    paths.undo(session, True, database=store.database)
                     return {'path': pair['source'], 'session': token}
         raise FileNotFoundError('Событие не найдено в корзине')

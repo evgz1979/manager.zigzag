@@ -233,6 +233,13 @@ class RemoteAccessTests(unittest.TestCase):
         config.write_text(config.read_text().replace('port=18767','port=8765'))
         with self.assertRaises(ValueError): auth.settings(config)
 
+    def test_handoff_identity_requires_remote_session(self):
+        self.assertEqual(self.http('/api/handoff-health')[0], 401)
+        self.assertEqual(self.http('/api/handoff-health', server=self.local)[0], 404)
+        status, _, body = self.http('/api/handoff-health', headers={'Cookie': self.session()})
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)['release'], manager.RELEASE_ID)
+
     def test_password_file_is_private_hashed_and_never_replaced(self):
         document = self.credentials.read_text()
         self.assertNotIn(PASSWORD, document)

@@ -46,11 +46,13 @@
 | [orders.py](python/orders.md) | `calendar_events.py`, `event_trash.py`, `folder_rename.py`, `invoice_discovery.py`, `invoice_documents.py`, `invoices.py`, `object_move.py`, `object_years.py`, `order_links.py`, `server.py` | 30 | Нет |
 | [reconciliations.py](python/reconciliations.md) | `order_creation.py`, `orders.py`, `server.py` | 1 | Нет |
 | [recovery_backup.py](python/recovery_backup.md) | `local_metadata.py`, `server.py` | 1 | Да |
-| [remote_access.py](python/remote_access.md) | `scripts/remote_access_password.py`, `server.py` | 1 | Нет |
+| [remote_access.py](python/remote_access.md) | `scripts/handoff_host.py`, `scripts/remote_access_password.py`, `server.py` | 1 | Нет |
 | [scripts/archive_order_duplicate.py](python/scripts-archive_order_duplicate.md) | Прямой import не найден; см. точку запуска | 0 | Да |
 | [scripts/build_documentation.py](python/scripts-build_documentation.md) | Прямой import не найден; см. точку запуска | 0 | Да |
 | [scripts/deploy.py](python/scripts-deploy.md) | Прямой import не найден; см. точку запуска | 0 | Да |
-| [scripts/deploy_remote.py](python/scripts-deploy_remote.md) | Прямой import не найден; см. точку запуска | 0 | Да |
+| [scripts/deploy_remote.py](python/scripts-deploy_remote.md) | `scripts/handoff.py`, `scripts/handoff_host.py` | 0 | Да |
+| [scripts/handoff.py](python/scripts-handoff.md) | Прямой import не найден; см. точку запуска | 0 | Да |
+| [scripts/handoff_host.py](python/scripts-handoff_host.md) | `scripts/handoff.py` | 1 | Да |
 | [scripts/rebind_glass_notes.py](python/scripts-rebind_glass_notes.md) | Прямой import не найден; см. точку запуска | 0 | Да |
 | [scripts/rebind_order.py](python/scripts-rebind_order.md) | Прямой import не найден; см. точку запуска | 0 | Да |
 | [scripts/remote_access_password.py](python/scripts-remote_access_password.md) | Прямой import не найден; см. точку запуска | 0 | Да |

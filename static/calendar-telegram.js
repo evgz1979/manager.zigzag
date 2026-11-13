@@ -9,7 +9,7 @@
   // Использует `/api/calendar-telegram-settings`.
   async function readSettings() {
     const response = await fetch("/api/calendar-telegram-settings");
-    if (!response.ok) throw new Error("Не удалось проверить настройку Telegram на M4");
+    if (!response.ok) throw new Error("Не удалось проверить настройку Telegram");
     return response.json();
   }
   // Показывает текущие параметры и ошибки настройки Telegram.
@@ -51,7 +51,7 @@
     get("calendarTelegramChatId").value = "";
     get("calendarTelegramChat").replaceChildren(new Option("Сначала нажми «Найти мой чат»", ""));
     get("calendarTelegramSettingsError").hidden = true;
-    get("calendarTelegramSettingsHint").textContent = "Токен сохранится только на M4. При повторном открытии поле будет пустым.";
+    get("calendarTelegramSettingsHint").textContent = "Токен хранится в закрытых настройках менеджера. При повторном открытии поле будет пустым.";
   });
   get("calendarTelegramChat").addEventListener("change", (event) => { get("calendarTelegramChatId").value = event.target.value; });
   get("calendarTelegramToken").addEventListener("input", () => {

@@ -141,12 +141,12 @@ function renderUpload() {
   $("uploadDestination").textContent = "В папку: " + job.path;
   $("uploadDestination").title = job.path;
   $("uploadDestination").setAttribute("aria-label", "Открыть папку назначения: " + job.path);
-  $("uploadCurrent").textContent = job.busy ? (job.sent < job.size ? "Передаю: " : "Сохраняю на M4: ") + job.filename : "";
+  $("uploadCurrent").textContent = job.busy ? (job.sent < job.size ? "Передаю: " : "Сохраняю файл: ") + job.filename : "";
   $("uploadProgress").hidden = !job.busy;
   $("uploadProgress").value = job.size ? Math.round(100 * job.sent / job.size) : 100;
   $("closeUploadPanel").hidden = job.busy;
   const errors = job.results.filter((item) => item.error).length;
-  $("uploadSummary").textContent = job.busy ? "" : "Сохранено на M4: " + (job.results.length - errors) + " из " + job.total + (errors ? " · не удалось: " + errors : "") + (job.refreshError ? " · " + job.refreshError : "");
+  $("uploadSummary").textContent = job.busy ? "" : "Сохранено: " + (job.results.length - errors) + " из " + job.total + (errors ? " · не удалось: " + errors : "") + (job.refreshError ? " · " + job.refreshError : "");
   $("uploadSummary").classList.toggle("error", Boolean(errors || job.refreshError));
   const markup = job.results.map((item) => '<li' + (item.error ? ' class="error"' : '') + '>' + escapeHtml(item.error ? item.original + " — " + item.error : item.name + " · сохранён") + '</li>').join("");
   if ($("uploadResults").innerHTML !== markup) $("uploadResults").innerHTML = markup;
@@ -171,7 +171,7 @@ function sendUpload(file, job) {
       if (xhr.status===201 && xhr.response?.path) resolve(xhr.response);
       else { const error=new Error(xhr.response?.error || "Не удалось загрузить файл · HTTP " + xhr.status); error.status=xhr.status; reject(error); }
     });
-    xhr.addEventListener("error", () => reject(new Error("Нет связи с M4. Проверь файл в папке назначения перед повтором")));
+    xhr.addEventListener("error", () => reject(new Error("Нет связи с менеджером. Проверь файл в папке назначения перед повтором")));
     xhr.send(file);
   });
 }
@@ -483,7 +483,7 @@ async function saveClientActivity(inactive, acceptFile = false) {
 }
 
 // Строит ссылку скачивания оригинала на устройство текущего браузера.
-// Использует прежний `/api/file?download=1`, не запуская приложение на M4.
+// Использует прежний `/api/file?download=1`, не запуская приложение на сервере.
 function fileDownloadButton(file) {
   return '<a class="secondary-button file-download" data-download-file="' + escapeHtml(file.path) + '" href="' +
     escapeHtml(apiUrl("/api/file", file.path, { download: "1" })) + '" download="' + escapeHtml(file.name) +
@@ -504,7 +504,7 @@ function renderSketches() {
     const message = saving ? "Сохраняю…" : relevance.error || (relevance.sync_pending
       ? relevance.sync_error ? "В базе сохранено · не выгружено: " + relevance.sync_error : "В базе сохранено · ожидает выгрузки" : "");
     return '<div class="event-folder sketch-tile" data-relevance-state="' + escapeHtml(relevance.value || "none") + '">' +
-      '<button class="subfolder sketch-open" data-sketch-open="' + escapeHtml(item.path) + '" data-sketch-key="' + escapeHtml(item.key) + '" title="' + escapeHtml(item.name + " · Открыть в CorelDRAW на M4") + '" aria-label="' + escapeHtml("Открыть в CorelDRAW на M4: " + item.name) + '"' + (item.opening ? ' disabled' : '') + '>' +
+      '<button class="subfolder sketch-open" data-sketch-open="' + escapeHtml(item.path) + '" data-sketch-key="' + escapeHtml(item.key) + '" title="' + escapeHtml(item.name + " · Открыть в CorelDRAW на Mac с менеджером") + '" aria-label="' + escapeHtml("Открыть в CorelDRAW на Mac с менеджером: " + item.name) + '"' + (item.opening ? ' disabled' : '') + '>' +
       '<span class="sketch-picture"><img data-thumbnail-path="' + escapeHtml(item.path) + '" data-thumbnail-key="' + escapeHtml(item.thumbnail_key) + '" src="' + escapeHtml(apiUrl("/api/thumbnail", item.path, { v: item.thumbnail_key })) + '" alt="" loading="lazy" decoding="async"><span class="sketch-fallback">CDR</span></span><span class="sketch-name">' + escapeHtml(item.name) + '</span></button>' +
       fileDownloadButton(item) +
       '<div class="event-relevance" role="group" aria-label="' + escapeHtml("Актуальность эскиза " + item.name) + '">' +
@@ -600,7 +600,7 @@ async function openSketch(path, key) {
   renderSketches();
   try {
     await request("/api/sketch-open", { path, key });
-    notify("Эскиз открыт в CorelDRAW на M4");
+    notify("Эскиз открыт в CorelDRAW на Mac с менеджером");
   } finally {
     item.opening = false;
     if (state.folder === folder) renderSketches();

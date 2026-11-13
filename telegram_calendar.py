@@ -188,7 +188,7 @@ def configure(payload, data_dir):
             os.fsync(stream.fileno())
         os.replace(temporary, path)
     except OSError:
-        raise TelegramError("Не удалось сохранить настройки Telegram на M4. Введённые данные остались в форме") from None
+        raise TelegramError("Не удалось сохранить настройки Telegram. Введённые данные остались в форме") from None
     finally:
         if temporary:
             temporary.unlink(missing_ok=True)

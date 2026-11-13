@@ -4,6 +4,20 @@
 
 На внешнем слушателе все маршруты наследуют проверки входа. HEAD использует общую GET-маршрутизацию. Защитные проверки, общие лимиты тела и специальные загрузки могут находиться перед перечисленными ветками.
 
+## GET / HEAD /api/handoff-health
+
+[ManagerHandler.handle_get](python/server.md#symbol-ManagerHandler.handle_get).
+
+Условие: `parsed.path == '/api/handoff-health' and getattr(self, 'remote_access_request', False)`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json({'status': 'ok', 'host': socket.gethostname(), 'release': RELEASE_ID}, head=head)
+```
+
+Вызовы ветки: `socket.gethostname`.
+
 ## GET / HEAD /api/health
 
 [ManagerHandler.handle_get](python/server.md#symbol-ManagerHandler.handle_get).

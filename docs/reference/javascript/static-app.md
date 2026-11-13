@@ -718,7 +718,7 @@ function fileDownloadButton(file)
 
 Строит ссылку скачивания оригинала на устройство текущего браузера.
 
-Использует прежний `/api/file?download=1`, не запуская приложение на M4.
+Использует прежний `/api/file?download=1`, не запуская приложение на сервере.
 
 Непосредственные вызовы: `escapeHtml`, `apiUrl`.
 
@@ -3198,7 +3198,7 @@ function renderSketches()
     const message = saving ? "Сохраняю…" : relevance.error || (relevance.sync_pending
       ? relevance.sync_error ? "В базе сохранено · не выгружено: " + relevance.sync_error : "В базе сохранено · ожидает выгрузки" : "");
     return '<div class="event-folder sketch-tile" data-relevance-state="' + escapeHtml(relevance.value || "none") + '">' +
-      '<button class="subfolder sketch-open" data-sketch-open="' + escapeHtml(item.path) + '" data-sketch-key="' + escapeHtml(item.key) + '" title="' + escapeHtml(item.name + " · Открыть в CorelDRAW на M4") + '" aria-label="' + escapeHtml("Открыть в CorelDRAW на M4: " + item.name) + '"' + (item.opening ? ' disabled' : '') + '>' +
+      '<button class="subfolder sketch-open" data-sketch-open="' + escapeHtml(item.path) + '" data-sketch-key="' + escapeHtml(item.key) + '" title="' + escapeHtml(item.name + " · Открыть в CorelDRAW на Mac с менеджером") + '" aria-label="' + escapeHtml("Открыть в CorelDRAW на Mac с менеджером: " + item.name) + '"' + (item.opening ? ' disabled' : '') + '>' +
       '<span class="sketch-picture"><img data-thumbnail-path="' + escapeHtml(item.path) + '" data-thumbnail-key="' + escapeHtml(item.thumbnail_key) + '" src="' + escapeHtml(apiUrl("/api/thumbnail", item.path, { v: item.thumbnail_key })) + '" alt="" loading="lazy" decoding="async"><span class="sketch-fallback">CDR</span></span><span class="sketch-name">' + escapeHtml(item.name) + '</span></button>' +
       fileDownloadButton(item) +
       '<div class="event-relevance" role="group" aria-label="' + escapeHtml("Актуальность эскиза " + item.name) + '">' +

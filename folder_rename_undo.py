@@ -159,7 +159,7 @@ def rewrite(db, source, destination, *, file_trash_paths=False):
 
 # Выполняет сохранённые обратные операции после проверки текущего состояния.
 # Работает с таблицами folder_renames.
-def undo(session, perform=False):
+def undo(session, perform=False, *, database=None):
     session = Path(session)
     meta = json.loads((session / ".folder-paths.json").read_text(encoding="utf-8"))
     spec = importlib.util.spec_from_file_location("folder_layout_restore", session / ".folder-layout.py")
@@ -168,7 +168,8 @@ def undo(session, perform=False):
     if not perform:
         return layout.undo(session)
     mappings = meta.get("mappings") or ([{"source":meta["source"],"destination":meta["destination"]}] if "source" in meta else [])
-    with closing(sqlite3.connect(Path(meta["database"]).as_uri() + "?mode=rw", uri=True, timeout=15)) as db, db:
+    database = Path(database).resolve() if database is not None else Path(meta["database"])
+    with closing(sqlite3.connect(database.as_uri() + "?mode=rw", uri=True, timeout=15)) as db, db:
         db.row_factory = sqlite3.Row
         db.execute("BEGIN IMMEDIATE")
         row = db.execute("SELECT state,paths_applied FROM folder_renames WHERE session=?", (str(session),)).fetchone()

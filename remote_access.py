@@ -236,7 +236,7 @@ def cookie_header(name, value, lifetime=None):
 # Основные операции: __init__, process_request, process_request_thread.
 class RemoteHTTPServer(ThreadingHTTPServer):
     """Bound concurrent requests so anonymous clients cannot create unlimited threads."""
-    daemon_threads = True
+    daemon_threads = False
 
     # Сохраняет зависимости и начальные параметры экземпляра.
     # Состояние и зависимости сохраняются в полях self для последующих операций.

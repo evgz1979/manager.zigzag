@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 import configparser
+import fcntl
 import hashlib
 import json
 import mimetypes
 import os
 import plistlib
 import re
+import signal
 import shutil
 import sqlite3
+import socket
 import subprocess
 import sys
 import tempfile
@@ -86,6 +89,7 @@ PREVIEW_LOCKS = [threading.Lock() for _ in range(32)]
 PREVIEW_SLOTS = threading.BoundedSemaphore(4)
 PDF_BUILD_LOCK = threading.Lock()
 PDF_INFO_CACHE = {}
+HANDOFF_STOP = threading.Event()
 PRINT_LOCK = threading.RLock()
 PRINT_TEXT_EXTENSIONS = {".txt", ".text", ".md", ".rtf", ".textclipping", ""}
 MAX_PRINT_BYTES = 2 * 1024 * 1024
@@ -888,7 +892,8 @@ def schedule_order_sync():
         invoice_store().sync()
         if DATABASE_ONLY:
             metadata_store().sync()
-    threading.Thread(target=sync, daemon=True).start()
+    if not HANDOFF_STOP.is_set():
+        threading.Thread(target=sync, daemon=False).start()
 
 
 # Сериализует перенос объекта с мобильным обменом и записями файловых редакторов.
@@ -1094,7 +1099,7 @@ def order_todo_worker():
 # Повторяет обработку очередей документов с установленной паузой.
 # Координирует фоновые потоки через локальные события или блокировки.
 def order_sync_worker():
-    while True:
+    while not HANDOFF_STOP.is_set():
         try:
             order_store().sync()
             folder_note_store().sync()
@@ -1105,7 +1110,7 @@ def order_sync_worker():
                 metadata_store().sync()
         except Exception as error:
             print(f"Выгрузка заказов: {error}", flush=True)
-        threading.Event().wait(15)
+        HANDOFF_STOP.wait(15)
 
 
 # Выбирает сохранённое состояние папки для текущего представления.
@@ -1637,7 +1642,9 @@ class ManagerHandler(BaseHTTPRequestHandler):
         query = urllib.parse.parse_qs(parsed.query)
         relative = query.get("path", [""])[0]
         try:
-            if parsed.path == "/api/health":
+            if parsed.path == "/api/handoff-health" and getattr(self, "remote_access_request", False):
+                self.send_json({"status": "ok", "host": socket.gethostname(), "release": RELEASE_ID}, head=head)
+            elif parsed.path == "/api/health":
                 self.send_json({"status": "ok", "release": RELEASE_ID, "root": str(DATA_ROOT)}, head=head)
             elif parsed.path == remote_access.SETTINGS_PATH:
                 remote_access.serve_settings(self, head=head)
@@ -1870,9 +1877,9 @@ class ManagerHandler(BaseHTTPRequestHandler):
         except (BrokenPipeError,ConnectionResetError):
             return
         except sqlite3.Error:
-            self.send_json({'error':'База M4 сейчас занята или недоступна. Повтори загрузку позже'},500)
+            self.send_json({'error':'Рабочая база сейчас занята или недоступна. Повтори загрузку позже'},500)
         except OSError as error:
-            self.send_json({'error':'Не удалось сохранить файл на M4: '+str(error)},500)
+            self.send_json({'error':'Не удалось сохранить файл: '+str(error)},500)
 
     # Проверяет общий снимок календаря перед подтверждённой отправкой боту.
     # При недопустимом состоянии возбуждает ValueError.
@@ -1970,7 +1977,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
         except (ValueError, UnicodeDecodeError):
             self.send_json({'error': 'Проверь токен нового бота и выбранный личный чат'}, 400)
         except configparser.Error:
-            self.send_json({'error': 'Неизвестный формат настроек Telegram на M4. Исходный файл сохранён'}, 400)
+            self.send_json({'error': 'Неизвестный формат настроек Telegram. Исходный файл сохранён'}, 400)
         except (BrokenPipeError, ConnectionResetError):
             pass
         except OSError:
@@ -1982,6 +1989,9 @@ class ManagerHandler(BaseHTTPRequestHandler):
     # Проверяет и маршрутизирует запрос изменения данных текущего обработчика.
     # Запускает внешний процесс; параметры и ограничения заданы в теле функции.
     def do_POST(self):
+        if HANDOFF_STOP.is_set() or (DATA_DIR.resolve().parent / ".handoff-parked.json").exists():
+            self.send_json({"error": "Менеджер переключается на другой компьютер. Проверь сохранение после переключения."}, 503)
+            return
         if urllib.parse.urlsplit(self.path).path == remote_access.PASSWORD_PATH:
             remote_access.serve_password_change(self)
             return
@@ -2475,7 +2485,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
 
 # Разбирает параметры запуска и выполняет основной сценарий программы.
 # Координирует фоновые потоки через локальные события или блокировки.
-def main():
+def serve():
     port = int(sys.argv[1]) if len(sys.argv) > 1 else SERVER_PORT
     if DATABASE_ONLY:
         with metadata_store().connect():
@@ -2490,15 +2500,8 @@ def main():
         print(f"Статусы перенесены в папки: {migration['migrated']}. Архив: {migration['archive']}", flush=True)
         if migration["unresolved"]:
             print("Папки не сопоставлены; записи сохранены в архиве: " + ", ".join(migration["unresolved"]), flush=True)
-    threading.Thread(target=order_sync_worker, daemon=True).start()
-    threading.Thread(target=mobile_sync_worker, daemon=True).start()
-    threading.Thread(target=order_todo_worker, daemon=True).start()
-    threading.Thread(target=client_activity_worker, daemon=True).start()
-    threading.Thread(target=metadata_worker, daemon=True).start()
-    if DATABASE_ONLY:
-        threading.Thread(target=recovery_backup.worker,
-                         args=(order_store().database, DATA_ROOT, APP_DIR), daemon=True).start()
     server = ThreadingHTTPServer((SERVER_HOST, port), ManagerHandler)
+    server.daemon_threads = False
     remote_server = None
     try:
         remote_server = remote_access.start(ManagerHandler, CONFIG_FILE)
@@ -2510,10 +2513,28 @@ def main():
     thumbnail_stop = threading.Event()
     thumbnail_worker = threading.Thread(target=thumbnail_cache.supervise,
                                         args=(DATA_ROOT, DATA_DIR, thumbnail_stop), daemon=True)
-    thumbnail_worker.start()
     inbox_stop = threading.Event()
     inbox_worker = threading.Thread(target=telegram_inbox.worker,
-                                    args=(order_store(), DATA_DIR, inbox_stop, send_calendar_command), daemon=True)
+                                    args=(order_store(), DATA_DIR, inbox_stop, send_calendar_command), daemon=False)
+    # Останавливает приём запросов и позволяет начатым обработчикам завершиться.
+    # Срабатывает в основном потоке, а shutdown выполняет отдельный поток.
+    def shutdown(signum, frame):
+        if not HANDOFF_STOP.is_set():
+            HANDOFF_STOP.set()
+            inbox_stop.set()
+            thumbnail_stop.set()
+            threading.Thread(target=server.shutdown, daemon=True).start()
+
+    signal.signal(signal.SIGTERM, shutdown)
+    threading.Thread(target=order_sync_worker, daemon=False).start()
+    threading.Thread(target=mobile_sync_worker, daemon=True).start()
+    threading.Thread(target=order_todo_worker, daemon=True).start()
+    threading.Thread(target=client_activity_worker, daemon=True).start()
+    threading.Thread(target=metadata_worker, daemon=True).start()
+    if DATABASE_ONLY:
+        threading.Thread(target=recovery_backup.worker,
+                         args=(order_store().database, DATA_ROOT, APP_DIR), daemon=True).start()
+    thumbnail_worker.start()
     inbox_worker.start()
     print(f"Менеджер заказов: http://127.0.0.1:{port}", flush=True)
     print(f"Адрес сервера: {SERVER_HOST}:{port}", flush=True)
@@ -2522,16 +2543,32 @@ def main():
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        pass
+        HANDOFF_STOP.set()
     finally:
         if remote_server is not None:
             remote_server.shutdown()
             remote_server.server_close()
         inbox_stop.set()
-        inbox_worker.join(timeout=1)
+        inbox_worker.join()
         thumbnail_stop.set()
         thumbnail_worker.join(timeout=7)
         server.server_close()
+        object_move.wait_for_jobs()
+
+
+# Удерживает блокировку рабочей установки на весь срок жизни сервера.
+# Пока база передана другой машине, запуск останавливается до открытия SQLite.
+def main():
+    data = DATA_DIR.resolve()
+    data.mkdir(parents=True, exist_ok=True)
+    with (data / ".handoff-run.lock").open("a") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise SystemExit("Эта установка менеджера уже запущена") from None
+        if (data.parent / ".handoff-parked.json").exists():
+            raise SystemExit("Менеджер остановлен для передачи рабочей базы между компьютерами")
+        serve()
 
 
 if __name__ == "__main__":

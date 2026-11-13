@@ -464,7 +464,7 @@
     current.busy = true;
     for (const id of ["externalInvoiceFile", "externalInvoiceComment", "saveExternalInvoice", "closeExternalInvoice"]) $(id).disabled = true;
     status.classList.remove("error");
-    status.textContent = current.record ? "Сохранение комментария…" : current.candidate ? "Чтение PDF из # bills…" : "Загрузка PDF на M4…";
+    status.textContent = current.record ? "Сохранение комментария…" : current.candidate ? "Чтение PDF из # bills…" : "Загрузка PDF…";
     try {
       if (!current.record && current.candidate) {
         current.record = await request('/api/invoice-folder-attach', { path: current.path, name: current.candidate.name, key: current.candidate.key, comment });

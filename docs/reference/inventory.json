@@ -500,7 +500,8 @@
           {"name": "start.progress", "type": "function", "anchor": "symbol-start.progress"},
           {"name": "start.work", "type": "function", "anchor": "symbol-start.work"},
           {"name": "status", "type": "function", "anchor": "symbol-status"},
-          {"name": "target", "type": "function", "anchor": "symbol-target"}
+          {"name": "target", "type": "function", "anchor": "symbol-target"},
+          {"name": "wait_for_jobs", "type": "function", "anchor": "symbol-wait_for_jobs"}
         ]
       },
       {
@@ -875,6 +876,47 @@
         ]
       },
       {
+        "path": "scripts/handoff.py",
+        "symbols": [
+          {"name": "back", "type": "function", "anchor": "symbol-back"},
+          {"name": "confirm", "type": "function", "anchor": "symbol-confirm"},
+          {"name": "deploy_connector", "type": "function", "anchor": "symbol-deploy_connector"},
+          {"name": "leave", "type": "function", "anchor": "symbol-leave"},
+          {"name": "main", "type": "function", "anchor": "symbol-main"},
+          {"name": "prepare", "type": "function", "anchor": "symbol-prepare"},
+          {"name": "remote", "type": "function", "anchor": "symbol-remote"},
+          {"name": "write_agents", "type": "function", "anchor": "symbol-write_agents"}
+        ]
+      },
+      {
+        "path": "scripts/handoff_host.py",
+        "symbols": [
+          {"name": "Bundle", "type": "class", "anchor": "symbol-Bundle"},
+          {"name": "Bundle.digest", "type": "function", "anchor": "symbol-Bundle.digest"},
+          {"name": "Bundle.read", "type": "function", "anchor": "symbol-Bundle.read"},
+          {"name": "Bundle.write", "type": "function", "anchor": "symbol-Bundle.write"},
+          {"name": "Installation", "type": "class", "anchor": "symbol-Installation"},
+          {"name": "Installation.__init__", "type": "function", "anchor": "symbol-Installation.__init__"},
+          {"name": "Installation.activate", "type": "function", "anchor": "symbol-Installation.activate"},
+          {"name": "Installation.bootstrap", "type": "function", "anchor": "symbol-Installation.bootstrap"},
+          {"name": "Installation.check_active", "type": "function", "anchor": "symbol-Installation.check_active"},
+          {"name": "Installation.check_database", "type": "function", "anchor": "symbol-Installation.check_database"},
+          {"name": "Installation.check_public", "type": "function", "anchor": "symbol-Installation.check_public"},
+          {"name": "Installation.check_service", "type": "function", "anchor": "symbol-Installation.check_service"},
+          {"name": "Installation.check_source", "type": "function", "anchor": "symbol-Installation.check_source"},
+          {"name": "Installation.freeze", "type": "function", "anchor": "symbol-Installation.freeze"},
+          {"name": "Installation.history", "type": "function", "anchor": "symbol-Installation.history"},
+          {"name": "Installation.install_files", "type": "function", "anchor": "symbol-Installation.install_files"},
+          {"name": "Installation.loaded", "type": "function", "anchor": "symbol-Installation.loaded"},
+          {"name": "Installation.lock", "type": "function", "anchor": "symbol-Installation.lock"},
+          {"name": "Installation.start_job", "type": "function", "anchor": "symbol-Installation.start_job"},
+          {"name": "Installation.status", "type": "function", "anchor": "symbol-Installation.status"},
+          {"name": "Installation.stop_job", "type": "function", "anchor": "symbol-Installation.stop_job"},
+          {"name": "Installation.stopped", "type": "function", "anchor": "symbol-Installation.stopped"},
+          {"name": "main", "type": "function", "anchor": "symbol-main"}
+        ]
+      },
+      {
         "path": "scripts/rebind_glass_notes.py",
         "symbols": [
           {"name": "append_journal", "type": "function", "anchor": "symbol-append_journal"},
@@ -1009,6 +1051,8 @@
           {"name": "schedule_todo_refresh", "type": "function", "anchor": "symbol-schedule_todo_refresh"},
           {"name": "search_text", "type": "function", "anchor": "symbol-search_text"},
           {"name": "send_calendar_command", "type": "function", "anchor": "symbol-send_calendar_command"},
+          {"name": "serve", "type": "function", "anchor": "symbol-serve"},
+          {"name": "serve.shutdown", "type": "function", "anchor": "symbol-serve.shutdown"},
           {"name": "sketch_target", "type": "function", "anchor": "symbol-sketch_target"},
           {"name": "sort_key", "type": "function", "anchor": "symbol-sort_key"},
           {"name": "split_print_text", "type": "function", "anchor": "symbol-split_print_text"},

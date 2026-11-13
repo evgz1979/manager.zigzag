@@ -27,6 +27,7 @@ import orders
 KIND = "client-object-move"
 JOBS_LOCK = threading.Lock()
 JOBS = {}
+JOB_THREADS = set()
 DIR_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
 CHUNK_SIZE = 1024 * 1024
 
@@ -369,6 +370,15 @@ def status(store, identity):
     raise FileNotFoundError("Перенос с таким номером не найден. Проверь исходную папку")
 
 
+# Дожидается завершения уже принятых фоновых переносов перед остановкой сервера.
+# Вызывать после завершения HTTP-обработчиков, способных создать новые задания.
+def wait_for_jobs():
+    with JOBS_LOCK:
+        threads = tuple(JOB_THREADS)
+    for thread in threads:
+        thread.join()
+
+
 # Принимает одно подтверждённое намерение и запускает перенос в отдельном потоке.
 # Повтор того же идентификатора возвращает статус, а параллельный перенос отклоняется.
 def start(store, payload, locks, after_move):
@@ -403,15 +413,26 @@ def start(store, payload, locks, after_move):
     # Сбой последующего обновления индексов не меняет результат уже сохранённой операции.
     def work():
         try:
-            result = move(store, payload, progress, locks)
-        except Exception as error:
-            progress(phase="failed", error=str(error))
-            return
-        progress(phase="complete", **result)
-        after_move()
+            try:
+                result = move(store, payload, progress, locks)
+            except Exception as error:
+                progress(phase="failed", error=str(error))
+                return
+            progress(phase="complete", **result)
+            after_move()
+        finally:
+            with JOBS_LOCK:
+                JOB_THREADS.discard(threading.current_thread())
 
+    thread = threading.Thread(target=work, name="client-object-move", daemon=True)
     try:
-        threading.Thread(target=work, name="client-object-move", daemon=True).start()
+        with JOBS_LOCK:
+            JOB_THREADS.add(thread)
+            try:
+                thread.start()
+            except RuntimeError:
+                JOB_THREADS.discard(thread)
+                raise
     except RuntimeError as error:
         progress(phase="failed", error="Не удалось запустить перенос: " + str(error))
     return initial

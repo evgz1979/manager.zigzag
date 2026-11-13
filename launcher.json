@@ -12,6 +12,15 @@
       ],
       "url": "http://macmini-m4.local:8765",
       "autoStart": false
+    },
+    {
+      "id": "travel",
+      "name": "Перенос между M4 и MacBook",
+      "command": [
+        "/usr/bin/open",
+        "./travel.command"
+      ],
+      "autoStart": false
     }
   ]
 }
