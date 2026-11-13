@@ -36,9 +36,9 @@ def create(root, relative, order_date, title, *, store=None):
 
 Создаёт папку заказа или сверки и при наличии базы регистрирует карточку.
 
-Для сверки планирует только её собственную папку; при конфликте останавливает создание.
+Для сверки и записи зарплаты планирует только основную папку; при конфликте останавливает создание.
 
-Непосредственные вызовы: `Path(root).resolve`, `Path`, `store.root.resolve`, `ValueError`, `isinstance`, `any`, `part.startswith`, `is_print_section`, `layout.safe_path`, `layout_scope`, `parent.is_dir`, `FileNotFoundError`, `folder_role`, `year_container`, `re.fullmatch`, `date.fromisoformat`, `YEAR.fullmatch`, `ord`, `unicodedata.normalize`, `title.strip`, `len`, `os.fsencode`, `year_groups`, `layout.exists`, `parent.is_symlink`, `parent.relative_to(root).as_posix`, `parent.relative_to`, `OrderFolderConflict`, `destination.relative_to(root).as_posix`, `destination.relative_to`, `layout.Plan`, `str`, `store.database.resolve`, `parent.exists`, `plan.mkdir`, `in_freza`, `(Path(path) / service).as_posix`, `layout.identity`, `(root / relative).iterdir`, `plan.create_session`, `order_creation.prepare`, `layout.apply`, `order_creation.register`, `layout.save_json`, `order_creation.failed`, `session.relative_to(root).as_posix`, `session.relative_to`, `bool`.
+Непосредственные вызовы: `Path(root).resolve`, `Path`, `store.root.resolve`, `ValueError`, `isinstance`, `any`, `part.startswith`, `is_print_section`, `layout.safe_path`, `layout_scope`, `parent.is_dir`, `FileNotFoundError`, `folder_role`, `year_container`, `re.fullmatch`, `date.fromisoformat`, `YEAR.fullmatch`, `ord`, `unicodedata.normalize`, `title.strip`, `len`, `os.fsencode`, `year_groups`, `layout.exists`, `parent.is_symlink`, `parent.relative_to(root).as_posix`, `parent.relative_to`, `OrderFolderConflict`, `destination.relative_to(root).as_posix`, `destination.relative_to`, `layout.Plan`, `str`, `store.database.resolve`, `parent.exists`, `plan.mkdir`, `in_freza`, `in_payroll`, `(Path(path) / service).as_posix`, `layout.identity`, `(root / relative).iterdir`, `plan.create_session`, `order_creation.prepare`, `layout.apply`, `order_creation.register`, `layout.save_json`, `order_creation.failed`, `session.relative_to(root).as_posix`, `session.relative_to`, `bool`.
 
 Явные исключения: `ValueError`, `FileNotFoundError`, `OrderFolderConflict`.
 

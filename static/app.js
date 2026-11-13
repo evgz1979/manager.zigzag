@@ -515,7 +515,7 @@ function renderSketches() {
   if (focusPath) [...$("sketchTiles").querySelectorAll(focusSelector)].find((button) => (button.dataset.sketchFile || button.dataset.downloadFile) === focusPath && button.dataset.sketchStatus === focusValue)?.focus();
 }
 
-// Показывает служебные блоки заказа и существующую # docs под счетами сверки.
+// Показывает служебные блоки заказа и # docs в сверках и записях зарплаты.
 // Использует общий просмотрщик и группирует вложенные файлы по относительной папке.
 function renderOrderFileFolders() {
   const folder = state.folder, folders = folder.orderFileFolders || [];

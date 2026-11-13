@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 import event_folders
 import folder_layout
+import order_creation
 import order_folders
 from folder_structure import folder_role, is_service_folder
 from order_todos import OrderTodos
@@ -29,6 +30,49 @@ class SectionTests(unittest.TestCase):
         self.assertIn(status, (200, 201), body)
         return json.loads(body)
 
+    def test_payroll_record_shows_only_direct_docs_and_does_not_recreate_bills(self):
+        section = '#moneys/#  ЗП'
+        path = section + '/2026-06 июнь'
+        docs = path + '/#  DoCs'
+        self.folder(path)
+        self.assertEqual(manager.read_folder(path)['orderFileFolders'], [])
+        self.folder(docs)
+        self.assertEqual(manager.read_folder(path)['orderFileFolders'], [{'name': '#  DoCs', 'path': docs}])
+        self.assertEqual(manager.read_folder(path)['files'], [])
+        document = docs + '/Акты/Акт.txt'
+        for name in (document, docs + '/.hidden', path + '/# cdr/Эскиз.cdr',
+                     path + '/# cutter/Макет.txt', path + '/Событие/# docs/Документ.txt', path + '/Корневой.txt'):
+            self.file(name, b'document')
+        listing = manager.read_folder(path)
+        self.assertEqual(listing['filesScope'], 'events')
+        self.assertEqual([(item['path'], item['folder']) for item in listing['files']], [(document, '#  DoCs/Акты')])
+        self.assertEqual(manager.read_folder(section)['orderFileFolders'], [])
+        with self.assertRaisesRegex(ValueError, 'документ остался в базе'):
+            manager.invoice_store().publish_copy({'path': path, 'filename': 'Счёт.pdf', 'pdf': b'%PDF-1.4 original'})
+        self.assertFalse((self.root / path / '# bills').exists())
+
+    def test_payroll_creation_recovery_skips_old_service_folder_steps(self):
+        manager.DATABASE_ONLY = True
+        section = '# moneys/# Зп'
+        path = section + '/2026-11-01 - Запись'
+        self.folder(section)
+        store = manager.order_store()
+        plan = folder_layout.Plan(self.root, ['# moneys'], service_roots=[section])
+        for destination in (path, path + '/# bills', path + '/# cdr'):
+            plan.mkdir(destination)
+        session = plan.create_session(['Старый план создания записи'], {})
+        order_creation.prepare(store, path, 'Запись', session)
+        folder_layout.append(session, {'phase': 'intent', 'id': 1, **plan.operations[0]})
+        target = self.root / path
+        target.mkdir()
+        folder_layout.append(session, {'phase': 'commit', 'id': 1, 'identity': folder_layout.identity(target)})
+
+        order_creation.recover(store)
+        self.assertEqual(store.get(path)['title'], 'Запись')
+        self.assertEqual(list(target.iterdir()), [])
+        complete = folder_layout.records(session)[-1]
+        self.assertEqual((complete['phase'], complete['operations']), ('complete', 1))
+
     def test_work_and_financial_sections_support_records_events_todos_and_exports(self):
         sections = ("# work/# laser", "# work/# cutter", "# work/# razbor",
                     "# moneys/# сверки", "# moneys/# Зп", "# moneys/# biils", "# moneys/Документы", "#work/Без решётки")
@@ -46,7 +90,8 @@ class SectionTests(unittest.TestCase):
                 record = self.post("/api/order-folder-create", {"path": section, "date": "2026-10-20", "title": "Запись"})
                 path = record["path"]
                 paths.append(path)
-                self.assertEqual({item.name for item in (self.root / path).iterdir()}, {'# bills', '# cdr'})
+                expected = set() if section == '# moneys/# Зп' else {'# bills', '# cdr'}
+                self.assertEqual({item.name for item in (self.root / path).iterdir()}, expected)
                 created_card = manager.order_store().get(path)
                 self.assertTrue(record['registered'])
                 added = self.post('/api/order-save', {'path': path, 'revision': created_card['revision'],

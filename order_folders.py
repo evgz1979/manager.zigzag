@@ -7,7 +7,7 @@ from datetime import date
 from pathlib import Path
 
 import folder_layout as layout
-from folder_structure import folder_role, section_prefix, is_print_section, in_freza, YEAR, DATE, DATE_LIKE, NUMBER
+from folder_structure import folder_role, section_prefix, is_print_section, in_freza, in_payroll, YEAR, DATE, DATE_LIKE, NUMBER
 
 LOCK = threading.RLock()
 
@@ -72,7 +72,7 @@ def create_object(root, relative, title):
 
 
 # Создаёт папку заказа или сверки и при наличии базы регистрирует карточку.
-# Для сверки планирует только её собственную папку; при конфликте останавливает создание.
+# Для сверки и записи зарплаты планирует только основную папку; при конфликте останавливает создание.
 def create(root, relative, order_date, title, *, store=None):
     root = Path(root).resolve()
     if store and store.root.resolve() != root:
@@ -127,7 +127,7 @@ def create(root, relative, order_date, title, *, store=None):
         if not parent.exists():
             plan.mkdir(parent.relative_to(root).as_posix())
         plan.mkdir(path)
-        if not reconciliation and not in_freza(relative):
+        if not reconciliation and not in_freza(relative) and not in_payroll(relative):
             for service in ('# bills', '# cdr'):
                 plan.mkdir((Path(path) / service).as_posix())
         if not plan.operations:

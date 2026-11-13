@@ -8,7 +8,7 @@
 
 ## Python
 
-64 файлов; 908 именованных объявлений.
+64 файлов; 909 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
@@ -28,7 +28,7 @@
 | [folder_notes.py](python/folder_notes.md) | 20 |
 | [folder_rename.py](python/folder_rename.md) | 7 |
 | [folder_rename_undo.py](python/folder_rename_undo.md) | 8 |
-| [folder_structure.py](python/folder_structure.md) | 18 |
+| [folder_structure.py](python/folder_structure.md) | 19 |
 | [hidden_orders.py](python/hidden_orders.md) | 4 |
 | [icloud_access.py](python/icloud_access.md) | 8 |
 | [image_reports.py](python/image_reports.md) | 2 |

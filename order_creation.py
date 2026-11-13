@@ -7,21 +7,21 @@ from pathlib import Path
 import folder_layout as layout
 import local_metadata
 from event_folder_undo import assert_unlocked
-from folder_structure import in_reconciliations
+from folder_structure import in_payroll, in_reconciliations
 
 KIND = "order_creation"
 
 
 # Досоздаёт только собственные отсутствующие служебные папки заказа.
-# Для сверки пропускает дочерние шаги старого плана и завершает журнал по выполненным шагам.
+# Для сверки и записи зарплаты пропускает дочерние шаги старого плана и завершает журнал по выполненным шагам.
 def complete_service_folders(store, path, session, plan, journal):
     """Finish only our missing mkdir steps after the order folder is proven owned."""
     completed = {item['id']: item for item in journal if item['phase'] == 'commit'}
     operation_count = len(completed)
-    reconciliation = in_reconciliations(path, legacy=True)
+    skip_service_folders = in_payroll(path) or in_reconciliations(path, legacy=True)
     for index, operation in enumerate(plan['operations'], 1):
         relative = operation['destination']
-        if reconciliation or Path(relative).parent.as_posix() != path:
+        if skip_service_folders or Path(relative).parent.as_posix() != path:
             continue
         if operation['operation'] != 'mkdir' or Path(relative).name not in {'# bills', '# cdr'}:
             raise ValueError('Неизвестный шаг создания служебной папки; проверь журнал')

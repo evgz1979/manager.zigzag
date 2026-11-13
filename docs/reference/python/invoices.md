@@ -414,9 +414,9 @@ def publish_copy(self, row):
 
 Публикует сохранённую копию документа в папку без подмены оригиналов.
 
-При недопустимом состоянии возбуждает ValueError. Для прежних счетов сверок # bills не создаёт.
+При недопустимом состоянии возбуждает ValueError. В сверках и записях зарплаты # bills не создаёт.
 
-Непосредственные вызовы: `self.store.target`, `folder.is_symlink`, `ValueError`, `folder.exists`, `in_reconciliations`, `Plan`, `Path`, `layout_scope`, `plan.mkdir`, `folder.relative_to(self.store.root).as_posix`, `folder.relative_to`, `plan.create_session`, `apply`, `os.path.lexists`, `target.is_symlink`, `target.is_file`, `hashlib.sha256(target.read_bytes()).digest`, `hashlib.sha256`, `target.read_bytes`, `hashlib.sha256(row['pdf']).digest`, `tempfile.NamedTemporaryFile`, `stream.write`, `stream.flush`, `os.fsync`, `stream.fileno`, `rename_exclusive`, `temporary.unlink`.
+Непосредственные вызовы: `self.store.target`, `folder.is_symlink`, `ValueError`, `folder.exists`, `in_payroll`, `in_reconciliations`, `Plan`, `Path`, `layout_scope`, `plan.mkdir`, `folder.relative_to(self.store.root).as_posix`, `folder.relative_to`, `plan.create_session`, `apply`, `os.path.lexists`, `target.is_symlink`, `target.is_file`, `hashlib.sha256(target.read_bytes()).digest`, `hashlib.sha256`, `target.read_bytes`, `hashlib.sha256(row['pdf']).digest`, `tempfile.NamedTemporaryFile`, `stream.write`, `stream.flush`, `os.fsync`, `stream.fileno`, `rename_exclusive`, `temporary.unlink`.
 
 Явные исключения: `ValueError`.
 

@@ -66,7 +66,7 @@ import work_orders
 from work_order_list import WorkOrderList
 import supplier_purchases
 from file_comments import FileCommentConflict
-from folder_structure import folder_role, is_catalog_group, client_name, is_print_section, in_reconciliations
+from folder_structure import folder_role, is_catalog_group, client_name, is_print_section, in_payroll, in_reconciliations
 import reconciliations
 from folder_structure import client_path, in_freza, is_freza_task
 from client_activity import ClientActivity, ClientActivityConflict
@@ -1194,7 +1194,7 @@ def freza_preview_target(relative):
 
 
 # Собирает представление папки и разрешённые файлы её роли.
-# У заказа обходит # cutter, # freza и # docs, у сверки — только # docs, у входящих счетов — непосредственные файлы.
+# У заказа обходит # cutter, # freza и # docs, у сверки и записи зарплаты — # docs, у входящих счетов — непосредственные файлы.
 def read_folder(relative="", show_inactive=False):
     target = safe_path(relative)
     if not target.is_dir():
@@ -1220,10 +1220,10 @@ def read_folder(relative="", show_inactive=False):
     hide_files = files_scope != "folder"
     folder_count = len(directories) if hide_files or print_view or status['folderKind'] == 'bills_inbox' else 0
     order_file_folder_kinds = ()
-    if status["folderKind"] == "order" and not freza_task:
-        order_file_folder_kinds = ("cutter", "freza", "docs")
-    elif status["folderKind"] == "reconciliation":
+    if status["folderKind"] == "reconciliation" or (status["folderKind"] == "order" and in_payroll(relative)):
         order_file_folder_kinds = ("docs",)
+    elif status["folderKind"] == "order" and not freza_task:
+        order_file_folder_kinds = ("cutter", "freza", "docs")
     order_file_folders = [folder for folder in directories
                           if folder.name.startswith("#") and folder.name[1:].strip().casefold() in order_file_folder_kinds
                           and not folder.is_symlink()]

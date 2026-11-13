@@ -65,6 +65,8 @@ sequenceDiagram
 
 Создание сверки использует этот механизм намерения, но создаёт только папку и запись сверки: заказные служебные подпапки и регистрация `orders` ей не нужны.
 
+[in_payroll](reference/python/folder_structure.md#symbol-in_payroll) распознаёт `# Зп` в финансовом корне. Создание записи сохраняет прежнюю карточку `orders`, а план содержит только основную папку. [complete_service_folders](reference/python/order_creation.md#symbol-complete_service_folders) пропускает дочерние шаги старого плана. [read_folder](reference/python/server.md#symbol-read_folder) передаёт файлы существующей непосредственной `# docs` общему блоку документов. [publish_copy](reference/python/invoices.md#symbol-InvoiceStore.publish_copy) сохраняет оригинал в SQLite, если `# bills` отсутствует.
+
 ## Вложенные задачи
 
 Собственные To-do находятся в блоке карточки; вложенные карточки — в `folder_notes`. [OrderTodos.refresh](reference/python/order_todos.md#symbol-OrderTodos.refresh) обновляет `todo_catalog`, фиксирует отсутствующие пути только после полного успешного обхода и сохраняет ошибки. [OrderTodos.attach](reference/python/order_todos.md#symbol-OrderTodos.attach) присоединяет готовую сводку к заказам без чтения файлов.

@@ -47,6 +47,13 @@ def in_bills(relative):
     return len(parts) >= 2 and is_moneys_root(parts[0]) and parts[1].startswith('#') and parts[1][1:].strip().casefold() == 'bills'
 
 
+# Распознаёт раздел зарплаты и его содержимое в финансовом корне.
+# Допускает варианты пробелов после # и регистра имени «Зп».
+def in_payroll(relative):
+    parts = Path(relative).parts
+    return len(parts) >= 2 and is_moneys_root(parts[0]) and parts[1].startswith('#') and parts[1][1:].strip().casefold() == 'зп'
+
+
 # Проверяет принадлежность пути разделу самостоятельных сверок.
 # Возвращает `False`; либо `len(parts) >= 2 and is_moneys_root(parts[0]) and (unicodedata.normalize('NFC', parts[1]).lstrip('#').strip().casefold() in names)`.
 def in_reconciliations(relative, *, legacy=False):

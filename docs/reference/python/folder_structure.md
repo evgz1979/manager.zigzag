@@ -169,6 +169,28 @@ def in_freza(relative):
 len(parts) >= 2 and is_work_root(parts[0]) and parts[1].startswith('#') and (parts[1][1:].strip().casefold() == 'freza')
 ```
 
+<a id="symbol-in_payroll"></a>
+
+## in_payroll
+
+[folder_structure.py](../../../folder_structure.py) · `function`.
+
+```python
+def in_payroll(relative):
+```
+
+Распознаёт раздел зарплаты и его содержимое в финансовом корне.
+
+Допускает варианты пробелов после # и регистра имени «Зп».
+
+Непосредственные вызовы: `Path`, `len`, `is_moneys_root`, `parts[1].startswith`, `parts[1][1:].strip().casefold`, `parts[1][1:].strip`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+len(parts) >= 2 and is_moneys_root(parts[0]) and parts[1].startswith('#') and (parts[1][1:].strip().casefold() == 'зп')
+```
+
 <a id="symbol-in_reconciliations"></a>
 
 ## in_reconciliations
