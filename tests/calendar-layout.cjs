@@ -4,7 +4,7 @@ const vm = require("node:vm");
 const path = require("node:path");
 const context = vm.createContext({ Intl, Date });
 const source = fs.readFileSync(path.join(__dirname, "../static/home-calendar.js"), "utf8");
-vm.runInContext(source.replace("return { show, calendarRange, createSnapshot, snapshotRange };", "return { show, calendarRange, createSnapshot, snapshotRange, visibleOrderWeeks, moscowDate };") + "\nthis.calendar = HomeCalendar;", context);
+vm.runInContext(source.replace("snapshotRange, updateOrderEvent };", "snapshotRange, visibleOrderWeeks, moscowDate };") + "\nthis.calendar = HomeCalendar;", context);
 const now = new Date("2026-11-01T12:00:00Z");
 const order = {
   path: "client/order", registered: true, deadline_weeks: ["2026-11-02"],
@@ -34,11 +34,9 @@ assert.deepEqual(weeksAt(finished, monday), [next]);
 assert.deepEqual(weeksAt({ ...finished, calendar_events: { ...finished.calendar_events, "2026-11-01": "Still to do" } }, monday), [week, next]);
 assert.deepEqual(weeksAt({ ...finished, calendar_completed: { day: finished.calendar_completed.day, week: [next] } }, monday), [week, next]);
 assert.deepEqual(weeksAt({ ...base, calendar_events: { "2026-10-27": "  " } }, monday), [next]);
-// Suppliers use the same rule, while small-order links have no event row.
-assert.deepEqual(weeksAt({ ...finished, work_supplier: "glass" }, monday), [next]);
+// Small-order links have no event row.
 assert.deepEqual(weeksAt({ ...finished, calendar_compact: true }, monday), [week, next]);
 // Completed and irrelevant events together must not retain a past row.
-// Exercise the same mixed weekly/daily data as supplier orders in production.
 const closed = { ...base,
   calendar_events: { "2026-10-27": "Delivered", "2026-10-28": "Old reminder" },
   calendar_week_events: { [week]: "Old payment reminder" },
@@ -105,3 +103,9 @@ assert.equal(context.calendar.calendarRange(nowMonday, [{ ...base, calendar_even
 assert.equal(context.calendar.calendarRange(nowMonday, [{ ...base, calendar_events: null }]).weeks[0], week);
 assert.equal(context.calendar.calendarRange(nowMonday, [base], [{ date: week, period: "week", is_completed: "unknown" }]).weeks[0], week);
 assert.equal(context.calendar.calendarRange(new Date(sunday), [closed], freeClosed, plansClosed).weeks[0], week);
+
+// Supplier dates stay out of both the live calendar range and the PNG period.
+const supplier = { ...base, work_supplier: "glass", calendar_week_events: { [week]: "Pending" },
+  deadline_weeks: [week, "2027-01-04"] };
+assert.deepEqual(Array.from(context.calendar.calendarRange(nowMonday, [supplier], [], [], true).weeks), [next, "2026-11-09"]);
+assert.equal(context.calendar.snapshotRange(nowMonday, [supplier]).count, 2);

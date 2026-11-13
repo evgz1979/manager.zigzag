@@ -91,6 +91,8 @@ UUID отвечает за идентичность сущности, путь �
 
 ## Браузер
 
+В левой колонке показаны отмеченные недели поставщиков с комментариями начиная с текущей. Единственная отмеченная неделя без комментария видна рядом с названием заказа. Данные поступают из отдельного массива `/api/orders`. Редактор комментария и окно задач общие с календарём. В меню поставщика доступен один пункт «Смотри ту-ду». [renderSupplierSchedule](reference/javascript/static-app.md#symbol-renderSupplierSchedule)
+
 Сводка закупок в разделе поставщика и внутри его заказа использует один компонент. Он получает `purchaseSupplierPath` вместе с карточкой и обновляет список из SQLite независимо от загрузки файлов. Кнопка копирования в сводке и кнопка Inbox используют общую функцию [copyText](reference/javascript/static-app.md#symbol-copyText).
 
 [render](reference/javascript/static-invoice-products.md#symbol-render) показывает товары компактными строками в расширенной колонке и сортирует их по названию А–Я после группы и поиска; порядок SQLite не меняется. Копирование через [open](reference/javascript/static-invoice-products.md#symbol-open) получает новый UUID. [remove](reference/javascript/static-invoice-products.md#symbol-remove) подтверждает удаление; [write_catalog](reference/python/invoice_preferences.md#symbol-write_catalog) различает create/update/delete, сохраняет историю атомарно и по ней запрещает возврат удалённого UUID старой формой. Строки счетов используют независимые снимки товаров.

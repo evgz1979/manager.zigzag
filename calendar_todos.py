@@ -3,16 +3,19 @@ from datetime import date, timedelta
 from calendar_delivery import order_visible
 
 
-# Собирает тексты только видимых отмеченных событий и актуальных задач их заказов.
-# Возвращает `''`; либо `'\n\n'.join(sections)`.
+# Собирает отмеченные события сетки и расписания поставщиков за период PNG.
+# Включает актуальные задачи заказов и не меняет входную сводку.
 def digest(snapshot, start, through=None):
     first = date.fromisoformat(start)
     last = date.fromisoformat(through) if through else first + timedelta(days=13)
-    orders = snapshot.get('orders', []) + snapshot.get('calendar_supplier_orders', [])
+    suppliers = snapshot.get('calendar_supplier_orders', [])
+    orders = snapshot.get('orders', []) + suppliers
+    supplier_paths = {order['path'] for order in suppliers}
     by_path = {order['path']: order for order in orders}
     events = []
     for order in orders:
-        if order.get('calendar_compact') is True:
+        supplier = order['path'] in supplier_paths
+        if not supplier and order.get('calendar_compact') is True:
             continue
         marks = order.get('calendar_watch_todos') or {}
         days = order.get('calendar_events') or {}
@@ -25,7 +28,7 @@ def digest(snapshot, start, through=None):
             for day in marks.get(period, []):
                 value = date.fromisoformat(day)
                 week = (value - timedelta(days=value.weekday())).isoformat()
-                if first <= value <= last and week in active_weeks and entries.get(day) and order_visible(order, week):
+                if first <= value <= last and entries.get(day) and (supplier or week in active_weeks and order_visible(order, week)):
                     flags = [label for field, label in [('calendar_completed', 'Выполнено'), ('calendar_trip', 'Выезд'), ('calendar_inactive', 'Неактуально')]
                              if day in (order.get(field) or {}).get(period, [])]
                     if period == 'week' and week not in (order.get('deadline_weeks') or []):

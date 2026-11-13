@@ -28,14 +28,13 @@ def order_visible(order, week, now=None):
 
 
 # Выбирает две или три недели снимка независимо от просмотра истории в браузере.
-# Предыдущую неделю удерживают только видимые актуальные невыполненные события.
+# Предыдущую неделю удерживают только видимые актуальные невыполненные события сетки.
 def period(snapshot, now=None):
     current = current_week(now)
     previous = (current - timedelta(days=7)).isoformat()
     current_key = current.isoformat()
-    orders = snapshot.get('orders', []) + snapshot.get('calendar_supplier_orders', [])
-    for order in orders:
-        if not order.get('path') or order.get('registered') is False or order.get('calendar_compact') is True:
+    for order in snapshot.get('orders', []):
+        if order.get('work_supplier') or not order.get('path') or order.get('registered') is False or order.get('calendar_compact') is True:
             continue
         eligible = previous in (order.get('deadline_weeks') or [])
         if order.get('calendar_compact') is not True:
@@ -80,7 +79,7 @@ const delivery = {payload};
 async function makeCalendar() {{
   try {{
     const data = delivery.snapshot;
-    const orders = [...data.orders, ...(data.calendar_supplier_orders || [])].map(order => order.work_supplier ? {{ ...order, client: order.work_supplier }} : order).sort((a,b) => OrderSorting.compare(a,b,'title',1));
+    const orders = [...data.orders].sort((a,b) => OrderSorting.compare(a,b,'title',1));
     HomeCalendar.show(orders, data.calendar_events || [], data.calendar_invoice_plans || [], new Date(delivery.now));
     const result = await CalendarSnapshot.capture(new Date(delivery.now));
     if (result.start !== delivery.start || result.through !== delivery.through) throw new Error('period');

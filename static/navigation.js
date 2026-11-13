@@ -11,6 +11,7 @@
   // Открывает или закрывает узкое меню, управляя фокусом и блокировкой фона.
   // Обращается к DOM текущего документа или переданного контейнера.
   function setOpen(value) {
+    const wasOpen = open;
     open = narrow.matches && value;
     const hadSidebarFocus = sidebar.contains(document.activeElement);
     workspace.classList.toggle("sidebar-open", open);
@@ -30,6 +31,7 @@
       else if (!narrow.matches && document.activeElement === close) document.getElementById("homeButton").focus({ preventScroll: true });
       if (narrow.matches) sidebar.setAttribute("aria-hidden", "true");
       else sidebar.removeAttribute("aria-hidden");
+      if (wasOpen) document.dispatchEvent(new Event("manager:sidebar-closed"));
     }
   }
 
@@ -41,6 +43,7 @@
   document.addEventListener("keydown", (event) => {
     if (!open || document.querySelector("dialog[open]")) return;
     if (event.key === "Escape") {
+      if (sidebar.querySelector(".calendar-event-menu:not([hidden]), .calendar-todo-preview:not([hidden])")) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       setOpen(false);

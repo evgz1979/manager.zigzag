@@ -20,9 +20,9 @@ Read-only To-do digest for the same two or three weeks as the calendar PNG.
 def digest(snapshot, start, through=None):
 ```
 
-Собирает тексты только видимых отмеченных событий и актуальных задач их заказов.
+Собирает отмеченные события сетки и расписания поставщиков за период PNG.
 
-Возвращает `''`; либо `'\n\n'.join(sections)`.
+Включает актуальные задачи заказов и не меняет входную сводку.
 
 Непосредственные вызовы: `date.fromisoformat`, `timedelta`, `snapshot.get`, `order.get`, `set`, `(order.get('calendar_inactive') or {}).get`, `(order.get('calendar_completed') or {}).get`, `active_weeks.add`, `(value - timedelta(days=value.weekday())).isoformat`, `value.weekday`, `marks.get`, `entries.get`, `order_visible`, `(order.get(field) or {}).get`, `flags.append`, `events.append`, `by_path.get`, `plan.get`, `first.isoformat`, `last.isoformat`, `format(plan['amount'] / 100, ',.2f').replace(',', ' ').replace('.', ',').removesuffix`, `format(plan['amount'] / 100, ',.2f').replace(',', ' ').replace`, `format(plan['amount'] / 100, ',.2f').replace`, `format`, `sorted`, `' · '.join`, `filter`, `lines.append`, `group.get`, `item.get`, `order.get('todo_index', {}).get`, `sections.append`, `'\n'.join`, `'\n\n'.join`.
 

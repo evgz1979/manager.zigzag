@@ -20,6 +20,6 @@ function setOpen(value)
 
 Обращается к DOM текущего документа или переданного контейнера.
 
-Непосредственные вызовы: `sidebar.contains`, `workspace.classList.toggle`, `toggle.setAttribute`, `String`, `sidebar.removeAttribute`, `sidebar.setAttribute`, `close.focus`, `toggle.focus`, `document.getElementById("homeButton").focus`, `document.getElementById`.
+Непосредственные вызовы: `sidebar.contains`, `workspace.classList.toggle`, `toggle.setAttribute`, `String`, `sidebar.removeAttribute`, `sidebar.setAttribute`, `close.focus`, `toggle.focus`, `document.getElementById("homeButton").focus`, `document.getElementById`, `document.dispatchEvent`, `Event`.
 
 Прямые присваивания полям/свойствам: `header.inert`, `content.inert`, `sidebar.inert`.

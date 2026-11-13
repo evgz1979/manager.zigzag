@@ -79,16 +79,16 @@
 
 ## JavaScript
 
-23 файлов; 448 именованных объявлений.
+23 файлов; 452 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
-| [static/app.js](javascript/static-app.md) | 235 |
+| [static/app.js](javascript/static-app.md) | 238 |
 | [static/bills.js](javascript/static-bills.md) | 11 |
 | [static/calendar-snapshot.js](javascript/static-calendar-snapshot.md) | 4 |
 | [static/calendar-telegram.js](javascript/static-calendar-telegram.md) | 6 |
 | [static/hidden-orders.js](javascript/static-hidden-orders.md) | 10 |
-| [static/home-calendar.js](javascript/static-home-calendar.md) | 33 |
+| [static/home-calendar.js](javascript/static-home-calendar.md) | 34 |
 | [static/inbox.js](javascript/static-inbox.md) | 13 |
 | [static/invoice-documents.js](javascript/static-invoice-documents.md) | 17 |
 | [static/invoice-products.js](javascript/static-invoice-products.md) | 13 |

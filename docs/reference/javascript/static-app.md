@@ -59,14 +59,14 @@ const apiUrl = (route, path = "", extra = {}) =>
 [static/app.js](../../../static/app.js) · `FunctionDeclaration`.
 
 ```javascript
-function applyCalendarDeletion(entry, saved, deleted)
+function applyCalendarDeletion(entry, saved, deleted, revision = entry.revision)
 ```
 
 Применяет подтверждённое удаление к локальному состоянию календаря.
 
 Использует `state.calendarInvoicePlans.filter`, `state.calendarInvoicePlans.push`, `applyFreeCalendarEvent`.
 
-Непосредственные вызовы: `state.calendarInvoicePlans.filter`, `state.calendarInvoicePlans.push`, `applyFreeCalendarEvent`, `applyOrderRecord`.
+Непосредственные вызовы: `state.calendarInvoicePlans.filter`, `state.calendarInvoicePlans.push`, `applyFreeCalendarEvent`, `applyCalendarOrderEvent`.
 
 Прямые присваивания полям/свойствам: `state.ordersRequest`, `state.calendarInvoicePlans`.
 
@@ -87,6 +87,22 @@ function applyCalendarInvoicePlan(saved)
 Непосредственные вызовы: `state.calendarInvoicePlans.find`, `Object.assign`.
 
 Прямые присваивания полям/свойствам: `state.ordersRequest`.
+
+<a id="symbol-applyCalendarOrderEvent"></a>
+
+## applyCalendarOrderEvent
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function applyCalendarOrderEvent(saved, revision)
+```
+
+Применяет частичную правку календаря и к открытой карточке той же версии.
+
+При несовпадении версий оставляет карточке прежнюю версию для обычной проверки конфликта.
+
+Непосредственные вызовы: `applyOrderRecord`, `renderCardDeadlines`.
 
 <a id="symbol-applyFreeCalendarEvent"></a>
 
@@ -136,7 +152,7 @@ function applyOrderRecord(folder, saved)
 
 Использует `orders.find`, `Object.assign`.
 
-Непосредственные вызовы: `orders.find`, `Object.assign`.
+Непосредственные вызовы: `orders.find`, `Object.assign`, `state.calendarSupplierOrders.some`, `renderSupplierSchedule`.
 
 Прямые присваивания полям/свойствам: `state.ordersRequest`, `folder.order`.
 
@@ -224,6 +240,22 @@ function calendarEventEntries(order, period)
 
 Результат вычисляется из переданных аргументов и текущего состояния компонента.
 
+<a id="symbol-calendarSlotOrder"></a>
+
+## calendarSlotOrder
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function calendarSlotOrder(slot)
+```
+
+Находит заказ события в том же источнике, из которого построена его кнопка.
+
+Для панели поставщиков использует сводку с задачами и подтверждённой версией.
+
+Непосредственные вызовы: `slot.closest`, `state.calendarSupplierOrders.find`, `findListOrder`.
+
 <a id="symbol-cancelCalendarTodoPreviewSwitch"></a>
 
 ## cancelCalendarTodoPreviewSwitch
@@ -310,7 +342,7 @@ function closeCalendarEventMenu(restoreFocus = true)
 
 Использует `$`, `(menu.slot.isConnected ? menu.slot : $("calendarViewport")).focus`.
 
-Непосредственные вызовы: `$`, `(menu.slot.isConnected ? menu.slot : $("calendarViewport")).focus`.
+Непосредственные вызовы: `$`, `(menu.trigger.isConnected ? menu.trigger : menu.sidebar ? $("homeButton") : $("calendarViewport")).focus`.
 
 Прямые присваивания полям/свойствам: `state.calendarMenu`, `$("calendarEventMenu").hidden`.
 
@@ -638,7 +670,7 @@ async function deleteCalendarEventFromMenu()
 
 Использует `findListOrder`, `state.calendarEvents.find`, `calendarEventEntries`.
 
-Непосредственные вызовы: `findListOrder`, `state.calendarEvents.find`, `calendarEventEntries`, `closeCalendarEventMenu`, `removeCalendarRecord`, `notify`, `loadOrders`.
+Непосредственные вызовы: `calendarSlotOrder`, `state.calendarEvents.find`, `calendarEventEntries`, `closeCalendarEventMenu`, `removeCalendarRecord`, `notify`, `loadOrders`.
 
 <a id="symbol-escapeHtml"></a>
 
@@ -1297,7 +1329,7 @@ async function loadOrders()
 
 Использует `/api/orders`, `/api/work-orders`, `/api/object-orders`.
 
-Непосредственные вызовы: `isFolderOrderList`, `isWorkOrderList`, `request`, `renderMoneyOverview`, `apiUrl`, `(object.archived_paths || []).map`, `result.orders.filter`, `renderFavoriteOrders`, `hasOrderList`, `renderOrders`, `renderCardDeadlines`, `[...(result.orders || []), ...(result.favorites || [])].find`, `renderOrderCardLinks`.
+Непосредственные вызовы: `isFolderOrderList`, `isWorkOrderList`, `request`, `renderMoneyOverview`, `apiUrl`, `(object.archived_paths || []).map`, `result.orders.filter`, `renderSupplierSchedule`, `renderFavoriteOrders`, `hasOrderList`, `renderOrders`, `renderCardDeadlines`, `[...(result.orders || []), ...(result.favorites || [])].find`, `renderOrderCardLinks`.
 
 Прямые присваивания полям/свойствам: `state.ordersRequest`, `state.calendarPlansError`, `state.objectOrders`, `state.objectOrdersError`, `state.workOrderGroups`, `state.workArchivedOrders`, `state.workArchivedPaths`, `state.orders`, `state.calendarSupplierOrders`, `state.calendarEvents`, `state.calendarInvoicePlans`, `state.calendarPlansLoaded`, `state.deadlineWeekOptions`, `state.favoriteOrders`, `state.unregistrations`, `state.scan`, `state.storage`.
 
@@ -1351,7 +1383,7 @@ async function moveCalendarEvent(days, targetPeriod = null)
 
 targetPeriod передаёт только свободной записи; остальные виды используют прежние сдвиги.
 
-Непосредственные вызовы: `state.calendarMoving.has`, `orderRowSaving`, `closeCalendarEventMenu`, `state.calendarMoving.add`, `request`, `applyCalendarInvoicePlan`, `applyFreeCalendarEvent`, `applyOrderRecord`, `Date`, `target.setUTCDate`, `target.getUTCDate`, `notify`, `target.toLocaleDateString`, `loadOrders`, `state.calendarMoving.delete`, `renderOrders`, `($("calendarWeeks").querySelector('[' + (menu.free ? 'data-calendar-free' : 'data-invoice-plan') + '="' + menu.id + '"]') || $("calendarViewport")).focus`, `$("calendarWeeks").querySelector`, `$`.
+Непосредственные вызовы: `state.calendarMoving.has`, `orderRowSaving`, `closeCalendarEventMenu`, `state.calendarMoving.add`, `request`, `applyCalendarInvoicePlan`, `applyFreeCalendarEvent`, `applyCalendarOrderEvent`, `Date`, `target.setUTCDate`, `target.getUTCDate`, `notify`, `target.toLocaleDateString`, `loadOrders`, `state.calendarMoving.delete`, `hasOrderList`, `renderOrders`, `($("calendarWeeks").querySelector('[' + (menu.free ? 'data-calendar-free' : 'data-invoice-plan') + '="' + menu.id + '"]') || $("calendarViewport")).focus`, `$("calendarWeeks").querySelector`, `$`.
 
 Прямые присваивания полям/свойствам: `state.ordersRequest`.
 
@@ -1437,7 +1469,7 @@ function openCalendarEvent(slot)
 
 Запоминает оба исходных поля для защиты черновика; комментарий заказа не редактирует.
 
-Непосредственные вызовы: `closeCalendarEventMenu`, `state.calendarEvents.find`, `findListOrder`, `state.calendarMoving.has`, `orderRowSaving`, `calendarEventEntries`, `notify`, `Boolean`, `order.calendar_inactive?.[period]?.includes`, `order.calendar_completed?.[period]?.includes`, `order.calendar_trip?.[period]?.includes`, `order.calendar_watch_todos?.[period]?.includes`, `freeCalendarIdentity`, `$`, `(order.work_supplier ? [order.title, order.work_supplier] : [order.title, order.client, order.object]).filter(Boolean).join`, `(order.work_supplier ? [order.title, order.work_supplier] : [order.title, order.client, order.object]).filter`, `Date`, `Intl.DateTimeFormat`, `end.setUTCDate`, `end.getUTCDate`, `format.format`, `renderCalendarEventControls`, `$("calendarEventDialog").showModal`, `$("calendarEventText").focus`.
+Непосредственные вызовы: `closeCalendarEventMenu`, `state.calendarEvents.find`, `calendarSlotOrder`, `state.calendarMoving.has`, `orderRowSaving`, `hasPendingDeadlineComments`, `notify`, `calendarEventEntries`, `Boolean`, `order.calendar_inactive?.[period]?.includes`, `order.calendar_completed?.[period]?.includes`, `order.calendar_trip?.[period]?.includes`, `order.calendar_watch_todos?.[period]?.includes`, `freeCalendarIdentity`, `$`, `(order.work_supplier ? [order.title, order.work_supplier] : [order.title, order.client, order.object]).filter(Boolean).join`, `(order.work_supplier ? [order.title, order.work_supplier] : [order.title, order.client, order.object]).filter`, `Date`, `Intl.DateTimeFormat`, `end.setUTCDate`, `end.getUTCDate`, `format.format`, `renderCalendarEventControls`, `$("calendarEventDialog").showModal`, `$("calendarEventText").focus`.
 
 Прямые присваивания полям/свойствам: `state.calendarEvent`, `$("calendarEventTitle").textContent`, `$("calendarEventOrder").textContent`, `$("calendarEventDate").textContent`, `$("calendarEventText").value`, `$("calendarEventComment").value`, `$("calendarEventState").textContent`.
 
@@ -1448,16 +1480,16 @@ function openCalendarEvent(slot)
 [static/app.js](../../../static/app.js) · `FunctionDeclaration`.
 
 ```javascript
-function openCalendarEventMenu(slot, x, y)
+function openCalendarEventMenu(slot, x, y, trigger = slot)
 ```
 
 Открывает контекстное меню с действиями для точного вида события.
 
-Дневным показывает следующие семь дат; свободной недельной — пн–вс своей недели с переносом в день.
+Поставщикам в левой колонке показывает только «Смотри ту-ду», сетке — действия для её вида записи.
 
-Непосредственные вызовы: `closeCalendarTodoPreview`, `state.calendarInvoicePlans.find`, `state.calendarEvents.find`, `findListOrder`, `slot.getAttribute`, `calendarEventEntries`, `state.calendarMoving.has`, `orderRowSaving`, `[0, 1].includes`, `notify`, `closeCalendarEventMenu`, `Boolean`, `order.calendar_inactive?.[period]?.includes`, `order.calendar_completed?.[period]?.includes`, `order.calendar_trip?.[period]?.includes`, `order.calendar_watch_todos?.[period]?.includes`, `$`, `Date`, `start.setUTCDate`, `start.getUTCDate`, `start.getUTCDay`, `end.setUTCDate`, `end.getUTCDate`, `start.toLocaleDateString`, `end.toLocaleDateString`, `$("calendarEventToWeek").setAttribute`, `$("calendarEventNextDays").setAttribute`, `$("calendarEventNextDays").querySelectorAll("[data-calendar-move]").forEach`, `$("calendarEventNextDays").querySelectorAll`, `$("calendarEventInactive").setAttribute`, `String`, `$("calendarEventCompleted").setAttribute`, `$("calendarEventTrip").setAttribute`, `$("calendarEventWatchTodos").setAttribute`, `["incoming", "outgoing"].includes`, `$("calendarEventCarryover").setAttribute`, `$("calendarEventNotified").setAttribute`, `menu.querySelectorAll("[data-calendar-color]").forEach`, `menu.querySelectorAll`, `menu.getBoundingClientRect`, `Math.max`, `Math.min`, `[...menu.querySelectorAll("button")].find((button) => button.getClientRects().length).focus`, `[...menu.querySelectorAll("button")].find`.
+Непосредственные вызовы: `closeCalendarTodoPreview`, `slot.closest`, `state.calendarInvoicePlans.find`, `state.calendarEvents.find`, `calendarSlotOrder`, `slot.getAttribute`, `calendarEventEntries`, `state.calendarMoving.has`, `orderRowSaving`, `hasPendingDeadlineComments`, `notify`, `[0, 1].includes`, `closeCalendarEventMenu`, `Boolean`, `order.calendar_inactive?.[period]?.includes`, `order.calendar_completed?.[period]?.includes`, `order.calendar_trip?.[period]?.includes`, `order.calendar_watch_todos?.[period]?.includes`, `$`, `host.append`, `Date`, `start.setUTCDate`, `start.getUTCDate`, `start.getUTCDay`, `end.setUTCDate`, `end.getUTCDate`, `start.toLocaleDateString`, `end.toLocaleDateString`, `$("calendarEventToWeek").setAttribute`, `$("calendarEventNextDays").setAttribute`, `$("calendarEventNextDays").querySelectorAll("[data-calendar-move]").forEach`, `$("calendarEventNextDays").querySelectorAll`, `$("calendarEventInactive").setAttribute`, `String`, `$("calendarEventCompleted").setAttribute`, `$("calendarEventTrip").setAttribute`, `$("calendarEventWatchTodos").setAttribute`, `["incoming", "outgoing"].includes`, `$("calendarEventCarryover").setAttribute`, `$("calendarEventNotified").setAttribute`, `menu.querySelectorAll("[data-calendar-color]").forEach`, `menu.querySelectorAll`, `menu.getBoundingClientRect`, `Math.max`, `Math.min`, `([...menu.querySelectorAll("button:not(:disabled)")].find(button => button.getClientRects().length) || menu).focus`, `[...menu.querySelectorAll("button:not(:disabled)")].find`.
 
-Прямые присваивания полям/свойствам: `state.calendarMenu`, `$("calendarEventMenuName").textContent`, `$("calendarEventDayMoves").hidden`, `$("calendarEventToWeek").hidden`, `$("calendarEventToWeek").title`, `$("calendarEventNextDays").hidden`, `$("calendarEventMoveDivider").hidden`, `$("calendarEventWatchTodos").hidden`, `$("calendarEventWatchTodos").disabled`, `$("calendarEventCarryover").hidden`, `$("calendarEventCarryover").disabled`, `$("calendarEventNotified").hidden`, `$("calendarEventNotified").disabled`, `$("calendarEventDelete").hidden`, `$("calendarEventColors").hidden`, `menu.hidden`, `menu.style.left`, `menu.style.top`.
+Прямые присваивания полям/свойствам: `state.calendarMenu`, `$("calendarEventMenuName").textContent`, `$("calendarEventDayMoves").hidden`, `$("calendarEventToWeek").hidden`, `$("calendarEventToWeek").title`, `$("calendarEventNextDays").hidden`, `$("calendarEventMoveDivider").hidden`, `$("calendarEventMoves").hidden`, `$("calendarEventCompleted").hidden`, `$("calendarEventTrip").hidden`, `$("calendarEventInactive").hidden`, `$("calendarEventWatchTodos").hidden`, `$("calendarEventWatchTodos").disabled`, `$("calendarEventCarryover").hidden`, `$("calendarEventCarryover").disabled`, `$("calendarEventNotified").hidden`, `$("calendarEventNotified").disabled`, `$("calendarEventDelete").hidden`, `$("calendarEventColors").hidden`, `menu.hidden`, `menu.style.left`, `menu.style.top`.
 
 <a id="symbol-openCalendarTodoPreview"></a>
 
@@ -2035,7 +2067,7 @@ async function refreshCalendarEvent()
 
 Использует `/api/calendar-event`, `/api/order`.
 
-Непосредственные вызовы: `renderCalendarEventControls`, `request`, `encodeURIComponent`, `Error`, `Boolean`, `applyFreeCalendarEvent`, `apiUrl`, `calendarEventEntries`, `order.calendar_inactive?.[edit.period]?.includes`, `order.calendar_completed?.[edit.period]?.includes`, `order.calendar_trip?.[edit.period]?.includes`, `order.calendar_watch_todos?.[edit.period]?.includes`, `applyOrderRecord`, `$`, `renderOrders`.
+Непосредственные вызовы: `renderCalendarEventControls`, `request`, `encodeURIComponent`, `Error`, `Boolean`, `applyFreeCalendarEvent`, `apiUrl`, `calendarEventEntries`, `order.calendar_inactive?.[edit.period]?.includes`, `order.calendar_completed?.[edit.period]?.includes`, `order.calendar_trip?.[edit.period]?.includes`, `order.calendar_watch_todos?.[edit.period]?.includes`, `applyOrderRecord`, `$`, `hasOrderList`, `renderOrders`.
 
 Прямые присваивания полям/свойствам: `edit.saving`, `edit.revision`, `edit.previous`, `edit.previousComment`, `edit.inactive`, `edit.completed`, `edit.trip`, `edit.color`, `edit.conflict`, `edit.watch_todos`, `$("calendarEventState").textContent`.
 
@@ -2229,7 +2261,7 @@ async function removeCalendarRecord(entry)
 
 Свободные события удаляет на день/неделю, события заказа только на день; предлагает прежнюю отмену.
 
-Непосредственные вызовы: `state.calendarInvoicePlans.find`, `['incoming', 'outgoing'].includes`, `Error`, `state.calendarMoving.has`, `state.calendarMoving.add`, `request`, `applyCalendarDeletion`, `notify`, `state.calendarMoving.delete`, `renderOrders`.
+Непосредственные вызовы: `state.calendarInvoicePlans.find`, `['incoming', 'outgoing'].includes`, `Error`, `state.calendarMoving.has`, `state.calendarMoving.add`, `request`, `applyCalendarDeletion`, `notify`, `state.calendarMoving.delete`, `hasOrderList`, `renderOrders`.
 
 Прямые присваивания полям/свойствам: `state.ordersRequest`.
 
@@ -2335,7 +2367,7 @@ function renderCalendarTodoPreview()
 
 Комментарий выводит через textContent с переносами строк; опрос сохраняет прокрутку и фокус.
 
-Непосредственные вызовы: `state.calendarEvents.find`, `findListOrder`, `record.comment.trim`, `closeCalendarTodoPreview`, `anchor.getBoundingClientRect`, `$("calendarViewport").getBoundingClientRect`, `$`, `Boolean`, `orderTodoSummary`, `$("closeCalendarTodoPreview").setAttribute`, `renderOrderTodos`, `body.classList.toggle`, `body.setAttribute`, `body.contains`, `([...body.querySelectorAll('[data-order]')].find((link) => link.dataset.order === path) || body).focus`, `[...body.querySelectorAll('[data-order]')].find`, `body.querySelectorAll`, `positionCalendarTodoPreview`.
+Непосредственные вызовы: `anchor.closest`, `state.calendarEvents.find`, `state.calendarSupplierOrders.find`, `findListOrder`, `record.comment.trim`, `closeCalendarTodoPreview`, `anchor.getBoundingClientRect`, `$(sidebar ? "supplierSchedule" : "calendarViewport").getBoundingClientRect`, `$`, `Math.max`, `Math.min`, `host.append`, `Boolean`, `orderTodoSummary`, `$("closeCalendarTodoPreview").setAttribute`, `renderOrderTodos`, `body.classList.toggle`, `body.setAttribute`, `body.contains`, `([...body.querySelectorAll('[data-order]')].find((link) => link.dataset.order === path) || body).focus`, `[...body.querySelectorAll('[data-order]')].find`, `body.querySelectorAll`, `positionCalendarTodoPreview`.
 
 Прямые присваивания полям/свойствам: `$("calendarTodoPreviewHeading").textContent`, `$("calendarTodoPreviewTitle").textContent`, `$("calendarTodoPreviewCount").hidden`, `$("calendarTodoPreviewCount").textContent`, `$("calendarTodoPreviewFooter").hidden`, `body.textContent`, `body.innerHTML`, `calendarTodoPreview.markup`, `body.scrollTop`.
 
@@ -2628,9 +2660,9 @@ function renderHomeCalendar()
 
 Обновляет календарь из текущей SQLite-сводки главной.
 
-Использует `[...state.orders, ...state.calendarSupplierOrders].map`, `HomeCalendar.show`, `orders.sort`.
+Передаёт обычные заказы; расписание поставщиков обновляется в левой колонке.
 
-Непосредственные вызовы: `[...state.orders, ...state.calendarSupplierOrders].map`, `HomeCalendar.show`, `orders.sort`, `renderCalendarTodoPreview`.
+Непосредственные вызовы: `HomeCalendar.show`, `[...state.orders].sort`, `renderCalendarTodoPreview`.
 
 <a id="symbol-renderMoneyOverview"></a>
 
@@ -3273,6 +3305,24 @@ function renderSupplierOrderStatus(order)
 Непосредственные вызовы: `Object.hasOwn`, `escapeHtml`, `orderRowSaving`, `Object.entries(supplierStatusLabels).map(([key, label]) =>
       '<option value="' + key + '"' + (status === key ? ' selected' : '') + '>' + label + '</option>').join`, `Object.entries(supplierStatusLabels).map`, `Object.entries`.
 
+<a id="symbol-renderSupplierSchedule"></a>
+
+## renderSupplierSchedule
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function renderSupplierSchedule()
+```
+
+Показывает сохранённое расписание поставщиков между общими папками и избранным.
+
+Единственную отмеченную неделю без комментария ставит рядом с названием. Прошедшие недели Москвы скрыты.
+
+Непосредственные вызовы: `$`, `list.contains`, `focused?.closest`, `Map`, `[...list.children].map`, `[...state.calendarSupplierOrders].sort`, `(order.deadline_weeks || []).filter`, `selectedWeeks.filter(week => order.calendar_week_events?.[week]?.trim()).sort`, `selectedWeeks.filter`, `deadlineWeekInfo`, `JSON.stringify`, `cards.get`, `document.createElement`, `cards.delete`, `encodeURIComponent`, `inlineBadge.classList.toggle`, `inlineBadge.style.setProperty`, `link.setAttribute`, `link.removeAttribute`, `card.classList.toggle`, `Boolean`, `card.style.setProperty`, `String`, `[...events.children].map`, `rows.get`, `rows.delete`, `badge.style.setProperty`, `HomeCalendar.updateOrderEvent`, `slot.getAttribute`, `menu.setAttribute`, `events.insertBefore`, `rows.values`, `row.remove`, `list.insertBefore`, `cards.values`, `card.remove`, `(focused.isConnected && !focused.hidden ? focused : oldCard?.isConnected ? oldCard.firstElementChild : list.querySelector("a") || $("homeButton")).focus`, `list.querySelector`, `renderCalendarTodoPreview`.
+
+Прямые присваивания полям/свойствам: `card.dataset.orderKey`, `card.className`, `card.innerHTML`, `link.href`, `link.dataset.calendarOrder`, `name.textContent`, `inlineBadge.hidden`, `inlineBadge.textContent`, `link.title`, `row.dataset.key`, `row.className`, `row.innerHTML`, `badge.className`, `badge.textContent`, `slot.title`, `list.hidden`.
+
 <a id="symbol-renderTodos"></a>
 
 ## renderTodos
@@ -3311,7 +3361,7 @@ function renderTree()
 Непосредственные вызовы: `document.activeElement?.closest`, `Boolean`, `$`, `markup`, `data.groups.map((group) => '<section class="catalog-tree-section"><div class="tree-heading catalog-tree-heading"><button type="button" data-catalog-group="' + escapeHtml(group.path) + '" title="Открыть группу ' + escapeHtml(group.name) + '"' + (state.selected === group.path ? ' aria-current="page"' : '') + '>' + escapeHtml(group.name) + '</button><span>' + (group.error ? "—" : group.children.length) + '</span></div><div role="tree" aria-label="Группа ' + escapeHtml(group.name) + '">' + (group.error ? '<p class="tree-empty" role="status">' + escapeHtml(group.error) + '</p>' : markup(group.children)) + '</div></section>').join`, `data.groups.map`, `$("folderTree").querySelectorAll`, `tree.querySelectorAll`, `rows.find`, `rows.forEach`, `focusTree`, `[...$("folderTree").querySelectorAll("[data-catalog-group]")].find((button) => button.dataset.catalogGroup === focusedGroup)?.focus`, `[...$("folderTree").querySelectorAll("[data-catalog-group]")].find`, `state.auxiliary.map((node) =>
     '<button class="auxiliary-button' + (state.selected === node.path || state.selected.startsWith(node.path + "/") ? " active" : "") +
     '" data-path="' + escapeHtml(node.path) + '" title="' + escapeHtml(node.name) + '">' + icon("folder") +
-    '<span>' + escapeHtml(node.name) + "</span></button>").join`, `state.auxiliary.map`, `renderFavoriteOrders`.
+    '<span>' + escapeHtml(node.name) + "</span></button>").join`, `state.auxiliary.map`, `renderSupplierSchedule`, `renderFavoriteOrders`.
 
 Прямые присваивания полям/свойствам: `$("folderTree").innerHTML`, `$("auxiliaryButtons").innerHTML`, `$("auxiliaryButtons").hidden`.
 
@@ -3452,7 +3502,7 @@ async function restoreCalendarDeletion(entry, revision)
 
 Использует `/api/calendar-payment-restore`, `/api/calendar-event-restore`, `/api/order-calendar-event-restore`.
 
-Непосредственные вызовы: `state.calendarMoving.has`, `Error`, `state.calendarMoving.add`, `request`, `applyCalendarDeletion`, `notify`, `state.calendarMoving.delete`, `renderOrders`.
+Непосредственные вызовы: `state.calendarMoving.has`, `Error`, `state.calendarMoving.add`, `request`, `applyCalendarDeletion`, `notify`, `state.calendarMoving.delete`, `hasOrderList`, `renderOrders`.
 
 Прямые присваивания полям/свойствам: `state.ordersRequest`.
 
@@ -3572,7 +3622,7 @@ async function saveCalendarEvent()
 
 Комментарий отправляет только свободному событию; оба поля сохраняет при ошибке.
 
-Непосредственные вызовы: `$`, `text.trim`, `renderCalendarEventControls`, `request`, `applyFreeCalendarEvent`, `applyOrderRecord`, `closeCalendarEvent`, `renderOrders`, `notify`.
+Непосредственные вызовы: `$`, `text.trim`, `renderCalendarEventControls`, `request`, `applyFreeCalendarEvent`, `applyCalendarOrderEvent`, `closeCalendarEvent`, `hasOrderList`, `renderOrders`, `notify`.
 
 Прямые присваивания полям/свойствам: `$("calendarEventState").textContent`, `edit.saving`, `state.ordersRequest`, `edit.conflict`.
 
@@ -3994,7 +4044,7 @@ async function toggleCalendarEventFlag(flag)
 
 Использует `/api/invoice-plan-calendar-`, `/api/calendar-`, `/api/order-calendar-`.
 
-Непосредственные вызовы: `state.calendarMoving.has`, `orderRowSaving`, `closeCalendarEventMenu`, `state.calendarMoving.add`, `flag.replaceAll`, `request`, `applyCalendarInvoicePlan`, `applyFreeCalendarEvent`, `applyOrderRecord`, `notify`, `loadOrders`, `state.calendarMoving.delete`, `renderOrders`, `$("calendarViewport").focus`, `$`.
+Непосредственные вызовы: `state.calendarMoving.has`, `orderRowSaving`, `closeCalendarEventMenu`, `state.calendarMoving.add`, `flag.replaceAll`, `request`, `applyCalendarInvoicePlan`, `applyFreeCalendarEvent`, `applyCalendarOrderEvent`, `notify`, `loadOrders`, `state.calendarMoving.delete`, `hasOrderList`, `renderOrders`, `(menu.sidebar ? $("homeButton") : $("calendarViewport")).focus`, `$`.
 
 Прямые присваивания полям/свойствам: `state.ordersRequest`.
 

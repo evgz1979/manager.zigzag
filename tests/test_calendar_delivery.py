@@ -43,7 +43,7 @@ class CalendarDeliveryTests(unittest.TestCase):
                  self.snapshot(calendar_invoice_plans=[{'date': '2026-10-19', 'period': 'week', 'is_carryover': True}]),
                  self.snapshot(orders=[self.order(deadline_weeks=['2026-10-12'], calendar_week_events={'2026-10-12':'Older'})]),
                  self.snapshot(orders=[{**empty, 'calendar_events': None}])]
-        expected = [('2026-10-19' if index in {2,3,6,7,9} else '2026-10-26', '2026-11-08') for index in range(len(cases))]
+        expected = [('2026-10-19' if index in {2,6,7,9} else '2026-10-26', '2026-11-08') for index in range(len(cases))]
         for group in ['calendar_events', 'calendar_invoice_plans']:
             for period in ['day', 'week']:
                 for flags, retained in [({'is_completed': 1}, False), ({'is_inactive': 1}, False),
@@ -73,6 +73,17 @@ class CalendarDeliveryTests(unittest.TestCase):
             text = calendar_todos.digest(self.snapshot(orders=[order]), '2026-10-19', '2026-11-08')
             self.assertNotIn('Прошлая', text)
             self.assertIn('Следующая', text)
+
+    def test_supplier_todo_digest_survives_move_out_of_png(self):
+        supplier = self.order(work_supplier='glass', deadline_weeks=[], calendar_compact=True,
+                              calendar_week_events={'2026-10-26': 'В пределах периода', '2026-10-19': 'До периода'},
+                              calendar_watch_todos={'week': ['2026-10-19', '2026-10-26']})
+        snapshot = self.snapshot(calendar_supplier_orders=[supplier])
+        start, through = delivery.period(snapshot, NOW)
+        self.assertEqual((start, through), ('2026-10-26', '2026-11-08'))
+        text = calendar_todos.digest(snapshot, start, through)
+        self.assertIn('В пределах периода', text)
+        self.assertNotIn('До периода', text)
 
     def test_png_extended_caption_and_bounds(self):
         with tempfile.TemporaryDirectory() as temp, patch.object(telegram, 'settings', return_value=('123:test', '42')), patch.object(telegram, 'api_request', return_value={'message_id':1}) as send:

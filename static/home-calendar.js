@@ -10,19 +10,19 @@ const HomeCalendar = (() => {
     { field: "is_favorite", name: "favorite", label: "Избранное", content: '★' },
   ];
   // Добавляет или снимает значок выезда у события календаря.
-  // Использует `element.classList.toggle`, `element.insertAdjacentHTML`.
-  function showTripMark(element, marked) {
+  // Управляет состоянием кнопки; значок можно вставить в отдельную подпись.
+  function showTripMark(element, marked, content = element) {
     element.classList.toggle("calendar-trip", marked);
-    if (marked) element.insertAdjacentHTML("afterbegin", '<svg class="calendar-trip-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 10 2-6h10l2 6M5 10h14a2 2 0 0 1 2 2v6H3v-6a2 2 0 0 1 2-2ZM5 18v3M19 18v3M7 14h.01M17 14h.01"/></svg>');
+    if (marked) content.insertAdjacentHTML("afterbegin", '<svg class="calendar-trip-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 10 2-6h10l2 6M5 10h14a2 2 0 0 1 2 2v6H3v-6a2 2 0 0 1 2-2ZM5 18v3M19 18v3M7 14h.01M17 14h.01"/></svg>');
   }
   // Добавляет или снимает значок просмотра задач у события заказа.
-  // Использует `element.classList.toggle`, `element.setAttribute`, `element.insertAdjacentHTML`.
-  function showTodoMark(element, marked, path) {
+  // Привязывает кнопку к заказу; значок можно вставить в отдельную подпись.
+  function showTodoMark(element, marked, path, content = element) {
     element.classList.toggle("calendar-watch-todos", marked);
     if (marked) {
       element.dataset.calendarTodos = path;
       element.setAttribute("aria-keyshortcuts", "Alt+ArrowDown");
-      element.insertAdjacentHTML("afterbegin", '<svg class="calendar-todo-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5h11M9 12h11M9 19h11M3 4l1 1 2-2M3 11l1 1 2-2M3 18l1 1 2-2"/></svg>');
+      content.insertAdjacentHTML("afterbegin", '<svg class="calendar-todo-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5h11M9 12h11M9 19h11M3 4l1 1 2-2M3 11l1 1 2-2M3 18l1 1 2-2"/></svg>');
     } else {
       delete element.dataset.calendarTodos;
       element.removeAttribute("aria-keyshortcuts");
@@ -97,7 +97,7 @@ const HomeCalendar = (() => {
       if (last > end) end = last;
     };
     for (const order of calendarOrders) {
-      if (!order.path || order.registered === false) continue;
+      if (order.work_supplier || !order.path || order.registered === false) continue;
       for (const week of visibleOrderWeeks(order, today, history)) {
         if (history || week >= currentKey || order.calendar_compact !== true) include(week, "week");
       }
@@ -193,24 +193,51 @@ const HomeCalendar = (() => {
     scrollToIndex(index < 0 ? range.weeks.length - VISIBLE_WEEKS : index);
   }
 
-  // Собирает обычные заказы под заголовками клиентов, поставщиков оставляет отдельными строками.
-  // Сначала возвращает поставщиков; сохраняет порядок внутри частей и точные пути клиентов.
+  // Собирает строки календаря под заголовками клиентов.
+  // Сохраняет порядок заказов и различает клиентов по точным путям.
   function orderGroups(source) {
     const groups = new Map();
     for (const order of source) {
-      const supplier = Boolean(order.work_supplier);
-      const label = supplier ? order.work_supplier : order.client || "Без клиента";
+      const label = order.client || "Без клиента";
       const identity = order.client_path || order.client || "";
-      const key = supplier ? JSON.stringify(["supplier", order.id, order.path]) : JSON.stringify(["client", identity.normalize("NFC")]);
-      if (!groups.has(key)) groups.set(key, { key, label, supplier, orders: [] });
+      const key = JSON.stringify(["client", identity.normalize("NFC")]);
+      if (!groups.has(key)) groups.set(key, { key, label, orders: [] });
       groups.get(key).orders.push(order);
     }
-    const ordered = [...groups.values()];
-    return [...ordered.filter(group => group.supplier), ...ordered.filter(group => !group.supplier)];
+    return groups.values();
+  }
+
+  // Обновляет текст, признаки и доступное имя события заказа в календаре или левой колонке.
+  // Сохраняет идентичность кнопки; пустой текст не открывает меню сохранённого события.
+  function updateOrderEvent(slot, order, key, period, periodLabel, content = slot) {
+    const text = (period === "week" ? order.calendar_week_events : order.calendar_events)?.[key] || "";
+    const eventColor = !order.work_supplier && text && order.calendar_colors?.[period]?.[key];
+    const unselected = period === "week" && Boolean(text) && Array.isArray(order.deadline_weeks) && !order.deadline_weeks.includes(key);
+    const flags = ["trip", "watch_todos", "inactive", "completed"].map(flag => Boolean(text && order["calendar_" + flag]?.[period]?.includes(key)));
+    const label = [flags[1] && "Смотри ту-ду", flags[3] && "Выполнено", flags[0] && "Выезд", flags[2] && "Неактуально",
+      unselected && "Отметка недели снята", text ? "Изменить событие: " + text : "Добавить событие", order.title || order.path, periodLabel].filter(Boolean).join(" · ");
+    const signature = JSON.stringify([order.path, key, period, label, eventColor]);
+    if (slot.dataset.eventSignature === signature) return;
+    slot.dataset.eventSignature = signature;
+    slot.dataset.calendarEvent = order.path;
+    slot.dataset.calendarDate = key;
+    slot.dataset.calendarPeriod = period;
+    if (eventColor) slot.dataset.calendarColor = eventColor;
+    else delete slot.dataset.calendarColor;
+    content.textContent = text;
+    showTripMark(slot, flags[0], content);
+    showTodoMark(slot, flags[1], order.path, content);
+    slot.classList.toggle("calendar-inactive", flags[2]);
+    slot.classList.toggle("calendar-completed", flags[3]);
+    slot.classList.toggle("calendar-unselected-week", unselected);
+    slot.classList.toggle("has-event", Boolean(text));
+    if (text) slot.setAttribute("aria-haspopup", "menu");
+    else slot.removeAttribute("aria-haspopup");
+    slot.setAttribute("aria-label", label);
   }
 
   // Обновляет отдельную строку заголовка клиентской группы календаря.
-  // Название выводится безопасным текстом; поставщикам заголовки не создаются.
+  // Название выводится безопасным текстом.
   function updateGroupHeading(heading, group) {
     heading.className = "calendar-order-group";
     heading.dataset.groupKey = group.key;
@@ -224,7 +251,7 @@ const HomeCalendar = (() => {
     heading.firstElementChild.title = group.label;
   }
 
-  // Строит заголовки клиентов обычных заказов и отдельные строки поставщиков.
+  // Строит заголовки клиентов и строки обычных заказов.
   // Переиспользует узлы строк и групп, сохраняя фокус, прокрутку и привязку событий.
   function renderWeekOrders() {
     const byWeek = new Map();
@@ -239,7 +266,7 @@ const HomeCalendar = (() => {
       const compact = eligible.filter(order => order.calendar_compact === true);
       renderCompactOrders(row.querySelector(".calendar-compact-orders"), compact);
       const weekly = eligible.filter(order => order.calendar_compact !== true);
-      const signature = compact.length + ":" + JSON.stringify(weekly.map((order) => [order.id, order.path, order.title, order.client, order.client_path, order.object, order.is_blue_plus, order.is_dollar, order.is_flagged, order.is_favorite, order.work_supplier, order.work_supplier_color, order.deadline_weeks, order.calendar_events, order.calendar_week_events, order.calendar_inactive, order.calendar_completed, order.calendar_trip, order.calendar_watch_todos, order.calendar_colors]));
+      const signature = compact.length + ":" + JSON.stringify(weekly.map((order) => [order.id, order.path, order.title, order.client, order.client_path, order.object, order.is_blue_plus, order.is_dollar, order.is_flagged, order.is_favorite, order.deadline_weeks, order.calendar_events, order.calendar_week_events, order.calendar_inactive, order.calendar_completed, order.calendar_trip, order.calendar_watch_todos, order.calendar_colors]));
       if (list.dataset.signature === signature) continue;
       list.dataset.signature = signature;
       const top = list.parentElement.scrollTop;
@@ -249,30 +276,26 @@ const HomeCalendar = (() => {
       const retained = new Set();
       let before = list.firstElementChild;
       for (const group of orderGroups(weekly)) {
-        if (!group.supplier) {
-          const heading = headings.get(group.key) || document.createElement("li");
-          updateGroupHeading(heading, group);
-          if (heading !== before) list.insertBefore(heading, before);
-          before = heading.nextElementSibling;
-          retained.add(heading);
-        }
+        const heading = headings.get(group.key) || document.createElement("li");
+        updateGroupHeading(heading, group);
+        if (heading !== before) list.insertBefore(heading, before);
+        before = heading.nextElementSibling;
+        retained.add(heading);
         for (const order of group.orders) {
-          const supplier = Boolean(order.work_supplier), color = order.work_supplier_color;
           const key = JSON.stringify([order.id, order.path]);
           let item = existing.get(key);
           if (!item) {
             item = document.createElement("li");
             item.dataset.orderKey = key;
             item.className = "calendar-order-row";
-            const link = document.createElement("a"), markers = document.createElement("span"), client = document.createElement("small"), title = document.createElement("span"), object = document.createElement("small");
+            const link = document.createElement("a"), markers = document.createElement("span"), title = document.createElement("span"), object = document.createElement("small");
             link.className = "calendar-order-link";
             markers.className = "calendar-order-markers";
             markers.setAttribute("aria-hidden", "true");
             markers.innerHTML = orderMarkers.map((marker) => '<span class="calendar-order-marker calendar-order-' + marker.name + '">' + marker.content + '</span>').join("");
             title.className = "calendar-order-title";
-            client.className = "calendar-order-client";
             object.className = "calendar-order-object";
-            link.append(markers, client, title, object);
+            link.append(markers, title, object);
             item.append(link);
             for (let day = -1; day < 7; day++) {
               const slot = document.createElement("button");
@@ -281,11 +304,7 @@ const HomeCalendar = (() => {
               item.append(slot);
             }
           }
-          item.classList.toggle("calendar-supplier-order", supplier);
           item.dataset.groupKey = group.key;
-          item.classList.toggle("supplier-neutral", supplier && Boolean(color?.neutral));
-          if (supplier) item.style.setProperty("--supplier-hue", String(color?.hue ?? 0));
-          else item.style.removeProperty("--supplier-hue");
           const link = item.firstElementChild, title = order.title || order.path;
           const activeMarkers = orderMarkers.filter((marker) => order[marker.field] === true);
           const markers = link.firstElementChild;
@@ -295,37 +314,18 @@ const HomeCalendar = (() => {
           link.dataset.calendarOrder = order.path;
           link.setAttribute("aria-label", [group.label, title, order.object, ...activeMarkers.map((marker) => marker.label)].filter(Boolean).join(" · "));
           link.querySelector(".calendar-order-title").textContent = title;
-          const client = link.querySelector(".calendar-order-client");
-          client.textContent = order.work_supplier || "";
-          client.hidden = !supplier;
           const object = link.querySelector(".calendar-order-object");
-          object.textContent = supplier ? "" : order.object || "";
-          object.hidden = supplier || !order.object;
+          object.textContent = order.object || "";
+          object.hidden = !order.object;
+          const week = new Date(row.dataset.week + "T00:00:00Z");
           for (let day = -1; day < 7; day++) {
-            const week = new Date(row.dataset.week + "T00:00:00Z"), isWeek = day === -1;
-            const date = shiftDays(week, isWeek ? 0 : day), key = dateKey(date);
+            const isWeek = day === -1, date = shiftDays(week, isWeek ? 0 : day);
             const entries = isWeek ? order.calendar_week_events : order.calendar_events;
-            const slot = item.children[day + 2], text = entries?.[key] || "";
-            slot.dataset.calendarEvent = order.path;
-            slot.dataset.calendarDate = key;
-            slot.dataset.calendarPeriod = isWeek ? "week" : "day";
-            const eventColor = !supplier && text && order.calendar_colors?.[isWeek ? "week" : "day"]?.[key];
-            if (eventColor) slot.dataset.calendarColor = eventColor;
-            else delete slot.dataset.calendarColor;
+            const slot = item.children[day + 2];
             slot.classList.toggle("calendar-week-event-slot", isWeek);
-            slot.textContent = text;
-            showTripMark(slot, Boolean(text) && Boolean(order.calendar_trip?.[isWeek ? "week" : "day"]?.includes(key)));
-            showTodoMark(slot, Boolean(text) && Boolean(order.calendar_watch_todos?.[isWeek ? "week" : "day"]?.includes(key)), order.path);
-            slot.classList.toggle("calendar-inactive", Boolean(text) && Boolean(order.calendar_inactive?.[isWeek ? "week" : "day"]?.includes(key)));
-            slot.classList.toggle("calendar-completed", Boolean(text) && Boolean(order.calendar_completed?.[isWeek ? "week" : "day"]?.includes(key)));
-            const unselectedWeek = isWeek && Boolean(text) && Array.isArray(order.deadline_weeks) && !order.deadline_weeks.includes(key);
-            slot.classList.toggle("calendar-unselected-week", unselectedWeek);
-            slot.classList.toggle("has-event", Boolean(text));
-            if (text) slot.setAttribute("aria-haspopup", "menu");
-            else slot.removeAttribute("aria-haspopup");
             slot.disabled = entries === null || (isWeek ? shiftDays(week, 6) < range.from || week > range.through : date < range.from || date > range.through);
             const periodLabel = isWeek ? "Неделя " + weekNumber(week) + ": " + fullDate.format(week) + " — " + fullDate.format(shiftDays(week, 6)) : fullDate.format(date);
-            slot.setAttribute("aria-label", (slot.classList.contains("calendar-watch-todos") ? "Смотри ту-ду · " : "") + (slot.classList.contains("calendar-completed") ? "Выполнено · " : "") + (slot.classList.contains("calendar-trip") ? "Выезд · " : "") + (slot.classList.contains("calendar-inactive") ? "Неактуально · " : "") + (unselectedWeek ? "Отметка недели снята · " : "") + (text ? "Изменить событие: " + text : "Добавить событие") + " · " + title + " · " + periodLabel);
+            updateOrderEvent(slot, order, dateKey(date), isWeek ? "week" : "day", periodLabel);
           }
           if (item !== before) list.insertBefore(item, before);
           before = item.nextElementSibling;
@@ -359,7 +359,7 @@ const HomeCalendar = (() => {
       link.href = "?path=" + encodeURIComponent(order.path);
       link.dataset.calendarOrder = order.path;
       const title = order.title || order.path;
-      const label = order.work_supplier ? order.work_supplier + " · " + title : title + (order.client ? " · " + order.client : "");
+      const label = title + (order.client ? " · " + order.client : "");
       link.textContent = label;
       link.setAttribute("aria-label", "Мелкий заказ · " + label + (order.object ? " · " + order.object : ""));
       if (link !== before) container.insertBefore(link, before);
@@ -582,7 +582,7 @@ const HomeCalendar = (() => {
   // Показывает компонент по полученным данным и текущему состоянию в модуле календарной сетки.
   // Подключает обработчики событий к существующим элементам компонента.
   function show(nextOrders, nextEvents, nextInvoicePlans, now = new Date()) {
-    if (Array.isArray(nextOrders)) orders = nextOrders;
+    if (Array.isArray(nextOrders)) orders = nextOrders.filter(order => !order.work_supplier);
     if (Array.isArray(nextEvents)) events = nextEvents;
     if (Array.isArray(nextInvoicePlans)) invoicePlans = nextInvoicePlans;
     const nextRange = calendarRange(now, orders, events, invoicePlans, showHistory);
@@ -694,7 +694,7 @@ const HomeCalendar = (() => {
   // Предыдущую неделю удерживает только видимое актуальное невыполненное событие.
   function snapshotRange(now = new Date(), calendarOrders = orders, freeEvents = events, plans = invoicePlans) {
     const today = moscowDate(now), current = monday(today), previous = dateKey(shiftDays(current, -7));
-    const hasPrevious = calendarOrders.some(order => order.calendar_compact !== true && visibleOrderWeeks(order, today).includes(previous)) ||
+    const hasPrevious = calendarOrders.some(order => !order.work_supplier && order.calendar_compact !== true && visibleOrderWeeks(order, today).includes(previous)) ||
       [...freeEvents, ...plans].some(event => !event.deleted && pendingRecord(event) && event.date >= previous && event.date < dateKey(current));
     const start = hasPrevious ? shiftDays(current, -7) : current, end = shiftDays(current, 13);
     return { start, end, count: hasPrevious ? 3 : 2 };
@@ -725,5 +725,5 @@ const HomeCalendar = (() => {
     for (const element of snapshot.querySelectorAll("[id]")) element.removeAttribute("id");
     return { element: snapshot, start: dateKey(start), through: dateKey(end) };
   }
-  return { show, calendarRange, createSnapshot, snapshotRange };
+  return { show, calendarRange, createSnapshot, snapshotRange, updateOrderEvent };
 })();

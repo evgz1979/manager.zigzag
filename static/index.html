@@ -26,6 +26,7 @@
       <aside id="sidebar" class="sidebar" aria-label="Папки">
         <header class="brand"><button id="sidebarClose" class="sidebar-close icon-button" type="button" aria-label="Закрыть меню">×</button><button id="homeButton" class="brand-button" title="Все заказы" aria-label="Все заказы · Зигзаг"><span class="brand-mark">З</span><span>Зигзаг<small>Менеджер заказов</small></span></button><div id="brandCalendar" class="brand-calendar" role="group" aria-label="Текущая неделя по Москве"><span id="brandCurrentWeek" class="deadline-week current" role="img"></span></div><button id="managerSettingsButton" class="icon-button" type="button" aria-label="Настройки" title="Настройки" aria-haspopup="dialog" aria-controls="managerSettingsDialog"><svg aria-hidden="true"><use href="#icon-settings"/></svg></button></header>
         <div id="auxiliaryButtons" class="auxiliary-buttons" aria-label="Общие папки"></div>
+        <nav id="supplierSchedule" class="supplier-schedule" aria-label="Сроки заказов поставщиков" hidden></nav>
         <nav id="favoriteOrders" class="favorite-orders" aria-label="Избранные заказы" hidden></nav>
         <label class="search-field tree-search"><svg><use href="#icon-search"/></svg><input id="treeSearch" type="search" placeholder="Найти папку…" aria-label="Поиск по всем деревьям"></label>
         <div class="sidebar-visibility-links"><button id="showInactiveClients" class="inactive-clients-toggle sidebar-visibility-button" type="button" aria-label="Показать неактивных клиентов и объекты" aria-pressed="false">Неактивные</button><a class="hidden-orders-nav sidebar-visibility-button" href="/hidden-orders.html" aria-label="Скрытые заказы">Скрытые</a></div>
@@ -217,7 +218,7 @@
         </div>
       </section>
     </main>
-    <div id="calendarEventMenu" class="calendar-event-menu" role="menu" aria-label="Действия с событием" hidden>
+    <div id="calendarEventMenu" class="calendar-event-menu" role="menu" aria-label="Действия с событием" tabindex="-1" hidden>
       <div id="calendarEventColors" class="calendar-event-colors" role="group" aria-label="Цвет события" hidden><button type="button" role="menuitemradio" aria-checked="false" data-calendar-color="red" aria-label="Красный"></button><button type="button" role="menuitemradio" aria-checked="false" data-calendar-color="orange" aria-label="Оранжевый"></button><button type="button" role="menuitemradio" aria-checked="false" data-calendar-color="yellow" aria-label="Жёлтый"></button><button type="button" role="menuitemradio" aria-checked="false" data-calendar-color="green" aria-label="Зелёный"></button><button type="button" role="menuitemradio" aria-checked="false" data-calendar-color="blue" aria-label="Синий"></button><button type="button" role="menuitemradio" aria-checked="false" data-calendar-color="purple" aria-label="Фиолетовый"></button><button type="button" role="menuitemradio" aria-checked="false" data-calendar-color="gray" aria-label="Серый"></button></div>
       <p id="calendarEventMenuName" class="calendar-event-menu-name"></p>
       <button id="calendarEventCompleted" type="button" role="menuitemcheckbox" aria-checked="false"><span class="calendar-menu-mark" aria-hidden="true">✓</span>Выполнено</button>
@@ -227,7 +228,7 @@
       <button id="calendarEventCarryover" type="button" role="menuitemcheckbox" aria-checked="false" hidden><span class="calendar-menu-mark" aria-hidden="true">✓</span>В перенос слева</button>
       <button id="calendarEventNotified" type="button" role="menuitemcheckbox" aria-checked="false" hidden><span class="calendar-menu-mark" aria-hidden="true">✓</span>Сообщил</button>
       <button id="calendarEventDelete" type="button" role="menuitem" hidden>Удалить</button><hr id="calendarEventMoveDivider">
-      <div class="calendar-event-moves" role="none">
+      <div id="calendarEventMoves" class="calendar-event-moves" role="none">
         <div id="calendarEventDayMoves" class="calendar-event-move-group" role="group" aria-label="Перенос на день">
           <button type="button" role="menuitem" data-calendar-move="-1" aria-label="На 1 день назад">←</button><span aria-hidden="true">день</span><button type="button" role="menuitem" data-calendar-move="1" aria-label="На 1 день вперёд">→</button>
         </div>

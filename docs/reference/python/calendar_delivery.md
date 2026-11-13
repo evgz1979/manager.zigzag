@@ -67,7 +67,7 @@ def period(snapshot, now=None):
 
 Выбирает две или три недели снимка независимо от просмотра истории в браузере.
 
-Предыдущую неделю удерживают только видимые актуальные невыполненные события.
+Предыдущую неделю удерживают только видимые актуальные невыполненные события сетки.
 
 Непосредственные вызовы: `current_week`, `(current - timedelta(days=7)).isoformat`, `timedelta`, `current.isoformat`, `snapshot.get`, `order.get`, `any`, `(order.get('calendar_completed') or {}).get`, `(order.get('calendar_inactive') or {}).get`, `order_visible`, `(current + timedelta(days=13)).isoformat`, `item.get`.
 

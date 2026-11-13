@@ -20,7 +20,7 @@ function fixture(comment = false) {
     elements.set(id, item);
     return item;
   }
-  const weeks = element('calendarWeeks'), popup = element('calendarTodoPreview');
+  const weeks = element('calendarWeeks'), supplierSchedule = element('supplierSchedule'), popup = element('calendarTodoPreview');
   popup.rect = { width: 390, height: 150 };
   const body = element('calendarTodoPreviewBody', popup), outside = element('outside');
   const first = element('first', weeks), second = element('second', weeks);
@@ -41,10 +41,12 @@ function fixture(comment = false) {
   assert(start >= 0 && end > start);
   vm.runInContext(source.slice(start, end), context);
   vm.runInContext('renderCalendarTodoPreview = function () {};', context);
-  const handlers = source.indexOf('$("calendarWeeks").addEventListener(\'pointerover\'');
-  const handlersEnd = source.indexOf('$("closeCalendarTodoPreview").addEventListener', handlers);
+  const handlers = source.indexOf('for (const surface of [$("calendarWeeks"), $("supplierSchedule")])');
+  const handlersEnd = source.indexOf('$("calendarEventForm").addEventListener', handlers);
   assert(handlers >= 0 && handlersEnd > handlers);
   vm.runInContext(source.slice(handlers, handlersEnd), context);
+  const previewHandlers = source.indexOf('$("calendarTodoPreview").addEventListener(\'pointerenter\'', handlersEnd);
+  vm.runInContext(source.slice(previewHandlers, source.indexOf('$("closeCalendarTodoPreview").addEventListener', previewHandlers)), context);
   function event(node, name, target = node, relatedTarget = null) {
     for (const handler of node.handlers[name] || []) handler({ target, relatedTarget });
   }
@@ -58,7 +60,15 @@ function fixture(comment = false) {
     now = through;
   }
   const preview = vm.runInContext('calendarTodoPreview', context);
-  return { context, weeks, popup, body, first, second, child, outside, event, tick, preview };
+  return { context, weeks, supplierSchedule, popup, body, first, second, child, outside, event, tick, preview };
+}
+
+{
+  const f = fixture();
+  f.first.parent = f.supplierSchedule;
+  f.event(f.supplierSchedule, 'pointerover', f.first);
+  f.tick(500);
+  assert.equal(f.preview.anchor, f.first, 'a marked supplier event opens the shared preview');
 }
 
 {

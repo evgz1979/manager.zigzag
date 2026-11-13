@@ -304,6 +304,90 @@ function renderFavoriteOrders() {
   container.hidden = !favorites.length;
 }
 
+// Показывает сохранённое расписание поставщиков между общими папками и избранным.
+// Единственную отмеченную неделю без комментария ставит рядом с названием. Прошедшие недели Москвы скрыты.
+function renderSupplierSchedule() {
+  const list = $("supplierSchedule"), focused = list.contains(document.activeElement) ? document.activeElement : null;
+  const oldCard = focused?.closest(".supplier-schedule-order");
+  const cards = new Map([...list.children].map(card => [card.dataset.orderKey, card]));
+  const orders = [...state.calendarSupplierOrders].sort((a, b) =>
+    compareOrderText(a.work_supplier, b.work_supplier) || compareOrderText(a.title, b.title) || compareOrderText(a.path, b.path));
+  const currentWeek = state.deadlineWeekOptions[0]?.start;
+  let next = list.firstElementChild;
+  for (const order of orders) {
+    if (!order.work_supplier || !order.path || order.registered === false) continue;
+    const selectedWeeks = (order.deadline_weeks || []).filter(week => week >= currentWeek);
+    const weeks = selectedWeeks.filter(week => order.calendar_week_events?.[week]?.trim()).sort();
+    const inlineWeek = selectedWeeks.length === 1 && !weeks.length && order.calendar_week_events !== null
+      ? deadlineWeekInfo(selectedWeeks[0]) : null;
+    if (!weeks.length && !inlineWeek) continue;
+    const key = JSON.stringify([order.id, order.path]), color = order.work_supplier_color;
+    let card = cards.get(key);
+    if (!card) {
+      card = document.createElement("div");
+      card.dataset.orderKey = key;
+      card.className = "supplier-schedule-order";
+      card.innerHTML = '<a class="supplier-schedule-title"><span class="deadline-week" aria-hidden="true" hidden></span><span></span></a>' +
+        '<div class="supplier-schedule-events"></div>';
+    }
+    cards.delete(key);
+    const link = card.firstElementChild, events = card.lastElementChild;
+    const [inlineBadge, name] = link.children;
+    const label = order.work_supplier + " · " + (order.title || order.path);
+    link.href = "?path=" + encodeURIComponent(order.path);
+    link.dataset.calendarOrder = order.path;
+    if (name.textContent !== label) name.textContent = label;
+    inlineBadge.hidden = !inlineWeek;
+    if (inlineWeek) {
+      inlineBadge.textContent = inlineWeek.number;
+      inlineBadge.classList.toggle("current", inlineWeek.current);
+      inlineBadge.style.setProperty("--deadline-month-hue", inlineWeek.hue);
+      link.title = label + "\nНеделя " + inlineWeek.number + " · " + inlineWeek.label;
+      link.setAttribute("aria-label", link.title);
+    } else {
+      link.title = label;
+      link.removeAttribute("aria-label");
+    }
+    if (state.view === "folder" && state.selected === order.path) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+    card.classList.toggle("supplier-neutral", Boolean(color?.neutral));
+    card.style.setProperty("--supplier-hue", String(color?.hue ?? 0));
+    const rows = new Map([...events.children].map(row => [row.dataset.key, row]));
+    let nextRow = events.firstElementChild;
+    for (const week of weeks) {
+      const info = deadlineWeekInfo(week);
+      let row = rows.get(week);
+      if (!row) {
+        row = document.createElement("div");
+        row.dataset.key = week;
+        row.className = "supplier-schedule-row";
+        row.innerHTML = '<button type="button" class="supplier-schedule-event"><span aria-hidden="true"></span><span class="supplier-schedule-comment"></span></button>' +
+          '<button type="button" class="supplier-schedule-menu" aria-haspopup="menu">⋯</button>';
+      }
+      rows.delete(week);
+      const slot = row.firstElementChild, badge = slot.firstElementChild, comment = slot.lastElementChild, menu = row.lastElementChild;
+      const periodLabel = "Неделя " + info.number + " · " + info.label;
+      badge.className = "deadline-week" + (info.current ? " current" : "");
+      badge.textContent = info.number;
+      badge.style.setProperty("--deadline-month-hue", info.hue);
+      HomeCalendar.updateOrderEvent(slot, order, week, "week", periodLabel, comment);
+      slot.title = slot.getAttribute("aria-label");
+      menu.setAttribute("aria-label", "Действия с событием · " + label + " · " + periodLabel);
+      if (row !== nextRow) events.insertBefore(row, nextRow);
+      nextRow = row.nextElementSibling;
+    }
+    for (const row of rows.values()) row.remove();
+    if (card !== next) list.insertBefore(card, next);
+    next = card.nextElementSibling;
+  }
+  for (const card of cards.values()) card.remove();
+  list.hidden = !list.firstElementChild;
+  if (focused && document.activeElement !== focused) {
+    (focused.isConnected && !focused.hidden ? focused : oldCard?.isConnected ? oldCard.firstElementChild : list.querySelector("a") || $("homeButton")).focus({ preventScroll: true });
+  }
+  renderCalendarTodoPreview();
+}
+
 // Обновляет DOM дерева для текущего состояния навигации.
 // Обращается к DOM текущего документа или переданного контейнера.
 function renderTree() {
@@ -328,6 +412,7 @@ function renderTree() {
     '" data-path="' + escapeHtml(node.path) + '" title="' + escapeHtml(node.name) + '">' + icon("folder") +
     '<span>' + escapeHtml(node.name) + "</span></button>").join("");
   $("auxiliaryButtons").hidden = !state.auxiliary.length;
+  renderSupplierSchedule();
   renderFavoriteOrders();
 }
 
@@ -2156,6 +2241,7 @@ async function loadOrders() {
   state.unregistrations = result.unregistrations || [];
   state.scan = result.scan;
   state.storage = result.storage;
+  renderSupplierSchedule();
   renderFavoriteOrders();
   if (hasOrderList()) renderOrders();
   else if (state.folder?.order) {
@@ -2527,6 +2613,7 @@ function applyOrderRecord(folder, saved) {
     if (current && current.id === saved.id && current.revision <= saved.revision) Object.assign(current, saved);
   }
   if (folder) folder.order = saved;
+  if (state.calendarSupplierOrders.some(order => order.id === saved.id)) renderSupplierSchedule();
 }
 
 // Последовательно сохраняет ожидающие недельные тексты по версиям.
@@ -3119,10 +3206,9 @@ function renderMoneyOverview() {
 }
 
 // Обновляет календарь из текущей SQLite-сводки главной.
-// Использует `[...state.orders, ...state.calendarSupplierOrders].map`, `HomeCalendar.show`, `orders.sort`.
+// Передаёт обычные заказы; расписание поставщиков обновляется в левой колонке.
 function renderHomeCalendar() {
-  const orders = [...state.orders, ...state.calendarSupplierOrders].map((order) => order.work_supplier ? { ...order, client: order.work_supplier } : order);
-  HomeCalendar.show(orders.sort((a, b) => compareOrders(a, b, "title", 1)), state.calendarEvents, state.calendarInvoicePlans);
+  HomeCalendar.show([...state.orders].sort((a, b) => compareOrders(a, b, "title", 1)), state.calendarEvents, state.calendarInvoicePlans);
   renderCalendarTodoPreview();
 }
 
@@ -3168,11 +3254,15 @@ function positionCalendarTodoPreview() {
 function renderCalendarTodoPreview() {
   const anchor = calendarTodoPreview.anchor;
   if (!anchor) return;
-  const commentId = anchor.dataset.calendarComment;
-  const record = commentId ? state.calendarEvents.find((event) => event.id === commentId) : findListOrder(anchor.dataset.calendarTodos);
-  if (!anchor.isConnected || anchor.disabled || !record || (commentId ? record.deleted || typeof record.comment !== "string" || !record.comment.trim() : !anchor.dataset.calendarTodos) || state.view !== "orders") { closeCalendarTodoPreview(); return; }
-  const box = anchor.getBoundingClientRect(), viewport = $("calendarViewport").getBoundingClientRect();
-  if (box.bottom <= viewport.top || box.top >= viewport.bottom) { closeCalendarTodoPreview(); return; }
+  const commentId = anchor.dataset.calendarComment, sidebar = anchor.closest("#sidebar");
+  const record = commentId ? state.calendarEvents.find((event) => event.id === commentId) : sidebar ?
+    state.calendarSupplierOrders.find(order => order.path === anchor.dataset.calendarTodos) : findListOrder(anchor.dataset.calendarTodos);
+  if (!anchor.isConnected || anchor.disabled || !record || (commentId ? record.deleted || typeof record.comment !== "string" || !record.comment.trim() : !anchor.dataset.calendarTodos) ||
+      (sidebar ? sidebar.inert : state.view !== "orders")) { closeCalendarTodoPreview(); return; }
+  const box = anchor.getBoundingClientRect(), viewport = $(sidebar ? "supplierSchedule" : "calendarViewport").getBoundingClientRect();
+  if (box.bottom <= Math.max(0, viewport.top) || box.top >= Math.min(innerHeight, viewport.bottom)) { closeCalendarTodoPreview(); return; }
+  const preview = $("calendarTodoPreview"), host = sidebar || document.body;
+  if (preview.parentElement !== host) host.append(preview);
   $("calendarTodoPreviewHeading").textContent = commentId ? "Комментарий" : "Смотри ту-ду";
   $("calendarTodoPreviewTitle").textContent = commentId ? record.text : record.title;
   $("calendarTodoPreviewCount").hidden = Boolean(commentId);
@@ -3256,13 +3346,28 @@ function closeCalendarEventMenu(restoreFocus = true) {
   const menu = state.calendarMenu;
   state.calendarMenu = null;
   $("calendarEventMenu").hidden = true;
-  if (restoreFocus && menu) (menu.slot.isConnected ? menu.slot : $("calendarViewport")).focus({ preventScroll: true });
+  if (restoreFocus && menu) (menu.trigger.isConnected ? menu.trigger : menu.sidebar ? $("homeButton") : $("calendarViewport")).focus({ preventScroll: true });
+}
+
+// Находит заказ события в том же источнике, из которого построена его кнопка.
+// Для панели поставщиков использует сводку с задачами и подтверждённой версией.
+function calendarSlotOrder(slot) {
+  const path = slot.dataset.calendarEvent;
+  return slot.closest("#sidebar") ? state.calendarSupplierOrders.find(order => order.path === path) : findListOrder(path);
 }
 
 // Выбирает дневные или недельные записи текущего заказа.
 // Результат вычисляется из переданных аргументов и текущего состояния компонента.
 function calendarEventEntries(order, period) {
   return period === "week" ? order.calendar_week_events : order.calendar_events;
+}
+
+// Применяет частичную правку календаря и к открытой карточке той же версии.
+// При несовпадении версий оставляет карточке прежнюю версию для обычной проверки конфликта.
+function applyCalendarOrderEvent(saved, revision) {
+  const folder = state.folder?.order?.id === saved.id && state.folder.order.revision === revision ? state.folder : null;
+  applyOrderRecord(folder, saved);
+  if (folder) renderCardDeadlines();
 }
 
 // Применяет подтверждённое свободное событие к локальной сводке.
@@ -3303,22 +3408,30 @@ function freeCalendarIdentity() {
 }
 
 // Открывает контекстное меню с действиями для точного вида события.
-// Дневным показывает следующие семь дат; свободной недельной — пн–вс своей недели с переносом в день.
-function openCalendarEventMenu(slot, x, y) {
+// Поставщикам в левой колонке показывает только «Смотри ту-ду», сетке — действия для её вида записи.
+function openCalendarEventMenu(slot, x, y, trigger = slot) {
   closeCalendarTodoPreview();
   const free = slot.dataset.calendarFree, plan = slot.dataset.invoicePlan, date = slot.dataset.calendarDate;
-  const order = plan ? state.calendarInvoicePlans.find((event) => event.id === plan) : free ? state.calendarEvents.find((event) => event.id === free) : findListOrder(slot.dataset.calendarEvent);
+  const sidebar = slot.closest("#sidebar");
+  const order = plan ? state.calendarInvoicePlans.find((event) => event.id === plan) : free ? state.calendarEvents.find((event) => event.id === free) : calendarSlotOrder(slot);
   const period = slot.dataset.calendarPeriod || "day";
   const text = plan ? slot.getAttribute("aria-label") : free ? order?.text : order && calendarEventEntries(order, period)?.[date];
-  if (!order || !text || (free || plan ? state.calendarMoving.has(order.id) : order.registered === false || orderRowSaving(order.path))) return;
-  if (plan ? typeof order.is_inactive !== "boolean" : free ? ![0, 1].includes(order.is_inactive) : order.calendar_inactive === null) {
-    notify("Неизвестный формат актуальности события сохранён без изменений", true); return;
+  if (!order || !text || (free || plan ? state.calendarMoving.has(order.id) :
+    order.registered === false || orderRowSaving(order.path))) return;
+  if (sidebar && state.folder?.path === order.path && (state.saving || hasPendingDeadlineComments())) {
+    notify("Сначала сохрани комментарии к срокам в карточке заказа", true);
+    return;
   }
-  if (plan ? typeof (order.is_completed ?? false) !== "boolean" : free ? ![0, 1].includes(order.is_completed ?? 0) : order.calendar_completed === null) {
-    notify("Неизвестный формат выполнения события сохранён без изменений", true); return;
-  }
-  if (plan ? typeof (order.is_trip ?? false) !== "boolean" : free ? ![0, 1].includes(order.is_trip ?? 0) : order.calendar_trip === null) {
-    notify("Неизвестный формат отметки «Выезд» сохранён без изменений", true); return;
+  if (!sidebar) {
+    if (plan ? typeof order.is_inactive !== "boolean" : free ? ![0, 1].includes(order.is_inactive) : order.calendar_inactive === null) {
+      notify("Неизвестный формат актуальности события сохранён без изменений", true); return;
+    }
+    if (plan ? typeof (order.is_completed ?? false) !== "boolean" : free ? ![0, 1].includes(order.is_completed ?? 0) : order.calendar_completed === null) {
+      notify("Неизвестный формат выполнения события сохранён без изменений", true); return;
+    }
+    if (plan ? typeof (order.is_trip ?? false) !== "boolean" : free ? ![0, 1].includes(order.is_trip ?? 0) : order.calendar_trip === null) {
+      notify("Неизвестный формат отметки «Выезд» сохранён без изменений", true); return;
+    }
   }
   closeCalendarEventMenu(false);
   const inactive = plan ? order.is_inactive : free ? Boolean(order.is_inactive) : Boolean(order.calendar_inactive?.[period]?.includes(date));
@@ -3329,8 +3442,10 @@ function openCalendarEventMenu(slot, x, y) {
   const color = free ? order.color : order.calendar_colors?.[period]?.[date];
   const carryover = Boolean(plan) && order.is_carryover === true;
   const notified = Boolean(plan) && order.is_notified === true;
-  state.calendarMenu = { free: Boolean(free), plan: Boolean(plan), path: order.path, id: order.id, revision: order.revision, date, period, inactive, completed, trip, watch_todos, carryover, notified, color, canColor, slot };
+  state.calendarMenu = { free: Boolean(free), plan: Boolean(plan), path: order.path, id: order.id, revision: order.revision, date, period, inactive, completed, trip, watch_todos, carryover, notified, color, canColor, slot, trigger, sidebar };
   const menu = $("calendarEventMenu");
+  const host = sidebar || document.body;
+  if (menu.parentElement !== host) host.append(menu);
   $("calendarEventMenuName").textContent = text;
   $("calendarEventDayMoves").hidden = period === "week";
   $("calendarEventToWeek").hidden = !free || period !== "day";
@@ -3354,7 +3469,11 @@ function openCalendarEventMenu(slot, x, y) {
     button.title = label;
     button.setAttribute("aria-label", label);
   });
-  $("calendarEventMoveDivider").hidden = false;
+  $("calendarEventMoveDivider").hidden = Boolean(sidebar);
+  $("calendarEventMoves").hidden = Boolean(sidebar);
+  $("calendarEventCompleted").hidden = Boolean(sidebar);
+  $("calendarEventTrip").hidden = Boolean(sidebar);
+  $("calendarEventInactive").hidden = Boolean(sidebar);
   $("calendarEventInactive").setAttribute("aria-checked", String(inactive));
   $("calendarEventCompleted").setAttribute("aria-checked", String(completed));
   $("calendarEventTrip").setAttribute("aria-checked", String(trip));
@@ -3374,14 +3493,14 @@ function openCalendarEventMenu(slot, x, y) {
   const bounds = menu.getBoundingClientRect();
   menu.style.left = Math.max(8, Math.min(x, window.innerWidth - bounds.width - 8)) + "px";
   menu.style.top = Math.max(8, Math.min(y, window.innerHeight - bounds.height - 8)) + "px";
-  [...menu.querySelectorAll("button")].find((button) => button.getClientRects().length).focus({ preventScroll: true });
+  ([...menu.querySelectorAll("button:not(:disabled)")].find(button => button.getClientRects().length) || menu).focus({ preventScroll: true });
 }
 
 // Сохраняет перенос события, включая смену привязки свободного события день/неделя.
 // targetPeriod передаёт только свободной записи; остальные виды используют прежние сдвиги.
 async function moveCalendarEvent(days, targetPeriod = null) {
   const menu = state.calendarMenu;
-  if (!menu || (targetPeriod && !menu.free)) return;
+  if (!menu || menu.sidebar || (targetPeriod && !menu.free)) return;
   const key = menu.free || menu.plan ? menu.id : menu.path;
   if (state.calendarMoving.has(key) || (!menu.free && !menu.plan && orderRowSaving(menu.path))) return;
   closeCalendarEventMenu();
@@ -3392,7 +3511,7 @@ async function moveCalendarEvent(days, targetPeriod = null) {
     const saved = await request(route, { path: menu.path, id: menu.id, revision: menu.revision, date: menu.date, days, period: menu.period, ...(targetPeriod ? { target_period: targetPeriod } : {}) });
     if (menu.plan) applyCalendarInvoicePlan(saved);
     else if (menu.free) applyFreeCalendarEvent(saved);
-    else applyOrderRecord(null, saved);
+    else applyCalendarOrderEvent(saved, menu.revision);
     const target = new Date((menu.free ? saved.date : menu.date) + "T00:00:00Z");
     if (!menu.free) target.setUTCDate(target.getUTCDate() + days);
     const label = menu.plan ? "План перенесён" : "Событие перенесено";
@@ -3403,7 +3522,7 @@ async function moveCalendarEvent(days, targetPeriod = null) {
   } finally {
     state.calendarMoving.delete(key);
     const focused = (menu.plan || menu.free) && document.activeElement === menu.slot;
-    renderOrders({ force: true });
+    if (hasOrderList()) renderOrders({ force: true });
     if (focused) ($("calendarWeeks").querySelector('[' + (menu.free ? 'data-calendar-free' : 'data-invoice-plan') + '="' + menu.id + '"]') || $("calendarViewport")).focus({ preventScroll: true });
   }
 }
@@ -3412,7 +3531,7 @@ async function moveCalendarEvent(days, targetPeriod = null) {
 // Использует `/api/invoice-plan-calendar-`, `/api/calendar-`, `/api/order-calendar-`.
 async function toggleCalendarEventFlag(flag) {
   const menu = state.calendarMenu;
-  if (!menu) return;
+  if (!menu || (menu.sidebar && flag !== "watch_todos")) return;
   const key = menu.free || menu.plan ? menu.id : menu.path;
   if (state.calendarMoving.has(key) || (!menu.free && !menu.plan && orderRowSaving(menu.path))) return;
   closeCalendarEventMenu();
@@ -3423,7 +3542,7 @@ async function toggleCalendarEventFlag(flag) {
     const saved = await request(route, { path: menu.path, id: menu.id, revision: menu.revision, date: menu.date, period: menu.period, ['is_' + flag]: !menu[flag] });
     if (menu.plan) applyCalendarInvoicePlan(saved);
     else if (menu.free) applyFreeCalendarEvent(saved);
-    else applyOrderRecord(null, saved);
+    else applyCalendarOrderEvent(saved, menu.revision);
     if (flag === 'completed') notify(menu.completed ? 'Отметка «Выполнено» снята' : 'Отмечено «Выполнено»');
     if (flag === 'trip') notify(menu.trip ? 'Отметка «Выезд» снята' : 'Отмечено «Выезд»');
     if (flag === 'watch_todos') notify(menu.watch_todos ? 'Отметка «Смотри ту-ду» снята' : 'Отмечено «Смотри ту-ду»');
@@ -3434,14 +3553,14 @@ async function toggleCalendarEventFlag(flag) {
     if (error.status === 409) { try { await loadOrders(); } catch (_) { /* Keep the last calendar. */ } }
   } finally {
     state.calendarMoving.delete(key);
-    renderOrders({ force: true });
-    if (!menu.slot.isConnected && document.activeElement === document.body) $("calendarViewport").focus({ preventScroll: true });
+    if (hasOrderList()) renderOrders({ force: true });
+    if (!menu.slot.isConnected && document.activeElement === document.body) (menu.sidebar ? $("homeButton") : $("calendarViewport")).focus({ preventScroll: true });
   }
 }
 
 // Применяет подтверждённое удаление к локальному состоянию календаря.
 // Использует `state.calendarInvoicePlans.filter`, `state.calendarInvoicePlans.push`, `applyFreeCalendarEvent`.
-function applyCalendarDeletion(entry, saved, deleted) {
+function applyCalendarDeletion(entry, saved, deleted, revision = entry.revision) {
   if (entry.plan) {
     ++state.ordersRequest;
     state.calendarInvoicePlans = state.calendarInvoicePlans.filter((plan) => plan.id !== saved.id);
@@ -3449,7 +3568,7 @@ function applyCalendarDeletion(entry, saved, deleted) {
       date: saved.data.date, period: saved.data.period || 'day', operation: saved.data.operation,
       amount: saved.data.amount, text: saved.data.text || '', is_inactive: saved.data._calendar_inactive || false, is_completed: saved.data._calendar_completed ?? false, is_trip: saved.data._calendar_trip ?? false, is_watch_todos: saved.data._calendar_watch_todos ?? false, is_carryover: saved.data._calendar_carryover ?? false, is_notified: saved.data._calendar_notified === undefined ? false : saved.data._calendar_notified });
   } else if (entry.free) applyFreeCalendarEvent(saved);
-  else applyOrderRecord(null, saved);
+  else applyCalendarOrderEvent(saved, revision);
 }
 
 // Запрашивает восстановление удалённой записи со всеми отметками.
@@ -3462,11 +3581,11 @@ async function restoreCalendarDeletion(entry, revision) {
   try {
     const route = entry.plan ? '/api/calendar-payment-restore' : entry.free ? '/api/calendar-event-restore' : '/api/order-calendar-event-restore';
     const saved = await request(route, { path: entry.path || '', id: entry.id, revision, date: entry.date, period: entry.period, text: entry.previous, is_inactive: entry.inactive, is_completed: entry.completed, is_trip: entry.trip, is_watch_todos: entry.watch_todos, color: entry.color });
-    applyCalendarDeletion(entry, saved, false);
+    applyCalendarDeletion(entry, saved, false, revision);
     notify('Удаление отменено');
   } finally {
     state.calendarMoving.delete(key);
-    renderOrders({ force: true });
+    if (hasOrderList()) renderOrders({ force: true });
   }
 }
 
@@ -3492,7 +3611,7 @@ async function removeCalendarRecord(entry) {
     return saved;
   } finally {
     state.calendarMoving.delete(key);
-    renderOrders({ force: true });
+    if (hasOrderList()) renderOrders({ force: true });
   }
 }
 
@@ -3501,7 +3620,7 @@ async function removeCalendarRecord(entry) {
 async function deleteCalendarEventFromMenu() {
   const menu = state.calendarMenu;
   if (!menu) return;
-  const order = !menu.plan && !menu.free && findListOrder(menu.path);
+  const order = !menu.plan && !menu.free && calendarSlotOrder(menu.slot);
   const entry = { ...menu, previous: menu.free ? state.calendarEvents.find((event) => event.id === menu.id)?.text : order && calendarEventEntries(order, menu.period)?.[menu.date] };
   closeCalendarEventMenu();
   try { await removeCalendarRecord(entry); }
@@ -3560,9 +3679,13 @@ function openCalendarEvent(slot) {
   closeCalendarEventMenu(false);
   const free = slot.dataset.calendarFree, date = slot.dataset.calendarDate;
   const period = slot.dataset.calendarPeriod || "day";
-  const order = free ? state.calendarEvents.find((event) => event.id === free) : findListOrder(slot.dataset.calendarEvent);
+  const order = free ? state.calendarEvents.find((event) => event.id === free) : calendarSlotOrder(slot);
   if (free && free !== "new" && (!order || state.calendarMoving.has(free))) return;
   if (!free && (!order || order.registered === false || orderRowSaving(order.path))) return;
+  if (!free && state.folder?.path === order.path && (state.saving || hasPendingDeadlineComments())) {
+    notify("Сначала сохрани комментарии к срокам в карточке заказа", true);
+    return;
+  }
   const entries = !free && calendarEventEntries(order, period);
   if (entries === null) { notify("События этого заказа имеют неизвестный формат и сохранены без изменений", true); return; }
   const previous = free ? order?.text || "" : entries?.[date] || "";
@@ -3609,10 +3732,10 @@ async function saveCalendarEvent() {
   try {
     const saved = await request(edit.free ? "/api/calendar-event" : "/api/order-calendar-event", { path: edit.path, id: edit.id, revision: edit.revision, date: edit.date, text, period: edit.period, ...(edit.free ? { comment: $("calendarEventComment").value } : {}) });
     if (edit.free) applyFreeCalendarEvent(saved);
-    else applyOrderRecord(null, saved);
+    else applyCalendarOrderEvent(saved, edit.revision);
     edit.saving = false;
     closeCalendarEvent();
-    renderOrders({ force: true });
+    if (hasOrderList()) renderOrders({ force: true });
     notify("Событие сохранено");
   } catch (error) {
     edit.conflict = error.status === 409;
@@ -3659,13 +3782,12 @@ async function refreshCalendarEvent() {
       applyOrderRecord(null, order);
     }
     $("calendarEventState").textContent = "В базе сейчас: " + (edit.previous || "события нет") + (edit.free ? ". Комментарий: " + (edit.previousComment || "нет") : "") + ". Твой ввод сохранён в форме; проверь его перед сохранением.";
-    renderOrders({ force: true });
   } catch (error) {
     $("calendarEventState").textContent = error.message;
   } finally {
     edit.saving = false;
     renderCalendarEventControls();
-    renderOrders({ force: true });
+    if (hasOrderList()) renderOrders({ force: true });
   }
 }
 
@@ -4496,55 +4618,84 @@ $("fileFilters").addEventListener("click", (event) => {
 $("fileSearch").addEventListener("input", (event) => { state.fileQuery = event.target.value; state.limit = 120; renderFiles(); });
 $("fileSort").addEventListener("change", (event) => { state.fileSort = event.target.value; state.limit = 120; renderFiles(); });
 $("orderSearch").addEventListener("input", (event) => { state.orderQuery = event.target.value; renderOrders(); });
-$("calendarWeeks").addEventListener("click", (event) => {
-  const todoIcon = event.target.closest('.calendar-todo-icon, .calendar-comment-icon');
-  if (todoIcon) {
+for (const surface of [$("calendarWeeks"), $("supplierSchedule")]) {
+  surface.addEventListener("click", (event) => {
+    const todoIcon = event.target.closest('.calendar-todo-icon, .calendar-comment-icon');
+    if (todoIcon) {
+      event.preventDefault();
+      const anchor = todoIcon.closest('[data-calendar-todos], [data-calendar-comment]');
+      openCalendarTodoPreview(anchor, true);
+      $("calendarTodoPreviewBody").focus({ preventScroll: true });
+      return;
+    }
+    closeCalendarTodoPreview();
+    const trigger = event.target.closest(".supplier-schedule-menu");
+    if (trigger) {
+      const bounds = trigger.getBoundingClientRect();
+      openCalendarEventMenu(trigger.previousElementSibling, bounds.left, bounds.bottom, trigger);
+      return;
+    }
+    const payment = event.target.closest('[data-calendar-payment-add]');
+    if (payment && !payment.disabled) {
+      document.dispatchEvent(new CustomEvent('manager-plan-payment', { detail: { date: payment.dataset.calendarDate, period: payment.dataset.calendarPeriod, operation: payment.dataset.calendarPaymentAdd } }));
+      return;
+    }
+    const plan = event.target.closest('[data-calendar-plan-edit]');
+    if (plan) {
+      document.dispatchEvent(new CustomEvent('manager-plan-payment', { detail: { id: plan.dataset.calendarPlanEdit } }));
+      return;
+    }
+    const slot = event.target.closest("[data-calendar-event]");
+    if (slot && !slot.disabled) { openCalendarEvent(slot); return; }
+    const link = event.target.closest("[data-calendar-order]");
+    if (link && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0) {
+      event.preventDefault();
+      run(() => navigate(link.dataset.calendarOrder));
+    }
+  });
+  surface.addEventListener("contextmenu", (event) => {
+    const trigger = event.target.closest(".supplier-schedule-menu");
+    const slot = trigger?.previousElementSibling || event.target.closest(".calendar-event-slot.has-event, .supplier-schedule-event.has-event, .calendar-invoice-plan");
+    if (!slot || slot.disabled) return;
     event.preventDefault();
-    const anchor = todoIcon.closest('[data-calendar-todos], [data-calendar-comment]');
-    openCalendarTodoPreview(anchor, true);
-    $("calendarTodoPreviewBody").focus({ preventScroll: true });
-    return;
-  }
-  closeCalendarTodoPreview();
-  const payment = event.target.closest('[data-calendar-payment-add]');
-  if (payment && !payment.disabled) {
-    document.dispatchEvent(new CustomEvent('manager-plan-payment', { detail: { date: payment.dataset.calendarDate, period: payment.dataset.calendarPeriod, operation: payment.dataset.calendarPaymentAdd } }));
-    return;
-  }
-  const plan = event.target.closest('[data-calendar-plan-edit]');
-  if (plan) {
-    document.dispatchEvent(new CustomEvent('manager-plan-payment', { detail: { id: plan.dataset.calendarPlanEdit } }));
-    return;
-  }
-  const slot = event.target.closest("[data-calendar-event]");
-  if (slot && !slot.disabled) { openCalendarEvent(slot); return; }
-  const link = event.target.closest("[data-calendar-order]");
-  if (link && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0) {
+    openCalendarEventMenu(slot, event.clientX, event.clientY, trigger || slot);
+  });
+  surface.addEventListener("keydown", (event) => {
+    const todoAnchor = event.target.closest('[data-calendar-todos], [data-calendar-comment]');
+    if (todoAnchor && event.altKey && event.key === 'ArrowDown') {
+      event.preventDefault(); event.stopPropagation();
+      openCalendarTodoPreview(todoAnchor, true);
+      $("calendarTodoPreviewBody").focus({ preventScroll: true });
+      return;
+    }
+    const trigger = event.target.closest(".supplier-schedule-menu");
+    const slot = trigger?.previousElementSibling || event.target.closest(".calendar-event-slot.has-event, .supplier-schedule-event.has-event, .calendar-invoice-plan");
+    if (!slot || slot.disabled || !(event.key === "ContextMenu" || (event.shiftKey && event.key === "F10"))) return;
     event.preventDefault();
-    run(() => navigate(link.dataset.calendarOrder));
-  }
-});
+    const bounds = (trigger || slot).getBoundingClientRect();
+    openCalendarEventMenu(slot, bounds.left, bounds.bottom, trigger || slot);
+  });
+  surface.addEventListener('pointerover', (event) => {
+    const anchor = event.target.closest('[data-calendar-todos], [data-calendar-comment]');
+    if (anchor) hoverCalendarTodoPreview(anchor);
+  });
+  surface.addEventListener('pointerout', (event) => {
+    const anchor = event.target.closest('[data-calendar-todos], [data-calendar-comment]');
+    if (!anchor || anchor.contains(event.relatedTarget)) return;
+    if (calendarTodoPreview.pendingAnchor === anchor) cancelCalendarTodoPreviewSwitch();
+    calendarTodoPreview.suppressed = null;
+    if (!$("calendarTodoPreview").contains(event.relatedTarget)) scheduleCalendarTodoPreviewClose();
+  });
+  surface.addEventListener('focusin', (event) => {
+    const anchor = event.target.closest('[data-calendar-todos], [data-calendar-comment]');
+    if (anchor) openCalendarTodoPreview(anchor);
+  });
+  surface.addEventListener('focusout', (event) => {
+    if (event.target !== event.relatedTarget) calendarTodoPreview.suppressed = null;
+    if (!$("calendarTodoPreview").contains(event.relatedTarget)) scheduleCalendarTodoPreviewClose();
+  });
+}
 $("calendarEventForm").addEventListener("submit", (event) => { event.preventDefault(); run(() => saveCalendarEvent()); });
-$("calendarWeeks").addEventListener("contextmenu", (event) => {
-  const slot = event.target.closest(".calendar-event-slot.has-event, .calendar-invoice-plan");
-  if (!slot || slot.disabled) return;
-  event.preventDefault();
-  openCalendarEventMenu(slot, event.clientX, event.clientY);
-});
-$("calendarWeeks").addEventListener("keydown", (event) => {
-  const todoAnchor = event.target.closest('[data-calendar-todos], [data-calendar-comment]');
-  if (todoAnchor && event.altKey && event.key === 'ArrowDown') {
-    event.preventDefault(); event.stopPropagation();
-    openCalendarTodoPreview(todoAnchor, true);
-    $("calendarTodoPreviewBody").focus({ preventScroll: true });
-    return;
-  }
-  const slot = event.target.closest(".calendar-event-slot.has-event, .calendar-invoice-plan");
-  if (!slot || slot.disabled || !(event.key === "ContextMenu" || (event.shiftKey && event.key === "F10"))) return;
-  event.preventDefault();
-  const bounds = slot.getBoundingClientRect();
-  openCalendarEventMenu(slot, bounds.left, bounds.bottom);
-});
 $("calendarEventMenu").addEventListener("click", (event) => {
   if (event.target.closest('#calendarEventToWeek')) { run(() => moveCalendarEvent(0, 'week')); return; }
   if (event.target.closest('#calendarEventDelete')) { run(deleteCalendarEventFromMenu); return; }
@@ -4565,6 +4716,7 @@ $("calendarEventMenu").addEventListener("keydown", (event) => {
   if (!["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
   event.preventDefault();
   const buttons = [...$("calendarEventMenu").querySelectorAll("button:not(:disabled)")].filter((item) => item.getClientRects().length), current = buttons.indexOf(document.activeElement);
+  if (!buttons.length) return;
   const index = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (current + (["ArrowDown", "ArrowRight"].includes(event.key) ? 1 : -1) + buttons.length) % buttons.length;
   buttons[index].focus({ preventScroll: true });
 });
@@ -4572,25 +4724,6 @@ document.addEventListener("pointerdown", (event) => { if (state.calendarMenu && 
 window.addEventListener("resize", () => closeCalendarEventMenu(false));
 window.addEventListener("scroll", () => { if (state.calendarMenu) closeCalendarEventMenu(false); }, true);
 window.addEventListener("blur", () => closeCalendarEventMenu(false));
-$("calendarWeeks").addEventListener('pointerover', (event) => {
-  const anchor = event.target.closest('[data-calendar-todos], [data-calendar-comment]');
-  if (anchor) hoverCalendarTodoPreview(anchor);
-});
-$("calendarWeeks").addEventListener('pointerout', (event) => {
-  const anchor = event.target.closest('[data-calendar-todos], [data-calendar-comment]');
-  if (!anchor || anchor.contains(event.relatedTarget)) return;
-  if (calendarTodoPreview.pendingAnchor === anchor) cancelCalendarTodoPreviewSwitch();
-  calendarTodoPreview.suppressed = null;
-  if (!$("calendarTodoPreview").contains(event.relatedTarget)) scheduleCalendarTodoPreviewClose();
-});
-$("calendarWeeks").addEventListener('focusin', (event) => {
-  const anchor = event.target.closest('[data-calendar-todos], [data-calendar-comment]');
-  if (anchor) openCalendarTodoPreview(anchor);
-});
-$("calendarWeeks").addEventListener('focusout', (event) => {
-  if (event.target !== event.relatedTarget) calendarTodoPreview.suppressed = null;
-  if (!$("calendarTodoPreview").contains(event.relatedTarget)) scheduleCalendarTodoPreviewClose();
-});
 $("calendarTodoPreview").addEventListener('pointerenter', () => {
   clearTimeout(calendarTodoPreview.timer);
   cancelCalendarTodoPreviewSwitch();
@@ -4624,12 +4757,16 @@ document.addEventListener('keydown', (event) => {
 document.addEventListener('pointerdown', (event) => {
   if (calendarTodoPreview.anchor && !calendarTodoPreview.anchor.contains(event.target) && !$("calendarTodoPreview").contains(event.target)) closeCalendarTodoPreview();
 });
-window.addEventListener('resize', positionCalendarTodoPreview);
+window.addEventListener('resize', renderCalendarTodoPreview);
 window.addEventListener('scroll', (event) => {
-  if (event.target === $("calendarViewport")) { renderCalendarTodoPreview(); return; }
+  if (event.target === $("calendarViewport") || event.target === $("supplierSchedule") || event.target === $("sidebar")) { renderCalendarTodoPreview(); return; }
   if (calendarTodoPreview.anchor && !$("calendarTodoPreview").contains(event.target)) closeCalendarTodoPreview();
 }, true);
 window.addEventListener('blur', () => closeCalendarTodoPreview());
+document.addEventListener("manager:sidebar-closed", () => {
+  if (state.calendarMenu?.sidebar) closeCalendarEventMenu(false);
+  if (calendarTodoPreview.anchor?.closest("#sidebar")) closeCalendarTodoPreview();
+});
 $("refreshCalendarEvent").addEventListener("click", () => run(refreshCalendarEvent));
 $("cancelCalendarEvent").addEventListener("click", closeCalendarEvent);
 $("deleteCalendarEvent").addEventListener('click', () => run(deleteCalendarEventFromDialog));
