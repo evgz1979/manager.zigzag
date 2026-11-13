@@ -579,10 +579,10 @@ self.send_json(object_years.preview(order_store(), relative), head=head)
 Выражения JSON-ответа (значения раскрываются в вызываемом методе):
 
 ```python
-self.send_json(record, head=head)
+self.send_json({**record, 'purchaseSupplierPath': supplier_purchases.section_path(record['path'])}, head=head)
 ```
 
-Вызовы ветки: `order_store().get`, `order_store`, `FileNotFoundError`.
+Вызовы ветки: `order_store().get`, `order_store`, `FileNotFoundError`, `supplier_purchases.section_path`.
 
 ## GET / HEAD /api/order-todos
 

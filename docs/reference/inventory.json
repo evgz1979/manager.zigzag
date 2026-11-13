@@ -1021,6 +1021,7 @@
           {"name": "SupplierPurchases.source_orders", "type": "function", "anchor": "symbol-SupplierPurchases.source_orders"},
           {"name": "available_suppliers", "type": "function", "anchor": "symbol-available_suppliers"},
           {"name": "remember_sections", "type": "function", "anchor": "symbol-remember_sections"},
+          {"name": "section_path", "type": "function", "anchor": "symbol-section_path"},
           {"name": "supplier_name", "type": "function", "anchor": "symbol-supplier_name"},
           {"name": "valid_catalog", "type": "function", "anchor": "symbol-valid_catalog"},
           {"name": "write_assignments", "type": "function", "anchor": "symbol-write_assignments"}
@@ -1179,6 +1180,8 @@
           {"name": "compareOrders", "type": "FunctionDeclaration", "anchor": "symbol-compareOrders"},
           {"name": "confirmEventRemoval", "type": "FunctionDeclaration", "anchor": "symbol-confirmEventRemoval"},
           {"name": "confirmFileRemoval", "type": "FunctionDeclaration", "anchor": "symbol-confirmFileRemoval"},
+          {"name": "copyText", "type": "FunctionDeclaration", "anchor": "symbol-copyText"},
+          {"name": "copyText.onCopy", "type": "ArrowFunctionExpression", "anchor": "symbol-copyText.onCopy"},
           {"name": "createImageReport", "type": "FunctionDeclaration", "anchor": "symbol-createImageReport"},
           {"name": "createObject", "type": "FunctionDeclaration", "anchor": "symbol-createObject"},
           {"name": "createOrderFolder", "type": "FunctionDeclaration", "anchor": "symbol-createOrderFolder"},
@@ -1482,7 +1485,6 @@
         "symbols": [
           {"name": "complete", "type": "FunctionDeclaration", "anchor": "symbol-complete"},
           {"name": "copy", "type": "FunctionDeclaration", "anchor": "symbol-copy"},
-          {"name": "copy.onCopy", "type": "ArrowFunctionExpression", "anchor": "symbol-copy.onCopy"},
           {"name": "focusRemaining", "type": "FunctionDeclaration", "anchor": "symbol-focusRemaining"},
           {"name": "focusTask", "type": "FunctionDeclaration", "anchor": "symbol-focusTask"},
           {"name": "load", "type": "FunctionDeclaration", "anchor": "symbol-load"},

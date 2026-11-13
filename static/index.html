@@ -105,6 +105,11 @@
         </div>
         </div>
         <div id="orderTasksColumn" class="order-overview-column" hidden>
+        <section id="supplierPurchasesSection" class="supplier-purchases-section folder-section" aria-label="To-do из закупок обычных заказов" hidden>
+          <header class="todo-heading"><h2>To-do · закупки из заказов <span id="supplierPurchasesCount" class="count-badge"></span></h2><button id="refreshSupplierPurchases" class="secondary-button" type="button">Обновить</button></header>
+          <label class="supplier-purchases-completed"><input id="supplierPurchasesShowDone" type="checkbox">Показать выполненные</label>
+          <div id="supplierPurchasesList"></div><p id="supplierPurchasesState" class="todo-save-state" role="status"></p>
+        </section>
         <section id="todoPanel" class="todo-panel" aria-label="Список дел открытой папки" hidden>
           <header class="todo-heading"><h2>To-do</h2><span id="todoCount"></span></header>
           <div id="todoList" class="todo-list"></div>
@@ -128,11 +133,6 @@
           <p id="purchaseSaveState" class="todo-save-state" role="status"></p>
         </section>
         </div>
-        <section id="supplierPurchasesSection" class="supplier-purchases-section folder-section" aria-label="To-do из закупок обычных заказов" hidden>
-          <header class="todo-heading"><h2>To-do · закупки из заказов <span id="supplierPurchasesCount" class="count-badge"></span></h2><button id="refreshSupplierPurchases" class="secondary-button" type="button">Обновить</button></header>
-          <label class="supplier-purchases-completed"><input id="supplierPurchasesShowDone" type="checkbox">Показать выполненные</label>
-          <div id="supplierPurchasesList"></div><p id="supplierPurchasesState" class="todo-save-state" role="status"></p>
-        </section>
         </div>
         <section id="workLinksSection" class="work-links-section" aria-label="Связанные заказы поставщиков" hidden>
           <header class="todo-heading"><h2>Связанные заказы поставщиков <span id="workLinksCount" class="count-badge"></span></h2><button id="editWorkLinks" class="secondary-button" type="button" disabled>Выбрать заказы</button></header>

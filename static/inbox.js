@@ -187,45 +187,12 @@
   }
 
   // Копирует точный текст задачи и сообщает результат пользователю.
-  // Подключает обработчики событий к существующим элементам компонента.
+  // Использует общий буфер обмена браузера и уведомление об успехе.
   async function copy(id) {
     const item = entries.find(entry => entry.id === id);
     if (!item) return;
-    try {
-      if (window.isSecureContext && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(item.text);
-      } else {
-        const focused = document.activeElement, selection = window.getSelection();
-        const ranges = selection ? Array.from({ length: selection.rangeCount }, (_, i) => selection.getRangeAt(i).cloneRange()) : [];
-        const field = document.createElement("textarea");
-        field.value = item.text;
-        field.readOnly = true;
-        field.style.cssText = "position:fixed;left:-9999px;top:0";
-        document.body.append(field);
-        let copied = false;
-        // Копирует точный текст задачи и сообщает результат пользователю.
-        // Использует `event.clipboardData.setData`, `event.preventDefault`.
-        const onCopy = event => {
-          if (!event.clipboardData) return;
-          event.clipboardData.setData("text/plain", item.text);
-          event.preventDefault();
-          copied = true;
-        };
-        document.addEventListener("copy", onCopy, true);
-        try {
-          field.focus({ preventScroll: true });
-          field.select();
-          field.setSelectionRange(0, field.value.length);
-          if (!document.execCommand("copy") || !copied) throw new Error("copy failed");
-        } finally {
-          document.removeEventListener("copy", onCopy, true);
-          field.remove();
-          if (focused?.isConnected) focused.focus({ preventScroll: true });
-          if (selection) { selection.removeAllRanges(); ranges.forEach(range => selection.addRange(range)); }
-        }
-      }
-      notify("Текст скопирован");
-    } catch (_) { throw new Error("Не удалось скопировать текст. Выдели его и скопируй вручную"); }
+    await copyText(item.text);
+    notify("Текст скопирован");
   }
 
   // Загружает задачи Telegram и файловый счётчик Inbox.

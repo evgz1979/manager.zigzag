@@ -2,17 +2,17 @@
 (() => {
   let folder = null, model = null, markup = null, generation = 0, saving = false, pendingKey = null, error = "", readError = "";
   const panel = $("supplierPurchasesSection"), list = $("supplierPurchasesList");
-  // Проверяет, относится ли открытая папка к области текущего компонента.
-  // Использует `Boolean`.
-  const visible = () => state.view === "folder" && Boolean(state.folder?.purchaseSupplier);
+  // Показывает сводку в разделе поставщика и его непосредственном заказе.
+  // Использует вычисленный сервером путь раздела закупок.
+  const visible = () => state.view === "folder" && Boolean(state.folder?.purchaseSupplierPath);
   // Вычисляет устойчивый ключ строки исходной закупки.
   // Результат вычисляется из переданных аргументов и текущего состояния компонента.
   const itemKey = (order, item) => order.id + ":" + item.index;
   const dialog = $("supplierPurchaseDialog");
   let editor = null;
 
-  // Обновляет DOM компонента из текущих данных в модуле закупок у поставщика.
-  // Обращается к DOM текущего документа или переданного контейнера.
+  // Показывает текущие закупки и сохраняет фокус и прокрутку при обновлении.
+  // Чекбокс отделён от текста закупки, чтобы текст можно было выделить и скопировать.
   function render() {
     panel.hidden = !visible() || (!error && !readError && model?.orders.length === 0);
     $("orderOverview").classList.toggle("with-supplier-purchases", !panel.hidden);
@@ -20,6 +20,7 @@
     const pane = document.querySelector(".content-pane"), scroll = pane.scrollTop;
     const focused = document.activeElement?.dataset.supplierPurchaseDone;
     const focusedSource = document.activeElement?.dataset.supplierPurchaseSource;
+    const focusedCopy = document.activeElement?.dataset.supplierPurchaseCopy;
     const focusedEdit = document.activeElement?.dataset.supplierPurchaseEdit;
     const groups = model?.orders || [], all = groups.flatMap(order => order.items);
     const showDone = $("supplierPurchasesShowDone").checked;
@@ -30,23 +31,26 @@
       if (!items.length) return "";
       const name = [order.client, order.object, order.title].filter(Boolean).join(" · ");
       return '<section class="supplier-purchase-group" data-supplier-purchase-order="' + escapeHtml(order.id) + '">' +
-        items.map(item => '<div class="supplier-purchase-row' + (item.done ? ' done' : '') + '"><label class="supplier-purchase-task"><input type="checkbox" class="todo-check" data-supplier-purchase-done="' + escapeHtml(itemKey(order, item)) +
+        items.map(item => '<div class="supplier-purchase-row' + (item.done ? ' done' : '') + '"><div class="supplier-purchase-task"><input type="checkbox" class="todo-check" data-supplier-purchase-done="' + escapeHtml(itemKey(order, item)) +
           '" data-purchase-index="' + item.index + '" aria-label="Закупка выполнена: ' + escapeHtml(item.text + ' · ' + name) + '"' + (item.done ? ' checked' : '') + (saving ? ' disabled' : '') +
-          '><span title="' + escapeHtml(item.text) + '">' + escapeHtml(item.text) + '</span></label>' +
+          '><span title="' + escapeHtml(item.text) + '">' + escapeHtml(item.text) + '</span></div>' +
           '<a class="order-row-link supplier-purchase-source" data-supplier-purchase-path="' + escapeHtml(order.path) + '" data-supplier-purchase-source="' + escapeHtml(itemKey(order, item)) +
           '" href="?path=' + encodeURIComponent(order.path) + '" title="' + escapeHtml(name + ' · ' + order.path) + '" aria-label="' + escapeHtml('Открыть заказ · ' + name + ' · ' + order.path) + '">' + escapeHtml(name) + '</a>' +
+          '<button class="secondary-button supplier-purchase-copy" type="button" data-supplier-purchase-copy="' + escapeHtml(itemKey(order, item)) +
+          '" title="Копировать весь текст закупки" aria-label="' + escapeHtml('Копировать: ' + item.text + ' · ' + name) + '">Копировать</button>' +
           '<button class="supplier-purchase-edit" type="button" data-supplier-purchase-edit="' + escapeHtml(itemKey(order, item)) + '" data-purchase-index="' + item.index + '" title="Изменить закупку" aria-label="' + escapeHtml('Изменить закупку: ' + item.text + ' · ' + name) + '"' + (saving ? ' disabled' : '') + '>' + icon("edit") + '</button></div>').join("") + '</section>';
     }).join("") || (model ? '<p class="todo-empty">Все закупки выполнены. Их можно раскрыть выше.</p>' : '');
     if (markup !== next) { list.innerHTML = next; markup = next; }
     $("supplierPurchasesState").textContent = error || readError || (saving ? "Сохраняю…" : model ? "Текст и выполнение общие с исходным заказом и другими выбранными поставщиками." : "Загрузка закупок…");
     if (focused) ([...list.querySelectorAll("[data-supplier-purchase-done]")].find(el => el.dataset.supplierPurchaseDone === focused) || $("supplierPurchasesShowDone")).focus({ preventScroll: true });
     if (focusedSource) ([...list.querySelectorAll("[data-supplier-purchase-source]")].find(el => el.dataset.supplierPurchaseSource === focusedSource) || $("supplierPurchasesShowDone")).focus({ preventScroll: true });
+    if (focusedCopy) ([...list.querySelectorAll("[data-supplier-purchase-copy]")].find(el => el.dataset.supplierPurchaseCopy === focusedCopy) || $("supplierPurchasesShowDone")).focus({ preventScroll: true });
     if (focusedEdit) focusEdit(focusedEdit);
     pane.scrollTop = scroll;
   }
 
-  // Перечитывает данные открытого компонента по установленным правилам в модуле закупок у поставщика.
-  // Использует `/api/supplier-purchases`.
+  // Перечитывает сводку закупок раздела, к которому относится открытая папка.
+  // Передаёт путь раздела в `/api/supplier-purchases` и отбрасывает устаревший ответ.
   async function refresh() {
     if (!visible()) { ++generation; folder = null; model = null; markup = null; panel.hidden = true; $("orderOverview").classList.remove("with-supplier-purchases"); return; }
     const current = state.folder;
@@ -59,7 +63,7 @@
     const version = ++generation;
     render();
     try {
-      const result = await request(apiUrl("/api/supplier-purchases", current.path));
+      const result = await request(apiUrl("/api/supplier-purchases", current.purchaseSupplierPath));
       if (version !== generation || state.folder !== current) return;
       model = result; readError = "";
     } catch (problem) {
@@ -116,7 +120,7 @@
     editorControls(); render();
     $("supplierPurchaseEditState").textContent = "Сохраняю…";
     try {
-      const saved = await request("/api/supplier-purchase-text", { supplier_path: edit.folder.path, path: edit.order.path, id: edit.order.id, revision: edit.order.revision, index: edit.item.index, text: edit.item.text, new_text: value });
+      const saved = await request("/api/supplier-purchase-text", { supplier_path: edit.folder.purchaseSupplierPath, path: edit.order.path, id: edit.order.id, revision: edit.order.revision, index: edit.item.index, text: edit.item.text, new_text: value });
       applyOrderRecord(null, saved);
       edit.busy = false;
       dialog.close();
@@ -140,7 +144,7 @@
     edit.busy = true; ++generation; editorControls();
     try {
       if (state.folder !== edit.folder) throw new Error("Страница поставщика изменилась. Твой текст остался в поле; открой нужную закупку заново.");
-      const current = await request(apiUrl("/api/supplier-purchases", edit.folder.path));
+      const current = await request(apiUrl("/api/supplier-purchases", edit.folder.purchaseSupplierPath));
       if (state.folder !== edit.folder) throw new Error("Страница поставщика изменилась. Твой текст остался в поле.");
       const order = current.orders.find(row => row.id === edit.order.id && row.path === edit.order.path);
       const item = order?.items.find(row => row.index === edit.item.index);
@@ -160,6 +164,12 @@
   }
 
   list.addEventListener("click", event => {
+    const copy = event.target.closest("[data-supplier-purchase-copy]");
+    if (copy) {
+      const text = copy.closest(".supplier-purchase-row").querySelector(".supplier-purchase-task > span").textContent;
+      copyText(text).then(() => notify("Текст закупки скопирован"), problem => notify(problem.message, true));
+      return;
+    }
     const edit = event.target.closest("[data-supplier-purchase-edit]");
     if (edit) { openEditor(edit); return; }
     const link = event.target.closest("[data-supplier-purchase-path]");
@@ -178,7 +188,7 @@
       saving = true; pendingKey = focusKey; item.done = done; error = ""; ++generation;
       render();
       try {
-        const saved = await request("/api/supplier-purchase-done", { supplier_path: current.path, path: order.path, id: order.id, revision: order.revision, index: item.index, text: item.text, done });
+        const saved = await request("/api/supplier-purchase-done", { supplier_path: current.purchaseSupplierPath, path: order.path, id: order.id, revision: order.revision, index: item.index, text: item.text, done });
         applyOrderRecord(null, saved);
         // Update the view immediately, then read all suppliers/rows from the shared source.
         order.revision = saved.revision;

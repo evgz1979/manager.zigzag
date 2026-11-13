@@ -219,6 +219,30 @@ def remember_sections(db, root, paths):
 
 Явные исключения: `ValueError`.
 
+<a id="symbol-section_path"></a>
+
+## section_path
+
+[supplier_purchases.py](../../../supplier_purchases.py) · `function`.
+
+```python
+def section_path(relative: str):
+```
+
+Находит раздел закупок для открытого раздела или его непосредственного заказа.
+
+Использует только путь и исключает события, служебные папки и задания фрезеровки.
+
+Непосредственные вызовы: `supplier_name`, `work_orders.supplier_order`, `in_freza`, `Path(relative).name.startswith`, `Path`, `Path(relative).parent.as_posix`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+relative
+parent
+''
+```
+
 <a id="symbol-supplier_name"></a>
 
 ## supplier_name

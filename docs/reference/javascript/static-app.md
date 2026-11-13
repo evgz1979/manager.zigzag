@@ -436,6 +436,40 @@ async function confirmFileRemoval()
 
 Прямые присваивания полям/свойствам: `state.fileRemoval`, `$("deleteFilesCount").textContent`, `$("deleteFilesList").innerHTML`, `$("confirmDeleteFiles").disabled`, `$("cancelDeleteFiles").disabled`.
 
+<a id="symbol-copyText"></a>
+
+## copyText
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+async function copyText(text)
+```
+
+Копирует полный исходный текст в буфер браузера.
+
+В обычном HTTP использует событие copy, восстанавливает фокус и выделение.
+
+Непосредственные вызовы: `navigator.clipboard.writeText`, `window.getSelection`, `Array.from`, `document.createElement`, `document.body.append`, `document.addEventListener`, `field.focus`, `field.select`, `field.setSelectionRange`, `document.execCommand`, `Error`, `document.removeEventListener`, `field.remove`, `focused.focus`, `selection.removeAllRanges`, `ranges.forEach`.
+
+Прямые присваивания полям/свойствам: `field.value`, `field.readOnly`, `field.style.cssText`.
+
+<a id="symbol-copyText.onCopy"></a>
+
+## copyText.onCopy
+
+[static/app.js](../../../static/app.js) · `ArrowFunctionExpression`.
+
+```javascript
+const onCopy = event =>
+```
+
+Подставляет исходный текст в буфер по событию копирования.
+
+Сохраняет точное значение, включая пробелы и переводы строк.
+
+Непосредственные вызовы: `event.clipboardData.setData`, `event.preventDefault`.
+
 <a id="symbol-createImageReport"></a>
 
 ## createImageReport
@@ -2744,9 +2778,9 @@ function renderOrderFavoriteButton(order)
 function renderOrderFileFolders()
 ```
 
-Показывает файлы существующих # cutter/# freza непосредственно под эскизами.
+Показывает существующие # cutter, # freza и # docs под эскизами в порядке ответа сервера.
 
-Использует общий просмотрщик; вложенные файлы сгруппированы по относительной папке.
+Использует общий просмотрщик и группирует вложенные файлы по относительной папке.
 
 Непосредственные вызовы: `$`, `folders.map((item) => {
     const files = folder.files.filter((file) => file.path.startsWith(item.path + "/"));

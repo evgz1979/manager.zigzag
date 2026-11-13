@@ -54,6 +54,48 @@ const icon = (name) => '<svg aria-hidden="true"><use href="#icon-' + name + '"/>
 // Экранирует текст перед вставкой в HTML-разметку или атрибут.
 // Заменяет &, <, >, кавычки и апостроф на безопасные HTML-сущности.
 const escapeHtml = (value) => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+
+// Копирует полный исходный текст в буфер браузера.
+// В обычном HTTP использует событие copy, восстанавливает фокус и выделение.
+async function copyText(text) {
+  try {
+    if (window.isSecureContext && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+    const focused = document.activeElement, selection = window.getSelection();
+    const ranges = selection ? Array.from({ length: selection.rangeCount }, (_, i) => selection.getRangeAt(i).cloneRange()) : [];
+    const field = document.createElement("textarea");
+    field.value = text;
+    field.readOnly = true;
+    field.style.cssText = "position:fixed;left:-9999px;top:0";
+    document.body.append(field);
+    let copied = false;
+    // Подставляет исходный текст в буфер по событию копирования.
+    // Сохраняет точное значение, включая пробелы и переводы строк.
+    const onCopy = event => {
+      if (!event.clipboardData) return;
+      event.clipboardData.setData("text/plain", text);
+      event.preventDefault();
+      copied = true;
+    };
+    document.addEventListener("copy", onCopy, true);
+    try {
+      field.focus({ preventScroll: true });
+      field.select();
+      field.setSelectionRange(0, field.value.length);
+      if (!document.execCommand("copy") || !copied) throw new Error("copy failed");
+    } finally {
+      document.removeEventListener("copy", onCopy, true);
+      field.remove();
+      if (focused?.isConnected) focused.focus({ preventScroll: true });
+      if (selection) { selection.removeAllRanges(); ranges.forEach(range => selection.addRange(range)); }
+    }
+  } catch (_) {
+    throw new Error("Не удалось скопировать текст. Выдели его и скопируй вручную");
+  }
+}
+
 // Нормализует строку для поиска и сравнения без учёта регистра.
 // Использует `String(value).normalize("NFC").toLocaleLowerCase`, `String(value).normalize`, `String`.
 const normalize = (value) => String(value).normalize("NFC").toLocaleLowerCase("ru");
@@ -472,8 +514,8 @@ function renderSketches() {
   if (focusPath) [...$("sketchTiles").querySelectorAll(focusSelector)].find((button) => (button.dataset.sketchFile || button.dataset.downloadFile) === focusPath && button.dataset.sketchStatus === focusValue)?.focus();
 }
 
-// Показывает файлы существующих # cutter/# freza непосредственно под эскизами.
-// Использует общий просмотрщик; вложенные файлы сгруппированы по относительной папке.
+// Показывает существующие # cutter, # freza и # docs под эскизами в порядке ответа сервера.
+// Использует общий просмотрщик и группирует вложенные файлы по относительной папке.
 function renderOrderFileFolders() {
   const folder = state.folder, folders = folder.orderFileFolders || [];
   const container = $("orderFileFolders");
@@ -786,7 +828,7 @@ function renderFolder(preserveForm = false) {
   $("orderOverview").hidden = !folder.path || folder.folderKind === "work_root" || (printView && !folder.eventFolder);
   $("orderOverview").classList.toggle("with-todos", hasTodo);
   $("todoPanel").hidden = !hasTodo;
-  $("orderTasksColumn").hidden = !hasTodo && !showFinance;
+  $("orderTasksColumn").hidden = !hasTodo && !showFinance && !folder.purchaseSupplierPath;
   $("breadcrumbs").innerHTML = folder.breadcrumbs.map((part, index) =>
     (index ? '<span class="breadcrumb-divider">/</span>' : "") +
     '<button data-path="' + escapeHtml(part.path) + '"' + (index === folder.breadcrumbs.length - 1 ? ' aria-current="page"' : "") + ">" +
@@ -3858,6 +3900,7 @@ async function navigate(path, { history = true } = {}) {
     if (order) {
       const parts = path.split("/");
       data = { path, name: parts.at(-1), client: order.client, status: order.status, financial_status: order.financial_status, note: order.note, todo_items: order.todo_items, purchase_items: order.purchase_items, order,
+        purchaseSupplierPath: order.purchaseSupplierPath,
         breadcrumbs: [{ name: $("rootLabel").textContent, path: "" }, ...parts.map((name, index) => ({ name, path: parts.slice(0, index + 1).join("/") }))],
         directories: [], files: [], counts: {}, warnings: [], fileCount: 0, folderCount: 0, totalSize: 0, view: "files", filesScope: "events", filesLoading: true };
     } else {

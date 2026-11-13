@@ -34,27 +34,9 @@ async function copy(id)
 
 Копирует точный текст задачи и сообщает результат пользователю.
 
-Подключает обработчики событий к существующим элементам компонента.
+Использует общий буфер обмена браузера и уведомление об успехе.
 
-Непосредственные вызовы: `entries.find`, `navigator.clipboard.writeText`, `window.getSelection`, `Array.from`, `document.createElement`, `document.body.append`, `document.addEventListener`, `field.focus`, `field.select`, `field.setSelectionRange`, `document.execCommand`, `Error`, `document.removeEventListener`, `field.remove`, `focused.focus`, `selection.removeAllRanges`, `ranges.forEach`, `notify`.
-
-Прямые присваивания полям/свойствам: `field.value`, `field.readOnly`, `field.style.cssText`.
-
-<a id="symbol-copy.onCopy"></a>
-
-## copy.onCopy
-
-[static/inbox.js](../../../static/inbox.js) · `ArrowFunctionExpression`.
-
-```javascript
-const onCopy = event =>
-```
-
-Копирует точный текст задачи и сообщает результат пользователю.
-
-Использует `event.clipboardData.setData`, `event.preventDefault`.
-
-Непосредственные вызовы: `event.clipboardData.setData`, `event.preventDefault`.
+Непосредственные вызовы: `entries.find`, `copyText`, `notify`.
 
 <a id="symbol-focusRemaining"></a>
 

@@ -232,11 +232,10 @@ h1 { font-size: clamp(22px, 2.5vw, 32px); line-height: 1.23; letter-spacing: -.8
 .order-overview { margin-bottom: 23px; }
 .order-overview-column { display: grid; gap: 18px; align-content: start; min-width: 0; }
 .order-overview-column > .order-details { margin-bottom: 0; min-width: 0; }
-.order-overview.with-todos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; }
-.order-overview.with-supplier-purchases { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 18px; align-items: start; }
-.order-overview > .supplier-purchases-section { margin-bottom: 0; min-width: 0; }
+.order-overview.with-todos, .order-overview.with-supplier-purchases { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; }
+.order-overview-column > .supplier-purchases-section { margin-bottom: 0; }
 .with-supplier-purchases .status-form.note-only { grid-template-columns: minmax(0, 1fr); }
-.with-supplier-purchases .status-form > button { grid-column: auto; justify-self: start; }
+.with-supplier-purchases .status-form.note-only > button { grid-column: auto; justify-self: start; }
 .with-todos .status-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .with-todos .order-status-fields { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .with-todos .order-note-block { grid-column: 1 / -1; }
@@ -874,12 +873,13 @@ h2 { font-size: 13px; font-weight: 600; }
 .supplier-purchases-completed { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; margin: 12px 0; }
 .supplier-purchase-group { padding: 0; border-bottom: 1px solid var(--line); }
 .supplier-purchase-group:last-child { border-bottom: 0; }
-.supplier-purchase-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 38%) 24px; align-items: center; gap: 8px; min-height: 28px; padding: 4px 0; font-size: 12px; line-height: 18px; }
+.supplier-purchase-row { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 3fr) max-content 24px; align-items: center; gap: 8px; min-height: 28px; padding: 4px 0; font-size: 12px; line-height: 18px; }
 .supplier-purchase-task { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .supplier-purchase-row .todo-check { flex: 0 0 auto; margin: 0; }
 .supplier-purchase-task > span, .supplier-purchase-source { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .supplier-purchase-source { font-size: 11px; line-height: 18px; color: var(--muted); }
 .supplier-purchase-row.done .supplier-purchase-task > span { color: var(--muted); text-decoration: line-through; }
+.supplier-purchase-copy { min-height: 24px; padding: 2px 6px; font-size: 11px; }
 .supplier-purchase-edit { display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; background: transparent; color: var(--muted); }
 .supplier-purchase-edit svg { width: 14px; height: 14px; }
 .supplier-purchase-dialog h2 { margin-bottom: 0; }

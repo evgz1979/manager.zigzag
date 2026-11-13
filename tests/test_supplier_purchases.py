@@ -131,6 +131,7 @@ class SupplierPurchaseTests(unittest.TestCase):
     def test_http_section_view_and_checkbox_return_shared_source_and_conflicts(self):
         opened = manager.read_folder(self.section)
         self.assertEqual(opened["purchaseSupplier"], "glass")
+        self.assertEqual(opened["purchaseSupplierPath"], self.section)
         self.assertEqual(manager.read_folder(self.path)["purchaseSupplier"], "")
         status, _, body = self.http(self.url("/api/supplier-purchases", self.section))
         self.assertEqual(status, 200)
@@ -141,6 +142,35 @@ class SupplierPurchaseTests(unittest.TestCase):
         self.assertTrue(json.loads(body)["purchase_items"][0]["done"])
         self.assertEqual(self.http("/api/supplier-purchase-done", "POST", json.dumps(self.payload()))[0], 409)
         self.assertTrue(json.loads(self.http(self.url("/api/order", self.path))[2])["purchase_items"][0]["done"])
+
+    def test_supplier_order_resolves_parent_before_attachments_load(self):
+        registered = f"{self.section}/2026-10-29 - Стекло"
+        folders = {
+            registered: self.section,
+            "# GLASS/2026-10-29 - Старый заказ": "# GLASS",
+            "# work/Новый завод/Старая заявка": "# work/Новый завод",
+            "# work/# etc/Покупка": "# work/# etc",
+            f"{registered}/Согласование": "",
+            f"{registered}/# bills": "",
+            "# work/2026-10-29 - Подборка": "",
+            "# work/# print/Старое задание": "",
+            "# work/# freza/Старое задание": "",
+            "# moneys/# glass/Запись": "",
+            self.path: "",
+        }
+        for path in folders:
+            self.folder(path)
+        self.store.add(registered, {"note": "Готовлю заявку"})
+        for path, section in folders.items():
+            with self.subTest(path=path):
+                self.assertEqual(manager.read_folder(path)["purchaseSupplierPath"], section)
+        self.root.rename(self.base / "offline")
+        status, _, body = self.http(self.url("/api/order", registered))
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["purchaseSupplierPath"], self.section)
+        status, _, body = self.http(self.url("/api/supplier-purchases", self.section))
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["orders"][0]["items"], [{"index": 0, **self.items[0]}])
 
     def test_etc_selects_only_unassigned_without_duplicating_any_supplier(self):
         items = [

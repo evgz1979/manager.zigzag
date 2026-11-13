@@ -1172,7 +1172,7 @@ def freza_preview_target(relative):
 
 
 # Собирает представление папки и разрешённые файлы её роли.
-# У заказа обходит # cutter/# freza, у входящих счетов — только непосредственные файлы.
+# У заказа обходит # cutter, # freza и # docs, у входящих счетов — только непосредственные файлы.
 def read_folder(relative="", show_inactive=False):
     target = safe_path(relative)
     if not target.is_dir():
@@ -1197,10 +1197,11 @@ def read_folder(relative="", show_inactive=False):
         "subfolders" if not print_view and status["folderKind"] in {"client", "object", "catalog_group", "supplier_root", "work_root", "moneys_root", "work_section", "moneys_section", "reconciliations_root", "reconciliation", "bills_root"} else "folder")
     hide_files = files_scope != "folder"
     folder_count = len(directories) if hide_files or print_view or status['folderKind'] == 'bills_inbox' else 0
+    order_file_folder_kinds = ("cutter", "freza", "docs")
     order_file_folders = [folder for folder in directories
-                          if folder.name.startswith("#") and folder.name[1:].strip().casefold() in {"cutter", "freza"}
+                          if folder.name.startswith("#") and folder.name[1:].strip().casefold() in order_file_folder_kinds
                           and not folder.is_symlink()] if status["folderKind"] == "order" and not freza_task else []
-    order_file_folders.sort(key=lambda folder: (folder.name[1:].strip().casefold(), sort_key(folder)))
+    order_file_folders.sort(key=lambda folder: (order_file_folder_kinds.index(folder.name[1:].strip().casefold()), sort_key(folder)))
     file_roots = [target] if not hide_files else order_file_folders
 
     # Сохраняет ошибку обхода, не выдавая неполный результат за полный.
@@ -1327,6 +1328,7 @@ def read_folder(relative="", show_inactive=False):
             "workSupplier": work_orders.supplier_name(relative),
             "workSupplierColor": supplier_color,
             "purchaseSupplier": supplier_purchases.supplier_name(relative),
+            "purchaseSupplierPath": supplier_purchases.section_path(relative_path(target)),
             "root": str(DATA_ROOT), "breadcrumbs": breadcrumbs,
             "directories": nodes, "files": files, "sketches": sketch_files,
             "orderFileFolders": [{"name": folder.name, "path": relative_path(folder)} for folder in order_file_folders],
@@ -1733,7 +1735,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 record = order_store().get(relative)
                 if not record:
                     raise FileNotFoundError("Заказ не найден в списке")
-                self.send_json(record, head=head)
+                self.send_json({**record, "purchaseSupplierPath": supplier_purchases.section_path(record["path"])}, head=head)
             elif parsed.path == "/api/order-todos":
                 self.send_json(OrderTodos(order_store()).in_order(relative), head=head)
             elif parsed.path == "/api/order-links":

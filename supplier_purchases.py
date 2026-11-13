@@ -9,7 +9,7 @@ from pathlib import Path
 import order_document as document
 from client_activity import is_inactive
 from event_folder_undo import guard_database
-from folder_structure import client_path, dated, is_work_root, is_supplier_root
+from folder_structure import client_path, dated, in_freza, is_work_root, is_supplier_root
 import work_orders
 
 CATALOG_KIND = "purchase_supplier_catalog"
@@ -106,6 +106,18 @@ def supplier_name(relative):
     name = parts[1].removeprefix("#").strip().casefold()
     name = unicodedata.normalize("NFC", name)
     return name if name == "etc" or document.valid_purchase_supplier(name) else ""
+
+
+# Находит раздел закупок для открытого раздела или его непосредственного заказа.
+# Использует только путь и исключает события, служебные папки и задания фрезеровки.
+def section_path(relative: str):
+    if supplier_name(relative):
+        return relative
+    if work_orders.supplier_order(relative) and not in_freza(relative) and not Path(relative).name.startswith("."):
+        parent = Path(relative).parent.as_posix()
+        if supplier_name(parent):
+            return parent
+    return ""
 
 
 # Собирает закупки у поставщика и частично изменяет строки исходных заказов.

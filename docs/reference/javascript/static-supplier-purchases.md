@@ -100,9 +100,9 @@ function openEditor(button)
 async function refresh()
 ```
 
-Перечитывает данные открытого компонента по установленным правилам в модуле закупок у поставщика.
+Перечитывает сводку закупок раздела, к которому относится открытая папка.
 
-Использует `/api/supplier-purchases`.
+Передаёт путь раздела в `/api/supplier-purchases` и отбрасывает устаревший ответ.
 
 Непосредственные вызовы: `visible`, `$("orderOverview").classList.remove`, `$`, `render`, `request`, `apiUrl`.
 
@@ -118,22 +118,24 @@ async function refresh()
 function render()
 ```
 
-Обновляет DOM компонента из текущих данных в модуле закупок у поставщика.
+Показывает текущие закупки и сохраняет фокус и прокрутку при обновлении.
 
-Обращается к DOM текущего документа или переданного контейнера.
+Чекбокс отделён от текста закупки, чтобы текст можно было выделить и скопировать.
 
 Непосредственные вызовы: `visible`, `$("orderOverview").classList.toggle`, `$`, `document.querySelector`, `groups.flatMap`, `all.filter`, `groups.map(order => {
       const items = order.items.filter(item => showDone || !item.done || itemKey(order, item) === pendingKey);
       if (!items.length) return "";
       const name = [order.client, order.object, order.title].filter(Boolean).join(" · ");
       return '<section class="supplier-purchase-group" data-supplier-purchase-order="' + escapeHtml(order.id) + '">' +
-        items.map(item => '<div class="supplier-purchase-row' + (item.done ? ' done' : '') + '"><label class="supplier-purchase-task"><input type="checkbox" class="todo-check" data-supplier-purchase-done="' + escapeHtml(itemKey(order, item)) +
+        items.map(item => '<div class="supplier-purchase-row' + (item.done ? ' done' : '') + '"><div class="supplier-purchase-task"><input type="checkbox" class="todo-check" data-supplier-purchase-done="' + escapeHtml(itemKey(order, item)) +
           '" data-purchase-index="' + item.index + '" aria-label="Закупка выполнена: ' + escapeHtml(item.text + ' · ' + name) + '"' + (item.done ? ' checked' : '') + (saving ? ' disabled' : '') +
-          '><span title="' + escapeHtml(item.text) + '">' + escapeHtml(item.text) + '</span></label>' +
+          '><span title="' + escapeHtml(item.text) + '">' + escapeHtml(item.text) + '</span></div>' +
           '<a class="order-row-link supplier-purchase-source" data-supplier-purchase-path="' + escapeHtml(order.path) + '" data-supplier-purchase-source="' + escapeHtml(itemKey(order, item)) +
           '" href="?path=' + encodeURIComponent(order.path) + '" title="' + escapeHtml(name + ' · ' + order.path) + '" aria-label="' + escapeHtml('Открыть заказ · ' + name + ' · ' + order.path) + '">' + escapeHtml(name) + '</a>' +
+          '<button class="secondary-button supplier-purchase-copy" type="button" data-supplier-purchase-copy="' + escapeHtml(itemKey(order, item)) +
+          '" title="Копировать весь текст закупки" aria-label="' + escapeHtml('Копировать: ' + item.text + ' · ' + name) + '">Копировать</button>' +
           '<button class="supplier-purchase-edit" type="button" data-supplier-purchase-edit="' + escapeHtml(itemKey(order, item)) + '" data-purchase-index="' + item.index + '" title="Изменить закупку" aria-label="' + escapeHtml('Изменить закупку: ' + item.text + ' · ' + name) + '"' + (saving ? ' disabled' : '') + '>' + icon("edit") + '</button></div>').join("") + '</section>';
-    }).join`, `groups.map`, `([...list.querySelectorAll("[data-supplier-purchase-done]")].find(el => el.dataset.supplierPurchaseDone === focused) || $("supplierPurchasesShowDone")).focus`, `[...list.querySelectorAll("[data-supplier-purchase-done]")].find`, `list.querySelectorAll`, `([...list.querySelectorAll("[data-supplier-purchase-source]")].find(el => el.dataset.supplierPurchaseSource === focusedSource) || $("supplierPurchasesShowDone")).focus`, `[...list.querySelectorAll("[data-supplier-purchase-source]")].find`, `focusEdit`.
+    }).join`, `groups.map`, `([...list.querySelectorAll("[data-supplier-purchase-done]")].find(el => el.dataset.supplierPurchaseDone === focused) || $("supplierPurchasesShowDone")).focus`, `[...list.querySelectorAll("[data-supplier-purchase-done]")].find`, `list.querySelectorAll`, `([...list.querySelectorAll("[data-supplier-purchase-source]")].find(el => el.dataset.supplierPurchaseSource === focusedSource) || $("supplierPurchasesShowDone")).focus`, `[...list.querySelectorAll("[data-supplier-purchase-source]")].find`, `([...list.querySelectorAll("[data-supplier-purchase-copy]")].find(el => el.dataset.supplierPurchaseCopy === focusedCopy) || $("supplierPurchasesShowDone")).focus`, `[...list.querySelectorAll("[data-supplier-purchase-copy]")].find`, `focusEdit`.
 
 Прямые присваивания полям/свойствам: `panel.hidden`, `$("supplierPurchasesCount").textContent`, `$("refreshSupplierPurchases").disabled`, `list.innerHTML`, `$("supplierPurchasesState").textContent`, `pane.scrollTop`.
 
@@ -165,8 +167,8 @@ async function saveText()
 const visible = () =>
 ```
 
-Проверяет, относится ли открытая папка к области текущего компонента.
+Показывает сводку в разделе поставщика и его непосредственном заказе.
 
-Использует `Boolean`.
+Использует вычисленный сервером путь раздела закупок.
 
 Непосредственные вызовы: `Boolean`.
