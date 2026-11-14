@@ -141,6 +141,13 @@ def is_catalog_group(name):
     return bool(numbered and not (dated(name) or DATE.match(name) or DATE_LIKE.match(name) or YEAR.fullmatch(name)))
 
 
+# Распознаёт год мелких заказов по пути.
+# Принимает только непосредственную папку года внутри корневой «02 - etc».
+def is_etc_year(relative):
+    parts = Path(relative).parts
+    return len(parts) == 2 and parts[0].casefold() == "02 - etc" and bool(YEAR.fullmatch(parts[1]))
+
+
 # Определяет клиента с учётом корневой числовой группы.
 # Возвращает `False`; либо `not (dated(name) or DATE.match(name) or DATE_LIKE.match(name) or YEAR.fullmatch(name) or NUMBER.match(name))`.
 def grouped_client(parts):
@@ -191,7 +198,7 @@ def order_location(relative):
 
 
 # Классифицирует роль папки для выбора доступного интерфейса и операций.
-# Формирует возвращаемое значение из проверенного локального состояния.
+# В «02 - etc/ГГГГ» непосредственная рабочая подпапка является заказом независимо от имени.
 def folder_role(root, relative):
     parts = Path(relative).parts
     if not parts:
@@ -209,6 +216,8 @@ def folder_role(root, relative):
         kind = "service"
     elif len(parts) == 1 and is_catalog_group(parts[0]):
         kind = "catalog_group"
+    elif len(parts) >= 2 and is_etc_year(Path(*parts[:2])):
+        kind = "year" if len(parts) == 2 else "order" if len(parts) == 3 else "event"
     elif len(parts) >= 2 and (is_work_root(parts[0]) or is_moneys_root(parts[0])):
         if is_work_root(parts[0]) and dated(parts[1]):
             kind = "order" if len(parts) == 2 else "event"

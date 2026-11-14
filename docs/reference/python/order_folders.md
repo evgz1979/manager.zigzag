@@ -4,7 +4,7 @@
 
 Исходник: [order_folders.py](../../../order_folders.py).
 
-Создание папки заказа в объекте с журналом и самостоятельным откатом.
+Создание папки заказа с журналом и самостоятельным откатом.
 
 Импорты Python, включая локальные: `datetime`, `folder_layout`, `folder_structure`, `order_creation`, `os`, `pathlib`, `re`, `threading`, `unicodedata`.
 
@@ -36,9 +36,9 @@ def create(root, relative, order_date, title, *, store=None):
 
 Создаёт папку заказа или сверки и при наличии базы регистрирует карточку.
 
-Для сверки и записи зарплаты планирует только основную папку; при конфликте останавливает создание.
+В годе «02 - etc» имя равно названию; для сверки и зарплаты планирует только основную папку.
 
-Непосредственные вызовы: `Path(root).resolve`, `Path`, `store.root.resolve`, `ValueError`, `isinstance`, `any`, `part.startswith`, `is_print_section`, `layout.safe_path`, `layout_scope`, `parent.is_dir`, `FileNotFoundError`, `folder_role`, `year_container`, `re.fullmatch`, `date.fromisoformat`, `YEAR.fullmatch`, `ord`, `unicodedata.normalize`, `title.strip`, `len`, `os.fsencode`, `year_groups`, `layout.exists`, `parent.is_symlink`, `parent.relative_to(root).as_posix`, `parent.relative_to`, `OrderFolderConflict`, `destination.relative_to(root).as_posix`, `destination.relative_to`, `layout.Plan`, `str`, `store.database.resolve`, `parent.exists`, `plan.mkdir`, `in_freza`, `in_payroll`, `(Path(path) / service).as_posix`, `layout.identity`, `(root / relative).iterdir`, `plan.create_session`, `order_creation.prepare`, `layout.apply`, `order_creation.register`, `layout.save_json`, `order_creation.failed`, `session.relative_to(root).as_posix`, `session.relative_to`, `bool`.
+Непосредственные вызовы: `Path(root).resolve`, `Path`, `store.root.resolve`, `ValueError`, `isinstance`, `any`, `part.startswith`, `is_print_section`, `layout.safe_path`, `layout_scope`, `parent.is_dir`, `FileNotFoundError`, `folder_role`, `year_container`, `is_etc_year`, `re.fullmatch`, `date.fromisoformat`, `YEAR.fullmatch`, `ord`, `unicodedata.normalize`, `title.strip`, `title.startswith`, `len`, `os.fsencode`, `year_groups`, `layout.exists`, `parent.is_symlink`, `parent.relative_to(root).as_posix`, `parent.relative_to`, `OrderFolderConflict`, `destination.relative_to(root).as_posix`, `destination.relative_to`, `layout.Plan`, `str`, `store.database.resolve`, `parent.exists`, `plan.mkdir`, `in_freza`, `in_payroll`, `(Path(path) / service).as_posix`, `layout.identity`, `(root / relative).iterdir`, `summary.insert`, `plan.create_session`, `order_creation.prepare`, `layout.apply`, `order_creation.register`, `layout.save_json`, `order_creation.failed`, `session.relative_to(root).as_posix`, `session.relative_to`, `bool`.
 
 Явные исключения: `ValueError`, `FileNotFoundError`, `OrderFolderConflict`.
 
@@ -104,15 +104,16 @@ def layout_scope(relative):
 def year_container(root, relative):
 ```
 
-Распознаёт контейнер года внутри объекта клиента.
+Распознаёт контейнер года, в котором можно создать заказ.
 
-Формирует возвращаемое значение из проверенного локального состояния.
+Год в «02 - etc» задан путём; в объекте проверяет роли папки года и её родителя.
 
-Непосредственные вызовы: `Path`, `bool`, `YEAR.fullmatch`, `folder_role`, `Path(relative).parent.as_posix`.
+Непосредственные вызовы: `is_etc_year`, `Path`, `bool`, `YEAR.fullmatch`, `folder_role`, `Path(relative).parent.as_posix`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
+True
 bool(parts and YEAR.fullmatch(parts[-1]) and (folder_role(root, relative)['folderKind'] == 'year') and (folder_role(root, Path(relative).parent.as_posix())['folderKind'] == 'object'))
 ```
 

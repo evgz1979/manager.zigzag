@@ -1,4 +1,4 @@
-"""Создание папки заказа в объекте с журналом и самостоятельным откатом."""
+"""Создание папки заказа с журналом и самостоятельным откатом."""
 import os
 import re
 import threading
@@ -7,7 +7,7 @@ from datetime import date
 from pathlib import Path
 
 import folder_layout as layout
-from folder_structure import folder_role, section_prefix, is_print_section, in_freza, in_payroll, YEAR, DATE, DATE_LIKE, NUMBER
+from folder_structure import folder_role, section_prefix, is_etc_year, is_print_section, in_freza, in_payroll, YEAR, DATE, DATE_LIKE, NUMBER
 
 LOCK = threading.RLock()
 
@@ -25,9 +25,11 @@ def layout_scope(relative):
     return {"service_roots": [Path(*prefix).as_posix()]} if prefix else {}
 
 
-# Распознаёт контейнер года внутри объекта клиента.
-# Формирует возвращаемое значение из проверенного локального состояния.
+# Распознаёт контейнер года, в котором можно создать заказ.
+# Год в «02 - etc» задан путём; в объекте проверяет роли папки года и её родителя.
 def year_container(root, relative):
+    if is_etc_year(relative):
+        return True
     parts = Path(relative).parts
     return bool(parts and YEAR.fullmatch(parts[-1]) and folder_role(root,relative)["folderKind"]=="year"
                 and folder_role(root,Path(relative).parent.as_posix())["folderKind"]=="object")
@@ -72,7 +74,7 @@ def create_object(root, relative, title):
 
 
 # Создаёт папку заказа или сверки и при наличии базы регистрирует карточку.
-# Для сверки и записи зарплаты планирует только основную папку; при конфликте останавливает создание.
+# В годе «02 - etc» имя равно названию; для сверки и зарплаты планирует только основную папку.
 def create(root, relative, order_date, title, *, store=None):
     root = Path(root).resolve()
     if store and store.root.resolve() != root:
@@ -86,16 +88,18 @@ def create(root, relative, order_date, title, *, store=None):
         raise FileNotFoundError("Папка объекта недоступна")
     role = folder_role(root, relative)["folderKind"]
     in_year = year_container(root,relative) if role=="year" else False
+    title_only = is_etc_year(relative)
     if role not in {"object", "supplier_root", "work_root", "work_section", "moneys_section", "reconciliations_root"} and not in_year:
-        raise ValueError("Выберите объект клиента, # work или раздел внутри # work / # moneys")
-    if not isinstance(order_date, str) or not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", order_date):
-        raise ValueError("Укажите дату в формате ГГГГ-ММ-ДД")
-    try:
-        date.fromisoformat(order_date)
-    except ValueError:
-        raise ValueError("Укажите существующую дату с годом, месяцем и днём") from None
-    if not YEAR.fullmatch(order_date[:4]):
-        raise ValueError("Укажите год от 1900 до 2099")
+        raise ValueError("Выберите объект, папку года в 02 - etc, # work или раздел внутри # work / # moneys")
+    if not title_only:
+        if not isinstance(order_date, str) or not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", order_date):
+            raise ValueError("Укажите дату в формате ГГГГ-ММ-ДД")
+        try:
+            date.fromisoformat(order_date)
+        except ValueError:
+            raise ValueError("Укажите существующую дату с годом, месяцем и днём") from None
+        if not YEAR.fullmatch(order_date[:4]):
+            raise ValueError("Укажите год от 1900 до 2099")
     if not isinstance(title, str):
         raise ValueError("Укажите название заказа")
     if any(character in '/\\:' or ord(character) < 32 or ord(character) == 127 for character in title):
@@ -103,21 +107,24 @@ def create(root, relative, order_date, title, *, store=None):
     title = unicodedata.normalize("NFC", title.strip())
     if not title:
         raise ValueError("Укажите название заказа")
-    name = f"{order_date} - {title}"
+    if title_only and title.startswith((".", "#")):
+        raise ValueError("Название заказа должно начинаться без точки и #")
+    name = title if title_only else f"{order_date} - {title}"
     if len(os.fsencode(name)) > 255:
         raise ValueError("Название папки слишком длинное. Сократите название заказа")
     with LOCK:
         if not parent.is_dir():
             raise FileNotFoundError("Папка объекта недоступна")
-        if in_year and order_date[:4]!=parent.name:
+        if in_year and not title_only and order_date[:4]!=parent.name:
             raise ValueError("Год даты заказа должен совпадать с открытой папкой года")
         if role=="object" and year_groups(root,relative):
             parent = parent/order_date[:4]
             if layout.exists(parent) and (parent.is_symlink() or not parent.is_dir() or not year_container(root,parent.relative_to(root).as_posix())):
                 raise OrderFolderConflict("Путь года занят отдельной работой или другим файлом")
         destination = parent/name
+        duplicate = "Папка или файл с таким именем уже существует."
         if layout.exists(destination):
-            raise OrderFolderConflict("Папка или файл с таким именем уже существует. Измените дату или название")
+            raise OrderFolderConflict(duplicate + (" Измените название" if title_only else " Измените дату или название"))
         path = destination.relative_to(root).as_posix()
         reconciliation = role == "reconciliations_root"
         plan = layout.Plan(root, [Path(relative).parts[0]], **layout_scope(relative))
@@ -131,10 +138,13 @@ def create(root, relative, order_date, title, *, store=None):
             for service in ('# bills', '# cdr'):
                 plan.mkdir((Path(path) / service).as_posix())
         if not plan.operations:
-            raise OrderFolderConflict("Папка или файл с таким именем уже существует. Измените дату или название")
+            raise OrderFolderConflict(duplicate)
         before = {"parent": relative, "identity": layout.identity(root/relative),
                   "children": [{"name": item.name, "identity": layout.identity(item)} for item in (root/relative).iterdir()]}
-        session = plan.create_session(["Создать папку заказа из интерфейса.", "Дата: " + order_date, "Название: " + title], before)
+        summary = ["Создать папку заказа из интерфейса.", "Название: " + title]
+        if not title_only:
+            summary.insert(1, "Дата: " + order_date)
+        session = plan.create_session(summary, before)
         if store:
             import order_creation
             order_creation.prepare(store, path, title, session)

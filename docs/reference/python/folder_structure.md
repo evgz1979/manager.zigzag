@@ -92,9 +92,9 @@ def folder_role(root, relative):
 
 Классифицирует роль папки для выбора доступного интерфейса и операций.
 
-Формирует возвращаемое значение из проверенного локального состояния.
+В «02 - etc/ГГГГ» непосредственная рабочая подпапка является заказом независимо от имени.
 
-Непосредственные вызовы: `Path`, `len`, `is_work_root`, `is_moneys_root`, `in_bills`, `parts[2].startswith`, `parts[2][1:].strip().casefold`, `parts[2][1:].strip`, `in_reconciliations`, `is_service_folder`, `is_catalog_group`, `dated`, `is_supplier_root`, `supplier_prefix`, `grouped_client`, `enumerate`, `DATE.match`, `DATE_LIKE.match`, `YEAR.fullmatch`, `NUMBER.match`, `Path(root).joinpath`, `os.scandir`, `entry.is_dir`, `entry.name.startswith`, `entry.is_symlink`, `any`, `child.startswith`, `re.match`, `is_print_section`, `Path(*parts[:2]).as_posix`.
+Непосредственные вызовы: `Path`, `len`, `is_work_root`, `is_moneys_root`, `in_bills`, `parts[2].startswith`, `parts[2][1:].strip().casefold`, `parts[2][1:].strip`, `in_reconciliations`, `is_service_folder`, `is_catalog_group`, `is_etc_year`, `dated`, `is_supplier_root`, `supplier_prefix`, `grouped_client`, `enumerate`, `DATE.match`, `DATE_LIKE.match`, `YEAR.fullmatch`, `NUMBER.match`, `Path(root).joinpath`, `os.scandir`, `entry.is_dir`, `entry.name.startswith`, `entry.is_symlink`, `any`, `child.startswith`, `re.match`, `is_print_section`, `Path(*parts[:2]).as_posix`.
 
 Выражения возврата (ветки читаются в исходнике):
 
@@ -234,6 +234,28 @@ def is_catalog_group(name):
 
 ```python
 bool(numbered and (not (dated(name) or DATE.match(name) or DATE_LIKE.match(name) or YEAR.fullmatch(name))))
+```
+
+<a id="symbol-is_etc_year"></a>
+
+## is_etc_year
+
+[folder_structure.py](../../../folder_structure.py) · `function`.
+
+```python
+def is_etc_year(relative):
+```
+
+Распознаёт год мелких заказов по пути.
+
+Принимает только непосредственную папку года внутри корневой «02 - etc».
+
+Непосредственные вызовы: `Path`, `len`, `parts[0].casefold`, `bool`, `YEAR.fullmatch`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+len(parts) == 2 and parts[0].casefold() == '02 - etc' and bool(YEAR.fullmatch(parts[1]))
 ```
 
 <a id="symbol-is_freza_task"></a>

@@ -61,6 +61,8 @@ sequenceDiagram
 
 [createOrderFolder](reference/javascript/static-app.md#symbol-createOrderFolder) отправляет заполненную форму. [create](reference/python/order_folders.md#symbol-create) проверяет клиентскую область, контейнер года и предлагаемое имя. [prepare](reference/python/order_creation.md#symbol-prepare) фиксирует намерение с UUID до завершения набора файловых действий.
 
+[is_etc_year](reference/python/folder_structure.md#symbol-is_etc_year) определяет год непосредственно в `02 - etc`. [read_folder](reference/python/server.md#symbol-read_folder) отдаёт его список подпапок без обхода файлов и включает форму только с названием. [folder_role](reference/python/folder_structure.md#symbol-folder_role) распознаёт непосредственную рабочую подпапку такого года как заказ. Файловый план использует название без префикса даты, а регистрация проходит по общим правилам.
+
 Файловый план создаёт папку заказа и пустые `# bills`/`# cdr`; затем регистрация связывает путь и тот же UUID с записью SQLite. После сбоя [recover](reference/python/order_creation.md#symbol-recover) и [retry_one](reference/python/order_creation.md#symbol-retry_one) могут завершить только собственные шаги, владение которыми доказывается журналом. Похожее название чужой папки не считается доказательством.
 
 Создание сверки использует этот механизм намерения, но создаёт только папку и запись сверки: заказные служебные подпапки и регистрация `orders` ей не нужны.

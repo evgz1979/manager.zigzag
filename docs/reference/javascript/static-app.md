@@ -550,11 +550,11 @@ async function createOrderFolder()
 
 Создаёт папку заказа и применяет ответ устойчивой операции.
 
-Использует `/api/order-folder-create`.
+Отправляет дату в `/api/order-folder-create`, если в форме есть поле даты.
 
 Непосредственные вызовы: `$("createOrderFolderForm").reportValidity`, `$`, `Boolean`, `controls.forEach`, `saveCurrentStatus`, `request`, `$("createOrderFolderDialog").close`, `loadTree`, `navigate`, `loadOrders`, `notify`, `isWorkOrderPath`.
 
-Прямые присваивания полям/свойствам: `state.creatingOrderFolder`, `$("submitCreateOrderFolder").textContent`, `$("newOrderError").hidden`, `$("newOrderError").textContent`.
+Прямые присваивания полям/свойствам: `state.creatingOrderFolder`, `$("submitCreateOrderFolder").textContent`, `$("newOrderError").hidden`, `payload.date`, `$("newOrderError").textContent`.
 
 <a id="symbol-currentOrderValues"></a>
 
@@ -1555,13 +1555,13 @@ function openCreateObject()
 function openCreateOrderFolder()
 ```
 
-Открывает форму создания нового заказа в объекте.
+Открывает форму создания заказа в выбранной папке.
 
-Использует `["supplier_root", "work_section"].includes`, `$`, `Object.fromEntries`.
+В годе «02 - etc» запрашивает только название; иначе предлагает дату по Москве.
 
-Непосредственные вызовы: `["supplier_root", "work_section"].includes`, `$`, `Object.fromEntries`, `new Intl.DateTimeFormat("ru-RU", { timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()).map`, `new Intl.DateTimeFormat("ru-RU", { timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts`, `Intl.DateTimeFormat`, `Date`, `renderNewOrderName`, `$("createOrderFolderDialog").showModal`, `$("newOrderTitle").focus`.
+Непосредственные вызовы: `Boolean`, `["supplier_root", "work_section"].includes`, `$`, `Object.fromEntries`, `new Intl.DateTimeFormat("ru-RU", { timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()).map`, `new Intl.DateTimeFormat("ru-RU", { timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts`, `Intl.DateTimeFormat`, `Date`, `renderNewOrderName`, `$("createOrderFolderDialog").showModal`, `$("newOrderTitle").focus`.
 
-Прямые присваивания полям/свойствам: `state.newOrderParent`, `$("newOrderDateLabel").textContent`, `$("newOrderTitleLabel").textContent`, `$("createOrderFolderTitle").textContent`, `$("submitCreateOrderFolder").textContent`, `$("newOrderParentLabel").textContent`, `$("newOrderTitle").placeholder`, `$("newOrderDate").value`, `$("newOrderTitle").value`, `$("newOrderParent").textContent`, `$("newOrderError").hidden`.
+Прямые присваивания полям/свойствам: `state.newOrderParent`, `$("newOrderDateField").hidden`, `$("newOrderDate").required`, `$("newOrderDateLabel").textContent`, `$("newOrderTitleLabel").textContent`, `$("createOrderFolderTitle").textContent`, `$("submitCreateOrderFolder").textContent`, `$("newOrderParentLabel").textContent`, `$("newOrderTitle").placeholder`, `$("newOrderDate").value`, `$("newOrderTitle").value`, `$("newOrderParent").textContent`, `$("newOrderError").hidden`.
 
 <a id="symbol-openFileTrash"></a>
 
@@ -2710,7 +2710,7 @@ function renderNewOrderName()
 
 Обновляет предлагаемое имя создаваемой папки по полям формы.
 
-Использует `$`, `$("newOrderTitle").value.trim`.
+Для формы без даты выводит только название.
 
 Непосредственные вызовы: `$`, `$("newOrderTitle").value.trim`.
 

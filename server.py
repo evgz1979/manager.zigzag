@@ -66,7 +66,7 @@ import work_orders
 from work_order_list import WorkOrderList
 import supplier_purchases
 from file_comments import FileCommentConflict
-from folder_structure import folder_role, is_catalog_group, client_name, is_print_section, in_payroll, in_reconciliations
+from folder_structure import folder_role, is_catalog_group, client_name, is_etc_year, is_print_section, in_payroll, in_reconciliations
 import reconciliations
 from folder_structure import client_path, in_freza, is_freza_task
 from client_activity import ClientActivity, ClientActivityConflict
@@ -1194,7 +1194,7 @@ def freza_preview_target(relative):
 
 
 # Собирает представление папки и разрешённые файлы её роли.
-# У заказа обходит # cutter, # freza и # docs, у сверки и записи зарплаты — # docs, у входящих счетов — непосредственные файлы.
+# Год «02 - etc» показывает подпапки без общего обхода файлов; у заказа обходит # cutter, # freza и # docs.
 def read_folder(relative="", show_inactive=False):
     target = safe_path(relative)
     if not target.is_dir():
@@ -1215,8 +1215,9 @@ def read_folder(relative="", show_inactive=False):
     print_view = is_print_section(relative)
     freza_section = in_freza(relative) and len(Path(relative).parts) == 2
     freza_task = is_freza_task(relative)
+    etc_year = is_etc_year(relative)
     files_scope = "folder" if freza_task else "events" if status["folderKind"] == "order" or status.get("order") else (
-        "subfolders" if not print_view and status["folderKind"] in {"client", "object", "catalog_group", "supplier_root", "work_root", "moneys_root", "work_section", "moneys_section", "reconciliations_root", "reconciliation", "bills_root"} else "folder")
+        "subfolders" if not print_view and (etc_year or status["folderKind"] in {"client", "object", "catalog_group", "supplier_root", "work_root", "moneys_root", "work_section", "moneys_section", "reconciliations_root", "reconciliation", "bills_root"}) else "folder")
     hide_files = files_scope != "folder"
     folder_count = len(directories) if hide_files or print_view or status['folderKind'] == 'bills_inbox' else 0
     order_file_folder_kinds = ()
@@ -1371,6 +1372,7 @@ def read_folder(relative="", show_inactive=False):
             "canGroupOrdersByYear": status["folderKind"]=="object",
             "canMoveObject": object_move.available(relative_path(target), status["folderKind"]),
             "canCreateOrderFolder": not print_view and (status["folderKind"] in {"object", "supplier_root", "work_root", "work_section", "moneys_section", "reconciliations_root"} or (status["folderKind"]=="year" and order_folders.year_container(DATA_ROOT,relative))),
+            "orderFolderTitleOnly": etc_year,
             "canCreateEventFolder": status["folderKind"] == "order" and not freza_task,
             "canRenameFolder": folder_rename.available(relative_path(target)),
             "canDeleteEvent": event_trash.available(relative_path(target)),

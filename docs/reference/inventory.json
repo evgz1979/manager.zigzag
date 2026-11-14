@@ -257,6 +257,7 @@
           {"name": "in_payroll", "type": "function", "anchor": "symbol-in_payroll"},
           {"name": "in_reconciliations", "type": "function", "anchor": "symbol-in_reconciliations"},
           {"name": "is_catalog_group", "type": "function", "anchor": "symbol-is_catalog_group"},
+          {"name": "is_etc_year", "type": "function", "anchor": "symbol-is_etc_year"},
           {"name": "is_freza_task", "type": "function", "anchor": "symbol-is_freza_task"},
           {"name": "is_moneys_root", "type": "function", "anchor": "symbol-is_moneys_root"},
           {"name": "is_print_section", "type": "function", "anchor": "symbol-is_print_section"},

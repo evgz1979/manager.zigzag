@@ -85,6 +85,40 @@ class OrderFolderTests(unittest.TestCase):
         listed = manager.listed_orders()['orders']
         self.assertFalse(any(item['path'].startswith(('# work/', '#work/')) for item in listed))
 
+    def test_etc_year_creates_orders_by_title_and_lists_folders_without_walking_files(self):
+        manager.DATABASE_ONLY = True
+        year = '02 - etc/2027'
+        existing = ['001 - Номер', '2027-01-02 - Дата', 'Ремонт вывески']
+        for name in existing:
+            self.file(f'{year}/{name}/Монтаж/Фото.jpg', b'photo')
+        with patch.object(manager.os, 'walk', side_effect=AssertionError('Do not walk orders from the year page')):
+            view = manager.read_folder(year)
+        self.assertEqual((view['folderKind'], view['filesScope'], view['files']), ('year', 'subfolders', []))
+        self.assertCountEqual([item['name'] for item in view['directories']], existing)
+        self.assertTrue(view['canCreateOrderFolder'])
+        self.assertTrue(view['orderFolderTitleOnly'])
+        self.assertFalse(view['canRegisterOrder'])
+        for name in existing:
+            order_path = f'{year}/{name}'
+            self.assertEqual(manager.read_folder(order_path)['folderKind'], 'order')
+            self.assertEqual(manager.read_folder(order_path + '/Монтаж')['folderKind'], 'event')
+
+        title = 'Аптека на Лесной — заменить буквы'
+        path = f'{year}/{title}'
+        endpoint = '/api/order-folder-create'
+        payload = {'path': year, 'title': f'  {title}  '}
+        with patch.object(manager, 'schedule_order_sync'), patch.object(manager, 'schedule_todo_refresh'):
+            status, _, body = self.http(endpoint, 'POST', json.dumps(payload))
+            self.assertEqual(status, 201, body)
+            self.assertEqual(self.http(endpoint, 'POST', json.dumps(payload))[0], 409)
+            for parent, invalid_title in ((year, '# Служебная'), (year, '..'), ('02 - etc', 'Мимо года'), (path, 'Вложенный заказ')):
+                self.assertEqual(self.http(endpoint, 'POST', json.dumps({'path': parent, 'title': invalid_title}))[0], 400)
+        self.assertEqual(json.loads(body)['path'], path)
+        self.assertEqual({item.name for item in (self.root / path).iterdir()}, {'# bills', '# cdr'})
+        card = manager.read_folder(path)['order']
+        self.assertEqual(card['title'], title)
+        self.assertEqual([item['id'] for item in manager.listed_orders()['orders']], [card['id']])
+
     def test_registration_failure_recovers_same_folder_and_identity_after_restart(self):
         manager.DATABASE_ONLY = True
         self.folder('Клиент/Адрес')

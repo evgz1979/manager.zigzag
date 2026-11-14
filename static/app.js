@@ -1643,11 +1643,11 @@ function showPrintTask(task) {
 }
 
 // Обновляет предлагаемое имя создаваемой папки по полям формы.
-// Использует `$`, `$("newOrderTitle").value.trim`.
+// Для формы без даты выводит только название.
 function renderNewOrderName() {
   const date = $("newOrderDate").value || "ГГГГ-ММ-ДД";
   const title = $("newOrderTitle").value.trim() || (state.folder?.folderKind === 'reconciliations_root' ? 'Название сверки' : state.folder?.frezaSection ? "Название задания" : state.folder?.folderKind === "moneys_section" ? "Название записи" : "Название заказа");
-  $("newOrderFolderName").textContent = date + " - " + title;
+  $("newOrderFolderName").textContent = $("newOrderDateField").hidden ? title : date + " - " + title;
 }
 
 // Открывает форму создания объекта в выбранном клиенте.
@@ -1738,19 +1738,22 @@ async function groupObjectYears() {
   notify(result.moved ? "Заказы распределены по годам" : "Годовая папка создана");
 }
 
-// Открывает форму создания нового заказа в объекте.
-// Использует `["supplier_root", "work_section"].includes`, `$`, `Object.fromEntries`.
+// Открывает форму создания заказа в выбранной папке.
+// В годе «02 - etc» запрашивает только название; иначе предлагает дату по Москве.
 function openCreateOrderFolder() {
   if (state.folder?.canCreateOrderFolder !== true) return;
   state.newOrderParent = state.folder.path;
+  const titleOnly = Boolean(state.folder.orderFolderTitleOnly);
   const supplier = ["supplier_root", "work_section"].includes(state.folder.folderKind);
   const reconciliation = state.folder.folderKind === 'reconciliations_root';
   const finance = reconciliation || state.folder.folderKind === "moneys_section";
+  $("newOrderDateField").hidden = titleOnly;
+  $("newOrderDate").required = !titleOnly;
   $("newOrderDateLabel").textContent = finance ? "Дата записи" : "Дата заказа";
   $("newOrderTitleLabel").textContent = finance ? "Название записи" : "Название заказа";
   $("createOrderFolderTitle").textContent = finance ? "Создать финансовую запись" : supplier ? "Создать заказ поставщику" : "Создать заказ";
   $("submitCreateOrderFolder").textContent = finance ? "Создать запись" : "Создать заказ";
-  $("newOrderParentLabel").textContent = finance ? "Новая папка в финансовом разделе:" : supplier ? "Новая папка в производственном разделе:" : state.folder.folderKind === "work_root" ? "Новый заказ в корне производства:" : "Новая папка в объекте:";
+  $("newOrderParentLabel").textContent = finance ? "Новая папка в финансовом разделе:" : supplier ? "Новая папка в производственном разделе:" : state.folder.folderKind === "work_root" ? "Новый заказ в корне производства:" : state.folder.folderKind === "year" ? "Новая папка в выбранном году:" : "Новая папка в объекте:";
   $("newOrderTitle").placeholder = finance ? "Например, сверка с поставщиком" : supplier ? "Например, заказ поставщику" : "Например, замена вывески";
   if (reconciliation) {
     $("newOrderDateLabel").textContent = 'Дата сверки';
@@ -1766,10 +1769,13 @@ function openCreateOrderFolder() {
     $("newOrderParentLabel").textContent = "Новое задание в разделе:";
     $("newOrderTitle").placeholder = "Например, Лавфиш — шаблоны";
   }
-  const parts = Object.fromEntries(new Intl.DateTimeFormat("ru-RU", { timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()).map((part) => [part.type, part.value]));
-  const year = state.folder.folderKind === "year" ? state.folder.name : parts.year;
-  $("newOrderDate").value = year + "-" + parts.month + "-" + parts.day;
-  if (!$("newOrderDate").value) $("newOrderDate").value = year + "-01-01";
+  $("newOrderDate").value = "";
+  if (!titleOnly) {
+    const parts = Object.fromEntries(new Intl.DateTimeFormat("ru-RU", { timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()).map((part) => [part.type, part.value]));
+    const year = state.folder.folderKind === "year" ? state.folder.name : parts.year;
+    $("newOrderDate").value = year + "-" + parts.month + "-" + parts.day;
+    if (!$("newOrderDate").value) $("newOrderDate").value = year + "-01-01";
+  }
   $("newOrderTitle").value = "";
   $("newOrderParent").textContent = state.newOrderParent;
   $("newOrderError").hidden = true;
@@ -1779,7 +1785,7 @@ function openCreateOrderFolder() {
 }
 
 // Создаёт папку заказа и применяет ответ устойчивой операции.
-// Использует `/api/order-folder-create`.
+// Отправляет дату в `/api/order-folder-create`, если в форме есть поле даты.
 async function createOrderFolder() {
   if (state.creatingOrderFolder || !$("createOrderFolderForm").reportValidity()) return;
   const finance = state.folder?.folderKind === "moneys_section";
@@ -1793,7 +1799,9 @@ async function createOrderFolder() {
   let created;
   try {
     await saveCurrentStatus();
-    created = await request("/api/order-folder-create", { path: state.newOrderParent, date: $("newOrderDate").value, title: $("newOrderTitle").value });
+    const payload = { path: state.newOrderParent, title: $("newOrderTitle").value };
+    if (!$("newOrderDateField").hidden) payload.date = $("newOrderDate").value;
+    created = await request("/api/order-folder-create", payload);
   } catch (error) {
     $("newOrderError").textContent = error.message;
     $("newOrderError").hidden = false;
