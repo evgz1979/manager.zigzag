@@ -121,39 +121,44 @@ class CalendarEvents:
     # Создаёт или меняет название и комментарий свободного события с UUID/revision.
     # Отсутствующее поле comment сохраняет прежний текст; история и маркер отката атомарны.
     def save(self, payload):
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            return self.save_in_transaction(db, payload)
+
+    # Записывает поля свободного события в уже начатой транзакции.
+    # CalDAV может одновременно сменить привязку и сохранить свойства своей записи.
+    def save_in_transaction(self, db, payload, *, reschedule=False):
         identity, revision = self.identity(payload)
         period = payload.get("period")
         order_calendar.block_name(period)
         day = order_calendar.validate_key(payload.get("date"), period)
         text = order_calendar.validate_text(payload.get("text"))
         comment = validate_comment(payload["comment"]) if "comment" in payload else None
-        with self.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
-            row = db.execute("SELECT * FROM calendar_events WHERE id=?", (identity,)).fetchone()
-            if row is None:
-                if revision != 0:
-                    raise OrderConflict("Событие больше не найдено. Твой текст оставлен в поле")
-                if not text:
-                    raise ValueError("Введи название события")
-                now = time.time()
-                db.execute("INSERT INTO calendar_events (id,version,period,date,text,comment,revision,created,updated,deleted) VALUES (?,1,?,?,?,?,1,?,?,0)",
-                           (identity, period, day, text, comment or "", now, now))
-            else:
-                self.validate(row)
-                # Retrying an unanswered creation cannot create a second event.
-                retry = revision == 0 and row["revision"] == 1 and not row["deleted"]
-                if retry and (row["period"], row["date"], row["text"], row["comment"]) == (period, day, text, comment or ""):
-                    return self.record(row)
-                if revision != row["revision"] or row["deleted"] or (row["period"], row["date"]) != (period, day):
-                    raise OrderConflict("Событие изменилось в другом окне. Проверь изменения перед сохранением")
-                db.execute("UPDATE calendar_events SET text=?,comment=?,is_inactive=?,revision=revision+1,updated=? WHERE id=?",
-                           (text if text else row["text"], row["comment"] if comment is None else comment,
-                            row["is_inactive"] if text else 1, time.time(), identity))
-                if not text:
-                    order_calendar.mark_relevance_contract(db)
-            if comment:
-                db.execute("INSERT OR IGNORE INTO metadata_settings VALUES ('calendar_event_comments','1')")
-            return self.record(db.execute("SELECT * FROM calendar_events WHERE id=?", (identity,)).fetchone())
+        row = db.execute("SELECT * FROM calendar_events WHERE id=?", (identity,)).fetchone()
+        if row is None:
+            if revision != 0:
+                raise OrderConflict("Событие больше не найдено. Твой текст оставлен в поле")
+            if not text:
+                raise ValueError("Введи название события")
+            now = time.time()
+            db.execute("INSERT INTO calendar_events (id,version,period,date,text,comment,revision,created,updated,deleted) VALUES (?,1,?,?,?,?,1,?,?,0)",
+                       (identity, period, day, text, comment or "", now, now))
+        else:
+            self.validate(row)
+            # Retrying an unanswered creation cannot create a second event.
+            retry = revision == 0 and row["revision"] == 1 and not row["deleted"]
+            if retry and (row["period"], row["date"], row["text"], row["comment"]) == (period, day, text, comment or ""):
+                return self.record(row)
+            if revision != row["revision"] or row["deleted"] or (not reschedule and (row["period"], row["date"]) != (period, day)):
+                raise OrderConflict("Событие изменилось в другом окне. Проверь изменения перед сохранением")
+            db.execute("UPDATE calendar_events SET date=?,period=?,text=?,comment=?,is_inactive=?,revision=revision+1,updated=? WHERE id=?",
+                       (day, period, text or row["text"], row["comment"] if comment is None else comment,
+                        row["is_inactive"] if text else 1, time.time(), identity))
+            if not text:
+                order_calendar.mark_relevance_contract(db)
+        if comment:
+            db.execute("INSERT OR IGNORE INTO metadata_settings VALUES ('calendar_event_comments','1')")
+        return self.record(db.execute("SELECT * FROM calendar_events WHERE id=?", (identity,)).fetchone())
 
     # Удаляет или восстанавливает свободное дневное либо недельное событие.
     # Проверяет UUID/revision и формат; меняет только deleted, revision/updated с прежней историей.

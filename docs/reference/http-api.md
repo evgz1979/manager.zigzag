@@ -2,7 +2,7 @@
 
 Получено статически из веток обработчиков. Параметры ниже — строковые ключи payload/get, найденные внутри ветки, а не автоматически доказанная обязательная JSON-схема. Точные проверки находятся по ссылке и в вызываемом доменном методе.
 
-На внешнем слушателе все маршруты наследуют проверки входа. HEAD использует общую GET-маршрутизацию. Защитные проверки, общие лимиты тела и специальные загрузки могут находиться перед перечисленными ветками.
+На внешнем слушателе браузерные маршруты проверяют сессию входа. HEAD использует общую GET-маршрутизацию. Защитные проверки, общие лимиты тела и специальные загрузки могут находиться перед перечисленными ветками.
 
 ## GET / HEAD /api/handoff-health
 
@@ -2280,5 +2280,7 @@ self.send_json(result)
 Вызовы ветки: `self.headers.get_all`, `self.rfile.read(int(lengths[0])).decode`, `urllib.parse.parse_qs`, `any`, `self.headers.get`, `ValueError`, `fields.get`, `self.reply`, `len`, `re.fullmatch`, `int`, `self.headers.get_content_type`, `self.rfile.read`, `'Некорректная форма'.encode`, `fields.values`, `hmac.new(gate.key(document), ('logout:' + cookie(self, SESSION_COOKIE)).encode(), hashlib.sha256).hexdigest`, `hmac.compare_digest`, `hmac.new`, `expected.encode`, `csrf.encode`, `gate.key`, `('logout:' + cookie(self, SESSION_COOKIE)).encode`, `cookie_header`, `cookie`, `self.login_page`, `gate.valid`, `cookie(self, LOGIN_COOKIE).encode`, `gate.retry_after`, `gate.verifying.acquire`, `gate.verifying.release`, `hashlib.pbkdf2_hmac`, `digest.hex`, `password.encode`, `bytes.fromhex`, `gate.token`, `safe_next`.
 
 ## Специальные обработчики и ограничения перечня
+
+Точка обнаружения `/.well-known/caldav` ведёт к `/caldav/`. Пространство CalDAV проверяет отдельный пароль через [handle_caldav](python/remote_access.md#symbol-handler_class.RemoteHandler.handle_caldav). Штатное окно настроек управляет паролем через `POST /api/manager-settings/caldav` и [serve_caldav_settings](python/remote_access.md#symbol-serve_caldav_settings).
 
 Потоковые `/api/file-upload`, `/api/calendar-telegram` и настройка Telegram обрабатываются также отдельными receive-методами до общего JSON-dispatch. `/_auth/login`, `/_auth/session`, `/_auth/logout` проверяются в `remote_access.py`. GET/POST одной строки могут иметь разные правила. Список веток не является разрешением выполнять произвольные POST.

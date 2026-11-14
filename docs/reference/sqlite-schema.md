@@ -2,6 +2,17 @@
 
 Статический справочник CREATE/ALTER/INDEX/TRIGGER из собственных Python-файлов. Динамические имена и f-строки показаны как шаблоны. Наличие DDL в совместимой ветке не означает, что она исполняется в текущем режиме. [Как работает хранение](../language/sqlite.md).
 
+## caldav_events.py
+
+[schema](python/caldav_events.md#symbol-schema)
+
+```sql
+CREATE TABLE IF NOT EXISTS calendar_dav_objects (
+        event_id TEXT PRIMARY KEY REFERENCES calendar_events(id), name TEXT NOT NULL UNIQUE,
+        uid TEXT NOT NULL UNIQUE, original_date TEXT NOT NULL, original_period TEXT NOT NULL,
+        icalendar TEXT NOT NULL)
+```
+
 ## calendar_events.py
 
 [schema](python/calendar_events.md#symbol-schema)

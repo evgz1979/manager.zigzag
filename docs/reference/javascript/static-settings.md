@@ -6,6 +6,24 @@
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-changeCalendarPassword"></a>
+
+## changeCalendarPassword
+
+[static/settings.js](../../../static/settings.js) · `FunctionDeclaration`.
+
+```javascript
+async function changeCalendarPassword(action)
+```
+
+Меняет отдельный пароль приложения через текущую сессию настроек.
+
+Показывает пароль один раз и сохраняет его только до закрытия окна.
+
+Непосредственные вызовы: `window.confirm`, `fetch`, `JSON.stringify`, `response.json`, `caldavPassword.focus`, `caldavPassword.select`.
+
+Прямые присваивания полям/свойствам: `caldavGenerate.disabled`, `caldavRevoke.disabled`, `close.disabled`, `caldavStatus.textContent`, `caldavPassword.value`, `caldavPassword.parentElement.hidden`.
+
 <a id="symbol-loadSeller"></a>
 
 ## loadSeller
@@ -40,7 +58,7 @@ async function openSettings()
 
 Непосредственные вызовы: `form.reset`, `dialog.showModal`, `loadSeller`, `fetch`, `response.json`, `document.getElementById`.
 
-Прямые присваивания полям/свойствам: `fields.disabled`, `status.textContent`, `sellerFields.disabled`, `sellerSave.disabled`, `document.getElementById('managerSettingsAddress').textContent`, `document.getElementById('managerCurrentPasswordLabel').hidden`, `current.required`.
+Прямые присваивания полям/свойствам: `fields.disabled`, `status.textContent`, `caldavPanel.hidden`, `sellerFields.disabled`, `sellerSave.disabled`, `document.getElementById('managerCalDAVAddress').textContent`, `document.getElementById('managerCalDAVHTTPSLink').href`, `document.getElementById('managerCalDAVHTTPS').hidden`, `document.getElementById('managerCalDAVControls').hidden`, `document.getElementById('managerSettingsAddress').textContent`, `document.getElementById('managerCurrentPasswordLabel').hidden`, `current.required`.
 
 <a id="symbol-saveSeller"></a>
 
@@ -76,4 +94,4 @@ async function saveSettings(event)
 
 Непосредственные вызовы: `event.preventDefault`, `confirmation.focus`, `AbortController`, `window.setTimeout`, `fetch`, `JSON.stringify`, `response.json`, `form.reset`, `window.clearTimeout`.
 
-Прямые присваивания полям/свойствам: `status.textContent`, `fields.disabled`, `close.disabled`.
+Прямые присваивания полям/свойствам: `status.textContent`, `fields.disabled`, `close.disabled`, `caldavPassword.value`, `caldavPassword.parentElement.hidden`, `caldavStatus.textContent`.

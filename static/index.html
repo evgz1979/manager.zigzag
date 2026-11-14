@@ -475,6 +475,18 @@
         <p id="managerSettingsState" class="todo-save-state" role="status"></p>
       </form>
       </details>
+      <details id="managerCalDAVSettings" class="manager-password-settings" hidden><summary>Apple Calendar · CalDAV</summary>
+        <p id="managerCalDAVAddress" class="new-order-preview"></p>
+        <p id="managerCalDAVHTTPS" class="new-order-preview" hidden>Для настройки пароля открой <a id="managerCalDAVHTTPSLink" target="_blank" rel="noopener">внешний вход менеджера</a> по HTTPS.</p>
+        <div id="managerCalDAVControls" hidden>
+        <p class="new-order-preview">Подключи учётную запись CalDAV на iPhone или Mac. Свободные события можно менять в обоих календарях.</p>
+        <p class="new-order-preview">Новый пароль отключает предыдущий пароль CalDAV на всех устройствах.</p>
+        <button id="managerCalDAVGenerate" class="primary-button" type="button">Создать пароль CalDAV</button>
+        <button id="managerCalDAVRevoke" class="secondary-button" type="button">Отозвать пароль</button>
+        <label id="managerCalDAVPasswordLabel" hidden>Пароль CalDAV<input id="managerCalDAVPassword" type="text" readonly autocomplete="off" spellcheck="false"></label>
+        <p id="managerCalDAVState" class="todo-save-state" role="status"></p>
+        </div>
+      </details>
       <div class="confirm-actions"><button id="managerSettingsClose" class="secondary-button" type="button">Закрыть</button></div>
     </dialog>
     <button id="showMoveObjectProgress" class="secondary-button object-move-progress-button" type="button" hidden>Перенос объекта</button>

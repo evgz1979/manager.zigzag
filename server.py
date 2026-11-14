@@ -24,6 +24,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from zoneinfo import ZoneInfo
 import calendar_events
+import caldav
 import telegram_calendar
 import calendar_delivery
 import calendar_todos
@@ -1005,6 +1006,14 @@ def listed_orders():
             "storage":metadata_store().status() if DATABASE_ONLY else {"database_only":False}}
 
 
+# Собирает доступные зарегистрированные заказы для календаря CalDAV.
+# Читает SQLite, исключает архивную продукцию и сохраняет заказы поставщикам.
+def caldav_orders():
+    visible = object_activity_store().visible_orders(client_activity_store().visible_orders(order_store().list()))
+    return [order for order in visible if not work_orders.archived(order) and
+            (not work_orders.in_work(order['path']) or order['work_supplier'])]
+
+
 # Собирает и отправляет календарь для команды бота без браузера пользователя.
 # Возвращает `telegram_calendar.send(image, start, DATA_DIR, through=through, todo_text=calendar_todos.digest(snapshot, start, through))`.
 def send_calendar_command():
@@ -1548,6 +1557,17 @@ def pdf_page(target, page):
 # Обслуживает LAN-запросы менеджера и маршрутизирует действия приложения.
 # Основные операции: log_message, send_json, send_invoice_pdf, send_invoice_document, send_file; остальные описаны у методов.
 class ManagerHandler(BaseHTTPRequestHandler):
+    # Проверяет, может ли текущая установка принимать правки.
+    # Остановленная копия и переключение блокируют браузер и CalDAV.
+    def writes_allowed(self):
+        return not HANDOFF_STOP.is_set() and not (DATA_DIR.resolve().parent / '.handoff-parked.json').exists()
+
+    # Собирает хранилище календаря для защищённого обработчика и настроек.
+    # Возвращает тот же CalendarEvents, который используется веб-календарём.
+    @staticmethod
+    def caldav_store():
+        return calendar_events.CalendarEvents(order_store())
+
     # Записывает предусмотренное диагностическое сообщение обработчика.
     # Выполняет локальные проверки или меняет только переданные структуры данных.
     def log_message(self, format, *args):
@@ -1995,11 +2015,14 @@ class ManagerHandler(BaseHTTPRequestHandler):
     # Проверяет и маршрутизирует запрос изменения данных текущего обработчика.
     # Запускает внешний процесс; параметры и ограничения заданы в теле функции.
     def do_POST(self):
-        if HANDOFF_STOP.is_set() or (DATA_DIR.resolve().parent / ".handoff-parked.json").exists():
+        if not self.writes_allowed():
             self.send_json({"error": "Менеджер переключается на другой компьютер. Проверь сохранение после переключения."}, 503)
             return
         if urllib.parse.urlsplit(self.path).path == remote_access.PASSWORD_PATH:
             remote_access.serve_password_change(self)
+            return
+        if urllib.parse.urlsplit(self.path).path == caldav.SETTINGS:
+            remote_access.serve_caldav_settings(self)
             return
         if urllib.parse.urlsplit(self.path).path == '/api/calendar-telegram-settings':
             self.receive_telegram_settings()
@@ -2510,7 +2533,7 @@ def serve():
     server.daemon_threads = False
     remote_server = None
     try:
-        remote_server = remote_access.start(ManagerHandler, CONFIG_FILE)
+        remote_server = remote_access.start(ManagerHandler, CONFIG_FILE, caldav_orders=caldav_orders)
         if remote_server:
             server.password_gate = remote_server.password_gate
     except (OSError, ValueError, configparser.Error):

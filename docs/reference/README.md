@@ -8,12 +8,14 @@
 
 ## Python
 
-64 файлов; 910 именованных объявлений.
+66 файлов; 956 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
+| [caldav.py](python/caldav.md) | 24 |
+| [caldav_events.py](python/caldav_events.md) | 15 |
 | [calendar_delivery.py](python/calendar_delivery.md) | 5 |
-| [calendar_events.py](python/calendar_events.md) | 18 |
+| [calendar_events.py](python/calendar_events.md) | 19 |
 | [calendar_layout.py](python/calendar_layout.md) | 3 |
 | [calendar_todos.py](python/calendar_todos.md) | 2 |
 | [client_activity.py](python/client_activity.md) | 21 |
@@ -54,7 +56,7 @@
 | [orders.py](python/orders.md) | 44 |
 | [reconciliations.py](python/reconciliations.md) | 19 |
 | [recovery_backup.py](python/recovery_backup.md) | 10 |
-| [remote_access.py](python/remote_access.md) | 38 |
+| [remote_access.py](python/remote_access.md) | 41 |
 | [scripts/archive_order_duplicate.py](python/scripts-archive_order_duplicate.md) | 8 |
 | [scripts/build_documentation.py](python/scripts-build_documentation.md) | 22 |
 | [scripts/deploy.py](python/scripts-deploy.md) | 3 |
@@ -65,7 +67,7 @@
 | [scripts/rebind_order.py](python/scripts-rebind_order.md) | 8 |
 | [scripts/remote_access_password.py](python/scripts-remote_access_password.md) | 10 |
 | [scripts/verify_recovery_backup.py](python/scripts-verify_recovery_backup.md) | 1 |
-| [server.py](python/server.md) | 99 |
+| [server.py](python/server.md) | 102 |
 | [sketches.py](python/sketches.md) | 12 |
 | [spreadsheet_preview.py](python/spreadsheet_preview.md) | 1 |
 | [supplier_purchases.py](python/supplier_purchases.md) | 14 |
@@ -79,7 +81,7 @@
 
 ## JavaScript
 
-23 файлов; 452 именованных объявлений.
+23 файлов; 453 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
@@ -100,7 +102,7 @@
 | [static/order-sorting.js](javascript/static-order-sorting.md) | 2 |
 | [static/reconciliations.js](javascript/static-reconciliations.md) | 10 |
 | [static/remote-access.js](javascript/static-remote-access.md) | 2 |
-| [static/settings.js](javascript/static-settings.md) | 4 |
+| [static/settings.js](javascript/static-settings.md) | 5 |
 | [static/spreadsheet-preview.js](javascript/static-spreadsheet-preview.md) | 7 |
 | [static/spreadsheet-worker.js](javascript/static-spreadsheet-worker.md) | 2 |
 | [static/supplier-purchases.js](javascript/static-supplier-purchases.md) | 9 |

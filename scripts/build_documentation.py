@@ -225,7 +225,7 @@ def module_page(file, folder):
 # Не принимает упоминание API в сообщении или защите Origin за отдельный маршрут.
 def api_page(files):
     out = ['# HTTP API: точки входа', '', 'Получено статически из веток обработчиков. Параметры ниже — строковые ключи payload/get, найденные внутри ветки, а не автоматически доказанная обязательная JSON-схема. Точные проверки находятся по ссылке и в вызываемом доменном методе.', '',
-           'На внешнем слушателе все маршруты наследуют проверки входа. HEAD использует общую GET-маршрутизацию. Защитные проверки, общие лимиты тела и специальные загрузки могут находиться перед перечисленными ветками.', '']
+           'На внешнем слушателе браузерные маршруты проверяют сессию входа. HEAD использует общую GET-маршрутизацию. Защитные проверки, общие лимиты тела и специальные загрузки могут находиться перед перечисленными ветками.', '']
     for relative in ['server.py', 'remote_access.py']:
         file = next(file for file in files if file['path'] == relative)
         source = (ROOT / relative).read_text()
@@ -261,6 +261,7 @@ def api_page(files):
                     if calls:
                         out += ['Вызовы ветки: ' + ', '.join('`' + value + '`' for value in calls) + '.', '']
     out += ['## Специальные обработчики и ограничения перечня', '',
+            'Точка обнаружения `/.well-known/caldav` ведёт к `/caldav/`. Пространство CalDAV проверяет отдельный пароль через [handle_caldav](python/remote_access.md#symbol-handler_class.RemoteHandler.handle_caldav). Штатное окно настроек управляет паролем через `POST /api/manager-settings/caldav` и [serve_caldav_settings](python/remote_access.md#symbol-serve_caldav_settings).', '',
             'Потоковые `/api/file-upload`, `/api/calendar-telegram` и настройка Telegram обрабатываются также отдельными receive-методами до общего JSON-dispatch. `/_auth/login`, `/_auth/session`, `/_auth/logout` проверяются в `remote_access.py`. GET/POST одной строки могут иметь разные правила. Список веток не является разрешением выполнять произвольные POST.', '']
     return '\n'.join(out)
 

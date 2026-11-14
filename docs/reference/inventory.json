@@ -3,6 +3,55 @@
   "groups": {
     "python": [
       {
+        "path": "caldav.py",
+        "symbols": [
+          {"name": "CalendarDAV", "type": "class", "anchor": "symbol-CalendarDAV"},
+          {"name": "CalendarDAV.__init__", "type": "function", "anchor": "symbol-CalendarDAV.__init__"},
+          {"name": "CalendarDAV.propfind", "type": "function", "anchor": "symbol-CalendarDAV.propfind"},
+          {"name": "CalendarDAV.report", "type": "function", "anchor": "symbol-CalendarDAV.report"},
+          {"name": "CalendarDAV.resources", "type": "function", "anchor": "symbol-CalendarDAV.resources"},
+          {"name": "CalendarDAV.serve", "type": "function", "anchor": "symbol-CalendarDAV.serve"},
+          {"name": "DavError", "type": "class", "anchor": "symbol-DavError"},
+          {"name": "DavError.__init__", "type": "function", "anchor": "symbol-DavError.__init__"},
+          {"name": "add_response", "type": "function", "anchor": "symbol-add_response"},
+          {"name": "authorized", "type": "function", "anchor": "symbol-authorized"},
+          {"name": "credential_digest", "type": "function", "anchor": "symbol-credential_digest"},
+          {"name": "delete", "type": "function", "anchor": "symbol-delete"},
+          {"name": "event_resources", "type": "function", "anchor": "symbol-event_resources"},
+          {"name": "manage_credentials", "type": "function", "anchor": "symbol-manage_credentials"},
+          {"name": "multistatus", "type": "function", "anchor": "symbol-multistatus"},
+          {"name": "parse_xml", "type": "function", "anchor": "symbol-parse_xml"},
+          {"name": "precondition", "type": "function", "anchor": "symbol-precondition"},
+          {"name": "privileges", "type": "function", "anchor": "symbol-privileges"},
+          {"name": "properties", "type": "function", "anchor": "symbol-properties"},
+          {"name": "put", "type": "function", "anchor": "symbol-put"},
+          {"name": "read_body", "type": "function", "anchor": "symbol-read_body"},
+          {"name": "route_for", "type": "function", "anchor": "symbol-route_for"},
+          {"name": "send_error", "type": "function", "anchor": "symbol-send_error"},
+          {"name": "split_resource", "type": "function", "anchor": "symbol-split_resource"}
+        ]
+      },
+      {
+        "path": "caldav_events.py",
+        "symbols": [
+          {"name": "Resource", "type": "class", "anchor": "symbol-Resource"},
+          {"name": "Resource.etag", "type": "function", "anchor": "symbol-Resource.etag"},
+          {"name": "adjusted_interval", "type": "function", "anchor": "symbol-adjusted_interval"},
+          {"name": "encode_lines", "type": "function", "anchor": "symbol-encode_lines"},
+          {"name": "escape", "type": "function", "anchor": "symbol-escape"},
+          {"name": "event_resource", "type": "function", "anchor": "symbol-event_resource"},
+          {"name": "instant", "type": "function", "anchor": "symbol-instant"},
+          {"name": "order_resources", "type": "function", "anchor": "symbol-order_resources"},
+          {"name": "parse", "type": "function", "anchor": "symbol-parse"},
+          {"name": "parse_duration", "type": "function", "anchor": "symbol-parse_duration"},
+          {"name": "parse_time", "type": "function", "anchor": "symbol-parse_time"},
+          {"name": "placement", "type": "function", "anchor": "symbol-placement"},
+          {"name": "schema", "type": "function", "anchor": "symbol-schema"},
+          {"name": "time_lines", "type": "function", "anchor": "symbol-time_lines"},
+          {"name": "unescape", "type": "function", "anchor": "symbol-unescape"}
+        ]
+      },
+      {
         "path": "calendar_delivery.py",
         "symbols": [
           {"name": "html", "type": "function", "anchor": "symbol-html"},
@@ -26,6 +75,7 @@
           {"name": "CalendarEvents.move", "type": "function", "anchor": "symbol-CalendarEvents.move"},
           {"name": "CalendarEvents.record", "type": "function", "anchor": "symbol-CalendarEvents.record"},
           {"name": "CalendarEvents.save", "type": "function", "anchor": "symbol-CalendarEvents.save"},
+          {"name": "CalendarEvents.save_in_transaction", "type": "function", "anchor": "symbol-CalendarEvents.save_in_transaction"},
           {"name": "CalendarEvents.set_completed", "type": "function", "anchor": "symbol-CalendarEvents.set_completed"},
           {"name": "CalendarEvents.set_deleted", "type": "function", "anchor": "symbol-CalendarEvents.set_deleted"},
           {"name": "CalendarEvents.set_inactive", "type": "function", "anchor": "symbol-CalendarEvents.set_inactive"},
@@ -790,8 +840,10 @@
           {"name": "handler_class.RemoteHandler.do_GET", "type": "function", "anchor": "symbol-handler_class.RemoteHandler.do_GET"},
           {"name": "handler_class.RemoteHandler.do_HEAD", "type": "function", "anchor": "symbol-handler_class.RemoteHandler.do_HEAD"},
           {"name": "handler_class.RemoteHandler.do_POST", "type": "function", "anchor": "symbol-handler_class.RemoteHandler.do_POST"},
+          {"name": "handler_class.RemoteHandler.do_PROPFIND", "type": "function", "anchor": "symbol-handler_class.RemoteHandler.do_PROPFIND"},
           {"name": "handler_class.RemoteHandler.end_headers", "type": "function", "anchor": "symbol-handler_class.RemoteHandler.end_headers"},
           {"name": "handler_class.RemoteHandler.get_remote", "type": "function", "anchor": "symbol-handler_class.RemoteHandler.get_remote"},
+          {"name": "handler_class.RemoteHandler.handle_caldav", "type": "function", "anchor": "symbol-handler_class.RemoteHandler.handle_caldav"},
           {"name": "handler_class.RemoteHandler.login_page", "type": "function", "anchor": "symbol-handler_class.RemoteHandler.login_page"},
           {"name": "handler_class.RemoteHandler.reply", "type": "function", "anchor": "symbol-handler_class.RemoteHandler.reply"},
           {"name": "handler_class.RemoteHandler.same_origin", "type": "function", "anchor": "symbol-handler_class.RemoteHandler.same_origin"},
@@ -800,6 +852,7 @@
           {"name": "password_document", "type": "function", "anchor": "symbol-password_document"},
           {"name": "safe_next", "type": "function", "anchor": "symbol-safe_next"},
           {"name": "save_password", "type": "function", "anchor": "symbol-save_password"},
+          {"name": "serve_caldav_settings", "type": "function", "anchor": "symbol-serve_caldav_settings"},
           {"name": "serve_password_change", "type": "function", "anchor": "symbol-serve_password_change"},
           {"name": "serve_settings", "type": "function", "anchor": "symbol-serve_settings"},
           {"name": "settings", "type": "function", "anchor": "symbol-settings"},
@@ -967,6 +1020,7 @@
         "path": "server.py",
         "symbols": [
           {"name": "ManagerHandler", "type": "class", "anchor": "symbol-ManagerHandler"},
+          {"name": "ManagerHandler.caldav_store", "type": "function", "anchor": "symbol-ManagerHandler.caldav_store"},
           {"name": "ManagerHandler.do_GET", "type": "function", "anchor": "symbol-ManagerHandler.do_GET"},
           {"name": "ManagerHandler.do_HEAD", "type": "function", "anchor": "symbol-ManagerHandler.do_HEAD"},
           {"name": "ManagerHandler.do_POST", "type": "function", "anchor": "symbol-ManagerHandler.do_POST"},
@@ -979,9 +1033,11 @@
           {"name": "ManagerHandler.send_invoice_document", "type": "function", "anchor": "symbol-ManagerHandler.send_invoice_document"},
           {"name": "ManagerHandler.send_invoice_pdf", "type": "function", "anchor": "symbol-ManagerHandler.send_invoice_pdf"},
           {"name": "ManagerHandler.send_json", "type": "function", "anchor": "symbol-ManagerHandler.send_json"},
+          {"name": "ManagerHandler.writes_allowed", "type": "function", "anchor": "symbol-ManagerHandler.writes_allowed"},
           {"name": "PrintConflict", "type": "class", "anchor": "symbol-PrintConflict"},
           {"name": "_read_print_task", "type": "function", "anchor": "symbol-_read_print_task"},
           {"name": "_thumbnail_store", "type": "function", "anchor": "symbol-_thumbnail_store"},
+          {"name": "caldav_orders", "type": "function", "anchor": "symbol-caldav_orders"},
           {"name": "client_activity_store", "type": "function", "anchor": "symbol-client_activity_store"},
           {"name": "client_activity_worker", "type": "function", "anchor": "symbol-client_activity_worker"},
           {"name": "comment_file", "type": "function", "anchor": "symbol-comment_file"},
@@ -1743,6 +1799,7 @@
       {
         "path": "static/settings.js",
         "symbols": [
+          {"name": "changeCalendarPassword", "type": "FunctionDeclaration", "anchor": "symbol-changeCalendarPassword"},
           {"name": "loadSeller", "type": "FunctionDeclaration", "anchor": "symbol-loadSeller"},
           {"name": "openSettings", "type": "FunctionDeclaration", "anchor": "symbol-openSettings"},
           {"name": "saveSeller", "type": "FunctionDeclaration", "anchor": "symbol-saveSeller"},

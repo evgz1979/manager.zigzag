@@ -234,7 +234,29 @@ def save(self, payload):
 
 Отсутствующее поле comment сохраняет прежний текст; история и маркер отката атомарны.
 
-Непосредственные вызовы: `self.identity`, `payload.get`, `order_calendar.block_name`, `order_calendar.validate_key`, `order_calendar.validate_text`, `validate_comment`, `self.connect`, `db.execute`, `db.execute('SELECT * FROM calendar_events WHERE id=?', (identity,)).fetchone`, `OrderConflict`, `ValueError`, `time.time`, `self.validate`, `self.record`, `order_calendar.mark_relevance_contract`.
+Непосредственные вызовы: `self.connect`, `db.execute`, `self.save_in_transaction`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+self.save_in_transaction(db, payload)
+```
+
+<a id="symbol-CalendarEvents.save_in_transaction"></a>
+
+## CalendarEvents.save_in_transaction
+
+[calendar_events.py](../../../calendar_events.py) · `function`.
+
+```python
+def save_in_transaction(self, db, payload, *, reschedule=False):
+```
+
+Записывает поля свободного события в уже начатой транзакции.
+
+CalDAV может одновременно сменить привязку и сохранить свойства своей записи.
+
+Непосредственные вызовы: `self.identity`, `payload.get`, `order_calendar.block_name`, `order_calendar.validate_key`, `order_calendar.validate_text`, `validate_comment`, `db.execute('SELECT * FROM calendar_events WHERE id=?', (identity,)).fetchone`, `db.execute`, `OrderConflict`, `ValueError`, `time.time`, `self.validate`, `self.record`, `order_calendar.mark_relevance_contract`.
 
 Явные исключения: `OrderConflict`, `ValueError`.
 

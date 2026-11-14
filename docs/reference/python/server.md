@@ -4,7 +4,7 @@
 
 Исходник: [server.py](../../../server.py).
 
-Импорты Python, включая локальные: `calendar_delivery`, `calendar_events`, `calendar_todos`, `client_activity`, `configparser`, `contextlib`, `datetime`, `event_folder_undo`, `event_folders`, `event_relevance`, `event_trash`, `fcntl`, `file_comments`, `file_trash`, `file_uploads`, `folder_notes`, `folder_rename`, `folder_structure`, `functools`, `hashlib`, `hidden_orders`, `http.server`, `icloud_access`, `image_reports`, `inbox_folder`, `invoice_discovery`, `invoice_documents`, `invoice_preferences`, `invoices`, `json`, `local_metadata`, `mimetypes`, `mobile_sync`, `native_renderers`, `object_activity`, `object_move`, `object_orders`, `object_years`, `order_creation`, `order_deadlines`, `order_document`, `order_folders`, `order_links`, `order_todos`, `orders`, `os`, `pathlib`, `plistlib`, `re`, `reconciliations`, `recovery_backup`, `remote_access`, `shutil`, `signal`, `sketches`, `socket`, `spreadsheet_preview`, `sqlite3`, `subprocess`, `supplier_purchases`, `sys`, `telegram_calendar`, `telegram_inbox`, `tempfile`, `threading`, `thumbnail_cache`, `unicodedata`, `urllib.parse`, `work_order_list`, `work_orders`, `zoneinfo`.
+Импорты Python, включая локальные: `caldav`, `calendar_delivery`, `calendar_events`, `calendar_todos`, `client_activity`, `configparser`, `contextlib`, `datetime`, `event_folder_undo`, `event_folders`, `event_relevance`, `event_trash`, `fcntl`, `file_comments`, `file_trash`, `file_uploads`, `folder_notes`, `folder_rename`, `folder_structure`, `functools`, `hashlib`, `hidden_orders`, `http.server`, `icloud_access`, `image_reports`, `inbox_folder`, `invoice_discovery`, `invoice_documents`, `invoice_preferences`, `invoices`, `json`, `local_metadata`, `mimetypes`, `mobile_sync`, `native_renderers`, `object_activity`, `object_move`, `object_orders`, `object_years`, `order_creation`, `order_deadlines`, `order_document`, `order_folders`, `order_links`, `order_todos`, `orders`, `os`, `pathlib`, `plistlib`, `re`, `reconciliations`, `recovery_backup`, `remote_access`, `shutil`, `signal`, `sketches`, `socket`, `spreadsheet_preview`, `sqlite3`, `subprocess`, `supplier_purchases`, `sys`, `telegram_calendar`, `telegram_inbox`, `tempfile`, `threading`, `thumbnail_cache`, `unicodedata`, `urllib.parse`, `work_order_list`, `work_orders`, `zoneinfo`.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
@@ -21,6 +21,28 @@ class ManagerHandler(BaseHTTPRequestHandler):
 Обслуживает LAN-запросы менеджера и маршрутизирует действия приложения.
 
 Основные операции: log_message, send_json, send_invoice_pdf, send_invoice_document, send_file; остальные описаны у методов.
+
+<a id="symbol-ManagerHandler.caldav_store"></a>
+
+## ManagerHandler.caldav_store
+
+[server.py](../../../server.py) · `function`.
+
+```python
+def caldav_store():
+```
+
+Собирает хранилище календаря для защищённого обработчика и настроек.
+
+Возвращает тот же CalendarEvents, который используется веб-календарём.
+
+Непосредственные вызовы: `calendar_events.CalendarEvents`, `order_store`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+calendar_events.CalendarEvents(order_store())
+```
 
 <a id="symbol-ManagerHandler.do_GET"></a>
 
@@ -68,7 +90,7 @@ def do_POST(self):
 
 Запускает внешний процесс; параметры и ограничения заданы в теле функции.
 
-Непосредственные вызовы: `HANDOFF_STOP.is_set`, `(DATA_DIR.resolve().parent / '.handoff-parked.json').exists`, `DATA_DIR.resolve`, `self.send_json`, `urllib.parse.urlsplit`, `remote_access.serve_password_change`, `self.receive_telegram_settings`, `self.receive_calendar_telegram`, `self.receive_upload`, `urllib.parse.urlparse`, `self.headers.get`, `self.headers.get_content_type`, `ValueError`, `int`, `json.loads`, `self.rfile.read(length).decode`, `self.rfile.read`, `isinstance`, `invoice_preferences.resource`, `invoice_store`, `route.rsplit`, `reconciliations.Reconciliations`, `order_store`, `route.endswith`, `service.save`, `service.assign`, `payload.get`, `in_reconciliations`, `route.startswith`, `len`, `Path`, `telegram_inbox.complete`, `telegram_inbox.set_deleted`, `thumbnail_store().items`, `thumbnail_store`, `thumbnail_store().cover`, `invoice_store().create`, `invoice_store().plan`, `invoice_store().move_calendar_plan`, `invoice_store().remove`, `invoice_store().restore`, `invoice_store().upload`, `schedule_order_sync`, `invoice_discovery.attach`, `invoice_documents.upload`, `invoice_documents.set_deleted`, `invoice_store().save_comment`, `invoice_store().save_list_status`, `invoice_store().save`, `invoice_store().issue`, `guard_database`, `order_folders.create`, `METADATA_REFRESH.set`, `schedule_todo_refresh`, `order_folders.create_object`, `object_years.group`, `object_move.start`, `event_folders.create`, `folder_note_store`, `folder_rename.rename`, `event_folders.rename`, `folder_note_store().save`, `folder_note_store().save_relevance`, `event_relevance.info`, `folder_note_store().save_sketch_relevance`, `sketches.group_info`, `sketch_target`, `sketches.open_corel`, `editable_status_folder`, `relative_path`, `store.path`, `store.require_order_folder`, `order_creation.retry_one`, `store.get`, `folder_status`, `directory_children`, `store.import_folder`, `MobileBridge`, `bridge.configure`, `schedule_mobile_sync`, `bridge.status`, `order_store().save`, `supplier_purchases.SupplierPurchases(order_store()).save`, `supplier_purchases.SupplierPurchases`, `inactive_paths`, `supplier_purchases.SupplierPurchases(order_store()).edit`, `order_store().save_favorite`, `OrderLinks(order_store()).save`, `OrderLinks`, `order_store().save_flag`, `order_store().save_blue_plus`, `order_store().save_dollar`, `order_store().save_status`, `order_store().save_supplier_status`, `order_store().save_deadline_week`, `order_store().save_calendar_compact`, `order_store().save_deadline_comment`, `calendar_events.CalendarEvents(order_store()).save`, `calendar_events.CalendarEvents`, `calendar_events.CalendarEvents(order_store()).set_deleted`, `operation`, `calendar_events.CalendarEvents(order_store()).color`, `order_store().save_calendar_color`, `calendar_events.CalendarEvents(order_store()).move`, `order_store().save_calendar_inactive`, `order_store().save_calendar_completed`, `calendar_events.CalendarEvents(order_store()).set_completed`, `invoice_store().save_plan_calendar_completed`, `order_store().save_calendar_trip`, `order_store().save_calendar_watch_todos`, `invoice_store().save_plan_calendar_watch_todos`, `calendar_events.CalendarEvents(order_store()).set_trip`, `invoice_store().save_plan_calendar_trip`, `calendar_events.CalendarEvents(order_store()).set_inactive`, `invoice_store().save_plan_calendar_inactive`, `invoice_store().save_plan_calendar_carryover`, `invoice_store().save_plan_calendar_notified`, `order_store().save_calendar_event`, `order_store().move_calendar_event`, `work_orders.save_supplier_favorite`, `order_store().save_work_links`, `object_activity_store`, `client_activity_store`, `activity.accept_file`, `activity.save`, `order_store().remove`, `folder_note_store().get`, `discover_orders`, `client_activity_store().refresh`, `object_activity_store().refresh`, `order_store().path`, `create_print_task`, `save_print_task`, `read_print_task`, `PrintConflict`, `datetime.now(ZoneInfo('Europe/Moscow')).strftime`, `datetime.now`, `ZoneInfo`, `hashlib.sha256((task['path'] + task['revision']).encode()).hexdigest`, `hashlib.sha256`, `(task['path'] + task['revision']).encode`, `metadata_store().publish`, `metadata_store`, `compose_print_text(task['link'], task['description'], task['title']).encode`, `compose_print_text`, `comment_file`, `file_comments.binding`, `FileCommentConflict`, `metadata_store().save_comment`, `file_comments.save`, `create_image_report`, `file_trash.preview`, `event_trash.preview`, `event_trash.remove`, `event_trash.restore`, `file_trash.remove`, `event_trash.list_sessions`, `file_trash.list_sessions`, `errors.append`, `file_trash.restore`, `save_status`, `save_note`, `safe_path`, `target.exists`, `FileNotFoundError`, `subprocess.Popen`, `str`.
+Непосредственные вызовы: `self.writes_allowed`, `self.send_json`, `urllib.parse.urlsplit`, `remote_access.serve_password_change`, `remote_access.serve_caldav_settings`, `self.receive_telegram_settings`, `self.receive_calendar_telegram`, `self.receive_upload`, `urllib.parse.urlparse`, `self.headers.get`, `self.headers.get_content_type`, `ValueError`, `int`, `json.loads`, `self.rfile.read(length).decode`, `self.rfile.read`, `isinstance`, `invoice_preferences.resource`, `invoice_store`, `route.rsplit`, `reconciliations.Reconciliations`, `order_store`, `route.endswith`, `service.save`, `service.assign`, `payload.get`, `in_reconciliations`, `route.startswith`, `len`, `Path`, `telegram_inbox.complete`, `telegram_inbox.set_deleted`, `thumbnail_store().items`, `thumbnail_store`, `thumbnail_store().cover`, `invoice_store().create`, `invoice_store().plan`, `invoice_store().move_calendar_plan`, `invoice_store().remove`, `invoice_store().restore`, `invoice_store().upload`, `schedule_order_sync`, `invoice_discovery.attach`, `invoice_documents.upload`, `invoice_documents.set_deleted`, `invoice_store().save_comment`, `invoice_store().save_list_status`, `invoice_store().save`, `invoice_store().issue`, `guard_database`, `order_folders.create`, `METADATA_REFRESH.set`, `schedule_todo_refresh`, `order_folders.create_object`, `object_years.group`, `object_move.start`, `event_folders.create`, `folder_note_store`, `folder_rename.rename`, `event_folders.rename`, `folder_note_store().save`, `folder_note_store().save_relevance`, `event_relevance.info`, `folder_note_store().save_sketch_relevance`, `sketches.group_info`, `sketch_target`, `sketches.open_corel`, `editable_status_folder`, `relative_path`, `store.path`, `store.require_order_folder`, `order_creation.retry_one`, `store.get`, `folder_status`, `directory_children`, `store.import_folder`, `MobileBridge`, `bridge.configure`, `schedule_mobile_sync`, `bridge.status`, `order_store().save`, `supplier_purchases.SupplierPurchases(order_store()).save`, `supplier_purchases.SupplierPurchases`, `inactive_paths`, `supplier_purchases.SupplierPurchases(order_store()).edit`, `order_store().save_favorite`, `OrderLinks(order_store()).save`, `OrderLinks`, `order_store().save_flag`, `order_store().save_blue_plus`, `order_store().save_dollar`, `order_store().save_status`, `order_store().save_supplier_status`, `order_store().save_deadline_week`, `order_store().save_calendar_compact`, `order_store().save_deadline_comment`, `calendar_events.CalendarEvents(order_store()).save`, `calendar_events.CalendarEvents`, `calendar_events.CalendarEvents(order_store()).set_deleted`, `operation`, `calendar_events.CalendarEvents(order_store()).color`, `order_store().save_calendar_color`, `calendar_events.CalendarEvents(order_store()).move`, `order_store().save_calendar_inactive`, `order_store().save_calendar_completed`, `calendar_events.CalendarEvents(order_store()).set_completed`, `invoice_store().save_plan_calendar_completed`, `order_store().save_calendar_trip`, `order_store().save_calendar_watch_todos`, `invoice_store().save_plan_calendar_watch_todos`, `calendar_events.CalendarEvents(order_store()).set_trip`, `invoice_store().save_plan_calendar_trip`, `calendar_events.CalendarEvents(order_store()).set_inactive`, `invoice_store().save_plan_calendar_inactive`, `invoice_store().save_plan_calendar_carryover`, `invoice_store().save_plan_calendar_notified`, `order_store().save_calendar_event`, `order_store().move_calendar_event`, `work_orders.save_supplier_favorite`, `order_store().save_work_links`, `object_activity_store`, `client_activity_store`, `activity.accept_file`, `activity.save`, `order_store().remove`, `folder_note_store().get`, `discover_orders`, `client_activity_store().refresh`, `object_activity_store().refresh`, `order_store().path`, `create_print_task`, `save_print_task`, `read_print_task`, `PrintConflict`, `datetime.now(ZoneInfo('Europe/Moscow')).strftime`, `datetime.now`, `ZoneInfo`, `hashlib.sha256((task['path'] + task['revision']).encode()).hexdigest`, `hashlib.sha256`, `(task['path'] + task['revision']).encode`, `metadata_store().publish`, `metadata_store`, `compose_print_text(task['link'], task['description'], task['title']).encode`, `compose_print_text`, `comment_file`, `file_comments.binding`, `FileCommentConflict`, `metadata_store().save_comment`, `file_comments.save`, `create_image_report`, `file_trash.preview`, `event_trash.preview`, `event_trash.remove`, `event_trash.restore`, `file_trash.remove`, `event_trash.list_sessions`, `file_trash.list_sessions`, `errors.append`, `file_trash.restore`, `save_status`, `save_note`, `safe_path`, `target.exists`, `FileNotFoundError`, `subprocess.Popen`, `str`.
 
 Явные исключения: `ValueError`, `PrintConflict`, `FileCommentConflict`, `FileNotFoundError`.
 
@@ -230,6 +252,28 @@ def send_json(self, payload, status=200, head=False):
 
 Непосредственные вызовы: `json.dumps(payload, ensure_ascii=False).encode`, `json.dumps`, `self.send_response`, `self.send_header`, `str`, `len`, `self.end_headers`, `self.wfile.write`.
 
+<a id="symbol-ManagerHandler.writes_allowed"></a>
+
+## ManagerHandler.writes_allowed
+
+[server.py](../../../server.py) · `function`.
+
+```python
+def writes_allowed(self):
+```
+
+Проверяет, может ли текущая установка принимать правки.
+
+Остановленная копия и переключение блокируют браузер и CalDAV.
+
+Непосредственные вызовы: `HANDOFF_STOP.is_set`, `(DATA_DIR.resolve().parent / '.handoff-parked.json').exists`, `DATA_DIR.resolve`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+not HANDOFF_STOP.is_set() and (not (DATA_DIR.resolve().parent / '.handoff-parked.json').exists())
+```
+
 <a id="symbol-PrintConflict"></a>
 
 ## PrintConflict
@@ -290,6 +334,28 @@ def _thumbnail_store(root, data_dir):
 
 ```python
 thumbnail_cache.ThumbnailCache(root, data_dir)
+```
+
+<a id="symbol-caldav_orders"></a>
+
+## caldav_orders
+
+[server.py](../../../server.py) · `function`.
+
+```python
+def caldav_orders():
+```
+
+Собирает доступные зарегистрированные заказы для календаря CalDAV.
+
+Читает SQLite, исключает архивную продукцию и сохраняет заказы поставщикам.
+
+Непосредственные вызовы: `object_activity_store().visible_orders`, `object_activity_store`, `client_activity_store().visible_orders`, `client_activity_store`, `order_store().list`, `order_store`, `work_orders.archived`, `work_orders.in_work`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+[order for order in visible if not work_orders.archived(order) and (not work_orders.in_work(order['path']) or order['work_supplier'])]
 ```
 
 <a id="symbol-client_activity_store"></a>

@@ -9,6 +9,7 @@ import math
 import os
 import re
 import secrets
+import sqlite3
 import stat
 import threading
 import tempfile
@@ -17,6 +18,8 @@ import urllib.parse
 from collections import deque
 from http.server import ThreadingHTTPServer
 from pathlib import Path
+
+import caldav
 
 REMOTE_ACCESS_VERSION = 1
 ITERATIONS = 600_000
@@ -307,6 +310,7 @@ def serve_settings(handler, head=False):
         return
     handler.send_json({'enabled': True, 'public_host': gate.public_host,
                        'require_current_password': bool(getattr(handler, 'remote_access_request', False)),
+                       'caldav_path': caldav.ROOT, 'caldav_username': caldav.USERNAME,
                        'csrf': gate.token(document, 'settings', LOGIN_SECONDS)}, head=head)
 
 
@@ -355,6 +359,25 @@ def serve_password_change(handler):
         handler.send_json({'error': 'Не удалось завершить смену пароля. Проверь вход с новым паролем перед повтором'}, 500)
     finally:
         gate.verifying.release()
+
+
+# Выдаёт или отзывает отдельный пароль календаря из настроек менеджера.
+# Использует существующие проверки Origin, заголовок и подписанный токен формы.
+def serve_caldav_settings(handler):
+    gate = getattr(handler.server, 'password_gate', None)
+    if (gate is None or not getattr(handler, 'remote_access_request', False)
+            or not settings_request_allowed(handler, post=True)):
+        handler.send_json({'error': 'Открой настройки менеджера через внешний HTTPS-адрес'}, 403)
+        return
+    try:
+        result = caldav.manage_credentials(handler, handler.caldav_store().store, gate, gate.document())
+        handler.send_json(result)
+    except caldav.DavError as error:
+        handler.send_json({'error': 'Открой настройки заново и повтори действие'}, error.status)
+    except (OSError, sqlite3.Error):
+        handler.send_json({'error': 'Настройки календаря временно недоступны'}, 503)
+    except ValueError:
+        handler.send_json({'error': 'Не удалось прочитать настройки календаря'}, 400)
 
 
 # Создаёт отдельный класс обработчика защищённого слушателя.
@@ -423,6 +446,40 @@ def handler_class(base_handler):
         def authenticated(self, gate, document):
             return gate.valid(document, cookie(self, SESSION_COOKIE), 'session')
 
+        # Обслуживает пространство CalDAV только на защищённом слушателе.
+        # Отдельный пароль календаря не открывает браузер, API и файлы заказов.
+        def handle_caldav(self):
+            service = getattr(self.server, 'caldav', None)
+            if service is None:
+                return False
+            try:
+                route = caldav.route_for(self.path, self.command)
+            except ValueError:
+                self.reply(400)
+                return True
+            if route is None:
+                return False
+            context = self.context()
+            if not context:
+                return True
+            gate, document = context
+            if route == caldav.WELL_KNOWN:
+                self.reply(301, headers=[('Location', caldav.ROOT)])
+                return True
+            if self.command in {'PUT', 'DELETE'} and (self.headers.get('Origin') or self.headers.get('Sec-Fetch-Mode')):
+                self.reply(403)
+                return True
+            try:
+                if not caldav.authorized(self, service.events, gate, document):
+                    self.reply(401, headers=[('WWW-Authenticate', 'Basic realm="Zigzag Calendar", charset="UTF-8"')])
+                else:
+                    service.serve(self, route, self.writes_allowed)
+            except (TimeoutError, sqlite3.Error):
+                self.reply(503)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            return True
+
         # Отправляет отказ или предложение входа без выдачи закрытых данных.
         # Передаёт работу `urllib.parse.urlsplit(self.path).path.startswith`, `urllib.parse.urlsplit`, `self.path.startswith`.
         def denied(self):
@@ -477,12 +534,21 @@ def handler_class(base_handler):
         # Обслуживает GET через проверки и маршрутизацию текущего обработчика.
         # Передаёт работу `self.get_remote`.
         def do_GET(self):
-            self.get_remote()
+            if not self.handle_caldav():
+                self.get_remote()
 
         # Обслуживает HEAD с теми же ограничениями доступа, что GET.
         # Передаёт работу `self.get_remote`.
         def do_HEAD(self):
-            self.get_remote()
+            self.do_GET()
+
+        # Обрабатывает методы WebDAV пространства календаря.
+        # За пределами CalDAV остальные маршруты не принимают эти методы.
+        def do_PROPFIND(self):
+            if not self.handle_caldav():
+                self.reply(405)
+
+        do_OPTIONS = do_REPORT = do_PUT = do_DELETE = do_PROPFIND
 
         # Передаёт проверенный файл или статический ресурс в HTTP-ответе.
         # Передаёт работу `target.is_file`, `target.read_bytes().replace`, `target.read_bytes`.
@@ -561,12 +627,14 @@ def handler_class(base_handler):
 
 # Проверяет профиль и запускает отдельный loopback-слушатель внешнего входа.
 # Координирует фоновые потоки через локальные события или блокировки.
-def start(base_handler, config_file):
+def start(base_handler, config_file, *, caldav_orders=None):
     value = settings(config_file)
     if value is None:
         return None
     server = RemoteHTTPServer(('127.0.0.1', value['port']), handler_class(base_handler))
     server.password_gate = PasswordGate(value['credentials_file'], value['public_host'])
+    if caldav_orders is not None:
+        server.caldav = caldav.CalendarDAV(base_handler.caldav_store(), caldav_orders, value['public_host'])
     thread = threading.Thread(target=server.serve_forever, daemon=True, name='remote-password-gate')
     thread.start()
     return server

@@ -11,6 +11,12 @@
   const close = document.getElementById('managerSettingsClose');
   let csrf = '', busy = false, request = 0;
   let sellerRevision = null, sellerBusy = false, sellerLoading = 0;
+  let caldavBusy = false;
+  const caldavPanel = document.getElementById('managerCalDAVSettings');
+  const caldavGenerate = document.getElementById('managerCalDAVGenerate');
+  const caldavRevoke = document.getElementById('managerCalDAVRevoke');
+  const caldavPassword = document.getElementById('managerCalDAVPassword');
+  const caldavStatus = document.getElementById('managerCalDAVState');
   const sellerForm = document.getElementById('invoiceSellerSettingsForm');
   const sellerFields = document.getElementById('invoiceSellerSettingsFields');
   const sellerStatus = document.getElementById('invoiceSellerSettingsState');
@@ -43,7 +49,7 @@
   // Ошибка оставляет поля; ни конфликт, ни потеря ответа не вызывают автоматического повтора.
   async function saveSeller(event) {
     event.preventDefault();
-    if (sellerBusy || busy || sellerRevision === null) return;
+    if (sellerBusy || busy || caldavBusy || sellerRevision === null) return;
     const seller = Object.fromEntries([...sellerFields.querySelectorAll('input')].map(input => [input.dataset.sellerField, input.value]));
     sellerBusy = true; sellerFields.disabled = true; sellerSave.disabled = true; close.disabled = true;
     sellerStatus.textContent = 'Сохранение…';
@@ -61,6 +67,7 @@
   async function openSettings() {
     const version = ++request;
     form.reset(); csrf = ''; fields.disabled = true; status.textContent = 'Загрузка…';
+    caldavPanel.hidden = true;
     dialog.showModal();
     sellerRevision = null; sellerFields.disabled = true; sellerSave.disabled = true; loadSeller();
     try {
@@ -70,6 +77,13 @@
       if (!response.ok) { status.textContent = data.error || 'Не удалось открыть настройки'; return; }
       if (!data.enabled) { status.textContent = 'Внешний вход ещё не подключён.'; return; }
       csrf = data.csrf;
+      if (data.caldav_path) {
+        document.getElementById('managerCalDAVAddress').textContent = `Сервер ${data.public_host} · путь ${data.caldav_path} · имя пользователя ${data.caldav_username}`;
+        document.getElementById('managerCalDAVHTTPSLink').href = 'https://' + data.public_host + '/';
+        document.getElementById('managerCalDAVHTTPS').hidden = data.require_current_password;
+        document.getElementById('managerCalDAVControls').hidden = !data.require_current_password;
+        caldavPanel.hidden = false;
+      }
       document.getElementById('managerSettingsAddress').textContent = 'Для входа через ' + data.public_host;
       document.getElementById('managerCurrentPasswordLabel').hidden = !data.require_current_password;
       current.required = data.require_current_password;
@@ -81,7 +95,7 @@
   // При ошибке соединения не повторяет запрос, поскольку пароль мог уже измениться.
   async function saveSettings(event) {
     event.preventDefault();
-    if (busy || sellerBusy || !csrf) return;
+    if (busy || sellerBusy || caldavBusy || !csrf) return;
     if (password.value !== confirmation.value) {
       status.textContent = 'Новые пароли должны совпадать.'; confirmation.focus(); return;
     }
@@ -97,17 +111,46 @@
       const data = await response.json();
       if (!response.ok) { status.textContent = data.error || 'Не удалось сменить пароль'; return; }
       csrf = data.csrf; form.reset();
+      caldavPassword.value = ''; caldavPassword.parentElement.hidden = true;
+      caldavStatus.textContent = 'Создай новый пароль для CalDAV.';
       status.textContent = 'Пароль изменён. Используй новый пароль для внешнего входа.';
     } catch (_) {
       status.textContent = 'Ответ не получен. Проверь вход с новым паролем перед повтором.';
     } finally { window.clearTimeout(timeout); busy = false; fields.disabled = false; close.disabled = false; }
   }
 
+  // Меняет отдельный пароль приложения через текущую сессию настроек.
+  // Показывает пароль один раз и сохраняет его только до закрытия окна.
+  async function changeCalendarPassword(action) {
+    if (busy || sellerBusy || caldavBusy || !csrf) return;
+    if (action === 'revoke' && !window.confirm('Отключить синхронизацию CalDAV на всех устройствах?')) return;
+    caldavBusy = true; caldavGenerate.disabled = true; caldavRevoke.disabled = true; close.disabled = true;
+    caldavStatus.textContent = 'Сохранение…';
+    try {
+      const response = await fetch('/api/manager-settings/caldav', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Manager-Settings': '1' },
+        body: JSON.stringify({ csrf, action }),
+      });
+      const data = await response.json();
+      if (!response.ok) { caldavStatus.textContent = data.error || 'Не удалось изменить пароль CalDAV'; return; }
+      caldavPassword.value = data.password || '';
+      caldavPassword.parentElement.hidden = !data.password;
+      caldavStatus.textContent = data.password ? 'Скопируй пароль перед закрытием окна.' : 'Пароль CalDAV отозван.';
+      if (data.password) { caldavPassword.focus(); caldavPassword.select(); }
+    } catch (_) { caldavStatus.textContent = 'Ответ не получен. При необходимости создай новый пароль.'; }
+    finally { caldavBusy = false; caldavGenerate.disabled = false; caldavRevoke.disabled = false; close.disabled = false; }
+  }
+
   button.addEventListener('click', openSettings);
   sellerForm.addEventListener('submit', saveSeller);
   document.getElementById('reloadInvoiceSellerSettings').addEventListener('click', () => { if (!sellerBusy) loadSeller(sellerRevision !== null); });
   form.addEventListener('submit', saveSettings);
+  caldavGenerate.addEventListener('click', () => changeCalendarPassword('generate'));
+  caldavRevoke.addEventListener('click', () => changeCalendarPassword('revoke'));
   close.addEventListener('click', () => dialog.close());
-  dialog.addEventListener('cancel', event => { if (busy || sellerBusy) event.preventDefault(); });
-  dialog.addEventListener('close', () => { ++request; ++sellerLoading; form.reset(); sellerForm.reset(); csrf = ''; status.textContent = ''; sellerStatus.textContent = ''; });
+  dialog.addEventListener('cancel', event => { if (busy || sellerBusy || caldavBusy) event.preventDefault(); });
+  dialog.addEventListener('close', () => {
+    ++request; ++sellerLoading; form.reset(); sellerForm.reset(); csrf = ''; status.textContent = ''; sellerStatus.textContent = '';
+    caldavPassword.value = ''; caldavPassword.parentElement.hidden = true; caldavStatus.textContent = ''; caldavPanel.open = false;
+  });
 })();

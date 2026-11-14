@@ -6,7 +6,7 @@
 
 Password gate on a separate loopback listener; the LAN handler is unchanged.
 
-Импорты Python, включая локальные: `collections`, `configparser`, `hashlib`, `hmac`, `html`, `http.server`, `ipaddress`, `json`, `math`, `os`, `pathlib`, `re`, `secrets`, `stat`, `tempfile`, `threading`, `time`, `urllib.parse`.
+Импорты Python, включая локальные: `caldav`, `collections`, `configparser`, `hashlib`, `hmac`, `html`, `http.server`, `ipaddress`, `json`, `math`, `os`, `pathlib`, `re`, `secrets`, `sqlite3`, `stat`, `tempfile`, `threading`, `time`, `urllib.parse`.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
@@ -409,7 +409,7 @@ def do_GET(self):
 
 Передаёт работу `self.get_remote`.
 
-Непосредственные вызовы: `self.get_remote`.
+Непосредственные вызовы: `self.handle_caldav`, `self.get_remote`.
 
 <a id="symbol-handler_class.RemoteHandler.do_HEAD"></a>
 
@@ -425,7 +425,7 @@ def do_HEAD(self):
 
 Передаёт работу `self.get_remote`.
 
-Непосредственные вызовы: `self.get_remote`.
+Непосредственные вызовы: `self.do_GET`.
 
 <a id="symbol-handler_class.RemoteHandler.do_POST"></a>
 
@@ -444,6 +444,22 @@ def do_POST(self):
 Непосредственные вызовы: `self.context`, `urllib.parse.urlsplit`, `self.authenticated`, `self.denied`, `self.same_origin`, `self.reply`, `'Открой форму на странице менеджера'.encode`, `self.headers.get_all`, `len`, `re.fullmatch`, `int`, `self.headers.get`, `self.headers.get_content_type`, `ValueError`, `self.rfile.read(int(lengths[0])).decode`, `self.rfile.read`, `urllib.parse.parse_qs`, `any`, `fields.values`, `fields.get`, `'Некорректная форма'.encode`, `hmac.new(gate.key(document), ('logout:' + cookie(self, SESSION_COOKIE)).encode(), hashlib.sha256).hexdigest`, `hmac.new`, `gate.key`, `('logout:' + cookie(self, SESSION_COOKIE)).encode`, `cookie`, `hmac.compare_digest`, `expected.encode`, `csrf.encode`, `cookie_header`, `gate.valid`, `cookie(self, LOGIN_COOKIE).encode`, `self.login_page`, `gate.retry_after`, `gate.verifying.acquire`, `hashlib.pbkdf2_hmac`, `password.encode`, `bytes.fromhex`, `digest.hex`, `gate.verifying.release`, `gate.token`, `safe_next`, `route.startswith`, `super().do_POST`, `super`.
 
 Явные исключения: `ValueError`.
+
+<a id="symbol-handler_class.RemoteHandler.do_PROPFIND"></a>
+
+## handler_class.RemoteHandler.do_PROPFIND
+
+[remote_access.py](../../../remote_access.py) · `function`.
+
+```python
+def do_PROPFIND(self):
+```
+
+Обрабатывает методы WebDAV пространства календаря.
+
+За пределами CalDAV остальные маршруты не принимают эти методы.
+
+Непосредственные вызовы: `self.handle_caldav`, `self.reply`.
 
 <a id="symbol-handler_class.RemoteHandler.end_headers"></a>
 
@@ -476,6 +492,29 @@ def get_remote(self):
 Передаёт работу `self.context`, `urllib.parse.urlsplit`, `self.authenticated`.
 
 Непосредственные вызовы: `self.context`, `urllib.parse.urlsplit`, `self.authenticated`, `self.reply`, `self.login_page`, `self.denied`, `cookie`, `hmac.new(gate.key(document), ('logout:' + token).encode(), hashlib.sha256).hexdigest`, `hmac.new`, `gate.key`, `('logout:' + token).encode`, `json.dumps({'csrf': csrf}).encode`, `json.dumps`, `route.startswith`, `super().handle_get`, `super`.
+
+<a id="symbol-handler_class.RemoteHandler.handle_caldav"></a>
+
+## handler_class.RemoteHandler.handle_caldav
+
+[remote_access.py](../../../remote_access.py) · `function`.
+
+```python
+def handle_caldav(self):
+```
+
+Обслуживает пространство CalDAV только на защищённом слушателе.
+
+Отдельный пароль календаря не открывает браузер, API и файлы заказов.
+
+Непосредственные вызовы: `getattr`, `caldav.route_for`, `self.reply`, `self.context`, `self.headers.get`, `caldav.authorized`, `service.serve`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+False
+True
+```
 
 <a id="symbol-handler_class.RemoteHandler.login_page"></a>
 
@@ -630,6 +669,22 @@ def save_password(path, password):
 
 Явные исключения: `ValueError`.
 
+<a id="symbol-serve_caldav_settings"></a>
+
+## serve_caldav_settings
+
+[remote_access.py](../../../remote_access.py) · `function`.
+
+```python
+def serve_caldav_settings(handler):
+```
+
+Выдаёт или отзывает отдельный пароль календаря из настроек менеджера.
+
+Использует существующие проверки Origin, заголовок и подписанный токен формы.
+
+Непосредственные вызовы: `getattr`, `settings_request_allowed`, `handler.send_json`, `caldav.manage_credentials`, `handler.caldav_store`, `gate.document`.
+
 <a id="symbol-serve_password_change"></a>
 
 ## serve_password_change
@@ -720,14 +775,14 @@ not post or handler.headers.get_all('Origin', []) in (['http://' + host], ['http
 [remote_access.py](../../../remote_access.py) · `function`.
 
 ```python
-def start(base_handler, config_file):
+def start(base_handler, config_file, *, caldav_orders=None):
 ```
 
 Проверяет профиль и запускает отдельный loopback-слушатель внешнего входа.
 
 Координирует фоновые потоки через локальные события или блокировки.
 
-Непосредственные вызовы: `settings`, `RemoteHTTPServer`, `handler_class`, `PasswordGate`, `threading.Thread`, `thread.start`.
+Непосредственные вызовы: `settings`, `RemoteHTTPServer`, `handler_class`, `PasswordGate`, `caldav.CalendarDAV`, `base_handler.caldav_store`, `threading.Thread`, `thread.start`.
 
 Выражения возврата (ветки читаются в исходнике):
 
