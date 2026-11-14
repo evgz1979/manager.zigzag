@@ -38,7 +38,19 @@ class DocumentationTests(unittest.TestCase):
         shutil.copyfile(APP / 'scripts/documentation_js.cjs', self.root / 'scripts/documentation_js.cjs')
         (self.root / 'sample.py').write_text('# Calculates a charge.\n# Returns the input plus one.\ndef charge(amount):\n    return amount + 1\n\n# Creates the test table.\n# Returns a DDL string without opening SQLite.\ndef schema():\n    return "CREATE TABLE sample (id TEXT)"\n')
         (self.root / 'server.py').write_text('# Serves test routes.\n# Never runs a server.\nclass Handler:\n    # Dispatches test requests.\n    # Returns one field without network calls.\n    def do_POST(self, route, payload):\n        if route == "/api/sample":\n            return payload.get("amount")\n')
-        (self.root / 'remote_access.py').write_text('# Parses a login route.\n# Returns a constant without authentication side effects.\ndef get_remote(path):\n    if path == "/_auth/login":\n        return True\n')
+        (self.root / 'remote_access.py').write_text(
+            '# Parses a login route.\n# Returns a constant without authentication side effects.\n'
+            'def get_remote(path):\n    if path == "/_auth/login":\n        return True\n\n'
+            '# Supplies the CalDAV settings reference target.\n# Never talks to a server.\n'
+            'def serve_caldav_settings():\n    pass\n\n'
+            '# Supplies the remote handler reference target.\n# Only declares the fixture handler.\n'
+            'def handler_class():\n'
+            '    # Represents the remote handler.\n    # Only declares the CalDAV entry point.\n'
+            '    class RemoteHandler:\n'
+            '        # Supplies the CalDAV handler reference target.\n        # Never talks to a server.\n'
+            '        def handle_caldav(self):\n            pass\n'
+            '    return RemoteHandler\n'
+        )
         (self.root / 'static/sample.js').write_text('// Scopes a local action.\n// Returns its result.\nfunction outer() {\n  // Computes one value.\n  // Returns the input unchanged.\n  const moved = value => value;\n  return moved(1);\n}\n')
         (self.root / 'sample.swift').write_text('// Holds a native fixture.\n// Only declares methods.\nstruct Sample {\n    // Accepts an integer.\n    // Returns the input.\n    func value(_ input: Int) -> Int { input }\n    // Accepts text.\n    // Returns the input.\n    func value(_ input: String) -> String { input }\n}\n')
         (self.root / 'scripts/manager_launcher.c').write_text('// Declares the fixture entry point.\n// Returns success.\nint main(void) { return 0; }\n')
@@ -46,7 +58,8 @@ class DocumentationTests(unittest.TestCase):
         for item in (patch.object(documentation, 'ROOT', self.root), patch.object(documentation, 'REFERENCE', self.reference)):
             item.start()
             self.addCleanup(item.stop)
-        self.assertEqual(self.build()[0], 0)
+        result, _, errors = self.build()
+        self.assertEqual(result, 0, errors)
 
     def build(self, *args):
         stdout, stderr = io.StringIO(), io.StringIO()
