@@ -1851,7 +1851,8 @@
           {"name": "loadSeller", "type": "FunctionDeclaration", "anchor": "symbol-loadSeller"},
           {"name": "openSettings", "type": "FunctionDeclaration", "anchor": "symbol-openSettings"},
           {"name": "saveSeller", "type": "FunctionDeclaration", "anchor": "symbol-saveSeller"},
-          {"name": "saveSettings", "type": "FunctionDeclaration", "anchor": "symbol-saveSettings"}
+          {"name": "saveSettings", "type": "FunctionDeclaration", "anchor": "symbol-saveSettings"},
+          {"name": "selectSettingsTab", "type": "FunctionDeclaration", "anchor": "symbol-selectSettingsTab"}
         ]
       },
       {

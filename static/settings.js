@@ -9,6 +9,11 @@
   const confirmation = document.getElementById('managerConfirmPassword');
   const status = document.getElementById('managerSettingsState');
   const close = document.getElementById('managerSettingsClose');
+  const tablist = document.getElementById('managerSettingsTabs');
+  const tabs = [...tablist.querySelectorAll('[role="tab"]')];
+  const content = document.getElementById('managerSettingsContent');
+  const sellerTab = document.getElementById('managerSellerTab');
+  const caldavTab = document.getElementById('managerCalDAVTab');
   let csrf = '', busy = false, request = 0;
   let sellerRevision = null, sellerBusy = false, sellerLoading = 0;
   let caldavBusy = false;
@@ -27,6 +32,18 @@
     label.textContent = caption; input.dataset.sellerField = key; input.maxLength = key === 'address' ? 500 : 300;
     if (['inn', 'kpp', 'bik', 'account', 'correspondent'].includes(key)) input.inputMode = 'numeric';
     label.append(input); sellerFields.append(label);
+  }
+
+  // Показывает выбранный раздел настроек и обновляет доступность вкладок для клавиатуры.
+  // Скрытые формы остаются в окне вместе с введёнными значениями и состоянием запросов.
+  function selectSettingsTab(selected) {
+    for (const tab of tabs) {
+      const active = tab === selected;
+      tab.setAttribute('aria-selected', String(active));
+      tab.tabIndex = active ? 0 : -1;
+      document.getElementById(tab.getAttribute('aria-controls')).hidden = !active;
+    }
+    content.scrollTop = 0;
   }
 
   // Загружает общие реквизиты отдельно от настроек пароля и открытого счёта.
@@ -67,7 +84,8 @@
   async function openSettings() {
     const version = ++request;
     form.reset(); csrf = ''; fields.disabled = true; status.textContent = 'Загрузка…';
-    caldavPanel.hidden = true;
+    caldavTab.hidden = true;
+    selectSettingsTab(sellerTab);
     dialog.showModal();
     sellerRevision = null; sellerFields.disabled = true; sellerSave.disabled = true; loadSeller();
     try {
@@ -82,7 +100,7 @@
         document.getElementById('managerCalDAVHTTPSLink').href = 'https://' + data.public_host + '/';
         document.getElementById('managerCalDAVHTTPS').hidden = data.require_current_password;
         document.getElementById('managerCalDAVControls').hidden = !data.require_current_password;
-        caldavPanel.hidden = false;
+        caldavTab.hidden = false;
       }
       document.getElementById('managerSettingsAddress').textContent = 'Для входа через ' + data.public_host;
       document.getElementById('managerCurrentPasswordLabel').hidden = !data.require_current_password;
@@ -136,12 +154,34 @@
       caldavPassword.value = data.password || '';
       caldavPassword.parentElement.hidden = !data.password;
       caldavStatus.textContent = data.password ? 'Скопируй пароль перед закрытием окна.' : 'Пароль CalDAV отозван.';
-      if (data.password) { caldavPassword.focus(); caldavPassword.select(); }
+      if (data.password && !caldavPanel.hidden) { caldavPassword.focus(); caldavPassword.select(); }
     } catch (_) { caldavStatus.textContent = 'Ответ не получен. При необходимости создай новый пароль.'; }
     finally { caldavBusy = false; caldavGenerate.disabled = false; caldavRevoke.disabled = false; close.disabled = false; }
   }
 
   button.addEventListener('click', openSettings);
+  tablist.addEventListener('click', event => {
+    const tab = event.target.closest('[role="tab"]');
+    if (!tab || tab.hidden) return;
+    selectSettingsTab(tab);
+    tab.focus();
+  });
+  tablist.addEventListener('keydown', event => {
+    const visibleTabs = tabs.filter(tab => !tab.hidden);
+    const index = visibleTabs.indexOf(event.target);
+    if (index < 0) return;
+    const positions = {
+      ArrowLeft: (index + visibleTabs.length - 1) % visibleTabs.length,
+      ArrowRight: (index + 1) % visibleTabs.length,
+      Home: 0,
+      End: visibleTabs.length - 1,
+    };
+    if (!Object.hasOwn(positions, event.key)) return;
+    event.preventDefault();
+    const next = visibleTabs[positions[event.key]];
+    selectSettingsTab(next);
+    next.focus();
+  });
   sellerForm.addEventListener('submit', saveSeller);
   document.getElementById('reloadInvoiceSellerSettings').addEventListener('click', () => { if (!sellerBusy) loadSeller(sellerRevision !== null); });
   form.addEventListener('submit', saveSettings);
@@ -151,6 +191,6 @@
   dialog.addEventListener('cancel', event => { if (busy || sellerBusy || caldavBusy) event.preventDefault(); });
   dialog.addEventListener('close', () => {
     ++request; ++sellerLoading; form.reset(); sellerForm.reset(); csrf = ''; status.textContent = ''; sellerStatus.textContent = '';
-    caldavPassword.value = ''; caldavPassword.parentElement.hidden = true; caldavStatus.textContent = ''; caldavPanel.open = false;
+    caldavPassword.value = ''; caldavPassword.parentElement.hidden = true; caldavStatus.textContent = '';
   });
 })();

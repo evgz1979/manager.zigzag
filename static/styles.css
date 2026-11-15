@@ -39,16 +39,25 @@ h1, h2, h3, p { margin: 0; }
 .sidebar { display: flex; flex-direction: column; min-width: 0; background: var(--sidebar); border-right: 1px solid var(--line); overflow: hidden; }
 .brand .sidebar-close { display: none; }
 .brand > .icon-button { width: 40px; height: 40px; flex-shrink: 0; }
-.manager-settings-dialog { max-height: 90dvh; overflow-y: auto; }
-.manager-settings-dialog h3 { font-size: 15px; margin-bottom: 8px; }
+.confirm-dialog.manager-settings-dialog { width: min(620px, calc(100vw - 28px)); max-width: none; max-height: 90dvh; margin-block: 5dvh auto; padding: clamp(14px, 4vw, 24px); overflow: hidden; }
+.manager-settings-dialog[open] { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; gap: 12px; }
+.confirm-dialog.manager-settings-dialog h2 { margin: 0; }
+.manager-settings-tabs { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; padding: 4px; border-radius: 10px; background: var(--sidebar); }
+.manager-settings-tabs button { min-height: 44px; padding: 4px; border-color: transparent; background: transparent; font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
+.manager-settings-tabs button[aria-selected="true"] { border-color: #bfd8cc; background: #fff; color: var(--accent); }
+.manager-settings-content { overflow-y: auto; padding: 4px; }
+.manager-settings-content [role="tabpanel"], #managerCalDAVControls { display: grid; min-width: 0; gap: 12px; }
 .manager-settings-dialog fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 16px; min-width: 0; }
 .manager-settings-dialog input { font-size: 16px; }
-.manager-settings-dialog [hidden] { display: none; }
-.manager-settings-dialog { width: min(650px, calc(100vw - 28px)); }
-.manager-settings-dialog #invoiceSellerSettingsFields { grid-template-columns: 1fr 1fr; gap: 10px; }
+.manager-settings-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.confirm-dialog.manager-settings-dialog .confirm-actions { margin-top: 0; padding-top: 10px; border-top: 1px solid var(--line); }
+.manager-settings-dialog #invoiceSellerSettingsFields { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 #invoiceSellerSettingsFields label:first-child, #invoiceSellerSettingsFields label:nth-child(4), #invoiceSellerSettingsFields label:nth-child(5) { grid-column: 1 / -1; }
-.manager-password-settings { margin-top: 24px; border-top: 1px solid var(--line); padding-top: 16px; }
-.manager-password-settings summary { cursor: pointer; font-size: 15px; font-weight: 600; }
+@media (max-width: 480px) {
+  .manager-settings-tabs:has(#managerCalDAVTab:not([hidden])) { grid-template-columns: 1.16fr 1fr 1fr; }
+  .manager-settings-tabs button { padding-inline: 2px; }
+  #invoiceSellerSettingsFields label:has([data-seller-field="account"]), #invoiceSellerSettingsFields label:has([data-seller-field="correspondent"]) { grid-column: 1 / -1; }
+}
 .invoice-product-fields { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 12px; }
 .invoice-product-fields [hidden] { display: none; }
 .invoice-product-values { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; }

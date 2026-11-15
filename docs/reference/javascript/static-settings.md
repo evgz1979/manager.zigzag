@@ -56,9 +56,9 @@ async function openSettings()
 
 Токен и режим смены пароля загружаются только при явном открытии окна.
 
-Непосредственные вызовы: `form.reset`, `dialog.showModal`, `loadSeller`, `fetch`, `response.json`, `document.getElementById`.
+Непосредственные вызовы: `form.reset`, `selectSettingsTab`, `dialog.showModal`, `loadSeller`, `fetch`, `response.json`, `document.getElementById`.
 
-Прямые присваивания полям/свойствам: `fields.disabled`, `status.textContent`, `caldavPanel.hidden`, `sellerFields.disabled`, `sellerSave.disabled`, `document.getElementById('managerCalDAVAddress').textContent`, `document.getElementById('managerCalDAVHTTPSLink').href`, `document.getElementById('managerCalDAVHTTPS').hidden`, `document.getElementById('managerCalDAVControls').hidden`, `document.getElementById('managerSettingsAddress').textContent`, `document.getElementById('managerCurrentPasswordLabel').hidden`, `current.required`.
+Прямые присваивания полям/свойствам: `fields.disabled`, `status.textContent`, `caldavTab.hidden`, `sellerFields.disabled`, `sellerSave.disabled`, `document.getElementById('managerCalDAVAddress').textContent`, `document.getElementById('managerCalDAVHTTPSLink').href`, `document.getElementById('managerCalDAVHTTPS').hidden`, `document.getElementById('managerCalDAVControls').hidden`, `document.getElementById('managerSettingsAddress').textContent`, `document.getElementById('managerCurrentPasswordLabel').hidden`, `current.required`.
 
 <a id="symbol-saveSeller"></a>
 
@@ -95,3 +95,21 @@ async function saveSettings(event)
 Непосредственные вызовы: `event.preventDefault`, `confirmation.focus`, `AbortController`, `window.setTimeout`, `fetch`, `JSON.stringify`, `response.json`, `form.reset`, `window.clearTimeout`.
 
 Прямые присваивания полям/свойствам: `status.textContent`, `fields.disabled`, `close.disabled`, `caldavPassword.value`, `caldavPassword.parentElement.hidden`, `caldavStatus.textContent`.
+
+<a id="symbol-selectSettingsTab"></a>
+
+## selectSettingsTab
+
+[static/settings.js](../../../static/settings.js) · `FunctionDeclaration`.
+
+```javascript
+function selectSettingsTab(selected)
+```
+
+Показывает выбранный раздел настроек и обновляет доступность вкладок для клавиатуры.
+
+Скрытые формы остаются в окне вместе с введёнными значениями и состоянием запросов.
+
+Непосредственные вызовы: `tab.setAttribute`, `String`, `document.getElementById`, `tab.getAttribute`.
+
+Прямые присваивания полям/свойствам: `tab.tabIndex`, `document.getElementById(tab.getAttribute('aria-controls')).hidden`, `content.scrollTop`.

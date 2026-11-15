@@ -486,36 +486,52 @@
     </dialog>
     <dialog id="managerSettingsDialog" class="confirm-dialog create-order-dialog manager-settings-dialog" aria-labelledby="managerSettingsTitle">
       <h2 id="managerSettingsTitle">Настройки</h2>
-      <section aria-labelledby="invoiceSellerSettingsTitle"><h3 id="invoiceSellerSettingsTitle">Реквизиты исполнителя</h3>
-        <p class="new-order-preview">Для новых счетов и новых правок. Сохранённые счета сохраняют свои реквизиты.</p>
-        <form id="invoiceSellerSettingsForm"><fieldset id="invoiceSellerSettingsFields" disabled></fieldset><p id="invoiceSellerSettingsState" class="invoice-state" role="status"></p><button id="saveInvoiceSellerSettings" class="primary-button" type="submit" disabled>Сохранить реквизиты</button><button id="reloadInvoiceSellerSettings" class="secondary-button" type="button">Обновить</button></form>
-      </section>
-      <details class="manager-password-settings"><summary>Пароль внешнего входа</summary>
-      <p id="managerSettingsAddress" class="new-order-preview"></p>
-      <form id="managerSettingsForm">
-        <input type="hidden" name="username" autocomplete="username" value="manager">
-        <fieldset id="managerSettingsFields" disabled>
-          <label id="managerCurrentPasswordLabel" hidden>Текущий пароль<input id="managerCurrentPassword" name="current_password" type="password" autocomplete="current-password" maxlength="1024"></label>
-          <label>Новый пароль<input id="managerNewPassword" name="new_password" type="password" autocomplete="new-password" minlength="6" maxlength="1024" required></label>
-          <label>Повтори новый пароль<input id="managerConfirmPassword" name="confirmation" type="password" autocomplete="new-password" minlength="6" maxlength="1024" required></label>
-          <p class="new-order-preview">От 6 символов. После смены на других устройствах понадобится войти заново.</p>
-          <button id="managerSettingsSave" class="primary-button" type="submit">Сменить пароль</button>
-        </fieldset>
-        <p id="managerSettingsState" class="todo-save-state" role="status"></p>
-      </form>
-      </details>
-      <details id="managerCalDAVSettings" class="manager-password-settings" hidden><summary>Apple Calendar · CalDAV</summary>
-        <p id="managerCalDAVAddress" class="new-order-preview"></p>
-        <p id="managerCalDAVHTTPS" class="new-order-preview" hidden>Для настройки пароля открой <a id="managerCalDAVHTTPSLink" target="_blank" rel="noopener">внешний вход менеджера</a> по HTTPS.</p>
-        <div id="managerCalDAVControls" hidden>
-        <p class="new-order-preview">Подключи учётную запись CalDAV на iPhone или Mac. Свободные события можно менять в обоих календарях.</p>
-        <p class="new-order-preview">Новый пароль отключает предыдущий пароль CalDAV на всех устройствах.</p>
-        <button id="managerCalDAVGenerate" class="primary-button" type="button">Создать пароль CalDAV</button>
-        <button id="managerCalDAVRevoke" class="secondary-button" type="button">Отозвать пароль</button>
-        <label id="managerCalDAVPasswordLabel" hidden>Пароль CalDAV<input id="managerCalDAVPassword" type="text" readonly autocomplete="off" spellcheck="false"></label>
-        <p id="managerCalDAVState" class="todo-save-state" role="status"></p>
-        </div>
-      </details>
+      <div id="managerSettingsTabs" class="manager-settings-tabs" role="tablist" aria-label="Разделы настроек">
+        <button id="managerSellerTab" type="button" role="tab" aria-selected="true" aria-controls="managerSellerSettings" autofocus>Реквизиты исполнителя</button>
+        <button id="managerPasswordTab" type="button" role="tab" aria-selected="false" aria-controls="managerPasswordSettings" tabindex="-1">Пароль внешнего входа</button>
+        <button id="managerCalDAVTab" type="button" role="tab" aria-selected="false" aria-controls="managerCalDAVSettings" tabindex="-1" hidden>Apple Calendar · CalDAV</button>
+      </div>
+      <div id="managerSettingsContent" class="manager-settings-content">
+        <section id="managerSellerSettings" role="tabpanel" aria-labelledby="managerSellerTab" tabindex="0">
+          <p class="new-order-preview">Для новых счетов и копий «На основе».</p>
+          <form id="invoiceSellerSettingsForm">
+            <fieldset id="invoiceSellerSettingsFields" disabled></fieldset>
+            <p id="invoiceSellerSettingsState" class="invoice-state" role="status"></p>
+            <div class="manager-settings-actions">
+              <button id="saveInvoiceSellerSettings" class="primary-button" type="submit" disabled>Сохранить реквизиты</button>
+              <button id="reloadInvoiceSellerSettings" class="secondary-button" type="button">Обновить</button>
+            </div>
+          </form>
+        </section>
+        <section id="managerPasswordSettings" role="tabpanel" aria-labelledby="managerPasswordTab" tabindex="0" hidden>
+          <p id="managerSettingsAddress" class="new-order-preview"></p>
+          <form id="managerSettingsForm">
+            <input type="hidden" name="username" autocomplete="username" value="manager">
+            <fieldset id="managerSettingsFields" disabled>
+              <label id="managerCurrentPasswordLabel" hidden>Текущий пароль<input id="managerCurrentPassword" name="current_password" type="password" autocomplete="current-password" maxlength="1024"></label>
+              <label>Новый пароль<input id="managerNewPassword" name="new_password" type="password" autocomplete="new-password" minlength="6" maxlength="1024" required></label>
+              <label>Повтори новый пароль<input id="managerConfirmPassword" name="confirmation" type="password" autocomplete="new-password" minlength="6" maxlength="1024" required></label>
+              <p class="new-order-preview">От 6 символов. После смены на других устройствах понадобится войти заново.</p>
+              <div><button id="managerSettingsSave" class="primary-button" type="submit">Сменить пароль</button></div>
+            </fieldset>
+            <p id="managerSettingsState" class="todo-save-state" role="status"></p>
+          </form>
+        </section>
+        <section id="managerCalDAVSettings" role="tabpanel" aria-labelledby="managerCalDAVTab" tabindex="0" hidden>
+          <p id="managerCalDAVAddress" class="new-order-preview"></p>
+          <p id="managerCalDAVHTTPS" class="new-order-preview" hidden>Для настройки пароля открой <a id="managerCalDAVHTTPSLink" target="_blank" rel="noopener">внешний вход менеджера</a> по HTTPS.</p>
+          <div id="managerCalDAVControls" hidden>
+            <p class="new-order-preview">Подключи учётную запись CalDAV на iPhone или Mac. Свободные события можно менять в обоих календарях.</p>
+            <p class="new-order-preview">Новый пароль отключает предыдущий пароль CalDAV на всех устройствах.</p>
+            <div class="manager-settings-actions">
+              <button id="managerCalDAVGenerate" class="primary-button" type="button">Создать пароль CalDAV</button>
+              <button id="managerCalDAVRevoke" class="secondary-button" type="button">Отозвать пароль</button>
+            </div>
+            <label id="managerCalDAVPasswordLabel" hidden>Пароль CalDAV<input id="managerCalDAVPassword" type="text" readonly autocomplete="off" spellcheck="false"></label>
+            <p id="managerCalDAVState" class="todo-save-state" role="status"></p>
+          </div>
+        </section>
+      </div>
       <div class="confirm-actions"><button id="managerSettingsClose" class="secondary-button" type="button">Закрыть</button></div>
     </dialog>
     <button id="showMoveObjectProgress" class="secondary-button object-move-progress-button" type="button" hidden>Перенос объекта</button>

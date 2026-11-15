@@ -82,7 +82,7 @@
 
 ## JavaScript
 
-24 файлов; 481 именованных объявлений.
+24 файлов; 482 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
@@ -104,7 +104,7 @@
 | [static/order-sorting.js](javascript/static-order-sorting.md) | 2 |
 | [static/reconciliations.js](javascript/static-reconciliations.md) | 10 |
 | [static/remote-access.js](javascript/static-remote-access.md) | 2 |
-| [static/settings.js](javascript/static-settings.md) | 5 |
+| [static/settings.js](javascript/static-settings.md) | 6 |
 | [static/spreadsheet-preview.js](javascript/static-spreadsheet-preview.md) | 7 |
 | [static/spreadsheet-worker.js](javascript/static-spreadsheet-worker.md) | 2 |
 | [static/supplier-purchases.js](javascript/static-supplier-purchases.md) | 9 |
