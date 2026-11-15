@@ -29,7 +29,7 @@ def html(snapshot, app_dir, now):
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-f"""<!doctype html><html><head><meta charset="utf-8"><style>{css}</style></head><body>\n<section id="homeCalendar" class="home-calendar"><h2 id="calendarTitle"></h2>\n<button id="calendarEarlier"></button><button id="calendarToday"></button><button id="calendarLater"></button>\n<div id="calendarViewport" class="calendar-viewport">\n<div class="calendar-weekdays"><span class="calendar-orders-heading">Заказы</span><span>На неделю</span><span>пн</span><span>вт</span><span>ср</span><span>чт</span><span>пт</span><span class="weekend">сб</span><span class="weekend">вс</span></div>\n<div id="calen...
+f"""<!doctype html><html><head><meta charset="utf-8"><style>{css}</style></head><body>\n<section id="homeCalendar" class="home-calendar"><h2 id="calendarTitle"></h2>\n<button id="calendarEarlier"></button><button id="calendarToday"></button><button id="calendarLater"></button>\n<div id="calendarViewport" class="calendar-viewport">\n<div class="calendar-weekdays"><span class="calendar-orders-heading">Заказы</span><span>На неделю</span><span>пн</span><span>вт</span><span>ср</span><span>чт</span><span>пт</span><span class="weekend">сб</span><span class="weekend calendar-sunday">вс</span></div>...
 ```
 
 <a id="symbol-order_visible"></a>

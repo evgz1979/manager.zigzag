@@ -3569,7 +3569,9 @@ function openCalendarEventMenu(slot, x, y, trigger = slot) {
     else delete button.dataset.calendarTargetPeriod;
     const target = new Date(date + "T00:00:00Z");
     target.setUTCDate(target.getUTCDate() + Number(button.dataset.calendarMove));
-    button.textContent = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"][target.getUTCDay()];
+    const weekday = target.getUTCDay();
+    button.textContent = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"][weekday];
+    button.classList.toggle("calendar-sunday", weekday === 0);
     const label = "Перенести на " + target.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
     button.title = label;
     button.setAttribute("aria-label", label);
