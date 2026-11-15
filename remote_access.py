@@ -496,8 +496,21 @@ def handler_class(base_handler):
             destination = safe_next(query.get('next', ['/'])[0])
             csrf = gate.token(document, 'login', LOGIN_SECONDS)
             nonce = secrets.token_urlsafe(24)
-            body = f'''<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Вход · Зигзаг</title>
-<style nonce="{nonce}">*{{box-sizing:border-box}}body{{margin:0;min-height:100dvh;display:grid;place-items:center;padding:24px;background:#f7f9f8;color:#263738;font:15px -apple-system,BlinkMacSystemFont,sans-serif}}main{{width:100%;max-width:360px;background:white;border:1px solid #e0e7e4;border-radius:16px;padding:28px}}h1{{font-size:24px;margin:0 0 24px}}label{{display:block}}input[type=password]{{width:100%;font:16px -apple-system,BlinkMacSystemFont,sans-serif;padding:12px;border:1px solid #bdccc6;border-radius:8px;margin:8px 0 16px}}button{{width:100%;border:0;border-radius:8px;background:#167a65;color:white;padding:13px;font:16px -apple-system,BlinkMacSystemFont,sans-serif;margin-top:22px;cursor:pointer}}.remember{{font-size:13px;color:#667570;display:flex;gap:8px;align-items:center}}.error{{color:#b13535;font-size:13px}}input:focus-visible,button:focus-visible{{outline:3px solid #76bcaa;outline-offset:2px}}</style>
+            body = f'''<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>Вход · Зигзаг</title>
+<style nonce="{nonce}">
+:root{{color-scheme:light dark;--canvas:#f7f9f8;--panel:#fff;--text:#263738;--muted:#667570;--line:#e0e7e4;--input-line:#bdccc6;--error:#b13535}}
+@media(prefers-color-scheme:dark){{:root{{--canvas:#161b19;--panel:#222b27;--text:#e3ebe6;--muted:#a5b3ac;--line:#394741;--input-line:#52645b;--error:#ffa9a7}}}}
+*{{box-sizing:border-box}}
+body{{margin:0;min-height:100dvh;display:grid;place-items:center;padding:24px;background:var(--canvas);color:var(--text);font:15px -apple-system,BlinkMacSystemFont,sans-serif}}
+main{{width:100%;max-width:360px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:28px}}
+h1{{font-size:24px;margin:0 0 24px}}
+label{{display:block}}
+input[type=password]{{width:100%;font:16px -apple-system,BlinkMacSystemFont,sans-serif;padding:12px;border:1px solid var(--input-line);border-radius:8px;margin:8px 0 16px}}
+button{{width:100%;border:0;border-radius:8px;background:#167a65;color:white;padding:13px;font:16px -apple-system,BlinkMacSystemFont,sans-serif;margin-top:22px;cursor:pointer}}
+.remember{{font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:center}}
+.error{{color:var(--error);font-size:13px}}
+input:focus-visible,button:focus-visible{{outline:3px solid #76bcaa;outline-offset:2px}}
+</style>
 <main><h1>Зигзаг · Вход</h1><form method="post" action="https://{gate.public_host}{LOGIN_PATH}"><input type="hidden" name="username" autocomplete="username" value="manager"><input type="hidden" name="csrf" value="{csrf}"><input type="hidden" name="next" value="{html.escape(destination, quote=True)}"><label for="password">Пароль<input id="password" name="password" type="password" autocomplete="current-password" required maxlength="1024" autofocus></label><label class="remember"><input type="checkbox" name="remember" value="1" checked>Запомнить на этом устройстве</label><p class="error" role="alert">{html.escape(error)}</p><button type="submit">Войти</button></form></main>
 <script nonce="{nonce}">document.querySelector('form').addEventListener('submit',()=>{{let n=document.querySelector('[name=next]');if(location.hash&&!n.value.includes('#'))n.value+=location.hash}});</script></html>'''.encode()
             headers = [('Set-Cookie', cookie_header(LOGIN_COOKIE, csrf, LOGIN_SECONDS)),

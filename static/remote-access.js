@@ -11,7 +11,7 @@
     if (notice || !document.body) return;
     notice = document.createElement('div');
     notice.setAttribute('role', 'alert');
-    notice.style.cssText = 'position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:20000;padding:14px 18px;background:white;color:#263738;border:1px solid #ccd9d3;border-radius:10px;box-shadow:0 3px 20px #0002;max-width:calc(100vw - 24px);font:14px -apple-system,sans-serif';
+    notice.style.cssText = 'position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:20000;padding:14px 18px;background:var(--surface-raised);color:var(--text);border:1px solid var(--line);border-radius:10px;box-shadow:0 3px 20px #0002;max-width:calc(100vw - 24px);font:14px -apple-system,sans-serif';
     notice.append('Вход завершён. Введённый текст остаётся на этой странице. ');
     const link = document.createElement('a');
     link.href = loginUrl(); link.target = '_blank'; link.rel = 'noopener'; link.textContent = 'Войти снова';
@@ -25,7 +25,7 @@
   document.addEventListener('DOMContentLoaded', () => {
     const button = document.createElement('button');
     button.type = 'button'; button.textContent = 'Выйти'; button.title = 'Выйти из менеджера на этом устройстве';
-    button.style.cssText = 'font:inherit;font-size:11px;color:#667570;background:transparent;border:0;cursor:pointer;margin-left:auto;padding:5px 8px';
+    button.style.cssText = 'font:inherit;font-size:11px;color:var(--muted);background:transparent;border:0;cursor:pointer;margin-left:auto;padding:5px 8px';
     const footer = document.querySelector('.sidebar-footer');
     if (footer) footer.append(button);
     else { button.style.cssText += ';position:fixed;top:8px;right:8px;z-index:100'; document.body.append(button); }
