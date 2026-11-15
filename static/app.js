@@ -3363,7 +3363,9 @@ function renderCalendarTodoPreview() {
   if (!anchor.isConnected || anchor.disabled || !record || (commentId ? record.deleted || typeof record.comment !== "string" || !record.comment.trim() : !anchor.dataset.calendarTodos) ||
       (sidebar ? sidebar.inert : state.view !== "orders")) { closeCalendarTodoPreview(); return; }
   const box = anchor.getBoundingClientRect(), viewport = $(sidebar ? "supplierSchedule" : "calendarViewport").getBoundingClientRect();
-  if (box.bottom <= Math.max(0, viewport.top) || box.top >= Math.min(innerHeight, viewport.bottom)) { closeCalendarTodoPreview(); return; }
+  const viewportTop = sidebar ? viewport.top : $("calendarWeekdays").getBoundingClientRect().bottom;
+  if (box.bottom <= Math.max(0, viewportTop) || box.top >= Math.min(innerHeight, viewport.bottom) ||
+      box.right <= Math.max(0, viewport.left) || box.left >= Math.min(innerWidth, viewport.right)) { closeCalendarTodoPreview(); return; }
   const preview = $("calendarTodoPreview"), host = sidebar || document.body;
   if (preview.parentElement !== host) host.append(preview);
   $("calendarTodoPreviewHeading").textContent = commentId ? "Комментарий" : "Смотри ту-ду";

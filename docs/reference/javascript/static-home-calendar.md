@@ -118,7 +118,7 @@ function fitViewport(index)
 
 Подгоняет высоту окна календаря под две полные недели.
 
-Использует `weekHeights.slice(index, index + VISIBLE_WEEKS).reduce`, `weekHeights.slice`, `get`.
+Учитывает закреплённые подписи дней и высоту горизонтальной полосы прокрутки.
 
 Непосредственные вызовы: `weekHeights.slice(index, index + VISIBLE_WEEKS).reduce`, `weekHeights.slice`, `get`, `weekHeights.slice(-VISIBLE_WEEKS).reduce`, `Math.max`, `Math.round`.
 
@@ -506,7 +506,7 @@ function updateHeading()
 
 Обновляет заголовок и доступность навигации календаря.
 
-Использует `get`, `[...get("calendarWeeks").children].some`, `maxScroll`.
+В доступное имя добавляет подсказку о горизонтальной прокрутке, когда сетка шире окна.
 
 Непосредственные вызовы: `get`, `[...get("calendarWeeks").children].some`, `maxScroll`, `weekIndex`, `fitViewport`, `Date`, `shiftDays`, `Math.min`, `viewport.setAttribute`, `fullDate.format`, `first.getUTCMonth`, `last.getUTCMonth`, `first.getUTCFullYear`, `last.getUTCFullYear`, `monthName.format`.
 

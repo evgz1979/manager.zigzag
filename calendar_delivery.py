@@ -70,8 +70,9 @@ def html(snapshot, app_dir, now):
     return f'''<!doctype html><html><head><meta charset="utf-8"><style>{css}</style></head><body>
 <section id="homeCalendar" class="home-calendar"><h2 id="calendarTitle"></h2>
 <button id="calendarEarlier"></button><button id="calendarToday"></button><button id="calendarLater"></button>
+<div id="calendarViewport" class="calendar-viewport">
 <div class="calendar-weekdays"><span class="calendar-orders-heading">Заказы</span><span>На неделю</span><span>пн</span><span>вт</span><span>ср</span><span>чт</span><span>пт</span><span class="weekend">сб</span><span class="weekend">вс</span></div>
-<div id="calendarViewport" class="calendar-viewport"><div id="calendarWeeks" class="calendar-weeks"></div></div></section>
+<div id="calendarWeeks" class="calendar-weeks"></div></div></section>
 <script>{scripts}</script><script>
 const delivery = {payload};
 // Строит общий PNG из переданного SQLite-снимка без пользовательской вкладки.

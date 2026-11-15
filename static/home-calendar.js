@@ -142,15 +142,16 @@ const HomeCalendar = (() => {
   }
 
   // Подгоняет высоту окна календаря под две полные недели.
-  // Использует `weekHeights.slice(index, index + VISIBLE_WEEKS).reduce`, `weekHeights.slice`, `get`.
+  // Учитывает закреплённые подписи дней и высоту горизонтальной полосы прокрутки.
   function fitViewport(index) {
     const height = weekHeights.slice(index, index + VISIBLE_WEEKS).reduce((sum, value) => sum + value, 0);
     const viewport = get("calendarViewport"), weeks = get("calendarWeeks");
+    const extraHeight = viewport.firstElementChild.offsetHeight + viewport.offsetHeight - viewport.clientHeight;
     // Keep the last pair reachable when the current pair is taller than it.
     const lastHeight = weekHeights.slice(-VISIBLE_WEEKS).reduce((sum, value) => sum + value, 0);
     const padding = Math.max(0, height - lastHeight) + "px";
     if (height > viewport.clientHeight) weeks.style.paddingBottom = padding;
-    const value = Math.round(height * 1000) / 1000 + "px";
+    const value = Math.round((height + extraHeight) * 1000) / 1000 + "px";
     if (height && viewport.style.height !== value) viewport.style.height = value;
     weeks.style.paddingBottom = padding;
   }
@@ -165,7 +166,7 @@ const HomeCalendar = (() => {
   }
 
   // Обновляет заголовок и доступность навигации календаря.
-  // Использует `get`, `[...get("calendarWeeks").children].some`, `maxScroll`.
+  // В доступное имя добавляет подсказку о горизонтальной прокрутке, когда сетка шире окна.
   function updateHeading() {
     frame = 0;
     const viewport = get("calendarViewport");
@@ -178,7 +179,8 @@ const HomeCalendar = (() => {
     fitViewport(index);
     scrollAnchor = { index, offset: viewport.scrollTop - (weekTops[index] || 0) };
     const first = new Date(range.weeks[index] + "T00:00:00Z"), last = shiftDays(new Date(range.weeks[Math.min(index + VISIBLE_WEEKS - 1, range.weeks.length - 1)] + "T00:00:00Z"), 6);
-    viewport.setAttribute("aria-label", "Две недели календаря: " + fullDate.format(first) + " — " + fullDate.format(last) + " Прокручивай вверх и вниз; Home — начало, End — конец.");
+    const horizontal = viewport.scrollWidth > viewport.clientWidth ? ", влево и вправо" : "";
+    viewport.setAttribute("aria-label", "Две недели календаря: " + fullDate.format(first) + " — " + fullDate.format(last) + " Прокручивай вверх и вниз" + horizontal + "; Home — начало, End — конец.");
     const sameMonth = first.getUTCMonth() === last.getUTCMonth() && first.getUTCFullYear() === last.getUTCFullYear();
     get("calendarTitle").textContent = sameMonth ? monthName.format(first) + " " + first.getUTCFullYear() :
       monthName.format(first) + (first.getUTCFullYear() !== last.getUTCFullYear() ? " " + first.getUTCFullYear() : "") + " — " + monthName.format(last) + " " + last.getUTCFullYear();
@@ -687,9 +689,10 @@ const HomeCalendar = (() => {
         scrollToIndex(event.key === "Home" ? 0 : weekTops.length - VISIBLE_WEEKS);
       }
     });
-    // Keep the same week visible when the window changes height.
+    // Refit the viewport when either the week rows or the visible width change.
     const observer = new ResizeObserver(sizeInvoicePlanHeaders);
     observer.observe(get("calendarWeeks"));
+    observer.observe(viewport);
   }
   // Выбирает две или три недели снимка независимо от просмотра истории.
   // Предыдущую неделю удерживает только видимое актуальное невыполненное событие.
