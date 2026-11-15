@@ -168,6 +168,25 @@ class FileTrashTests(unittest.TestCase):
         self.assertFalse(json.loads(response.stdout)['error'])
         self.assertEqual((self.root / self.document).read_bytes(), b'0123456789')
 
+    def test_recovers_interrupted_restore_with_changed_device(self):
+        result = self.remove()
+        session = trash.session_path(self.root, result['session'])
+        plan_path = session / '.plan.json'
+        plan = json.loads(plan_path.read_bytes())
+        plan['operations'][0]['identity']['device'] += 1
+        plan_path.write_text(json.dumps(plan), encoding='utf-8')
+        rename = trash.rename
+
+        def interrupted_rename(source, destination):
+            rename(source, destination)
+            raise OSError('Прервано после возврата файла')
+
+        with patch.object(trash, 'rename', side_effect=interrupted_rename):
+            first = trash.restore(self.root, result['session'])
+        self.assertIn('Прервано после возврата файла', first['error'])
+        self.assertFalse(trash.restore(self.root, result['session'])['error'])
+        self.assertEqual((self.root / self.document).read_bytes(), b'0123456789')
+
     def test_unreadable_plan_keeps_other_sessions_and_retries_without_mutation(self):
         first = self.remove()
         second_file = self.scope + '/Фото/второй.txt'

@@ -163,7 +163,7 @@ def prepare_relocation(root, database, sessions, source):
 
 Исходный план и журнал сохраняются побайтно, а файлы остаются в корзине.
 
-Непосредственные вызовы: `unicodedata.normalize`, `closing`, `sqlite3.connect`, `Path(database).as_uri`, `Path`, `sorted`, `read_plan`, `plan.get`, `TrashConflict`, `set`, `db.execute`, `path.startswith`, `stored.startswith`, `operations.get`, `same`, `stored_files.add`, `helper.is_symlink`, `helper.exists`, `read_bytes`, `atomic_write`, `Path(__file__).read_text`.
+Непосредственные вызовы: `unicodedata.normalize`, `Path(__file__).read_bytes`, `Path`, `closing`, `sqlite3.connect`, `Path(database).as_uri`, `sorted`, `read_plan`, `plan.get`, `TrashConflict`, `set`, `db.execute`, `path.startswith`, `stored.startswith`, `operations.get`, `same`, `stored_files.add`, `helper.is_symlink`, `helper.exists`, `read_bytes`, `atomic_write`, `helper_source.decode`.
 
 Явные исключения: `TrashConflict`.
 
@@ -289,7 +289,7 @@ def restore(root, token, *, database=None):
 
 При недопустимом состоянии возбуждает TrashConflict.
 
-Непосредственные вызовы: `Path(root).resolve`, `Path`, `read_plan`, `(session / '.lock').open`, `fcntl.flock`, `set`, `journal.exists`, `journal.read_text(encoding='utf-8').splitlines`, `journal.read_text`, `line.endswith`, `json.loads`, `intents.add`, `undone.add`, `reversed`, `list`, `enumerate`, `checked`, `os.path.lexists`, `same`, `database_move`, `append`, `TrashConflict`, `original.parent.is_dir`, `str`, `original.parent.relative_to`, `rename`, `restored.append`, `restore_invoice_record`, `describe`, `save`, `uuid.uuid4`.
+Непосредственные вызовы: `Path(root).resolve`, `Path`, `read_plan`, `(session / '.lock').open`, `fcntl.flock`, `set`, `journal.exists`, `journal.read_text(encoding='utf-8').splitlines`, `journal.read_text`, `line.endswith`, `json.loads`, `intents.add`, `undo_intents.add`, `undone.add`, `reversed`, `list`, `enumerate`, `checked`, `os.path.lexists`, `same`, `database_move`, `append`, `TrashConflict`, `original.parent.is_dir`, `str`, `original.parent.relative_to`, `rename`, `restored.append`, `restore_invoice_record`, `describe`, `save`, `uuid.uuid4`.
 
 Явные исключения: `TrashConflict`.
 
@@ -370,20 +370,21 @@ hashlib.sha256(json.dumps([fingerprint(path), path.lstat().st_ctime_ns], sort_ke
 [file_trash.py](../../../file_trash.py) · `function`.
 
 ```python
-def same(path, expected):
+def same(path, expected, *, root=None):
 ```
 
 Сравнивает текущий объект с сохранённым отпечатком.
 
-Возвращает `False`; либо `all((value[key] == expected[key] for key in keys))`.
+Для сохранённого шага на томе корня допускает смену его номера и точное округление даты при загрузке iCloud.
 
-Непосредственные вызовы: `path.exists`, `path.is_symlink`, `fingerprint`, `expected.keys`, `all`.
+Непосредственные вызовы: `fingerprint`, `expected.keys`, `all`, `root.stat`, `any`, `divmod`, `int`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
 False
-all((value[key] == expected[key] for key in keys))
+True
+value['modified'] in (modified, cloud_modified)
 ```
 
 <a id="symbol-save"></a>

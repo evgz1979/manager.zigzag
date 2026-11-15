@@ -57,13 +57,27 @@ def revision(path):
 
 
 # Сравнивает текущий объект с сохранённым отпечатком.
-# Возвращает `False`; либо `all((value[key] == expected[key] for key in keys))`.
-def same(path, expected):
-    if not path.exists() or path.is_symlink():
+# Для сохранённого шага на томе корня допускает смену его номера и точное округление даты при загрузке iCloud.
+def same(path, expected, *, root=None):
+    try:
+        value = fingerprint(path)
+    except FileNotFoundError:
         return False
-    value = fingerprint(path)
+    if value['kind'] == stat.S_IFLNK:
+        return False
     keys = ('device', 'inode', 'kind') if expected['kind'] == stat.S_IFDIR else expected.keys()
-    return all(value[key] == expected[key] for key in keys)
+    if all(value[key] == expected[key] for key in keys):
+        return True
+    if root is None or value['device'] != root.stat().st_dev:
+        return False
+    if any(value[key] != expected[key] for key in ('inode', 'kind', 'size')):
+        return False
+    # File Provider отдаёт дату в секундах с двойной точностью. При загрузке дробная часть усекается до наносекунд.
+    modified = expected['modified']
+    seconds, nanos = divmod(modified, 1_000_000_000)
+    whole, fraction = divmod(seconds + nanos / 1_000_000_000, 1.0)
+    cloud_modified = int(whole) * 1_000_000_000 + int(fraction * 1_000_000_000)
+    return value['modified'] in (modified, cloud_modified)
 
 
 # Переименовывает объект без перезаписи существующего назначения.
@@ -211,6 +225,7 @@ def prepare_relocation(root, database, sessions, source):
     from order_document import atomic_write
 
     prefix = unicodedata.normalize('NFC', source) + '/'
+    helper_source = Path(__file__).read_bytes()
     with closing(sqlite3.connect(Path(database).as_uri()+'?mode=ro',uri=True,timeout=15)) as db:
         for token in sorted(sessions):
             session, plan = read_plan(root, token, database=database,
@@ -224,20 +239,20 @@ def prepare_relocation(root, database, sessions, source):
                     continue
                 operation = operations.get(path)
                 if (not operation or unicodedata.normalize('NFC', operation['destination']) != stored
-                        or not same(root / operation['destination'], operation['identity'])):
+                        or not same(root / operation['destination'], operation['identity'], root=root)):
                     raise TrashConflict('Не удалось подтвердить сохранённый файл в корзине: ' + path)
                 stored_files.add(path)
             for item in plan['operations']:
                 path = unicodedata.normalize('NFC', item['file'])
                 if item['source'] == item['file'] or path not in stored_files:
                     continue
-                if not same(root / item['destination'], item['identity']):
+                if not same(root / item['destination'], item['identity'], root=root):
                     raise TrashConflict('Не удалось подтвердить историю файла в корзине: ' + path)
             helper = session / '.restore.py'
             if helper.is_symlink():
                 raise TrashConflict('Средство восстановления в корзине заменено ссылкой: ' + token)
-            if not helper.exists() or b'FILE_TRASH_PATHS_VERSION = 1' not in read_bytes(helper):
-                atomic_write(helper, Path(__file__).read_text(encoding='utf-8'))
+            if not helper.exists() or read_bytes(helper) != helper_source:
+                atomic_write(helper, helper_source.decode('utf-8'))
 
 
 # Готовит краткое описание сохранённого сеанса для интерфейса.
@@ -249,7 +264,7 @@ def describe(root, plan):
         operations = [op for op in plan['operations'] if op['file'] == item['path']]
         if any(os.path.lexists(root / op['destination']) for op in operations):
             pending.append(item['path'])
-        if any(op['source'] == item['path'] and same(root / op['destination'], op['identity']) for op in operations):
+        if any(op['source'] == item['path'] and same(root / op['destination'], op['identity'], root=root) for op in operations):
             removed.append(item['path'])
     if plan.get('database'):
         with closing(sqlite3.connect(Path(plan['database']).as_uri()+'?mode=rw',uri=True,timeout=15)) as db:
@@ -368,7 +383,7 @@ def resume(root, token):
                     source = checked(root, operation['source'], hidden=True)
                     destination = checked(root, operation['destination'], hidden=True)
                     if os.path.lexists(destination):
-                        if os.path.lexists(source) or not same(destination, operation['identity']):
+                        if os.path.lexists(source) or not same(destination, operation['identity'], root=root):
                             raise TrashConflict('Путь корзины занят или файл изменился: ' + operation['destination'])
                         database_move(plan,operation,finish=True)
                         continue
@@ -458,7 +473,7 @@ def restore(root, token, *, database=None):
         restored = []
         with (session / '.lock').open('a') as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
-            intents, undone = set(), set()
+            intents, undo_intents, undone = set(), set(), set()
             journal = session / '.journal.jsonl'
             if journal.exists():
                 for line in journal.read_text(encoding='utf-8').splitlines(keepends=True):
@@ -466,6 +481,8 @@ def restore(root, token, *, database=None):
                         record = json.loads(line)
                         if record['phase'] == 'intent':
                             intents.add(record['id'])
+                        elif record['phase'] == 'undo_intent':
+                            undo_intents.add(record['id'])
                         elif record['phase'] == 'undone':
                             undone.add(record['id'])
             for index, operation in reversed(list(enumerate(plan['operations']))):
@@ -475,12 +492,12 @@ def restore(root, token, *, database=None):
                     stored = checked(root, operation['destination'], hidden=True)
                     original = checked(root, operation['source'], hidden=True)
                     if not os.path.lexists(stored):
-                        if same(original, operation['identity']):
+                        if same(original, operation['identity'], root=root if index in undo_intents else None):
                             database_move(plan,operation,restore=True,finish=True)
                             append(session, phase='undone', id=index)
                             continue
                         raise TrashConflict('Не найден сохранённый файл: ' + operation['file'])
-                    if not same(stored, operation['identity']):
+                    if not same(stored, operation['identity'], root=root):
                         raise TrashConflict('Сохранённый файл изменён: ' + operation['file'])
                     if os.path.lexists(original):
                         raise TrashConflict('Путь уже занят, файл сохранён в корзине: ' + operation['source'])

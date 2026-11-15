@@ -115,14 +115,25 @@ class ObjectMoveTests(unittest.TestCase):
         suffix = self.order_suffix + "/# docs/Фото/схема.cdr"
         old = self.source + suffix
         old_parent = str((self.root / old).parent.relative_to(self.root))
+        original = self.root / old
+        os.utime(original, ns=(original.stat().st_atime_ns, 1792915779003788278))
         other = "Клиент/Другой объект/другой.txt"
         self.file(other, b"unrelated")
         files = file_trash.preview(self.root, "Клиент", [old, other])["files"]
         deleted = file_trash.remove(self.root, "Клиент", files, True, store.database)
         session = file_trash.session_path(self.root, deleted["session"])
-        plan_bytes = (session / ".plan.json").read_bytes()
+        plan_path = session / ".plan.json"
+        plan = json.loads(plan_path.read_bytes())
+        for operation in plan["operations"]:
+            if operation["file"] == old:
+                operation["identity"]["device"] += 1
+                if operation["source"] == old:
+                    stored = self.root / operation["destination"]
+                    os.utime(stored, ns=(stored.stat().st_atime_ns, 1792915779003788232))
+        plan_path.write_text(json.dumps(plan), encoding="utf-8")
+        plan_bytes = plan_path.read_bytes()
         legacy_helper = session / ".restore.py"
-        legacy_helper.write_text("# Previous standalone helper\n", encoding="utf-8")
+        legacy_helper.write_text("FILE_TRASH_PATHS_VERSION = 1\n", encoding="utf-8")
         moved = object_move.move(store, self.payload(store), lambda **_: None, nullcontext)
         new = self.destination + suffix
         self.assertFalse((self.root / new).exists())
@@ -139,6 +150,30 @@ class ObjectMoveTests(unittest.TestCase):
         subprocess.run([sys.executable, str(move_session / ".restore.py"), str(move_session), "--apply"], check=True, capture_output=True)
         self.assertEqual((self.root / old).read_bytes(), b"image")
         self.assertEqual(manager.metadata_store().get("comment", old)["comment"], "Чертёж")
+
+    def test_changed_device_does_not_allow_replaced_trash_file(self):
+        store, order, _ = self.populate()
+        old = order["path"] + "/# docs/Фото/схема.cdr"
+        files = file_trash.preview(self.root, order["path"], [old])["files"]
+        deleted = file_trash.remove(self.root, order["path"], files, True, store.database)
+        session = file_trash.session_path(self.root, deleted["session"])
+        plan_path = session / ".plan.json"
+        plan = json.loads(plan_path.read_bytes())
+        operation = next(item for item in plan["operations"] if item["source"] == old)
+        operation["identity"]["device"] += 1
+        plan_path.write_text(json.dumps(plan), encoding="utf-8")
+        stored = self.root / operation["destination"]
+        replacement = stored.with_name("копия")
+        replacement.write_bytes(stored.read_bytes())
+        os.utime(replacement, ns=(stored.stat().st_atime_ns, operation["identity"]["modified"]))
+        replacement.replace(stored)
+
+        with self.assertRaisesRegex(file_trash.TrashConflict, "Не удалось подтвердить сохранённый файл"):
+            object_move.move(store, self.payload(store), lambda **_: None, nullcontext)
+        self.assertTrue((self.root / self.source).is_dir())
+        self.assertFalse((self.root / self.destination).exists())
+        self.assertIn("Сохранённый файл изменён", file_trash.restore(self.root, deleted["session"])["error"])
+        self.assertFalse((self.root / old).exists())
 
     def test_invoice_copy_stays_trashed_and_can_be_restored_after_move(self):
         store, order, _ = self.populate()
