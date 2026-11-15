@@ -88,6 +88,22 @@ function changeInvoiceComment(event)
 
 Прямые присваивания полям/свойствам: `edit.value`, `edit.composing`, `edit.timer`.
 
+<a id="symbol-changeInvoiceStatus"></a>
+
+## changeInvoiceStatus
+
+[static/invoices.js](../../../static/invoices.js) · `FunctionDeclaration`.
+
+```javascript
+async function changeInvoiceStatus(record, value)
+```
+
+Сохраняет изменение статуса строки счёта.
+
+Передаёт выбранное значение, включая «Без отметки», и возвращает фокус в список.
+
+Непосредственные вызовы: `statusSaving.has`, `statusSaving.set`, `renderInvoiceList`, `$`, `request`, `($("invoiceList").invoiceRecords || []).map`, `refreshList`, `statusSaving.delete`, `focusInvoiceStatus`.
+
 <a id="symbol-changed"></a>
 
 ## changed
@@ -326,22 +342,21 @@ function focusInvoiceEdit(id)
 
 Непосредственные вызовы: `$("invoiceList").querySelector('[data-invoice-edit-button="' + CSS.escape(id) + '"]')?.focus`, `$("invoiceList").querySelector`, `$`, `CSS.escape`.
 
-<a id="symbol-focusStatusButton"></a>
+<a id="symbol-focusInvoiceStatus"></a>
 
-## focusStatusButton
+## focusInvoiceStatus
 
 [static/invoices.js](../../../static/invoices.js) · `FunctionDeclaration`.
 
 ```javascript
-function focusStatusButton(key)
+function focusInvoiceStatus(id)
 ```
 
-Возвращает фокус на статус выбранной строки счёта.
+Возвращает фокус на выпадающий список отметок выбранного счёта.
 
-Обращается к DOM текущего документа или переданного контейнера.
+Ищет доступный список по UUID и сохраняет прокрутку.
 
-Непосредственные вызовы: `[...$("invoiceList").querySelectorAll('[data-invoice-status]')].find((button) =>
-      button.dataset.invoiceStatus === key.id && button.dataset.value === key.value)?.focus`, `[...$("invoiceList").querySelectorAll('[data-invoice-status]')].find`, `$("invoiceList").querySelectorAll`, `$`.
+Непосредственные вызовы: `$("invoiceList").querySelector('select[data-invoice-status="' + CSS.escape(id) + '"]:enabled')?.focus`, `$("invoiceList").querySelector`, `$`, `CSS.escape`.
 
 <a id="symbol-inlineCommentRecord"></a>
 
@@ -358,6 +373,22 @@ function inlineCommentRecord(form)
 Читает только текущий список, чтобы чужой заказ не получил ввод из прежнего.
 
 Непосредственные вызовы: `$("invoiceList").invoiceRecords?.find`, `$`.
+
+<a id="symbol-invoiceAction"></a>
+
+## invoiceAction
+
+[static/invoices.js](../../../static/invoices.js) · `FunctionDeclaration`.
+
+```javascript
+function invoiceAction(record, action, label, symbol)
+```
+
+Строит пиктограмму действия в строке счёта.
+
+Сохраняет имя с номером счёта для экранного диктора и короткую подсказку при наведении.
+
+Непосредственные вызовы: `escapeHtml`, `invoiceLabel`, `icon`.
 
 <a id="symbol-invoiceCommentMarkup"></a>
 
@@ -388,6 +419,23 @@ const invoiceLabel = (record) =>
 Формирует отображаемое название счёта или плана.
 
 Результат вычисляется из переданных аргументов и текущего состояния компонента.
+
+<a id="symbol-invoiceStatusSelect"></a>
+
+## invoiceStatusSelect
+
+[static/invoices.js](../../../static/invoices.js) · `FunctionDeclaration`.
+
+```javascript
+function invoiceStatusSelect(record, label, busy)
+```
+
+Строит выпадающий список ручных отметок с цветом текущего значения.
+
+Без отметки доступно отдельным пунктом, неизвестная отметка остаётся доступной только для чтения.
+
+Непосредственные вызовы: `statusSaving.get`, `Object.entries(listStatusLabels).map(([value, name]) =>
+      '<option value="' + value + '"' + (status === value ? ' selected' : '') + '>' + name + '</option>').join`, `Object.entries(listStatusLabels).map`, `Object.entries`, `escapeHtml`.
 
 <a id="symbol-itemDropPosition"></a>
 
@@ -654,14 +702,14 @@ refresh: () =>
 [static/invoices.js](../../../static/invoices.js) · `FunctionDeclaration`.
 
 ```javascript
-async function refreshList(force = false)
+async function refreshList(force = false, background = false)
 ```
 
 Перечитывает счета из SQLite с учётом открытых редакторов.
 
-Использует `/api/invoices`.
+Фоновый опрос откладывает замену списка, пока выпадающий статус в фокусе.
 
-Непосредственные вызовы: `Boolean`, `isWorkOrderPath`, `$`, `$("invoiceList").replaceChildren`, `renderCandidates`, `checkInvoiceFolder`, `request`, `apiUrl`, `renderInvoiceList`, `Set`, `[...result.items, ...trashed].flatMap((record) => [record.filename,
+Непосредственные вызовы: `Boolean`, `isWorkOrderPath`, `$`, `$("invoiceList").replaceChildren`, `renderCandidates`, `checkInvoiceFolder`, `request`, `apiUrl`, `document.activeElement?.matches`, `renderInvoiceList`, `Set`, `[...result.items, ...trashed].flatMap((record) => [record.filename,
         ...(record.closing_documents || []).map((item) => item.filename), ...(record.closing_documents_trash || []).map((item) => item.filename)])
         .filter(Boolean).map`, `[...result.items, ...trashed].flatMap((record) => [record.filename,
         ...(record.closing_documents || []).map((item) => item.filename), ...(record.closing_documents_trash || []).map((item) => item.filename)])
@@ -711,7 +759,7 @@ function renderInvoiceList(records)
 
 При обновлении списка восстанавливает фокус действий и выделение рабочего комментария.
 
-Непосредственные вызовы: `picker?.matches`, `InvoiceDocuments.focusKey`, `document.activeElement?.closest`, `Map`, `records.filter((record) => ['issued', 'external'].includes(record.state)).map`, `records.filter`, `$`, `rows.map((record) => {
+Непосредственные вызовы: `picker?.matches`, `InvoiceDocuments.focusKey`, `Map`, `records.filter((record) => ['issued', 'external'].includes(record.state)).map`, `records.filter`, `$`, `rows.map((record) => {
       const external = record.state === "external";
       const label = invoiceLabel(record);
       const date = record.state === 'planned' ? displayPlanDate(record) : displayDate(record.data.date);
@@ -728,10 +776,8 @@ function renderInvoiceList(records)
       const secondary = (comment ? label + ' · ' : '') + details;
       const sync = record.state === "draft" ? "Черновик" : record.sync_error ? "PDF в базе · " + record.sync_error + " · автоповтор" : record.sync_pending ? "PDF в базе · копия в # bills ожидает выгрузки" : "PDF в # bills";
       const busy = statusSaving.has(record.id) || InvoiceDocuments.isBusy(record.id);
-      const status = record.list_status === undefined ? 'none' : record.list_status;
-      const buttons = '<div class="invoice-list-status" role="group" aria-label="Отметка счёта · ' + escapeHtml(label) + '" aria-busy="' + busy + '">' +
-        Object.entries(listStatusLabels).map(([value, name]) => '<button type="button" class="secondary-button" data-invoice-status="' + record.id + '" data-value="' + value + '" aria-pressed="' + (status === value) + '" title="' + (status === null ? 'Неизвестная отметка сохранена без замены' : status === value ? 'Снять отметку «' + name + '»' : name) + '"' + (busy || status === null ? ' disabled' : '') + '>' + name + '</button>').join('') + '</div>';
-      const schedule = record.state === 'draft' ? '' : '<button class="secondary-button" type="button" data-invoice-schedule="' + record.id + '" aria-label="Запланировать оплату · ' + escapeHtml(label) + '">Запланировать</button>';
+      const status = invoiceStatusSelect(record, label, busy);
+      const schedule = record.state === 'draft' ? '' : invoiceAction(record, 'schedule', 'Запланировать оплату', 'calendar-plus');
       const plans = (linkedPlans.get(record.id) || []).map((plan) => {
         const inactive = record.list_status === 'inactive' || plan.data._calendar_inactive === true;
         const completed = plan.data._calendar_completed === true;
@@ -742,13 +788,16 @@ function renderInvoiceList(records)
       }).join('');
       const name = '<button type="button" class="invoice-row-name" data-invoice-' + (external ? 'view' : 'edit') + '="' + record.id + '"' + (external ? '' : ' aria-label="' + escapeHtml('Открыть · ' + label) + '"') + '><span class="invoice-row-label' + (comment ? ' invoice-row-comment' : '') + '" title="' + escapeHtml(external ? heading : 'Открыть редактор · ' + heading) + '">' + escapeHtml(heading) + '</span><small class="invoice-row-meta" title="' + escapeHtml(secondary + ' · ' + sync) + '">' + escapeHtml(secondary) + '<span class="invoice-row-state' + (record.sync_error ? ' error' : '') + '"> · ' + escapeHtml(sync) + '</span></small></button>';
       const top = external ? name : '<div class="invoice-row-top">' + name + invoiceCommentMarkup(record, label) + '</div>';
-      const edit = record.state === 'issued' && state.folder?.order?.registered === true ?
-        '<button class="secondary-button" type="button" data-invoice-edit-button="' + record.id + '" aria-label="' + escapeHtml('Редактировать · ' + label) + '">Редактировать</button>' : '';
-      const pdf = external ? '<button class="secondary-button" type="button" data-invoice-view="' + record.id + '">PDF</button>' :
-        record.state === 'issued' ? '<div class="invoice-pdf-actions">' + edit + '<a class="secondary-button" href="' + escapeHtml(pdfUrl(record)) + '" target="_blank" rel="noopener">PDF ↗</a></div>' : '';
-      return '<div class="invoice-row" data-invoice-row="' + record.id + '"><div class="invoice-row-content' + (external ? '' : ' invoice-row-with-comment') + '">' + top + (plans ? '<div class="invoice-linked-plans">' + plans + '</div>' : '') + InvoiceDocuments.markup(record) + '</div><div class="invoice-row-actions">' + (external ? '' : '<strong>' + cash(record.data.total) + '</strong>') + buttons + schedule + InvoiceDocuments.button(record) +
-        (typeof ReconciliationUI === 'undefined' ? '' : ReconciliationUI.button(record)) + pdf + (external ? '' : '<button class="secondary-button" type="button" data-invoice-copy="' + record.id + '">На основе</button>') + '<button class="secondary-button invoice-remove" type="button" data-invoice-remove="' + record.id + '" title="В корзину" aria-label="' + escapeHtml('В корзину · ' + label) + '">×</button></div></div>';
-    }).join`, `rows.map`, `focusStatusButton`, `[...$("invoiceList").querySelectorAll('[data-invoice-plan]')].find((button) => button.dataset.invoicePlan === focusedPlan)?.focus`, `[...$("invoiceList").querySelectorAll('[data-invoice-plan]')].find`, `$("invoiceList").querySelectorAll`, `[...$("invoiceList").querySelectorAll('[data-invoice-schedule]')].find((button) => button.dataset.invoiceSchedule === focusedSchedule)?.focus`, `[...$("invoiceList").querySelectorAll('[data-invoice-schedule]')].find`, `focusInvoiceEdit`, `[...$("invoiceList").querySelectorAll('[data-invoice-reconciliation]')].find(button => button.dataset.invoiceReconciliation === focusedReconciliation)?.focus`, `[...$("invoiceList").querySelectorAll('[data-invoice-reconciliation]')].find`, `InvoiceDocuments.restoreFocus`, `records.map`, `paintInvoiceComment`, `byId.get`, `input.focus`, `input.setSelectionRange`, `commentSelection.slice`.
+      const issued = record.state === 'issued';
+      const edit = issued && state.folder?.order?.registered === true ? invoiceAction(record, 'edit-button', 'Редактировать', 'edit') : '';
+      const pdf = external ? invoiceAction(record, 'view', 'Открыть PDF', 'file') : issued ?
+        '<a class="icon-button invoice-action" href="' + escapeHtml(pdfUrl(record)) + '" target="_blank" rel="noopener" title="Открыть PDF" aria-label="' + escapeHtml('Открыть PDF · ' + label) + '">' + icon('file') + '</a>' : '';
+      const copy = external ? '' : invoiceAction(record, 'copy', 'На основе', 'copy');
+      const actions = '<div class="invoice-row-tools">' + schedule + InvoiceDocuments.button(record) +
+        (typeof ReconciliationUI === 'undefined' ? '' : ReconciliationUI.button(record)) + edit + pdf + copy +
+        invoiceAction(record, 'remove', 'В корзину', 'trash') + '</div>';
+      return '<div class="invoice-row" data-invoice-row="' + record.id + '"><div class="invoice-row-content' + (external ? '' : ' invoice-row-with-comment') + '">' + top + (plans ? '<div class="invoice-linked-plans">' + plans + '</div>' : '') + InvoiceDocuments.markup(record) + '</div><div class="invoice-row-actions">' + (external ? '' : '<strong>' + cash(record.data.total) + '</strong>') + status + actions + '</div></div>';
+    }).join`, `rows.map`, `focusInvoiceStatus`, `[...$("invoiceList").querySelectorAll('[data-invoice-plan]')].find((button) => button.dataset.invoicePlan === focusedPlan)?.focus`, `[...$("invoiceList").querySelectorAll('[data-invoice-plan]')].find`, `$("invoiceList").querySelectorAll`, `[...$("invoiceList").querySelectorAll('[data-invoice-schedule]')].find((button) => button.dataset.invoiceSchedule === focusedSchedule)?.focus`, `[...$("invoiceList").querySelectorAll('[data-invoice-schedule]')].find`, `focusInvoiceEdit`, `[...$("invoiceList").querySelectorAll('[data-invoice-reconciliation]')].find(button => button.dataset.invoiceReconciliation === focusedReconciliation)?.focus`, `[...$("invoiceList").querySelectorAll('[data-invoice-reconciliation]')].find`, `InvoiceDocuments.restoreFocus`, `records.map`, `paintInvoiceComment`, `byId.get`, `input.focus`, `input.setSelectionRange`, `commentSelection.slice`.
 
 Прямые присваивания полям/свойствам: `$("invoiceCount").textContent`, `$("invoiceList").innerHTML`, `$("invoiceList").invoiceRecords`, `input.scrollTop`.
 
@@ -975,22 +1024,6 @@ function showPlan(record = null, options = {})
 Непосредственные вызовы: `new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Moscow', year: 'numeric', month: '2-digit', day: '2-digit' }).format`, `Intl.DateTimeFormat`, `Date`, `newIdentity`, `Boolean`, `$`, `state.orders.find`, `invoiceLabel`, `normalizePlanDate`, `(amount / 100).toFixed(2).replace`, `(amount / 100).toFixed`, `updatePlanFields`, `JSON.stringify`, `planValues`, `$("planInvoiceState").classList.remove`, `$("planInvoiceDialog").showModal`, `$("planInvoiceDate").focus`, `readPlanSource`.
 
 Прямые присваивания полям/свойствам: `$(id).disabled`, `$("planInvoiceOrder").textContent`, `$("planInvoiceSource").hidden`, `$("planInvoiceSource").textContent`, `$("planInvoiceDate").value`, `$("planInvoicePeriod").value`, `$("planInvoiceOperation").value`, `$("planInvoiceAmount").value`, `$("planInvoiceText").value`, `$("deleteInvoicePlan").hidden`, `planning.savedForm`, `$("planInvoiceState").textContent`, `$("refreshInvoicePlan").hidden`, `$("saveInvoicePlan").disabled`, `$("saveInvoicePlan").textContent`.
-
-<a id="symbol-toggleListStatus"></a>
-
-## toggleListStatus
-
-[static/invoices.js](../../../static/invoices.js) · `FunctionDeclaration`.
-
-```javascript
-async function toggleListStatus(record, value)
-```
-
-Сохраняет изменение статуса строки счёта.
-
-Использует `/api/invoice-list-status`.
-
-Непосредственные вызовы: `statusSaving.has`, `statusSaving.add`, `renderInvoiceList`, `$`, `request`, `($("invoiceList").invoiceRecords || []).map`, `refreshList`, `statusSaving.delete`, `focusStatusButton`.
 
 <a id="symbol-totals"></a>
 

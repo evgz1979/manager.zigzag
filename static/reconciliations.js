@@ -35,13 +35,14 @@ const ReconciliationUI = (() => {
     $('reconciliationListState').textContent = rows.length ? '' : 'Создай первую сверку кнопкой «Создать сверку».';
   }
 
-  // Строит кнопку действия компонента с текущим состоянием записи.
-  // Использует `links.set`, `links.get`, `escapeHtml`.
+  // Строит кнопку сверки в строке счёта.
+  // Подсвечивает привязанный счёт и передаёт название сверки в подсказку и доступное имя.
   function button(invoice) {
     if (invoice.reconciliation) links.set(invoice.id, invoice.reconciliation);
     const link = links.get(invoice.id);
     const label = link?.id ? 'Сверка: ' + (link.title || 'недоступна') : 'В сверку';
-    return '<button type="button" class="secondary-button invoice-reconciliation-button" data-invoice-reconciliation="' + escapeHtml(invoice.id) + '" title="' + escapeHtml(label) + '">' + escapeHtml(label) + '</button>';
+    return '<button type="button" class="icon-button invoice-action" data-invoice-reconciliation="' + escapeHtml(invoice.id) +
+      '" data-assigned="' + Boolean(link?.id) + '" aria-label="' + escapeHtml(label) + '" title="' + escapeHtml(label) + '">' + icon('checklist') + '</button>';
   }
 
   // Показывает назначенные сверке счета с их состоянием и источником.
@@ -64,7 +65,7 @@ const ReconciliationUI = (() => {
       if (focused && document.activeElement === document.body) [...$('reconciliationInvoiceRows').querySelectorAll('[data-reconciliation-unlink]')].find(el => el.dataset.reconciliationUnlink === focused)?.focus({ preventScroll: true });
       pane.scrollTop = scroll;
     }
-    $('reconciliationInvoiceState').textContent = rows.length ? '' : 'Добавь счета через кнопку «В сверку» в исходном заказе.';
+    $('reconciliationInvoiceState').textContent = rows.length ? '' : 'Добавь счета через значок «В сверку» в исходном заказе.';
     $('reconciliationInvoiceRows').invoiceRecords = rows;
   }
 

@@ -30,11 +30,11 @@ const attr = (record, action, document = '') =>
 function button(record)
 ```
 
-Строит кнопку действия компонента с текущим состоянием записи.
+Строит кнопку со скрепкой для редактора закрывающих документов.
 
-Использует `uploads.get`, `attr`, `Boolean`.
+Сохраняет состояние раскрытия, число выбранных файлов и доступное имя действия.
 
-Непосредственные вызовы: `uploads.get`, `attr`, `Boolean`.
+Непосредственные вызовы: `uploads.get`, `attr`, `escapeHtml`, `Boolean`, `icon`.
 
 <a id="symbol-change"></a>
 

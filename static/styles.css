@@ -1044,7 +1044,6 @@ h2 { font-size: 13px; font-weight: 600; }
 .bills-sort::after { content: '↕'; opacity: .4; font-size: 10px; }
 .bills-table th[aria-sort="ascending"] .bills-sort::after { content: '↑'; opacity: 1; color: var(--accent); }
 .bills-table th[aria-sort="descending"] .bills-sort::after { content: '↓'; opacity: 1; color: var(--accent); }
-.invoice-reconciliation-button { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .invoice-reconciliation-dialog { width: min(560px, 94vw); padding: 24px; }
 .invoice-reconciliation-dialog label { display: grid; gap: 8px; font-size: 12px; }
 .invoice-reconciliation-dialog select { width: 100%; padding: 9px; }
@@ -1149,19 +1148,20 @@ h2 { font-size: 13px; font-weight: 600; }
 .invoice-row .invoice-linked-entry .invoice-remove { padding: 0 4px; border-color: transparent; background: transparent; }
 .invoice-row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; margin-left: auto; max-width: 100%; }
 .invoice-row-actions > strong { white-space: nowrap; }
-.invoice-pdf-actions { display: flex; flex: none; align-items: center; gap: 6px; }
-.invoice-list-status { display: flex; flex: none; gap: 2px; max-width: 100%; overflow-x: auto; }
-.invoice-row .invoice-list-status button { min-height: 20px; padding: 2px 4px; font-size: 10px; line-height: 14px; }
-.invoice-list-status button:focus-visible { outline-offset: -2px; }
-@media (max-width: 370px) {
-  .invoice-list-status { gap: 1px; }
-  .invoice-row .invoice-list-status button { padding-inline: 2px; font-size: 9px; }
-}
-.invoice-list-status [aria-pressed="true"][data-value="active"] { background: #e4efea; border-color: #a6cbb6; color: #28684e; }
-.invoice-list-status [aria-pressed="true"][data-value="inactive"] { background: #eef0f1; border-color: #cbd0d3; color: #687177; }
-.invoice-list-status [aria-pressed="true"][data-value="later"] { background: #fbf3d9; border-color: #e0cd88; color: #80641d; }
-.invoice-list-status [aria-pressed="true"][data-value="sent"] { background: #eaf1fb; border-color: #b2c9e6; color: #386490; }
-.invoice-list-status [aria-pressed="true"][data-value="paid"] { background: #d9f1df; border-color: #87bd94; color: #226b36; }
+.invoice-row .invoice-list-status { flex: none; max-width: 134px; min-height: 26px; font-size: 11px; }
+.invoice-list-status[data-status="invoice-active"] { background: #e4efea; border-color: #a6cbb6; color: #28684e; }
+.invoice-list-status[data-status="invoice-inactive"] { background: #eef0f1; border-color: #cbd0d3; color: #687177; }
+.invoice-list-status[data-status="invoice-later"] { background: #fbf3d9; border-color: #e0cd88; color: #80641d; }
+.invoice-list-status[data-status="invoice-sent"] { background: #eaf1fb; border-color: #b2c9e6; color: #386490; }
+.invoice-list-status[data-status="invoice-paid"] { background: #d9f1df; border-color: #87bd94; color: #226b36; }
+.invoice-row-tools { display: flex; flex: none; align-items: center; gap: 2px; }
+.invoice-row-tools .invoice-action { position: relative; width: 28px; height: 28px; padding: 0; border-radius: 6px; color: #556764; }
+.invoice-row-tools .invoice-action svg { width: 16px; height: 16px; }
+.invoice-row-tools .invoice-action:not(:disabled):hover { background: #f0f5f2; }
+.invoice-row-tools .invoice-action[data-assigned="true"], .invoice-row-tools .invoice-action[aria-expanded="true"] { background: var(--accent-soft); color: var(--accent); }
+.invoice-row-tools .invoice-action[data-invoice-remove] { color: #9f716b; }
+.invoice-row-tools .invoice-action[data-invoice-remove]:hover { background: #f8efed; color: #a83e35; }
+.invoice-action-count { position: absolute; top: 0; right: 0; padding: 0 3px; border-radius: 5px; background: var(--accent); color: white; font-size: 9px; line-height: 11px; }
 .invoice-closing-documents { display: grid; gap: 3px; margin-top: 7px; }
 .invoice-closing-documents > small, .invoice-closing-file small { font-size: 10px; color: #77808d; }
 .invoice-closing-file { display: flex; align-items: center; gap: 5px; min-width: 0; font-size: 11px; }

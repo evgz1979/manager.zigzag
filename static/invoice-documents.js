@@ -21,11 +21,16 @@ const InvoiceDocuments = (() => {
   // Использует `hooks.render`, `$`.
   const repaint = () => hooks.render($('invoiceList').invoiceRecords || []);
 
-  // Строит кнопку действия компонента с текущим состоянием записи.
-  // Использует `uploads.get`, `attr`, `Boolean`.
+  // Строит кнопку со скрепкой для редактора закрывающих документов.
+  // Сохраняет состояние раскрытия, число выбранных файлов и доступное имя действия.
   function button(record) {
     const ui = uploads.get(record.id);
-    return '<button class="secondary-button" type="button"' + attr(record, 'toggle') + ' aria-expanded="' + Boolean(ui?.open) + '"' + (!record.closing_documents_editable || ui?.busy ? ' disabled' : '') + '>Закрывашки +' + (ui?.files.length ? ' (' + ui.files.length + ')' : '') + '</button>';
+    const count = ui?.files.length || 0;
+    const label = 'Закрывающие документы' + (count ? ' · выбрано: ' + count : '');
+    return '<button class="icon-button invoice-action" type="button"' + attr(record, 'toggle') +
+      ' aria-label="' + escapeHtml(label) + '" title="' + escapeHtml(label) + '" aria-expanded="' + Boolean(ui?.open) + '"' +
+      (!record.closing_documents_editable || ui?.busy ? ' disabled' : '') + '>' + icon('paperclip') +
+      (count ? '<small class="invoice-action-count" aria-hidden="true">' + count + '</small>' : '') + '</button>';
   }
 
   // Формирует HTML текущего компонента из переданных данных.
