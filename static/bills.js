@@ -95,9 +95,8 @@
       const pdf = ['issued', 'external'].includes(item.state);
       const href = pdf ? apiUrl('/api/invoice-pdf', item.path, { id: item.id }) : '?path=' + encodeURIComponent(item.path);
       const type = { draft: 'Черновик', issued: 'Выпущен', external: 'Прикреплён' }[item.state];
-      const editable = item.edit_action === 'edit' && item.state === 'draft' || item.edit_action === 'copy' && item.state === 'issued';
-      const action = item.edit_action === 'edit' ? 'Редактировать' : 'Новая правка';
-      const name = editable ? '<button type="button" class="bills-edit" data-bills-key="' + escapeHtml(item.id) + '" data-bills-edit="' + escapeHtml(item.id) + '" title="' + escapeHtml(item.edit_action === 'edit' ? 'Редактировать черновик · ' + item.label : 'Создать отдельный черновик на основе · ' + item.label) + '"' + (opening ? ' disabled' : '') + '><span>' + escapeHtml(item.label) + '</span><span class="bills-edit-badge">' + action + '</span></button>' : '<a data-bills-key="' + escapeHtml(item.id) + '" href="' + escapeHtml(href) + '"' + (pdf ? ' target="_blank" rel="noopener"' : ' data-bills-order="' + escapeHtml(item.path) + '"') + '>' + escapeHtml(item.label) + '</a>';
+      const editable = item.edit_action === 'edit' && ['draft', 'issued'].includes(item.state);
+      const name = editable ? '<button type="button" class="bills-edit" data-bills-key="' + escapeHtml(item.id) + '" data-bills-edit="' + escapeHtml(item.id) + '" title="' + escapeHtml('Редактировать · ' + item.label) + '"' + (opening ? ' disabled' : '') + '><span>' + escapeHtml(item.label) + '</span><span class="bills-edit-badge">Редактировать</span></button>' : '<a data-bills-key="' + escapeHtml(item.id) + '" href="' + escapeHtml(href) + '"' + (pdf ? ' target="_blank" rel="noopener"' : ' data-bills-order="' + escapeHtml(item.path) + '"') + '>' + escapeHtml(item.label) + '</a>';
       return '<tr' + (editable ? ' class="bills-editable"' : '') + '><td class="bills-date">' + date(item.date) + '</td><td>' + name + '<small>' + escapeHtml(type) + (editable && pdf ? ' · <a data-bills-key="' + escapeHtml(item.id + ':pdf') + '" href="' + escapeHtml(href) + '" target="_blank" rel="noopener">PDF</a>' : '') + '</small>' + (item.comment ? '<small class="bills-comment" title="' + escapeHtml(item.comment) + '">' + escapeHtml(item.comment) + '</small>' : '') + '</td><td><button type="button" class="bills-client" data-bills-key="' + escapeHtml(item.id + ':client') + '" data-bills-client="' + escapeHtml(clientKey(item)) + '" title="' + escapeHtml('Показать только счета клиента · ' + (item.client || 'Без клиента')) + '">' + escapeHtml(item.client || '—') + '</button></td><td><a data-bills-key="' + escapeHtml(item.id + ':order') + '" data-bills-order="' + escapeHtml(item.path) + '" href="?path=' + encodeURIComponent(item.path) + '" title="' + escapeHtml(item.path) + '">' + escapeHtml(item.order_title) + '</a></td><td class="reconciliation-amount">' + (Number.isSafeInteger(item.total) ? rubles(item.total) : '—') + '</td><td>' + escapeHtml(item.list_status === null ? 'Неизвестная отметка' : statuses[item.list_status] || '—') + '</td></tr>';
     }).join('');
     if (html !== markup) { replaceRows('billsCatalogRows', html); markup = html; }
@@ -157,7 +156,7 @@
       if (!item || edit.disabled) return;
       run(async () => {
         opening = item.id; renderCatalog();
-        try { await window.ManagerInvoices.openFromCatalog(item.path, item.id, item.edit_action, item.id); }
+        try { await window.ManagerInvoices.openFromCatalog(item.path, item.id, item.id); }
         finally {
           opening = null; renderCatalog();
           if (state.folder === context && document.activeElement === document.body) [...$('billsCatalogRows').querySelectorAll('[data-bills-key]')].find(button => button.dataset.billsKey === item.id)?.focus({ preventScroll: true });

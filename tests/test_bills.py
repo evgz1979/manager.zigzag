@@ -59,7 +59,7 @@ class BillsTests(unittest.TestCase):
         self.assertEqual(rows[issued['id']]['total'], 12345)
         self.assertEqual(rows[issued['id']]['list_status'], 'sent')
         self.assertEqual(rows[draft['id']]['edit_action'], 'edit')
-        self.assertEqual(rows[issued['id']]['edit_action'], 'copy')
+        self.assertEqual(rows[issued['id']]['edit_action'], 'edit')
         self.assertIsNone(rows[external['id']]['edit_action'])
         self.assertEqual(rows[external['id']]['comment'], 'Оплата за вывеску')
         self.assertIsNone(rows[external['id']]['total'])

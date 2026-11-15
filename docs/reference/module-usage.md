@@ -24,7 +24,7 @@
 | [folder_rename_undo.py](python/folder_rename_undo.md) | `event_trash.py`, `folder_rename.py`, `local_metadata.py`, `object_years.py` | 7 | Да |
 | [folder_structure.py](python/folder_structure.md) | `client_activity.py`, `event_folders.py`, `event_relevance.py`, `file_uploads.py`, `folder_notes.py`, `folder_rename.py`, `hidden_orders.py`, `invoices.py`, `object_activity.py`, `object_move.py`, `object_orders.py`, `object_years.py`, `order_creation.py`, `order_folders.py`, `order_links.py`, `orders.py`, `reconciliations.py`, `scripts/rebind_glass_notes.py`, `server.py`, `supplier_purchases.py`, `work_order_list.py`, `work_orders.py` | 8 | Нет |
 | [hidden_orders.py](python/hidden_orders.md) | `server.py` | 1 | Нет |
-| [icloud_access.py](python/icloud_access.md) | `file_trash.py`, `invoice_discovery.py`, `local_metadata.py`, `order_document.py`, `server.py`, `spreadsheet_preview.py` | 1 | Нет |
+| [icloud_access.py](python/icloud_access.md) | `file_trash.py`, `invoice_discovery.py`, `invoices.py`, `local_metadata.py`, `order_document.py`, `server.py`, `spreadsheet_preview.py` | 1 | Нет |
 | [image_reports.py](python/image_reports.md) | `server.py` | 0 | Нет |
 | [inbox_folder.py](python/inbox_folder.md) | `server.py` | 1 | Нет |
 | [invoice_discovery.py](python/invoice_discovery.md) | `server.py` | 1 | Нет |

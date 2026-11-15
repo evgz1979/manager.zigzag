@@ -173,8 +173,8 @@
   }
 
   // Открывает редактор из строки, дождавшись записи её комментария.
-  // Передаёт редактору актуальную версию счёта и сохраняет контекст выбранного заказа.
-  async function openInvoiceRow(record) {
+  // Передаёт редактору актуальную версию счёта, контекст заказа и ключ кнопки возврата фокуса.
+  async function openInvoiceRow(record, returnFocus = null) {
     const context = state.folder, opening = ++invoiceOpening;
     let edit = commentEdits.get(record.id);
     while (edit && !edit.error && !edit.composing) {
@@ -183,11 +183,11 @@
     }
     if (opening !== invoiceOpening || state.folder !== context || state.view !== 'folder') return;
     const latest = $("invoiceList").invoiceRecords?.find(item => item.id === record.id && item.path === record.path);
-    if (latest) show(latest);
+    if (latest) show(latest, returnFocus);
   }
 
   // Показывает счета, планы и состояние документов текущего заказа.
-  // При обновлении списка восстанавливает фокус и выделение в поле рабочего комментария.
+  // При обновлении списка восстанавливает фокус действий и выделение рабочего комментария.
   function renderInvoiceList(records) {
     // Keep the input alive while the native file picker is open or cancelled.
     const picker = document.activeElement;
@@ -198,6 +198,7 @@
     const documentFocus = InvoiceDocuments.focusKey();
     const focusedPlan = document.activeElement?.dataset.invoicePlan;
     const focusedSchedule = document.activeElement?.dataset.invoiceSchedule;
+    const focusedEdit = document.activeElement?.dataset.invoiceEditButton;
     const focusedReconciliation = document.activeElement?.dataset.invoiceReconciliation;
     const focused = document.activeElement?.closest('[data-invoice-status]');
     const focusKey = focused ? { id: focused.dataset.invoiceStatus, value: focused.dataset.value } : null;
@@ -240,10 +241,14 @@
         const description = [completed ? 'Выполнено' : '', inactive ? 'Неактуально' : '', invoiceLabel(plan), label, displayPlanDate(plan), planAmount(plan), plan.data.text].filter(Boolean).join(' · ');
         return '<div class="invoice-linked-entry"><button type="button" class="invoice-linked-plan' + (inactive ? ' invoice-linked-inactive' : '') + (completed ? ' invoice-plan-completed' : '') + '" data-invoice-plan="' + plan.id + '" data-operation="' + escapeHtml(plan.data.operation || 'invoice') + '" aria-label="' + escapeHtml(description) + '" title="' + escapeHtml(description) + '"' + (plan.plan_editable ? '' : ' disabled') + '>' + escapeHtml(summary) + (plan.plan_editable ? '' : ' · Неизвестный формат плана') + '</button><button class="secondary-button invoice-remove" type="button" data-invoice-remove="' + plan.id + '" aria-label="' + escapeHtml('В корзину · ' + description) + '">×</button></div>';
       }).join('');
-      const name = '<button type="button" class="invoice-row-name" data-invoice-' + (external ? 'view' : 'edit') + '="' + record.id + '"><span class="invoice-row-label' + (comment ? ' invoice-row-comment' : '') + '" title="' + escapeHtml(heading) + '">' + escapeHtml(heading) + '</span><small class="invoice-row-meta" title="' + escapeHtml(secondary + ' · ' + sync) + '">' + escapeHtml(secondary) + '<span class="invoice-row-state' + (record.sync_error ? ' error' : '') + '"> · ' + escapeHtml(sync) + '</span></small></button>';
+      const name = '<button type="button" class="invoice-row-name" data-invoice-' + (external ? 'view' : 'edit') + '="' + record.id + '"' + (external ? '' : ' aria-label="' + escapeHtml('Открыть · ' + label) + '"') + '><span class="invoice-row-label' + (comment ? ' invoice-row-comment' : '') + '" title="' + escapeHtml(external ? heading : 'Открыть редактор · ' + heading) + '">' + escapeHtml(heading) + '</span><small class="invoice-row-meta" title="' + escapeHtml(secondary + ' · ' + sync) + '">' + escapeHtml(secondary) + '<span class="invoice-row-state' + (record.sync_error ? ' error' : '') + '"> · ' + escapeHtml(sync) + '</span></small></button>';
       const top = external ? name : '<div class="invoice-row-top">' + name + invoiceCommentMarkup(record, label) + '</div>';
+      const edit = record.state === 'issued' && state.folder?.order?.registered === true ?
+        '<button class="secondary-button" type="button" data-invoice-edit-button="' + record.id + '" aria-label="' + escapeHtml('Редактировать · ' + label) + '">Редактировать</button>' : '';
+      const pdf = external ? '<button class="secondary-button" type="button" data-invoice-view="' + record.id + '">PDF</button>' :
+        record.state === 'issued' ? '<div class="invoice-pdf-actions">' + edit + '<a class="secondary-button" href="' + escapeHtml(pdfUrl(record)) + '" target="_blank" rel="noopener">PDF ↗</a></div>' : '';
       return '<div class="invoice-row" data-invoice-row="' + record.id + '"><div class="invoice-row-content' + (external ? '' : ' invoice-row-with-comment') + '">' + top + (plans ? '<div class="invoice-linked-plans">' + plans + '</div>' : '') + InvoiceDocuments.markup(record) + '</div><div class="invoice-row-actions">' + (external ? '' : '<strong>' + cash(record.data.total) + '</strong>') + buttons + schedule + InvoiceDocuments.button(record) +
-        (typeof ReconciliationUI === 'undefined' ? '' : ReconciliationUI.button(record)) + (external ? '<button class="secondary-button" type="button" data-invoice-view="' + record.id + '">PDF</button>' : record.state !== "draft" ? '<a class="secondary-button" href="' + escapeHtml(pdfUrl(record)) + '" target="_blank" rel="noopener">PDF ↗</a>' : '') + (external ? '' : '<button class="secondary-button" type="button" data-invoice-copy="' + record.id + '">На основе</button>') + '<button class="secondary-button invoice-remove" type="button" data-invoice-remove="' + record.id + '" title="В корзину" aria-label="' + escapeHtml('В корзину · ' + label) + '">×</button></div></div>';
+        (typeof ReconciliationUI === 'undefined' ? '' : ReconciliationUI.button(record)) + pdf + (external ? '' : '<button class="secondary-button" type="button" data-invoice-copy="' + record.id + '">На основе</button>') + '<button class="secondary-button invoice-remove" type="button" data-invoice-remove="' + record.id + '" title="В корзину" aria-label="' + escapeHtml('В корзину · ' + label) + '">×</button></div></div>';
     }).join("");
     if (markup !== listMarkup) {
       $("invoiceList").innerHTML = markup;
@@ -251,6 +256,7 @@
       if (focusKey && document.activeElement === document.body) focusStatusButton(focusKey);
       if (focusedPlan && document.activeElement === document.body) [...$("invoiceList").querySelectorAll('[data-invoice-plan]')].find((button) => button.dataset.invoicePlan === focusedPlan)?.focus({ preventScroll: true });
       if (focusedSchedule && document.activeElement === document.body) [...$("invoiceList").querySelectorAll('[data-invoice-schedule]')].find((button) => button.dataset.invoiceSchedule === focusedSchedule)?.focus({ preventScroll: true });
+      if (focusedEdit && document.activeElement === document.body) focusInvoiceEdit(focusedEdit);
       if (focusedReconciliation && document.activeElement === document.body) [...$("invoiceList").querySelectorAll('[data-invoice-reconciliation]')].find(button => button.dataset.invoiceReconciliation === focusedReconciliation)?.focus({ preventScroll: true });
       InvoiceDocuments.restoreFocus(documentFocus);
     }
@@ -265,6 +271,12 @@
       input.setSelectionRange(...commentSelection.slice(0, 3));
       input.scrollTop = commentSelection[3];
     }
+  }
+
+  // Возвращает фокус на кнопку редактирования в строке выпущенного счёта.
+  // Ищет кнопку по UUID в текущем списке и сохраняет прокрутку.
+  function focusInvoiceEdit(id) {
+    $("invoiceList").querySelector('[data-invoice-edit-button="' + CSS.escape(id) + '"]')?.focus({ preventScroll: true });
   }
 
   // Возвращает фокус на статус выбранной строки счёта.
@@ -674,15 +686,13 @@
   }
 
   // Обновляет доступность ручек перемещения по состоянию счёта.
-  // Для перетаскивания нужны две строки черновика; в выпущенном счёте ручки скрыты.
+  // Для перетаскивания нужны две строки; во время сборки PDF ручки отключены.
   function updateItemMoves() {
-    const issued = editor.record.state === "issued";
     const rows = $("invoiceItems").rows;
-    const locked = issued || editor.issuing || rows.length < 2;
+    const locked = editor.issuing || rows.length < 2;
     if (locked) clearItemDrag();
     for (const row of rows) {
       const handle = row.querySelector("[data-invoice-drag]");
-      handle.hidden = issued;
       handle.disabled = locked;
       handle.draggable = !locked;
     }
@@ -766,22 +776,21 @@
   }
 
   // Обновляет доступность действий открытого редактора в модуле счетов и планов платежей.
-  // Обращается к DOM текущего документа или переданного контейнера.
+  // Разрешает правку содержимого обоих состояний; номер, дата и вид выпуска закреплены.
   function controls() {
     if (!editor) return;
     const issued = editor.record.state === "issued";
-    for (const input of $("invoiceForm").querySelectorAll(".invoice-editor-body input, .invoice-editor-body textarea, .invoice-editor-body select, [data-invoice-remove]")) input.disabled = issued || Boolean(editor.issuing);
+    for (const input of $("invoiceForm").querySelectorAll(".invoice-editor-body input, .invoice-editor-body textarea, .invoice-editor-body select, [data-invoice-remove]")) input.disabled = editor.issuing;
+    for (const id of ["invoiceKind", "invoiceNumber", "invoiceDate"]) $(id).disabled = issued || editor.issuing;
     updateItemMoves();
-    InvoiceProducts.setEditable(!issued && !editor.issuing);
-    for (const id of ["addInvoiceItem", "addInvoiceSeparator"]) {
-      $(id).disabled = issued || Boolean(editor.issuing);
-      $(id).hidden = issued;
-    }
-    for (const id of ["saveInvoice", "issueInvoice", "previewInvoice", "closeInvoice"]) $(id).disabled = Boolean(editor.saving || editor.issuing);
+    InvoiceProducts.setEditable(!editor.issuing);
+    for (const id of ["addInvoiceItem", "addInvoiceSeparator"]) $(id).disabled = editor.issuing;
+    for (const id of ["saveInvoice", "previewInvoice", "closeInvoice"]) $(id).disabled = Boolean(editor.saving || editor.issuing);
     $("saveInvoice").hidden = issued;
-    $("issueInvoice").hidden = issued;
-    $("previewInvoice").textContent = issued ? "Открыть PDF ↗" : "Предпросмотр ↗";
-    $("invoiceDraftHint").textContent = issued ? "Выпущен · для изменений создай новый на основе этого" : "Черновик сохраняется автоматически · одна страница";
+    $("issueInvoice").textContent = issued ? "Обновить PDF" : "Выпустить PDF";
+    $("issueInvoice").disabled = Boolean(editor.saving || editor.issuing || (issued && !editor.dirty));
+    $("previewInvoice").textContent = issued && !editor.dirty ? "Открыть PDF ↗" : "Предпросмотр ↗";
+    $("invoiceDraftHint").textContent = issued ? "Правки вступят в силу после обновления PDF" : "Черновик сохраняется автоматически · одна страница";
   }
 
   // Открывает прежний редактор счёта из карточки заказа или общего списка.
@@ -828,22 +837,26 @@
   }
 
   // Закрывает компонент и освобождает его временное состояние в модуле счетов и планов платежей.
-  // Управляет отложенным обновлением через таймер или кадр браузера.
+  // Сохраняет черновик и запрашивает подтверждение перед потерей правок выпущенного счёта.
   async function close() {
     if (editor?.issuing) return;
+    if (editor?.record.state === "issued" && editor.dirty && !confirm("Закрыть счёт без обновления PDF?")) return;
     clearItemDrag();
     await save();
-    const returnFocus = editor?.returnFocus;
+    const returnFocus = editor?.returnFocus, path = editor?.record.path;
     clearTimeout(editor?.timer);
     editor = null; $("invoiceDialog").close(); refreshList(true);
-    if (returnFocus) [...$('billsCatalogRows').querySelectorAll('[data-bills-key]')].find(item => item.dataset.billsKey === returnFocus)?.focus({ preventScroll: true });
+    if (!returnFocus) return;
+    if (state.folder?.folderKind === 'bills_root') {
+      [...$('billsCatalogRows').querySelectorAll('[data-bills-key]')].find(item => item.dataset.billsKey === returnFocus)?.focus({ preventScroll: true });
+    } else if (state.folder?.path === path) focusInvoiceEdit(returnFocus);
   }
 
-  // Создаёт черновик из заказа или явную новую правку из общего списка.
+  // Создаёт черновик из заказа или отдельный счёт явным действием «На основе».
   // Повтор использует прежний UUID; выпущенный источник не меняется, редактор открывается только в исходном контексте.
-  async function create(source, ownerPath = null, returnFocus = null) {
-    const path = ownerPath || state.folder?.path, context = state.folder;
-    if (!path || (!source && (!context?.order || context.path !== path))) return;
+  async function create(source) {
+    const context = state.folder, path = context?.path;
+    if (!path || !context.order) return;
     if (!pendingCreate || pendingCreate.path !== path || pendingCreate.source !== source) {
       pendingCreate = { path, source, id: newIdentity() };
     }
@@ -851,22 +864,21 @@
     try {
       const record = await request("/api/invoice-create", pendingCreate);
       pendingCreate = null;
-      if (state.folder === context) show(record, returnFocus);
+      if (state.folder === context) show(record);
       await refreshList(true);
       document.dispatchEvent(new Event('manager-invoice-saved'));
     } finally { $("newInvoice").disabled = false; }
   }
 
   // Загружает выбранный счёт и открывает его правку поверх общего списка.
-  // Черновик меняется на месте, выпущенный создаёт новый «На основе» только по явному действию copy.
-  async function openFromCatalog(path, identity, mode, returnFocus) {
+  // Черновик и выпуск открываются с прежним UUID; внешний PDF не редактируется этой формой.
+  async function openFromCatalog(path, identity, returnFocus) {
     const context = state.folder;
     if (context?.folderKind !== 'bills_root' || editor?.issuing) return;
     await save();
     const record = await request(apiUrl('/api/invoice', path, { id: identity }));
     if (state.folder !== context || state.view !== 'folder') return;
-    if (mode === 'edit' && record.state === 'draft') show(record, returnFocus);
-    else if (mode === 'copy' && record.state === 'issued') await create(record.id, record.path, returnFocus);
+    if (record.state === 'draft' || record.state === 'issued') show(record, returnFocus);
     else throw new Error('Состояние счёта изменилось. Обнови список перед правкой.');
   }
 
@@ -879,11 +891,16 @@
     });
   }
   // Помечает редактор изменённым и обновляет зависимые поля.
-  // Управляет отложенным обновлением через таймер или кадр браузера.
+  // Запускает автосохранение черновика; у выпуска правки остаются в форме до явного обновления PDF.
   function changed() {
-    if (!editor || editor.record.state !== "draft") return;
+    if (!editor || editor.issuing) return;
     editor.dirty = JSON.stringify(collect()) !== editor.saved;
     totals();
+    if (editor.record.state === "issued") {
+      controls();
+      message(editor.dirty ? "Есть изменения для обновления PDF." : "Выпущенный PDF сохранён в базе.");
+      return;
+    }
     clearTimeout(editor.timer);
     if (editor.dirty) { message("Есть несохранённые изменения…"); editor.timer = setTimeout(() => action(save), 900); }
   }
@@ -944,7 +961,7 @@
   // Добавляет ручную позицию, снимок товара или разделитель в конец таблицы счёта.
   // Товар и разделитель заменяют пустую начальную позицию; обе разновидности входят в предел 40 строк.
   function addItem(item = { name: "", quantity: "1", unit: "шт", price: "0" }) {
-    if (!editor || editor.record.state !== "draft" || editor.issuing) return;
+    if (!editor || editor.issuing) return;
     const rows = $("invoiceItems").rows, first = rows[0];
     if ((item.name || item.kind === "separator") && rows.length === 1 && first.dataset.kind !== "separator" &&
         !first.querySelector('[data-field="name"]').value.trim() &&
@@ -998,7 +1015,7 @@
     if (adjacent) moveItem(row, up ? adjacent : adjacent.nextElementSibling);
   });
   $("invoiceItems").addEventListener("click", (event) => {
-    if (editor?.record.state !== "draft" || editor.issuing) return;
+    if (!editor || editor.issuing) return;
     if (!event.target.closest("[data-invoice-remove]")) return;
     const row = event.target.closest("tr");
     const adjacent = row.nextElementSibling || row.previousElementSibling;
@@ -1063,7 +1080,7 @@
       return;
     }
     const copy = event.target.closest("[data-invoice-copy]");
-    const edit = event.target.closest("[data-invoice-edit]");
+    const edit = event.target.closest("[data-invoice-edit], [data-invoice-edit-button]");
     const view = event.target.closest("[data-invoice-view]");
     if (view) {
       const record = $("invoiceList").invoiceRecords?.find((item) => item.id === view.dataset.invoiceView && item.path === state.folder?.path);
@@ -1072,9 +1089,10 @@
     }
     if (copy) action(() => create(copy.dataset.invoiceCopy));
     else if (edit) {
-      const record = $("invoiceList").invoiceRecords?.find((item) => item.id === edit.dataset.invoiceEdit && item.path === state.folder?.path);
+      const returnFocus = edit.dataset.invoiceEditButton;
+      const record = $("invoiceList").invoiceRecords?.find((item) => item.id === (returnFocus || edit.dataset.invoiceEdit) && item.path === state.folder?.path);
       if (record?.state === "external") showExternal(record);
-      else if (record) action(() => openInvoiceRow(record));
+      else if (record) action(() => openInvoiceRow(record, returnFocus));
     }
   });
   $("cancelRemoveInvoice").addEventListener('click', () => { if (!removing) { pendingRemoval = null; $("removeInvoiceDialog").close(); } });
@@ -1102,13 +1120,18 @@
     });
   });
   $("previewInvoice").addEventListener("click", () => {
+    const current = editor;
     const tab = window.open("about:blank", "_blank");
     action(async () => {
       try {
         await save();
-        const record = editor.record;
-        if (record.state === "issued") { if (tab) tab.location = pdfUrl(record); return; }
-        const response = await fetch(pdfUrl(record, true));
+        if (!current || editor !== current) { tab?.close(); return; }
+        const record = current.record, issued = record.state === "issued";
+        if (issued && !current.dirty) { if (tab) tab.location = pdfUrl(record); return; }
+        const response = issued ? await fetch("/api/invoice-preview", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path: record.path, id: record.id, revision: record.revision, data: collect() }),
+        }) : await fetch(pdfUrl(record, true));
         if (!response.ok) { const data = await response.json(); throw new Error(data.error); }
         const url = URL.createObjectURL(await response.blob());
         if (tab) tab.location = url;
@@ -1117,13 +1140,20 @@
     });
   });
   $("issueInvoice").addEventListener("click", () => action(async () => {
-    if (!editor || editor.issuing) return;
-    await save();
     const current = editor;
+    if (!current || current.issuing) return;
+    const issued = current.record.state === "issued";
+    if (issued && !current.dirty) return;
+    await save();
+    if (editor !== current || current.issuing) return;
     current.issuing = true; controls(); message("Подготовка одностраничного PDF…");
     try {
-      current.record = await request("/api/invoice-issue", { path: current.record.path, id: current.record.id, revision: current.record.revision });
-      message("PDF выпущен и сохранён в базе. Копия в # bills поставлена в очередь.");
+      const payload = { path: current.record.path, id: current.record.id, revision: current.record.revision };
+      if (issued) payload.data = collect();
+      current.record = await request(issued ? "/api/invoice-revise" : "/api/invoice-issue", payload);
+      current.saved = JSON.stringify(collect()); current.dirty = false;
+      const status = issued ? "PDF обновлён в базе." : "PDF выпущен и сохранён в базе.";
+      message(status + (current.record.sync_pending ? " Копия в # bills поставлена в очередь." : ""));
       await refreshList(true);
       document.dispatchEvent(new Event('manager-invoice-saved'));
     } finally { current.issuing = false; controls(); }

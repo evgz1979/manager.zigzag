@@ -1209,6 +1209,36 @@ self.send_json(invoice_store().save(payload))
 
 Вызовы ветки: `invoice_store().save`, `invoice_store`.
 
+## POST /api/invoice-preview
+
+[ManagerHandler.do_POST](python/server.md#symbol-ManagerHandler.do_POST).
+
+Условие: `route in {'/api/invoice-preview', '/api/invoice-revise'}`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json({'error': 'Открой редактор счёта на странице менеджера'}, 403)
+self.send_json(invoice_store().revise(payload))
+```
+
+Вызовы ветки: `self.headers.get`, `self.headers.get_content_type`, `urllib.parse.urlsplit`, `self.send_invoice_pdf`, `schedule_order_sync`, `invoice_store().preview_revision`, `invoice_store().revise`, `invoice_store`.
+
+## POST /api/invoice-revise
+
+[ManagerHandler.do_POST](python/server.md#symbol-ManagerHandler.do_POST).
+
+Условие: `route in {'/api/invoice-preview', '/api/invoice-revise'}`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json({'error': 'Открой редактор счёта на странице менеджера'}, 403)
+self.send_json(invoice_store().revise(payload))
+```
+
+Вызовы ветки: `self.headers.get`, `self.headers.get_content_type`, `urllib.parse.urlsplit`, `self.send_invoice_pdf`, `schedule_order_sync`, `invoice_store().preview_revision`, `invoice_store().revise`, `invoice_store`.
+
 ## POST /api/invoice-issue
 
 [ManagerHandler.do_POST](python/server.md#symbol-ManagerHandler.do_POST).

@@ -182,7 +182,7 @@ class InvoiceTests(unittest.TestCase):
         self.assertTrue(list((self.root / ".folder-layout-history").glob("*/.journal.jsonl")))
         self.assertNotEqual(issued["revision"], row["revision"])
 
-    def test_issued_pdf_is_immutable_copying_and_retry_do_not_change_it(self):
+    def test_copying_and_retrying_initial_issue_do_not_change_issued_pdf(self):
         row = self.draft()
         issued = self.issue(row)
         original, name = self.store().pdf(self.path, row["id"])
@@ -194,6 +194,92 @@ class InvoiceTests(unittest.TestCase):
         self.assertNotEqual(copied["number"], row["number"])
         self.assertEqual(copied["data"]["items"], row["data"]["items"])
         self.assertEqual(self.store().pdf(self.path, row["id"]), (original, name))
+
+    def test_revise_replaces_known_copy_and_preserves_document_identity_and_history(self):
+        store = self.store()
+        draft = self.draft()
+        draft = store.save_comment({**draft, "comment": "Подтвердить получение"})
+        issued = self.issue(store.save_list_status({**draft, "value": "sent"}))
+        store.sync()
+        target = self.root / issued["pdf_path"]
+        original = target.read_bytes()
+        buyer = {**issued["data"], "buyer_name": "Новый покупатель"}
+        final = {**buyer, "items": [{**buyer["items"][0], "quantity": "2"}]}
+        binary = invoices.renderer(manager.APP_DIR, manager.APP_DIR / "data")
+        with patch.object(invoices, "renderer", return_value=binary):
+            preview = store.preview_revision({**issued, "data": buyer})
+            self.assertNotEqual(preview, original)
+            self.assertEqual(store.pdf(self.path, issued["id"])[0], original)
+            first = store.revise({**issued, "data": buyer})
+            newer = store.revise({**first, "data": final})
+        self.assertEqual(newer["revision"], issued["revision"] + 2)
+        for key in ("id", "path", "number", "year", "state", "filename"):
+            self.assertEqual(newer[key], issued[key])
+        self.assertEqual(newer["list_status"], "sent")
+        self.assertEqual(newer["data"]["comment"], "Подтвердить получение")
+        self.assertEqual(newer["data"]["total"], 840000)
+        self.assertTrue(newer["sync_pending"])
+        self.assertEqual(target.read_bytes(), original)
+        with store.connect() as db:
+            versions = db.execute("SELECT revision,pdf FROM invoice_pdf_history WHERE id=? ORDER BY revision",
+                                  (issued["id"],)).fetchall()
+            self.assertEqual([row["revision"] for row in versions], [issued["revision"], first["revision"]])
+            self.assertEqual(versions[0]["pdf"], original)
+            self.assertNotEqual(versions[1]["pdf"], original)
+            past = db.execute("SELECT data FROM invoice_history WHERE id=? AND revision=?",
+                              (issued["id"], issued["revision"])).fetchone()
+            self.assertEqual(json.loads(past["data"]), issued["data"])
+        store.sync()
+        content, _ = store.pdf(self.path, issued["id"])
+        self.assertNotEqual(content, original)
+        self.assertEqual(target.read_bytes(), content)
+        self.assertFalse(store.get(self.path, issued["id"])["sync_pending"])
+        self.assertEqual(store.revise(newer)["revision"], newer["revision"])
+
+    def test_revision_rejects_stale_or_invalid_changes_and_preserves_unrecognized_file(self):
+        store = self.store()
+        issued = self.issue(self.draft())
+        store.sync()
+        target = self.root / issued["pdf_path"]
+        original = target.read_bytes()
+        for key, value in (("number", "999"), ("date", "2026-01-01"), ("kind", "contract")):
+            with self.assertRaises(ValueError):
+                store.revise({**issued, "data": {**issued["data"], key: value}})
+        changed = {**issued, "data": {**issued["data"], "note": "Правка"}}
+        with patch.object(invoices, "render", side_effect=ValueError("Содержимое не помещается на одну страницу")):
+            with self.assertRaisesRegex(ValueError, "одну страницу"):
+                store.revise(changed)
+        self.assertEqual(store.get(self.path, issued["id"])["revision"], issued["revision"])
+        self.assertEqual(target.read_bytes(), original)
+
+        def concurrent_change(*args):
+            store.save_comment({**issued, "comment": "Из другого окна"})
+            return b"%PDF-new"
+
+        with patch.object(invoices, "render", side_effect=concurrent_change):
+            with self.assertRaises(invoices.InvoiceConflict):
+                store.revise(changed)
+        self.assertEqual(store.pdf(self.path, issued["id"])[0], original)
+        current = store.get(self.path, issued["id"])
+        self.assertEqual(current["data"]["comment"], "Из другого окна")
+        with store.connect() as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM invoice_pdf_history").fetchone()[0], 0)
+
+        foreign = b"%PDF-other file"
+        target.write_bytes(foreign)
+        with patch.object(invoices, "render", return_value=b"%PDF-new"):
+            revised = store.revise({**changed, "revision": current["revision"]})
+        store.sync()
+        self.assertEqual(target.read_bytes(), foreign)
+        self.assertEqual(store.pdf(self.path, issued["id"])[0], b"%PDF-new")
+        self.assertTrue(store.get(self.path, issued["id"])["sync_pending"])
+        target.write_bytes(original)
+        removed = store.remove({**revised, "confirmed": True})
+        store.sync()
+        self.assertFalse(target.exists())
+        restored = store.restore(removed)
+        self.assertEqual(restored["state"], "issued")
+        self.assertEqual(target.read_bytes(), b"%PDF-new")
 
     def test_existing_modified_file_and_symlinks_are_never_overwritten(self):
         row = self.issue(self.draft())

@@ -163,6 +163,19 @@ class DeploymentTests(unittest.TestCase):
         (release / 'invoices.py').write_text('INVOICE_SEPARATOR_VERSION = 1')
         remote.check_event_rename_compatibility(self.db, release)
 
+    def test_old_code_cannot_publish_revised_invoice_pdf(self):
+        release = self.base / 'pdf-revisions'
+        release.mkdir()
+        with sqlite3.connect(self.db) as db:
+            db.execute('CREATE TABLE invoice_pdf_history (id TEXT)')
+        remote.check_event_rename_compatibility(self.db, release)
+        with sqlite3.connect(self.db) as db:
+            db.execute("INSERT INTO invoice_pdf_history VALUES ('invoice')")
+        with self.assertRaisesRegex(RuntimeError, 'не публикует замену PDF'):
+            remote.check_event_rename_compatibility(self.db, release)
+        (release / 'invoices.py').write_text('INVOICE_PDF_REVISION_VERSION = 1')
+        remote.check_event_rename_compatibility(self.db, release)
+
     def test_old_code_cannot_discard_working_comments_on_generated_invoices(self):
         release = self.base / 'invoice-comments'
         release.mkdir()

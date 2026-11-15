@@ -1,4 +1,4 @@
-"""Invoice drafts, immutable issued PDFs and a durable folder-copy outbox."""
+"""Invoice drafts, versioned issued PDFs and a durable folder-copy outbox."""
 from contextlib import contextmanager
 import base64
 import binascii
@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import re
+import stat
 import subprocess
 import tempfile
 import threading
@@ -20,6 +21,7 @@ from zoneinfo import ZoneInfo
 from event_folder_undo import assert_unlocked
 from folder_layout import rename_exclusive
 from folder_structure import client_name, client_path, in_payroll, in_reconciliations
+import icloud_access
 import native_renderers
 import orders
 import file_comments
@@ -39,6 +41,7 @@ INVOICE_CLOSING_DOCUMENTS_VERSION = 1
 INVOICE_CALENDAR_NOTIFIED_VERSION = 1
 INVOICE_SEPARATOR_VERSION = 1
 INVOICE_ROW_COMMENT_VERSION = 1
+INVOICE_PDF_REVISION_VERSION = 1
 LIST_STATUSES = {"none": "Без отметки", "active": "Актуально", "inactive": "Неактуально", "later": "Позже", "sent": "Отправлен", "paid": "Оплачен"}
 EXTERNAL_REQUEST_LIMIT = ((MAX_EXTERNAL_BYTES + 2) // 3) * 4 + 64 * 1024
 DEFAULT_SELLER = {
@@ -310,7 +313,7 @@ class InvoiceStore:
         self.store, self.app_dir = store, Path(app_dir)
 
     # Открывает соединение SQLite и управляет его временем жизни.
-    # Работает с таблицами invoices, invoice_sequences, invoice_settings, invoice_history.
+    # Готовит таблицы счетов, нумерации, настроек и истории данных и PDF.
     @contextmanager
     def connect(self):
         with self.store.connect() as db:
@@ -323,6 +326,9 @@ class InvoiceStore:
             db.execute("CREATE TABLE IF NOT EXISTS invoice_sequences (year INTEGER PRIMARY KEY, value INTEGER NOT NULL)")
             db.execute("CREATE TABLE IF NOT EXISTS invoice_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
             db.execute("CREATE TABLE IF NOT EXISTS invoice_history (id TEXT, revision INTEGER, data TEXT NOT NULL, saved REAL NOT NULL, PRIMARY KEY(id,revision))")
+            db.execute("""CREATE TABLE IF NOT EXISTS invoice_pdf_history (
+                id TEXT NOT NULL, revision INTEGER NOT NULL, digest TEXT NOT NULL, pdf BLOB NOT NULL,
+                PRIMARY KEY(id,revision))""")
             invoice_documents.schema(db)
             yield db
 
@@ -397,7 +403,7 @@ class InvoiceStore:
                 data = json.loads(row['data'])
                 status = data.get('_list_status', 'none')
                 result.append({'id': row['id'], 'path': row['path'], 'state': row['state'],
-                    'edit_action': ('edit' if row['state'] == 'draft' else 'copy' if row['state'] == 'issued' else None) if row['owner_registered'] == 1 else None,
+                    'edit_action': 'edit' if row['state'] in {'draft', 'issued'} and row['owner_registered'] == 1 else None,
                     'label': self.source_label(row), 'date': data.get('date', ''),
                     'total': data.get('total'), 'comment': data.get('comment', data.get('note', '')),
                     'client': client_name(row['path']), 'client_path': client_path(row['path']) or row['path'].split('/')[0],
@@ -806,9 +812,9 @@ class InvoiceStore:
                                (json.dumps(data, ensure_ascii=False), time.time(), row['id']))
             return self.get(payload['path'], payload['id'])
 
-    # Публикует сохранённую копию документа в папку без подмены оригиналов.
-    # При недопустимом состоянии возбуждает ValueError. В сверках и записях зарплаты # bills не создаёт.
-    def publish_copy(self, row):
+    # Публикует текущий PDF в прежнем месте атомарной операцией.
+    # Заменяет только подтверждённую прежнюю версию того же счёта; в сверках и зарплатах # bills не создаёт.
+    def publish_copy(self, row, *, replace_issued=False):
         folder = self.store.target(row["path"]) / "# bills"
         if folder.is_symlink():
             raise ValueError("# bills является ссылкой; PDF остался в базе")
@@ -824,21 +830,40 @@ class InvoiceStore:
             from folder_layout import apply
             apply(session)
         target = folder / row["filename"]
+        previous = None
         if os.path.lexists(target):
-            if target.is_symlink() or not target.is_file() or hashlib.sha256(target.read_bytes()).digest() != hashlib.sha256(row["pdf"]).digest():
-                raise ValueError("Копия PDF изменена или имя занято. Файл не перезаписан; оригинал доступен из базы")
-        else:
-            temporary = None
-            try:
-                with tempfile.NamedTemporaryFile(prefix=".invoice-", dir=folder, delete=False) as stream:
-                    temporary = Path(stream.name)
-                    stream.write(row["pdf"])
-                    stream.flush()
-                    os.fsync(stream.fileno())
+            previous = file_trash.fingerprint(target)
+            if previous["kind"] != stat.S_IFREG:
+                raise ValueError("На месте копии PDF уже есть другой объект")
+            body = icloud_access.read_bytes(target, max_bytes=MAX_EXTERNAL_BYTES)
+            if file_trash.fingerprint(target) != previous:
+                raise ValueError("Копия PDF изменилась во время проверки")
+            if body == row["pdf"]:
+                return target
+            known = False
+            if replace_issued:
+                with self.connect() as db:
+                    known = db.execute("SELECT 1 FROM invoice_pdf_history WHERE id=? AND digest=? LIMIT 1",
+                                       (row["id"], hashlib.sha256(body).hexdigest())).fetchone()
+            if not known:
+                raise ValueError("Копия PDF изменена или имя занято. Файл не перезаписан; PDF доступен из базы")
+        temporary = None
+        try:
+            with tempfile.NamedTemporaryFile(prefix=".invoice-", dir=folder, delete=False) as stream:
+                temporary = Path(stream.name)
+                stream.write(row["pdf"])
+                stream.flush()
+                os.fsync(stream.fileno())
+            if previous is None:
                 rename_exclusive(temporary, target)
-            finally:
-                if temporary:
-                    temporary.unlink(missing_ok=True)
+            else:
+                file_trash.checked(self.store.root, target.relative_to(self.store.root).as_posix())
+                if file_trash.fingerprint(target) != previous:
+                    raise ValueError("Копия PDF изменилась перед заменой")
+                os.replace(temporary, target)
+        finally:
+            if temporary:
+                temporary.unlink(missing_ok=True)
         return target
 
     # Согласует ожидающее перемещение копий документов в корзину.
@@ -863,11 +888,9 @@ class InvoiceStore:
                         result = file_trash.resume(self.store.root, marker['token'])
                     else:
                         relative = (Path(row['path']) / '# bills' / row['filename']).as_posix()
-                        target = file_trash.checked(self.store.root, relative)
                         folder = str(Path(relative).parent)
-                        files = file_trash.preview(self.store.root, folder, [relative])['files'] if os.path.lexists(target) else None
-                        self.publish_copy(row)
-                        files = files or file_trash.preview(self.store.root, folder, [relative])['files']
+                        self.publish_copy(row, replace_issued=row["state"] == "issued")
+                        files = file_trash.preview(self.store.root, folder, [relative])['files']
                         result = file_trash.remove(self.store.root, folder, files, True, self.store.database,
                                                   token=marker['token'], invoice_id=identity)
                     error = result['error']
@@ -953,7 +976,7 @@ class InvoiceStore:
                 invoice_preferences.write_seller(db, data['seller'], invoice_preferences.read_seller(db)['revision'])
             return self.record(self.current(db, row["path"], row["id"]))
 
-    # Выпускает неизменяемый документ из проверенного черновика.
+    # Выпускает PDF из проверенного черновика и ставит копию в очередь.
     # Работает с таблицами invoices.
     def issue(self, payload):
         with self.connect() as db:
@@ -982,6 +1005,57 @@ class InvoiceStore:
             db.execute("UPDATE invoices SET pdf=?,state='issued',filename=?,revision=revision+1,updated=?,sync_error='' WHERE id=?",
                        (pdf, filename, time.time(), identity))
             return self.record(self.current(db, path, identity))
+
+    # Проверяет редактируемый выпущенный счёт и его версию.
+    # План и внешний PDF не подходят; владелец должен оставаться зарегистрированным.
+    def issued_for_revision(self, db, payload):
+        row = self.current(db, payload.get("path"), payload.get("id"))
+        self.owner(db, row["path"], active=True)
+        if row["state"] != "issued":
+            raise ValueError("Обновление доступно для выпущенных в менеджере счетов")
+        if type(payload.get("revision")) is not int or row["revision"] != payload["revision"]:
+            raise InvoiceConflict("Счёт изменился. Открой актуальную версию отдельно перед обновлением PDF")
+        return row
+
+    # Собирает данные корректировки с прежними реквизитами выпуска и метаданными.
+    # Номер, дата, вид и исполнитель закреплены за прежним документом.
+    @staticmethod
+    def revised_data(row, value):
+        if not isinstance(value, dict):
+            raise ValueError("Некорректные данные счёта")
+        previous = json.loads(row["data"])
+        data = validate({**value, "seller": previous["seller"]}, issuing=True)
+        if any(data[key] != previous[key] for key in ("number", "date", "kind")):
+            raise ValueError("Номер, дата и вид выпущенного счёта сохраняются")
+        return {**previous, **data}
+
+    # Строит PDF для проверки предложенной правки без записи в SQLite или iCloud.
+    # Использует текущую версию выпуска и правила одностраничного документа.
+    def preview_revision(self, payload):
+        with self.connect() as db:
+            row = self.issued_for_revision(db, payload)
+            data = self.revised_data(row, payload.get("data"))
+        return render({**data, "preview": True}, self.app_dir, self.store.database.parent)
+
+    # Обновляет выпущенный PDF и данные у того же счёта.
+    # После сборки сверяет версию и атомарно сохраняет прежний PDF, историю и намерение обновить копию.
+    def revise(self, payload):
+        with self.connect() as db:
+            row = self.issued_for_revision(db, payload)
+            data = self.revised_data(row, payload.get("data"))
+            if data == json.loads(row["data"]):
+                return invoice_documents.with_copy_status(db, self.record(row))
+        pdf = render(data, self.app_dir, self.store.database.parent)
+        with orders.SYNC_LOCK, self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = self.issued_for_revision(db, payload)
+            stamp = time.time()
+            db.execute("INSERT INTO invoice_history VALUES (?,?,?,?)", (row["id"], row["revision"], row["data"], stamp))
+            db.execute("INSERT INTO invoice_pdf_history VALUES (?,?,?,?)",
+                       (row["id"], row["revision"], hashlib.sha256(row["pdf"]).hexdigest(), row["pdf"]))
+            db.execute("UPDATE invoices SET data=?,pdf=?,revision=revision+1,updated=?,exported=0,sync_error='' WHERE id=?",
+                       (json.dumps(data, ensure_ascii=False), pdf, stamp, row["id"]))
+            return invoice_documents.with_copy_status(db, self.record(self.current(db, row["path"], row["id"])))
 
     # Возвращает сохранённый выпущенный PDF после проверки владельца.
     # При недопустимом состоянии возбуждает ValueError.
@@ -1024,7 +1098,7 @@ class InvoiceStore:
                             if json.loads(row['data']).get('_trash'):
                                 continue
                             assert_unlocked(db, row["path"])
-                        self.publish_copy(row)
+                        self.publish_copy(row, replace_issued=row["state"] == "issued")
                         error = ""
                     except (OSError, ValueError, RuntimeError) as problem:
                         error = str(problem)

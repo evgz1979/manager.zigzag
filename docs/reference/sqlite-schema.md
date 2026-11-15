@@ -155,6 +155,14 @@ CREATE TABLE IF NOT EXISTS invoice_history (id TEXT, revision INTEGER, data TEXT
 [InvoiceStore.connect](python/invoices.md#symbol-InvoiceStore.connect)
 
 ```sql
+CREATE TABLE IF NOT EXISTS invoice_pdf_history (
+                id TEXT NOT NULL, revision INTEGER NOT NULL, digest TEXT NOT NULL, pdf BLOB NOT NULL,
+                PRIMARY KEY(id,revision))
+```
+
+[InvoiceStore.connect](python/invoices.md#symbol-InvoiceStore.connect)
+
+```sql
 CREATE TABLE IF NOT EXISTS invoice_sequences (year INTEGER PRIMARY KEY, value INTEGER NOT NULL)
 ```
 

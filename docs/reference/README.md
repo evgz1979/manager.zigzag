@@ -8,7 +8,7 @@
 
 ## Python
 
-66 файлов; 956 именованных объявлений.
+66 файлов; 960 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
@@ -38,7 +38,7 @@
 | [invoice_discovery.py](python/invoice_discovery.md) | 6 |
 | [invoice_documents.py](python/invoice_documents.md) | 13 |
 | [invoice_preferences.py](python/invoice_preferences.md) | 10 |
-| [invoices.py](python/invoices.md) | 47 |
+| [invoices.py](python/invoices.md) | 51 |
 | [local_metadata.py](python/local_metadata.md) | 26 |
 | [mobile_sync.py](python/mobile_sync.md) | 24 |
 | [native_renderers.py](python/native_renderers.md) | 1 |
@@ -81,7 +81,7 @@
 
 ## JavaScript
 
-23 файлов; 467 именованных объявлений.
+23 файлов; 468 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
@@ -94,7 +94,7 @@
 | [static/inbox.js](javascript/static-inbox.md) | 13 |
 | [static/invoice-documents.js](javascript/static-invoice-documents.md) | 17 |
 | [static/invoice-products.js](javascript/static-invoice-products.md) | 13 |
-| [static/invoices.js](javascript/static-invoices.md) | 56 |
+| [static/invoices.js](javascript/static-invoices.md) | 57 |
 | [static/mobile.js](javascript/static-mobile.md) | 3 |
 | [static/money-overview.js](javascript/static-money-overview.md) | 8 |
 | [static/navigation.js](javascript/static-navigation.md) | 1 |

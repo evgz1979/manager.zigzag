@@ -357,6 +357,11 @@ def check_event_rename_compatibility(database, release_dir):
             source = release_dir / 'invoices.py'
             if not source.is_file() or 'INVOICE_ROW_COMMENT_VERSION = 1' not in source.read_text(encoding='utf-8'):
                 raise RuntimeError('В черновиках или выпущенных счетах есть рабочие комментарии. Старый код не сохраняет их; откат заблокирован')
+        if (db.execute("SELECT 1 FROM sqlite_master WHERE name='invoice_pdf_history'").fetchone()
+                and db.execute("SELECT 1 FROM invoice_pdf_history LIMIT 1").fetchone()):
+            source = release_dir / 'invoices.py'
+            if not source.is_file() or 'INVOICE_PDF_REVISION_VERSION = 1' not in source.read_text(encoding='utf-8'):
+                raise RuntimeError('В базе есть обновлённые выпущенные счета. Старый код не публикует замену PDF; откат заблокирован')
         if (db.execute("SELECT 1 FROM sqlite_master WHERE name='invoices'").fetchone()
                 and db.execute("SELECT 1 FROM invoices WHERE json_extract(data,'$.kind')='planned' AND json_extract(data,'$.period')='week' LIMIT 1").fetchone()):
             source = release_dir / 'invoices.py'

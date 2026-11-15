@@ -1135,8 +1135,14 @@ h2 { font-size: 13px; font-weight: 600; }
 .invoice-row .invoice-linked-entry .invoice-remove { padding: 0 4px; border-color: transparent; background: transparent; }
 .invoice-row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; margin-left: auto; max-width: 100%; }
 .invoice-row-actions > strong { white-space: nowrap; }
-.invoice-list-status { display: grid; grid-template-columns: repeat(3, max-content); gap: 3px; }
-.invoice-row .invoice-list-status button { min-height: 22px; padding: 3px 6px; font-size: 10px; line-height: 14px; }
+.invoice-pdf-actions { display: flex; flex: none; align-items: center; gap: 6px; }
+.invoice-list-status { display: flex; flex: none; gap: 2px; max-width: 100%; overflow-x: auto; }
+.invoice-row .invoice-list-status button { min-height: 20px; padding: 2px 4px; font-size: 10px; line-height: 14px; }
+.invoice-list-status button:focus-visible { outline-offset: -2px; }
+@media (max-width: 370px) {
+  .invoice-list-status { gap: 1px; }
+  .invoice-row .invoice-list-status button { padding-inline: 2px; font-size: 9px; }
+}
 .invoice-list-status [aria-pressed="true"][data-value="active"] { background: #e4efea; border-color: #a6cbb6; color: #28684e; }
 .invoice-list-status [aria-pressed="true"][data-value="inactive"] { background: #eef0f1; border-color: #cbd0d3; color: #687177; }
 .invoice-list-status [aria-pressed="true"][data-value="later"] { background: #fbf3d9; border-color: #e0cd88; color: #80641d; }

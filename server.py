@@ -2132,6 +2132,18 @@ class ManagerHandler(BaseHTTPRequestHandler):
             elif route == "/api/invoice-save":
                 self.send_json(invoice_store().save(payload))
                 return
+            elif route in {"/api/invoice-preview", "/api/invoice-revise"}:
+                origin = self.headers.get('Origin')
+                if (self.headers.get_content_type() != 'application/json'
+                        or (origin and urllib.parse.urlsplit(origin).netloc != self.headers.get('Host'))):
+                    self.send_json({"error": "Открой редактор счёта на странице менеджера"}, 403)
+                    return
+                if route == "/api/invoice-preview":
+                    self.send_invoice_pdf(invoice_store().preview_revision(payload), "Предпросмотр счёта.pdf")
+                else:
+                    self.send_json(invoice_store().revise(payload))
+                    schedule_order_sync()
+                return
             elif route == "/api/invoice-issue":
                 record = invoice_store().issue(payload)
                 self.send_json(record)

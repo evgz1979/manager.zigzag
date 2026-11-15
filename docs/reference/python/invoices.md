@@ -4,9 +4,9 @@
 
 Исходник: [invoices.py](../../../invoices.py).
 
-Invoice drafts, immutable issued PDFs and a durable folder-copy outbox.
+Invoice drafts, versioned issued PDFs and a durable folder-copy outbox.
 
-Импорты Python, включая локальные: `base64`, `binascii`, `contextlib`, `datetime`, `decimal`, `event_folder_undo`, `file_comments`, `file_trash`, `folder_layout`, `folder_structure`, `hashlib`, `invoice_documents`, `invoice_preferences`, `json`, `local_metadata`, `native_renderers`, `order_calendar`, `order_folders`, `orders`, `os`, `pathlib`, `re`, `subprocess`, `tempfile`, `threading`, `time`, `unicodedata`, `uuid`, `zoneinfo`.
+Импорты Python, включая локальные: `base64`, `binascii`, `contextlib`, `datetime`, `decimal`, `event_folder_undo`, `file_comments`, `file_trash`, `folder_layout`, `folder_structure`, `hashlib`, `icloud_access`, `invoice_documents`, `invoice_preferences`, `json`, `local_metadata`, `native_renderers`, `order_calendar`, `order_folders`, `orders`, `os`, `pathlib`, `re`, `stat`, `subprocess`, `tempfile`, `threading`, `time`, `unicodedata`, `uuid`, `zoneinfo`.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
@@ -134,7 +134,7 @@ def connect(self):
 
 Открывает соединение SQLite и управляет его временем жизни.
 
-Работает с таблицами invoices, invoice_sequences, invoice_settings, invoice_history.
+Готовит таблицы счетов, нумерации, настроек и истории данных и PDF.
 
 Непосредственные вызовы: `self.store.connect`, `db.execute`, `invoice_documents.schema`.
 
@@ -219,7 +219,7 @@ invoice_documents.with_copy_status(db, self.record(self.current(db, path, identi
 def issue(self, payload):
 ```
 
-Выпускает неизменяемый документ из проверенного черновика.
+Выпускает PDF из проверенного черновика и ставит копию в очередь.
 
 Работает с таблицами invoices.
 
@@ -232,6 +232,30 @@ def issue(self, payload):
 ```python
 self.record(row)
 self.record(self.current(db, path, identity))
+```
+
+<a id="symbol-InvoiceStore.issued_for_revision"></a>
+
+## InvoiceStore.issued_for_revision
+
+[invoices.py](../../../invoices.py) · `function`.
+
+```python
+def issued_for_revision(self, db, payload):
+```
+
+Проверяет редактируемый выпущенный счёт и его версию.
+
+План и внешний PDF не подходят; владелец должен оставаться зарегистрированным.
+
+Непосредственные вызовы: `self.current`, `payload.get`, `self.owner`, `ValueError`, `type`, `InvoiceConflict`.
+
+Явные исключения: `ValueError`, `InvoiceConflict`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+row
 ```
 
 <a id="symbol-InvoiceStore.list"></a>
@@ -402,6 +426,28 @@ self.pdf(path, identity)[0]
 render({**data, 'preview': True}, self.app_dir, self.store.database.parent)
 ```
 
+<a id="symbol-InvoiceStore.preview_revision"></a>
+
+## InvoiceStore.preview_revision
+
+[invoices.py](../../../invoices.py) · `function`.
+
+```python
+def preview_revision(self, payload):
+```
+
+Строит PDF для проверки предложенной правки без записи в SQLite или iCloud.
+
+Использует текущую версию выпуска и правила одностраничного документа.
+
+Непосредственные вызовы: `self.connect`, `self.issued_for_revision`, `self.revised_data`, `payload.get`, `render`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+render({**data, 'preview': True}, self.app_dir, self.store.database.parent)
+```
+
 <a id="symbol-InvoiceStore.publish_copy"></a>
 
 ## InvoiceStore.publish_copy
@@ -409,14 +455,14 @@ render({**data, 'preview': True}, self.app_dir, self.store.database.parent)
 [invoices.py](../../../invoices.py) · `function`.
 
 ```python
-def publish_copy(self, row):
+def publish_copy(self, row, *, replace_issued=False):
 ```
 
-Публикует сохранённую копию документа в папку без подмены оригиналов.
+Публикует текущий PDF в прежнем месте атомарной операцией.
 
-При недопустимом состоянии возбуждает ValueError. В сверках и записях зарплаты # bills не создаёт.
+Заменяет только подтверждённую прежнюю версию того же счёта; в сверках и зарплатах # bills не создаёт.
 
-Непосредственные вызовы: `self.store.target`, `folder.is_symlink`, `ValueError`, `folder.exists`, `in_payroll`, `in_reconciliations`, `Plan`, `Path`, `layout_scope`, `plan.mkdir`, `folder.relative_to(self.store.root).as_posix`, `folder.relative_to`, `plan.create_session`, `apply`, `os.path.lexists`, `target.is_symlink`, `target.is_file`, `hashlib.sha256(target.read_bytes()).digest`, `hashlib.sha256`, `target.read_bytes`, `hashlib.sha256(row['pdf']).digest`, `tempfile.NamedTemporaryFile`, `stream.write`, `stream.flush`, `os.fsync`, `stream.fileno`, `rename_exclusive`, `temporary.unlink`.
+Непосредственные вызовы: `self.store.target`, `folder.is_symlink`, `ValueError`, `folder.exists`, `in_payroll`, `in_reconciliations`, `Plan`, `Path`, `layout_scope`, `plan.mkdir`, `folder.relative_to(self.store.root).as_posix`, `folder.relative_to`, `plan.create_session`, `apply`, `os.path.lexists`, `file_trash.fingerprint`, `icloud_access.read_bytes`, `self.connect`, `db.execute('SELECT 1 FROM invoice_pdf_history WHERE id=? AND digest=? LIMIT 1', (row['id'], hashlib.sha256(body).hexdigest())).fetchone`, `db.execute`, `hashlib.sha256(body).hexdigest`, `hashlib.sha256`, `tempfile.NamedTemporaryFile`, `stream.write`, `stream.flush`, `os.fsync`, `stream.fileno`, `rename_exclusive`, `file_trash.checked`, `target.relative_to(self.store.root).as_posix`, `target.relative_to`, `os.replace`, `temporary.unlink`.
 
 Явные исключения: `ValueError`.
 
@@ -514,6 +560,53 @@ def restore(self, payload, *, calendar_only=False):
 ```python
 self.record(row)
 self.get(payload['path'], payload['id'])
+```
+
+<a id="symbol-InvoiceStore.revise"></a>
+
+## InvoiceStore.revise
+
+[invoices.py](../../../invoices.py) · `function`.
+
+```python
+def revise(self, payload):
+```
+
+Обновляет выпущенный PDF и данные у того же счёта.
+
+После сборки сверяет версию и атомарно сохраняет прежний PDF, историю и намерение обновить копию.
+
+Непосредственные вызовы: `self.connect`, `self.issued_for_revision`, `self.revised_data`, `payload.get`, `json.loads`, `invoice_documents.with_copy_status`, `self.record`, `render`, `db.execute`, `time.time`, `hashlib.sha256(row['pdf']).hexdigest`, `hashlib.sha256`, `json.dumps`, `self.current`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+invoice_documents.with_copy_status(db, self.record(row))
+invoice_documents.with_copy_status(db, self.record(self.current(db, row['path'], row['id'])))
+```
+
+<a id="symbol-InvoiceStore.revised_data"></a>
+
+## InvoiceStore.revised_data
+
+[invoices.py](../../../invoices.py) · `function`.
+
+```python
+def revised_data(row, value):
+```
+
+Собирает данные корректировки с прежними реквизитами выпуска и метаданными.
+
+Номер, дата, вид и исполнитель закреплены за прежним документом.
+
+Непосредственные вызовы: `isinstance`, `ValueError`, `json.loads`, `validate`, `any`.
+
+Явные исключения: `ValueError`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+{**previous, **data}
 ```
 
 <a id="symbol-InvoiceStore.save"></a>
@@ -776,7 +869,7 @@ def sync_trash(self):
 
 Работает с таблицами invoices.
 
-Непосредственные вызовы: `self.connect`, `db.execute`, `db.execute('SELECT * FROM invoices WHERE id=?', (identity,)).fetchone`, `any`, `part.startswith`, `Path`, `json.loads(row['data']).get`, `json.loads`, `assert_unlocked`, `file_trash.session_path`, `(session / '.plan.json').exists`, `file_trash.resume`, `(Path(row['path']) / '# bills' / row['filename']).as_posix`, `file_trash.checked`, `str`, `os.path.lexists`, `file_trash.preview`, `self.publish_copy`, `file_trash.remove`.
+Непосредственные вызовы: `self.connect`, `db.execute`, `db.execute('SELECT * FROM invoices WHERE id=?', (identity,)).fetchone`, `any`, `part.startswith`, `Path`, `json.loads(row['data']).get`, `json.loads`, `assert_unlocked`, `file_trash.session_path`, `(session / '.plan.json').exists`, `file_trash.resume`, `(Path(row['path']) / '# bills' / row['filename']).as_posix`, `str`, `self.publish_copy`, `file_trash.preview`, `file_trash.remove`.
 
 <a id="symbol-InvoiceStore.upload"></a>
 
