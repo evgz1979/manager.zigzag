@@ -37,6 +37,8 @@ INVOICE_WEEK_PLAN_VERSION = 1
 INVOICE_PAID_STATUS_VERSION = 1
 INVOICE_CLOSING_DOCUMENTS_VERSION = 1
 INVOICE_CALENDAR_NOTIFIED_VERSION = 1
+INVOICE_SEPARATOR_VERSION = 1
+INVOICE_ROW_COMMENT_VERSION = 1
 LIST_STATUSES = {"none": "Без отметки", "active": "Актуально", "inactive": "Неактуально", "later": "Позже", "sent": "Отправлен", "paid": "Оплачен"}
 EXTERNAL_REQUEST_LIMIT = ((MAX_EXTERNAL_BYTES + 2) // 3) * 4 + 64 * 1024
 DEFAULT_SELLER = {
@@ -63,7 +65,7 @@ class InvoiceConflict(ValueError):
     pass
 
 
-# Проверяет комментарий внешнего PDF перед сохранением.
+# Проверяет рабочий комментарий счёта перед сохранением.
 # При недопустимом состоянии возбуждает ValueError.
 def external_comment(value):
     if not isinstance(value, str) or len(value) > 5000 or any(ord(c) < 32 and c not in '\n\r\t' for c in value):
@@ -182,8 +184,8 @@ def decimal(value, label, places, maximum):
         raise ValueError("Проверь поле «" + label + "»: допустимо до " + str(places) + " знаков после запятой") from None
 
 
-# Проверяет реквизиты, позиции, точность сумм и условия выпуска счёта.
-# При недопустимом состоянии возбуждает ValueError.
+# Проверяет реквизиты, товарные строки, разделители и условия выпуска счёта.
+# Сохраняет порядок строк и считает сумму только по товарным позициям; при ошибке возбуждает ValueError.
 def validate(value, *, issuing=False):
     if not isinstance(value, dict):
         raise ValueError("Некорректные данные счёта")
@@ -228,11 +230,20 @@ def validate(value, *, issuing=False):
             raise ValueError("Проверь реквизит: " + field)
     items = value.get("items")
     if not isinstance(items, list) or not 1 <= len(items) <= 40:
-        raise ValueError("В счёте должно быть от 1 до 40 позиций")
+        raise ValueError("В счёте должно быть от 1 до 40 строк вместе с разделителями")
     result["items"], total = [], 0
     for item in items:
         if not isinstance(item, dict):
             raise ValueError("Некорректная позиция счёта")
+        if item.get("kind") == "separator":
+            comment = item.get("comment")
+            if not isinstance(comment, str) or len(comment) > 500 or any(ord(c) < 32 for c in comment):
+                raise ValueError("Комментарий разделителя: одна строка до 500 символов")
+            comment = comment.strip()
+            if issuing and not comment:
+                raise ValueError("Заполни комментарий разделителя или удали эту строку")
+            result["items"].append({"kind": "separator", "comment": comment})
+            continue
         name, unit = item.get("name"), item.get("unit")
         if not isinstance(name, str) or len(name) > 500 or any(ord(c) < 32 for c in name):
             raise ValueError("Наименование позиции: одна строка до 500 символов")
@@ -388,7 +399,7 @@ class InvoiceStore:
                 result.append({'id': row['id'], 'path': row['path'], 'state': row['state'],
                     'edit_action': ('edit' if row['state'] == 'draft' else 'copy' if row['state'] == 'issued' else None) if row['owner_registered'] == 1 else None,
                     'label': self.source_label(row), 'date': data.get('date', ''),
-                    'total': data.get('total'), 'comment': data.get('comment') or data.get('note', ''),
+                    'total': data.get('total'), 'comment': data.get('comment', data.get('note', '')),
                     'client': client_name(row['path']), 'client_path': client_path(row['path']) or row['path'].split('/')[0],
                     'order_title': row['order_title'] or Path(row['path']).name,
                     'list_status': status if isinstance(status, str) and status in LIST_STATUSES else None})
@@ -690,24 +701,24 @@ class InvoiceStore:
                 (identity, path, identity, json.dumps(data, ensure_ascii=False), pdf, filename, stamp, stamp))
             return self.record(self.current(db, path, identity))
 
-    # Сохраняет текст комментария с проверкой ожидаемой версии.
-    # Работает с таблицами invoice_history, invoices.
+    # Сохраняет рабочий комментарий черновика, выпуска или внешнего счёта.
+    # Проверяет версию, пишет историю и оставляет содержимое PDF и реквизиты прежними.
     def save_comment(self, payload):
         comment = external_comment(payload.get('comment'))
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
             row = self.current(db, payload.get('path'), payload.get('id'))
             self.owner(db, row['path'], active=True)
-            if row['state'] != 'external' or type(payload.get('revision')) is not int or row['revision'] != payload['revision']:
+            if row['state'] not in {'draft', 'issued', 'external'} or type(payload.get('revision')) is not int or row['revision'] != payload['revision']:
                 raise InvoiceConflict("Счёт уже изменён. Твой комментарий остался в форме; открой актуальную версию отдельно")
             data = json.loads(row['data'])
             if data.get('comment', '') == comment:
-                return self.record(row)
+                return invoice_documents.with_copy_status(db, self.record(row))
             db.execute('INSERT INTO invoice_history VALUES (?,?,?,?)', (row['id'], row['revision'], row['data'], time.time()))
             data['comment'] = comment
             db.execute('UPDATE invoices SET data=?,revision=revision+1,updated=? WHERE id=?',
                        (json.dumps(data, ensure_ascii=False), time.time(), row['id']))
-            return self.record(self.current(db, row['path'], row['id']))
+            return invoice_documents.with_copy_status(db, self.record(self.current(db, row['path'], row['id'])))
 
     # Сохраняет выбранный статус строки счёта без изменения содержимого PDF.
     # Работает с таблицами invoice_history, invoices.
@@ -926,6 +937,8 @@ class InvoiceStore:
             if row["state"] != "draft" or type(payload.get("revision")) is not int or row["revision"] != payload["revision"]:
                 raise InvoiceConflict("Счёт уже изменён или выпущен. Твой ввод сохранён в форме; открой актуальную версию отдельно")
             previous = json.loads(row['data'])
+            if 'comment' in previous:
+                data['comment'] = previous['comment']
             if '_list_status' in previous:
                 data['_list_status'] = previous['_list_status']
             if invoice_documents.BLOCK in previous:

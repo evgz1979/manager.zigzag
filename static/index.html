@@ -282,7 +282,11 @@
           <div class="invoice-meta"><label>Документ<select id="invoiceKind"><option value="invoice">Счёт на оплату</option><option value="contract">Счёт-договор</option></select></label><label>Номер<input id="invoiceNumber" maxlength="40" required></label><label>Дата<input id="invoiceDate" type="date" required></label><label>Оплатить до<input id="invoiceDue" type="date"></label></div>
           <div class="invoice-buyer"><label>Покупатель<input id="invoiceBuyer" maxlength="300" placeholder="Название организации или ФИО"></label><label>ИНН<input id="invoiceBuyerInn" inputmode="numeric" maxlength="12"></label><label>КПП<input id="invoiceBuyerKpp" inputmode="numeric" maxlength="9"></label><label class="invoice-buyer-address">Адрес покупателя<input id="invoiceBuyerAddress" maxlength="500"></label></div>
           <div class="invoice-items-scroll"><table class="invoice-items"><caption class="visually-hidden">Позиции счёта</caption><thead><tr><th>Товары, работы, услуги</th><th>Кол-во</th><th>Ед.</th><th>Цена, ₽</th><th>Сумма, ₽</th><th><span class="visually-hidden">Удалить</span></th></tr></thead><tbody id="invoiceItems"></tbody></table></div>
-          <div class="invoice-total-row"><button id="addInvoiceItem" class="secondary-button" type="button">+ Позиция</button><span>Без НДС · Итого <strong id="invoiceTotal">0,00 ₽</strong></span></div>
+          <div class="invoice-total-row">
+            <button id="addInvoiceItem" class="secondary-button" type="button">+ Позиция</button>
+            <button id="addInvoiceSeparator" class="secondary-button" type="button">+ Разделитель</button>
+            <span>Без НДС · Итого <strong id="invoiceTotal">0,00 ₽</strong></span>
+          </div>
           <label class="invoice-note">Примечание<textarea id="invoiceNote" rows="2" maxlength="1000" placeholder="Необязательно"></textarea></label>
           <div id="invoiceContract" class="invoice-contract" hidden><div class="invoice-work-dates"><label>Начало работ<input id="invoiceWorkStart" type="date"></label><label>Окончание работ<input id="invoiceWorkEnd" type="date"></label></div><label>Краткие условия договора<textarea id="invoiceTerms" rows="4" maxlength="2500"></textarea></label></div>
           <p id="invoiceEditorState" class="invoice-state" role="status"></p>

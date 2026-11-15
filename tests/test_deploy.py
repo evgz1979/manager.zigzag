@@ -148,6 +148,35 @@ class DeploymentTests(unittest.TestCase):
         (release / 'invoices.py').write_text('INVOICE_PLAN_VERSION = 1\nINVOICE_WEEK_PLAN_VERSION = 1')
         remote.check_event_rename_compatibility(self.db, release)
 
+    def test_old_code_cannot_open_invoices_with_separator_rows(self):
+        release = self.base / 'invoice-separators'
+        release.mkdir()
+        with sqlite3.connect(self.db) as db:
+            db.execute('CREATE TABLE invoices (data TEXT)')
+            db.execute('INSERT INTO invoices VALUES (?)', (json.dumps({'items': [{'name': 'Товар'}]}),))
+        remote.check_event_rename_compatibility(self.db, release)
+        with sqlite3.connect(self.db) as db:
+            db.execute('INSERT INTO invoices VALUES (?)',
+                       (json.dumps({'items': [{'kind': 'separator', 'comment': 'Товары'}]}),))
+        with self.assertRaisesRegex(RuntimeError, 'разделители с комментариями'):
+            remote.check_event_rename_compatibility(self.db, release)
+        (release / 'invoices.py').write_text('INVOICE_SEPARATOR_VERSION = 1')
+        remote.check_event_rename_compatibility(self.db, release)
+
+    def test_old_code_cannot_discard_working_comments_on_generated_invoices(self):
+        release = self.base / 'invoice-comments'
+        release.mkdir()
+        with sqlite3.connect(self.db) as db:
+            db.execute('CREATE TABLE invoices (data TEXT)')
+            db.execute('INSERT INTO invoices VALUES (?)', (json.dumps({'kind': 'external', 'comment': 'PDF'}),))
+        remote.check_event_rename_compatibility(self.db, release)
+        with sqlite3.connect(self.db) as db:
+            db.execute('INSERT INTO invoices VALUES (?)', (json.dumps({'kind': 'invoice', 'comment': 'Черновик'}),))
+        with self.assertRaisesRegex(RuntimeError, 'рабочие комментарии'):
+            remote.check_event_rename_compatibility(self.db, release)
+        (release / 'invoices.py').write_text('INVOICE_ROW_COMMENT_VERSION = 1')
+        remote.check_event_rename_compatibility(self.db, release)
+
     def test_old_code_cannot_ignore_invoice_sources_or_free_payments(self):
         release = self.base / 'old-payments'
         release.mkdir()

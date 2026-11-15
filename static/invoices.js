@@ -3,7 +3,9 @@
   let editor = null, attachment = null, listedPath = null, listMarkup = null, trashMarkup = null, loading = 0, pendingCreate = null;
   let folderCandidates = [], candidatePath = null, candidateLoading = 0, candidateMarkup = null;
   let pendingRemoval = null, removing = false, planning = null;
+  let itemDrag = null, invoiceOpening = 0;
   const statusSaving = new Set();
+  const commentEdits = new Map();
   const listStatusLabels = { active: "Актуально", inactive: "Неактуально", later: "Позже", sent: "Отправлен", paid: "Оплачен" };
   const planLabels = { invoice: 'Запланирована выписка счёта', incoming: 'Запланировано получение оплаты', outgoing: 'Запланирован платёж' };
   // Формирует отображаемое название счёта или плана.
@@ -39,12 +41,160 @@
     $("invoiceEditorState").classList.toggle("error", error);
   };
 
+  // Строит форму рабочего комментария в строке выпущенного счёта или черновика.
+  // Значение поля и состояние сохранения обновляются отдельно от разметки списка.
+  function invoiceCommentMarkup(record, label) {
+    return '<form class="invoice-inline-comment" data-invoice-comment="' + record.id + '">' +
+      '<textarea name="comment" rows="1" maxlength="5000" placeholder="Комментарий" aria-label="' +
+      escapeHtml('Комментарий · ' + label) + '"></textarea>' +
+      '<small class="invoice-comment-state" role="status" hidden></small></form>';
+  }
+
+  // Синхронизирует поле комментария с локальным вводом и сохранённой записью.
+  // При опросе не переписывает текст, который пользователь ещё не отправил.
+  function paintInvoiceComment(form, record) {
+    const edit = commentEdits.get(record.id);
+    const saved = record.data.comment ?? "";
+    const input = form.elements.comment, status = form.querySelector("small");
+    if (edit && record.revision >= edit.record.revision) edit.record = record;
+    const value = edit?.value ?? saved;
+    if (input.value !== value) input.value = value;
+    input.title = saved;
+    const text = edit?.saving ? 'Сохраняю…' : edit?.error || '';
+    if (status.textContent !== text) status.textContent = text;
+    status.hidden = !text;
+    status.classList.toggle('error', Boolean(edit?.error && !edit.saving));
+  }
+
+  // Получает счёт по идентификатору формы в строке открытого заказа.
+  // Читает только текущий список, чтобы чужой заказ не получил ввод из прежнего.
+  function inlineCommentRecord(form) {
+    return $("invoiceList").invoiceRecords?.find(record =>
+      record.id === form.dataset.invoiceComment && record.path === state.folder?.path);
+  }
+
+  // Обновляет конкретное поле в открытом заказе по UUID.
+  // Фоновое сохранение прежней карточки не меняет поля текущей.
+  function repaintInvoiceComment({ id, path }) {
+    if (state.folder?.path !== path) return;
+    const form = $("invoiceList").querySelector('form[data-invoice-comment="' + CSS.escape(id) + '"]');
+    const record = form && inlineCommentRecord(form);
+    if (record) paintInvoiceComment(form, record);
+  }
+
+  // Откладывает запись рабочего комментария до паузы в наборе.
+  // Таймер относится к конкретному счёту и заменяет прежний таймер того же поля.
+  function scheduleInvoiceComment(edit) {
+    clearTimeout(edit.timer);
+    edit.timer = setTimeout(() => saveInvoiceComment(edit), 700);
+  }
+
+  // Хранит введённый текст и ставит его в очередь автосохранения.
+  // Смена фокуса и начало следующего набора не теряют текст уже отправленной операции.
+  function changeInvoiceComment(event) {
+    const form = event.target.closest('form[data-invoice-comment]');
+    if (!form) return;
+    const record = inlineCommentRecord(form);
+    if (!record) return;
+    const value = form.elements.comment.value, saved = record.data.comment ?? "";
+    const edit = commentEdits.get(record.id) || { record, base: saved, error: '', reviewed: null };
+    edit.value = value;
+    edit.composing = Boolean(event.isComposing);
+    clearTimeout(edit.timer); edit.timer = null;
+    if (!edit.saving && value === saved) commentEdits.delete(record.id);
+    else {
+      commentEdits.set(record.id, edit);
+      if (!edit.composing && !edit.error) scheduleInvoiceComment(edit);
+    }
+    paintInvoiceComment(form, record);
+  }
+
+  // Применяет полученную запись в списке счетов открытого заказа.
+  // Отсекает ответы прежнего опроса и сохраняет запись с более новой версией.
+  function acceptInvoiceRecord(saved) {
+    if (state.folder?.path !== saved.path) return;
+    ++loading;
+    renderInvoiceList(($("invoiceList").invoiceRecords || []).map((record) => record.id === saved.id && record.revision <= saved.revision ? saved : record));
+  }
+
+  // Показывает сохранённый текст перед явной заменой комментария.
+  // Следующий Enter действует только для показанного значения и текущей версии.
+  function showInvoiceCommentConflict(edit) {
+    edit.reviewed = edit.record.data.comment ?? "";
+    edit.error = 'Сейчас в счёте: ' + (edit.reviewed || 'пусто') + '. Проверь и нажми Enter, чтобы сохранить свой текст.';
+  }
+
+  // Сохраняет снимок текста с версией счёта и ставит более поздний ввод в следующую запись.
+  // При ошибке ждёт Enter; изменённый в другом окне комментарий сначала показывает для проверки.
+  function saveInvoiceComment(edit, explicit = false) {
+    clearTimeout(edit.timer); edit.timer = null;
+    if (edit.saving) return edit.saving;
+    if (edit.composing || (edit.error && !explicit)) return;
+    const { record, value } = edit;
+    const saved = record.data.comment ?? "";
+    if (value === saved) {
+      commentEdits.delete(record.id);
+      repaintInvoiceComment(record);
+      return;
+    }
+    if (edit.base !== saved && (!explicit || edit.reviewed !== saved)) {
+      showInvoiceCommentConflict(edit);
+      repaintInvoiceComment(record);
+      return;
+    }
+    edit.error = '';
+    edit.saving = request('/api/invoice-comment', { id: record.id, path: record.path, revision: record.revision, comment: value }).then(result => {
+      edit.base = result.data.comment ?? "";
+      edit.reviewed = null;
+      if (edit.record.revision <= result.revision) edit.record = result;
+      if (edit.value === edit.base) {
+        clearTimeout(edit.timer); edit.timer = null;
+        commentEdits.delete(record.id);
+      }
+      acceptInvoiceRecord(result);
+      document.dispatchEvent(new Event('manager-invoice-saved'));
+    }).catch(async error => {
+      clearTimeout(edit.timer); edit.timer = null;
+      edit.error = error.message + ' Ввод остался в строке. Для повтора нажми Enter.';
+      if (error.status !== 409) return;
+      try {
+        const latest = await request(apiUrl('/api/invoice', record.path, { id: record.id }));
+        if (edit.record.revision <= latest.revision) edit.record = latest;
+        if ((edit.record.data.comment ?? "") !== edit.base) showInvoiceCommentConflict(edit);
+        acceptInvoiceRecord(latest);
+      } catch (_) { /* Текст остаётся доступен в строке при ошибке чтения. */ }
+    }).finally(() => {
+      edit.saving = null;
+      if (commentEdits.has(record.id) && !edit.error && !edit.timer && !edit.composing) scheduleInvoiceComment(edit);
+      repaintInvoiceComment(edit.record);
+    });
+    repaintInvoiceComment(record);
+    return edit.saving;
+  }
+
+  // Открывает редактор из строки, дождавшись записи её комментария.
+  // Передаёт редактору актуальную версию счёта и сохраняет контекст выбранного заказа.
+  async function openInvoiceRow(record) {
+    const context = state.folder, opening = ++invoiceOpening;
+    let edit = commentEdits.get(record.id);
+    while (edit && !edit.error && !edit.composing) {
+      await saveInvoiceComment(edit);
+      edit = commentEdits.get(record.id);
+    }
+    if (opening !== invoiceOpening || state.folder !== context || state.view !== 'folder') return;
+    const latest = $("invoiceList").invoiceRecords?.find(item => item.id === record.id && item.path === record.path);
+    if (latest) show(latest);
+  }
+
   // Показывает счета, планы и состояние документов текущего заказа.
-  // Обращается к DOM текущего документа или переданного контейнера.
+  // При обновлении списка восстанавливает фокус и выделение в поле рабочего комментария.
   function renderInvoiceList(records) {
     // Keep the input alive while the native file picker is open or cancelled.
     const picker = document.activeElement;
     if (picker?.matches('input[type="file"][data-doc-action="files"]') && !picker.files.length) return;
+    const commentFocus = picker?.matches('form[data-invoice-comment] textarea') && picker.form.dataset.invoiceComment;
+    const commentSelection = commentFocus ?
+      [picker.selectionStart, picker.selectionEnd, picker.selectionDirection, picker.scrollTop] : null;
     const documentFocus = InvoiceDocuments.focusKey();
     const focusedPlan = document.activeElement?.dataset.invoicePlan;
     const focusedSchedule = document.activeElement?.dataset.invoiceSchedule;
@@ -90,7 +240,9 @@
         const description = [completed ? 'Выполнено' : '', inactive ? 'Неактуально' : '', invoiceLabel(plan), label, displayPlanDate(plan), planAmount(plan), plan.data.text].filter(Boolean).join(' · ');
         return '<div class="invoice-linked-entry"><button type="button" class="invoice-linked-plan' + (inactive ? ' invoice-linked-inactive' : '') + (completed ? ' invoice-plan-completed' : '') + '" data-invoice-plan="' + plan.id + '" data-operation="' + escapeHtml(plan.data.operation || 'invoice') + '" aria-label="' + escapeHtml(description) + '" title="' + escapeHtml(description) + '"' + (plan.plan_editable ? '' : ' disabled') + '>' + escapeHtml(summary) + (plan.plan_editable ? '' : ' · Неизвестный формат плана') + '</button><button class="secondary-button invoice-remove" type="button" data-invoice-remove="' + plan.id + '" aria-label="' + escapeHtml('В корзину · ' + description) + '">×</button></div>';
       }).join('');
-      return '<div class="invoice-row" data-invoice-row="' + record.id + '"><div class="invoice-row-content"><button type="button" class="invoice-row-name" data-invoice-' + (external ? 'view' : 'edit') + '="' + record.id + '"><span class="invoice-row-label' + (comment ? ' invoice-row-comment' : '') + '" title="' + escapeHtml(heading) + '">' + escapeHtml(heading) + '</span><small class="invoice-row-meta" title="' + escapeHtml(secondary + ' · ' + sync) + '">' + escapeHtml(secondary) + '<span class="invoice-row-state' + (record.sync_error ? ' error' : '') + '"> · ' + escapeHtml(sync) + '</span></small></button>' + (plans ? '<div class="invoice-linked-plans">' + plans + '</div>' : '') + InvoiceDocuments.markup(record) + '</div><div class="invoice-row-actions">' + (external ? '' : '<strong>' + cash(record.data.total) + '</strong>') + buttons + schedule + InvoiceDocuments.button(record) +
+      const name = '<button type="button" class="invoice-row-name" data-invoice-' + (external ? 'view' : 'edit') + '="' + record.id + '"><span class="invoice-row-label' + (comment ? ' invoice-row-comment' : '') + '" title="' + escapeHtml(heading) + '">' + escapeHtml(heading) + '</span><small class="invoice-row-meta" title="' + escapeHtml(secondary + ' · ' + sync) + '">' + escapeHtml(secondary) + '<span class="invoice-row-state' + (record.sync_error ? ' error' : '') + '"> · ' + escapeHtml(sync) + '</span></small></button>';
+      const top = external ? name : '<div class="invoice-row-top">' + name + invoiceCommentMarkup(record, label) + '</div>';
+      return '<div class="invoice-row" data-invoice-row="' + record.id + '"><div class="invoice-row-content' + (external ? '' : ' invoice-row-with-comment') + '">' + top + (plans ? '<div class="invoice-linked-plans">' + plans + '</div>' : '') + InvoiceDocuments.markup(record) + '</div><div class="invoice-row-actions">' + (external ? '' : '<strong>' + cash(record.data.total) + '</strong>') + buttons + schedule + InvoiceDocuments.button(record) +
         (typeof ReconciliationUI === 'undefined' ? '' : ReconciliationUI.button(record)) + (external ? '<button class="secondary-button" type="button" data-invoice-view="' + record.id + '">PDF</button>' : record.state !== "draft" ? '<a class="secondary-button" href="' + escapeHtml(pdfUrl(record)) + '" target="_blank" rel="noopener">PDF ↗</a>' : '') + (external ? '' : '<button class="secondary-button" type="button" data-invoice-copy="' + record.id + '">На основе</button>') + '<button class="secondary-button invoice-remove" type="button" data-invoice-remove="' + record.id + '" title="В корзину" aria-label="' + escapeHtml('В корзину · ' + label) + '">×</button></div></div>';
     }).join("");
     if (markup !== listMarkup) {
@@ -104,6 +256,15 @@
     }
     // Store records on this exact list, independent of grid positions.
     $("invoiceList").invoiceRecords = records;
+    const byId = new Map(records.map(record => [record.id, record]));
+    for (const form of $("invoiceList").querySelectorAll('form[data-invoice-comment]')) {
+      paintInvoiceComment(form, byId.get(form.dataset.invoiceComment));
+      if (form.dataset.invoiceComment !== commentFocus || document.activeElement !== document.body) continue;
+      const input = form.elements.comment;
+      input.focus({ preventScroll: true });
+      input.setSelectionRange(...commentSelection.slice(0, 3));
+      input.scrollTop = commentSelection[3];
+    }
   }
 
   // Возвращает фокус на статус выбранной строки счёта.
@@ -493,24 +654,93 @@
     }
   }
 
-  // Строит строку позиции редактируемого счёта.
-  // Экранирует значения полей и задаёт допустимую длину ввода каждой позиции.
+  // Строит товарную строку или строку-разделитель редактируемого счёта.
+  // Экранирует значения полей и добавляет ручку перемещения для обоих типов.
   function itemMarkup(item) {
-    return '<tr>' + [["name", "Наименование", 500], ["quantity", "Количество", 30], ["unit", "Единица", 16], ["price", "Цена", 30]].map(([key, label, limit]) =>
-      '<td><input data-field="' + key + '" aria-label="' + label + '" maxlength="' + limit + '" value="' + escapeHtml(item[key]) + '"' + (["quantity", "price"].includes(key) ? ' inputmode="decimal"' : '') + '></td>').join("") + '<td class="invoice-item-total"></td><td><button class="icon-button" type="button" data-invoice-remove aria-label="Удалить позицию">✕</button></td></tr>';
+    const handle = '<button class="icon-button invoice-drag-handle" type="button" data-invoice-drag ' +
+      'aria-label="Переместить строку" aria-keyshortcuts="ArrowUp ArrowDown" title="Перетащить строку"></button>';
+    if (item.kind === "separator") {
+      return '<tr class="invoice-separator" data-kind="separator"><td colspan="6"><div class="invoice-separator-fields">' + handle +
+        '<input data-field="comment" aria-label="Комментарий разделителя" maxlength="500" placeholder="Комментарий разделителя" value="' +
+        escapeHtml(item.comment) + '"><button class="icon-button" type="button" data-invoice-remove aria-label="Удалить разделитель">✕</button></div></td></tr>';
+    }
+    const inputs = [["name", "Наименование", 500], ["quantity", "Количество", 30], ["unit", "Единица", 16], ["price", "Цена", 30]]
+      .map(([key, label, limit]) => {
+        const input = '<input data-field="' + key + '" aria-label="' + label + '" maxlength="' + limit + '" value="' + escapeHtml(item[key]) + '"' +
+          (["quantity", "price"].includes(key) ? ' inputmode="decimal"' : '') + '>';
+        return '<td>' + (key === "name" ? '<div class="invoice-item-name">' + handle + input + '</div>' : input) + '</td>';
+      }).join("");
+    return '<tr>' + inputs + '<td class="invoice-item-total"></td><td><button class="icon-button" type="button" data-invoice-remove aria-label="Удалить позицию">✕</button></td></tr>';
+  }
+
+  // Обновляет доступность ручек перемещения по состоянию счёта.
+  // Для перетаскивания нужны две строки черновика; в выпущенном счёте ручки скрыты.
+  function updateItemMoves() {
+    const issued = editor.record.state === "issued";
+    const rows = $("invoiceItems").rows;
+    const locked = issued || editor.issuing || rows.length < 2;
+    if (locked) clearItemDrag();
+    for (const row of rows) {
+      const handle = row.querySelector("[data-invoice-drag]");
+      handle.hidden = issued;
+      handle.disabled = locked;
+      handle.draggable = !locked;
+    }
+  }
+
+  // Перемещает существующую строку перед указанной или в конец.
+  // Сохраняет поля строки и возвращает фокус ручке; автосохранение запускается только при смене порядка.
+  function moveItem(row, before) {
+    if (before === row || before === row.nextElementSibling) return;
+    row.parentElement.insertBefore(row, before);
+    row.querySelector("[data-invoice-drag]").focus();
+    changed();
+  }
+
+  // Определяет место вставки по верхней или нижней половине строки под указателем.
+  // Возвращает null вне подходящей строки и в точках, сохраняющих текущий порядок.
+  function itemDropPosition(event) {
+    const target = event.target.closest("#invoiceItems > tr");
+    if (!target || target === itemDrag.row) return null;
+    const bounds = target.getBoundingClientRect();
+    const edge = event.clientY < bounds.top + bounds.height / 2 ? "before" : "after";
+    const before = edge === "before" ? target : target.nextElementSibling;
+    if (before === itemDrag.row || before === itemDrag.row.nextElementSibling) return null;
+    return { target, edge, before };
+  }
+
+  // Переносит подсказку вставки на выбранный край строки.
+  // Подсказка не меняет порядок и снимается, когда подходящего места под указателем нет.
+  function markItemDrop(position) {
+    const marker = itemDrag.marker;
+    if (marker?.target === position?.target && marker?.edge === position?.edge) return;
+    marker?.target.removeAttribute("data-invoice-drop");
+    if (position) position.target.dataset.invoiceDrop = position.edge;
+    itemDrag.marker = position;
+  }
+
+  // Завершает визуальное состояние перетаскивания.
+  // Снимает линию и подсветку исходной строки как при вставке, так и при отмене.
+  function clearItemDrag() {
+    if (!itemDrag) return;
+    markItemDrop(null);
+    itemDrag.row.classList.remove("invoice-item-dragging");
+    itemDrag = null;
   }
 
   // Собирает значения полей редактора счёта для сохранения.
-  // Использует `Object.fromEntries`, `Object.entries(fields).map`, `Object.entries`.
+  // Сохраняет порядок строк и записывает тип разделителя вместе с его комментарием.
   function collect() {
     const data = Object.fromEntries(Object.entries(fields).map(([field, id]) => [field, $(id).value]));
     data.seller = { ...editor.record.data.seller };
-    data.items = [...$("invoiceItems").rows].map((row) => Object.fromEntries([...row.querySelectorAll("input")].map((input) => [input.dataset.field, input.value])));
+    data.items = [...$("invoiceItems").rows].map((row) => row.dataset.kind === "separator"
+      ? { kind: "separator", comment: row.querySelector('[data-field="comment"]').value }
+      : Object.fromEntries([...row.querySelectorAll("input")].map((input) => [input.dataset.field, input.value])));
     return data;
   }
 
   // Вычисляет отображаемые итоги позиций счёта.
-  // Обращается к DOM текущего документа или переданного контейнера.
+  // Суммирует только товарные строки с точным округлением до копеек.
   function totals() {
     let total = 0n;
     // Преобразует десятичное значение в масштабированное целое для расчёта.
@@ -522,6 +752,7 @@
       return BigInt(whole) * 10n ** BigInt(places) + BigInt(fraction.padEnd(places, "0"));
     };
     for (const row of $("invoiceItems").rows) {
+      if (row.dataset.kind === "separator") continue;
       try {
         const quantity = scaled(row.querySelector('[data-field="quantity"]').value, 3);
         const price = scaled(row.querySelector('[data-field="price"]').value, 2);
@@ -540,12 +771,15 @@
     if (!editor) return;
     const issued = editor.record.state === "issued";
     for (const input of $("invoiceForm").querySelectorAll(".invoice-editor-body input, .invoice-editor-body textarea, .invoice-editor-body select, [data-invoice-remove]")) input.disabled = issued || Boolean(editor.issuing);
+    updateItemMoves();
     InvoiceProducts.setEditable(!issued && !editor.issuing);
-    $("addInvoiceItem").disabled = issued || Boolean(editor.issuing);
+    for (const id of ["addInvoiceItem", "addInvoiceSeparator"]) {
+      $(id).disabled = issued || Boolean(editor.issuing);
+      $(id).hidden = issued;
+    }
     for (const id of ["saveInvoice", "issueInvoice", "previewInvoice", "closeInvoice"]) $(id).disabled = Boolean(editor.saving || editor.issuing);
     $("saveInvoice").hidden = issued;
     $("issueInvoice").hidden = issued;
-    $("addInvoiceItem").hidden = issued;
     $("previewInvoice").textContent = issued ? "Открыть PDF ↗" : "Предпросмотр ↗";
     $("invoiceDraftHint").textContent = issued ? "Выпущен · для изменений создай новый на основе этого" : "Черновик сохраняется автоматически · одна страница";
   }
@@ -553,6 +787,8 @@
   // Открывает прежний редактор счёта из карточки заказа или общего списка.
   // Для общего списка сохраняет ключ возврата фокуса; поля и автосохранение используют путь самого счёта.
   function show(record, returnFocus = null) {
+    ++invoiceOpening;
+    clearItemDrag();
     editor = { record, dirty: false, saving: null, issuing: false, timer: null, returnFocus };
     $("invoiceTitle").textContent = (record.data.kind === "contract" ? "Счёт-договор" : "Счёт") + " № " + record.number;
     $("invoiceOrderPath").textContent = record.path;
@@ -595,6 +831,7 @@
   // Управляет отложенным обновлением через таймер или кадр браузера.
   async function close() {
     if (editor?.issuing) return;
+    clearItemDrag();
     await save();
     const returnFocus = editor?.returnFocus;
     clearTimeout(editor?.timer);
@@ -651,12 +888,7 @@
     if (editor.dirty) { message("Есть несохранённые изменения…"); editor.timer = setTimeout(() => action(save), 900); }
   }
   InvoiceDocuments.init({ render: renderInvoiceList, /* Перечитывает данные открытого компонента по установленным правилам в модуле счетов и планов платежей.
-   * Использует `refreshList`. */ refresh: () => refreshList(true), /* Принимает подтверждённые данные счёта в локальный редактор.
-   * Использует `renderInvoiceList`, `($("invoiceList").invoiceRecords || []).map`, `$`. */ accept: (saved) => {
-    if (state.folder?.path !== saved.path) return;
-    ++loading;
-    renderInvoiceList(($("invoiceList").invoiceRecords || []).map((record) => record.id === saved.id && record.revision <= saved.revision ? saved : record));
-  } });
+   * Использует `refreshList`. */ refresh: () => refreshList(true), accept: acceptInvoiceRecord });
   $("invoiceForm").addEventListener("input", changed);
   $("invoiceForm").addEventListener("change", changed);
   $("invoiceForm").addEventListener("submit", (event) => { event.preventDefault(); action(save); });
@@ -709,23 +941,88 @@
     }
     selectExternalFile(files[0]);
   });
-  // Добавляет ручную позицию или снимок товара в прежний редактор счёта.
-  // Пустая начальная строка заменяется товаром; прежние позиции и цены сохраняются, предел — 40 строк.
+  // Добавляет ручную позицию, снимок товара или разделитель в конец таблицы счёта.
+  // Товар и разделитель заменяют пустую начальную позицию; обе разновидности входят в предел 40 строк.
   function addItem(item = { name: "", quantity: "1", unit: "шт", price: "0" }) {
     if (!editor || editor.record.state !== "draft" || editor.issuing) return;
     const rows = $("invoiceItems").rows, first = rows[0];
-    if (item.name && rows.length === 1 && !first.querySelector('[data-field="name"]').value.trim() &&
+    if ((item.name || item.kind === "separator") && rows.length === 1 && first.dataset.kind !== "separator" &&
+        !first.querySelector('[data-field="name"]').value.trim() &&
         first.querySelector('[data-field="quantity"]').value === '1' && Number(first.querySelector('[data-field="price"]').value.replace(',', '.')) === 0) first.remove();
-    if ($("invoiceItems").rows.length >= 40) { message("До 40 позиций; PDF должен поместиться на одну страницу.", true); return; }
+    if (rows.length >= 40) { message("До 40 строк вместе с разделителями. PDF должен поместиться на одну страницу.", true); return; }
     $("invoiceItems").insertAdjacentHTML("beforeend", itemMarkup(item));
+    updateItemMoves();
     $("invoiceItems").lastElementChild.querySelector("input").focus(); changed();
   }
   InvoiceProducts.init(addItem, newIdentity);
   $("addInvoiceItem").addEventListener("click", () => addItem());
+  $("addInvoiceSeparator").addEventListener("click", () => addItem({ kind: "separator", comment: "" }));
+  $("invoiceItems").addEventListener("dragstart", (event) => {
+    const handle = event.target.closest("[data-invoice-drag]");
+    if (!handle || handle.disabled || !event.dataTransfer) return;
+    const row = handle.closest("tr");
+    const bounds = row.getBoundingClientRect();
+    event.dataTransfer.setData("application/x-manager-invoice-row", "move");
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setDragImage(row, event.clientX - bounds.left, event.clientY - bounds.top);
+    clearItemDrag();
+    itemDrag = { row, marker: null };
+    row.classList.add("invoice-item-dragging");
+  });
+  $("invoiceItems").addEventListener("dragover", (event) => {
+    if (!itemDrag) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    markItemDrop(itemDropPosition(event));
+  });
+  $("invoiceItems").addEventListener("dragleave", (event) => {
+    if (itemDrag && !event.currentTarget.contains(event.relatedTarget)) markItemDrop(null);
+  });
+  $("invoiceItems").addEventListener("drop", (event) => {
+    if (!itemDrag) return;
+    event.preventDefault();
+    const { row } = itemDrag;
+    const position = itemDropPosition(event);
+    clearItemDrag();
+    if (position) moveItem(row, position.before);
+  });
+  $("invoiceItems").addEventListener("dragend", clearItemDrag);
+  $("invoiceItems").addEventListener("keydown", (event) => {
+    const handle = event.target.closest("[data-invoice-drag]");
+    if (!handle || handle.disabled || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    const up = event.key === "ArrowUp";
+    if (!up && event.key !== "ArrowDown") return;
+    event.preventDefault();
+    const row = handle.closest("tr");
+    const adjacent = up ? row.previousElementSibling : row.nextElementSibling;
+    if (adjacent) moveItem(row, up ? adjacent : adjacent.nextElementSibling);
+  });
   $("invoiceItems").addEventListener("click", (event) => {
-    if (!event.target.closest("[data-invoice-remove]") || editor?.record.state !== "draft") return;
-    if ($("invoiceItems").rows.length === 1) { message("Оставь хотя бы одну позицию.", true); return; }
-    event.target.closest("tr").remove(); changed();
+    if (editor?.record.state !== "draft" || editor.issuing) return;
+    if (!event.target.closest("[data-invoice-remove]")) return;
+    const row = event.target.closest("tr");
+    const adjacent = row.nextElementSibling || row.previousElementSibling;
+    if (!adjacent && row.dataset.kind !== "separator") { message("Оставь хотя бы одну позицию.", true); return; }
+    row.remove();
+    if (adjacent) {
+      updateItemMoves();
+      adjacent.querySelector("input").focus();
+      changed();
+    } else addItem();
+  });
+  $("invoiceList").addEventListener("input", changeInvoiceComment);
+  $("invoiceList").addEventListener("compositionend", changeInvoiceComment);
+  $("invoiceList").addEventListener("keydown", (event) => {
+    const form = event.target.closest('form[data-invoice-comment]');
+    if (!form || !event.target.matches('textarea') || event.isComposing || event.key !== 'Enter' || event.shiftKey) return;
+    event.preventDefault();
+    form.requestSubmit();
+  });
+  $("invoiceList").addEventListener("submit", (event) => {
+    if (!event.target.matches('form[data-invoice-comment]')) return;
+    event.preventDefault();
+    const edit = commentEdits.get(event.target.dataset.invoiceComment);
+    if (edit) saveInvoiceComment(edit, true);
   });
   $("invoiceList").addEventListener("click", (event) => {
     const reconciliation = event.target.closest('[data-invoice-reconciliation]');
@@ -776,7 +1073,8 @@
     if (copy) action(() => create(copy.dataset.invoiceCopy));
     else if (edit) {
       const record = $("invoiceList").invoiceRecords?.find((item) => item.id === edit.dataset.invoiceEdit && item.path === state.folder?.path);
-      if (record) { if (record.state === "external") showExternal(record); else show(record); }
+      if (record?.state === "external") showExternal(record);
+      else if (record) action(() => openInvoiceRow(record));
     }
   });
   $("cancelRemoveInvoice").addEventListener('click', () => { if (!removing) { pendingRemoval = null; $("removeInvoiceDialog").close(); } });
@@ -839,7 +1137,7 @@
   }));
   document.addEventListener("manager-invoice-updated", () => refreshList(true));
   window.addEventListener("beforeunload", (event) => {
-    if (removing || planning?.busy || (planning && JSON.stringify(planValues()) !== planning.savedForm) || editor?.dirty || editor?.saving || editor?.issuing || attachment?.busy || (attachment && $("externalInvoiceComment").value !== attachment.saved)) { event.preventDefault(); event.returnValue = ""; }
+    if (commentEdits.size || removing || planning?.busy || (planning && JSON.stringify(planValues()) !== planning.savedForm) || editor?.dirty || editor?.saving || editor?.issuing || attachment?.busy || (attachment && $("externalInvoiceComment").value !== attachment.saved)) { event.preventDefault(); event.returnValue = ""; }
   });
   setInterval(() => { if (!document.hidden && state.view !== "orders" && !$("invoiceSection").hidden) refreshList(true); }, 5000);
   refreshList();

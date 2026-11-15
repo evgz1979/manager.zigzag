@@ -63,8 +63,8 @@ func text(_ value: String, _ x: CGFloat, _ top: CGFloat, _ width: CGFloat,
 // Добавляет горизонтальную линию в план PDF-документа.
 // Геометрия использует текущие поля страницы и ширину содержимого.
 func rule(_ top: CGFloat) { rules.append(Rule(x: margin, top: top, width: contentW, shade: false)) }
-// Рассчитывает размещение реквизитов, позиций и итогов PDF.
-// Обновляет накопленные области текста и линий для выбранного размера шрифта.
+// Рассчитывает размещение реквизитов, товарных строк, разделителей и итогов PDF.
+// Разделители используют ширину таблицы и пропускаются при нумерации и подсчёте позиций.
 func layout(_ font: CGFloat) {
     base = font; texts = []; rules = []
     var y = margin
@@ -93,10 +93,18 @@ func layout(_ font: CGFloat) {
         x += widths[i]
     }
     y += 24; rule(y)
-    for (index, item) in items.enumerated() {
+    var position = 0
+    for item in items {
+        if item["kind"] as? String == "separator" {
+            let comment = item["comment"] as? String ?? ""
+            y += max(21, text(comment, margin + 4, y + 5, contentW - 8, base - 0.3, bold: true) + 10)
+            rule(y)
+            continue
+        }
+        position += 1
         let qty = (item["quantity"] as? String ?? "").replacingOccurrences(of: ".", with: ",")
         let price = NSDecimalNumber(string: item["price"] as? String ?? "0").multiplying(by: 100).intValue
-        let values = [String(index + 1), item["name"] as? String ?? "", qty, item["unit"] as? String ?? "", money(price), money(item["amount"] as? Int ?? 0)]
+        let values = [String(position), item["name"] as? String ?? "", qty, item["unit"] as? String ?? "", money(price), money(item["amount"] as? Int ?? 0)]
         x = margin; var rowH: CGFloat = 21
         for i in 0..<6 {
             let h = text(values[i], x + 4, y + 5, widths[i] - 8, base - 0.3, right: i >= 2)
@@ -106,7 +114,7 @@ func layout(_ font: CGFloat) {
     }
     y += 10
     let totalHeight = text("Итого к оплате: " + money(total) + " ₽", margin, y, contentW, 13, bold: true, right: true)
-    text("Позиций: " + String(items.count) + " · Без НДС", margin, y + 2, 180, base - 0.3)
+    text("Позиций: " + String(position) + " · Без НДС", margin, y + 2, 180, base - 0.3)
     y += totalHeight + 10
     if !s("note").isEmpty { y += text(s("note"), margin, y, contentW) + 9 }
     if contract {

@@ -91,6 +91,8 @@ UUID отвечает за идентичность сущности, путь �
 
 ## Браузер
 
+[collect](reference/javascript/static-invoices.md#symbol-collect) передаёт товарные строки и разделители в порядке таблицы, а [totals](reference/javascript/static-invoices.md#symbol-totals) считает сумму по товарным строкам. [validate](reference/python/invoices.md#symbol-validate) проверяет текст разделителей и повторяет расчёт на сервере. [layout](reference/native/invoice_pdf.md#symbol-layout) отводит разделителю всю ширину таблицы и ведёт отдельную нумерацию товарных строк.
+
 В левой колонке показаны отмеченные недели поставщиков с комментариями начиная с текущей. Единственная отмеченная неделя без комментария видна рядом с названием заказа. Данные поступают из отдельного массива `/api/orders`. Редактор комментария и окно задач общие с календарём. В меню поставщика доступен один пункт «Смотри ту-ду». [renderSupplierSchedule](reference/javascript/static-app.md#symbol-renderSupplierSchedule)
 
 Сводка закупок в разделе поставщика и внутри его заказа использует один компонент. Он получает `purchaseSupplierPath` вместе с карточкой и обновляет список из SQLite независимо от загрузки файлов. Кнопка копирования в сводке и кнопка Inbox используют общую функцию [copyText](reference/javascript/static-app.md#symbol-copyText).

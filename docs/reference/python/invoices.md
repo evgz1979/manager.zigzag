@@ -550,19 +550,19 @@ self.record(self.current(db, row['path'], row['id']))
 def save_comment(self, payload):
 ```
 
-Сохраняет текст комментария с проверкой ожидаемой версии.
+Сохраняет рабочий комментарий черновика, выпуска или внешнего счёта.
 
-Работает с таблицами invoice_history, invoices.
+Проверяет версию, пишет историю и оставляет содержимое PDF и реквизиты прежними.
 
-Непосредственные вызовы: `external_comment`, `payload.get`, `self.connect`, `db.execute`, `self.current`, `self.owner`, `type`, `InvoiceConflict`, `json.loads`, `data.get`, `self.record`, `time.time`, `json.dumps`.
+Непосредственные вызовы: `external_comment`, `payload.get`, `self.connect`, `db.execute`, `self.current`, `self.owner`, `type`, `InvoiceConflict`, `json.loads`, `data.get`, `invoice_documents.with_copy_status`, `self.record`, `time.time`, `json.dumps`.
 
 Явные исключения: `InvoiceConflict`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-self.record(row)
-self.record(self.current(db, row['path'], row['id']))
+invoice_documents.with_copy_status(db, self.record(row))
+invoice_documents.with_copy_status(db, self.record(self.current(db, row['path'], row['id'])))
 ```
 
 <a id="symbol-InvoiceStore.save_list_status"></a>
@@ -837,7 +837,7 @@ number
 def external_comment(value):
 ```
 
-Проверяет комментарий внешнего PDF перед сохранением.
+Проверяет рабочий комментарий счёта перед сохранением.
 
 При недопустимом состоянии возбуждает ValueError.
 
@@ -1046,11 +1046,11 @@ None
 def validate(value, *, issuing=False):
 ```
 
-Проверяет реквизиты, позиции, точность сумм и условия выпуска счёта.
+Проверяет реквизиты, товарные строки, разделители и условия выпуска счёта.
 
-При недопустимом состоянии возбуждает ValueError.
+Сохраняет порядок строк и считает сумму только по товарным позициям; при ошибке возбуждает ValueError.
 
-Непосредственные вызовы: `isinstance`, `ValueError`, `FIELDS.items`, `value.get`, `len`, `any`, `ord`, `text.strip`, `re.fullmatch`, `date.fromisoformat(result[field]).isoformat`, `date.fromisoformat`, `seller.get`, `text.isascii`, `text.isdigit`, `item.get`, `decimal`, `Decimal`, `name.strip`, `int`, `(qty * price * 100).quantize`, `result['items'].append`, `unit.strip`, `str`, `all`.
+Непосредственные вызовы: `isinstance`, `ValueError`, `FIELDS.items`, `value.get`, `len`, `any`, `ord`, `text.strip`, `re.fullmatch`, `date.fromisoformat(result[field]).isoformat`, `date.fromisoformat`, `seller.get`, `text.isascii`, `text.isdigit`, `item.get`, `comment.strip`, `result['items'].append`, `decimal`, `Decimal`, `name.strip`, `int`, `(qty * price * 100).quantize`, `unit.strip`, `str`, `all`.
 
 Явные исключения: `ValueError`.
 

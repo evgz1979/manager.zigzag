@@ -81,7 +81,7 @@
 
 ## JavaScript
 
-23 файлов; 453 именованных объявлений.
+23 файлов; 467 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
@@ -94,7 +94,7 @@
 | [static/inbox.js](javascript/static-inbox.md) | 13 |
 | [static/invoice-documents.js](javascript/static-invoice-documents.md) | 17 |
 | [static/invoice-products.js](javascript/static-invoice-products.md) | 13 |
-| [static/invoices.js](javascript/static-invoices.md) | 42 |
+| [static/invoices.js](javascript/static-invoices.md) | 56 |
 | [static/mobile.js](javascript/static-mobile.md) | 3 |
 | [static/money-overview.js](javascript/static-money-overview.md) | 8 |
 | [static/navigation.js](javascript/static-navigation.md) | 1 |

@@ -52,6 +52,70 @@ class InvoiceTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 self.save(row)
 
+    def test_separator_keeps_order_in_draft_preview_issue_and_copy(self):
+        separator = {"kind": "separator", "comment": "  Работы на объекте  ", "amount": 10000}
+        row = self.draft(items=[
+            {"name": "Панель", "quantity": "2", "unit": "шт", "price": "100"},
+            separator,
+            {"name": "Крепёж", "quantity": "3", "unit": "шт", "price": "50"},
+        ])
+        saved = self.store().get(self.path, row["id"])
+        self.assertEqual(saved["data"]["total"], 35000)
+        self.assertEqual(saved["data"]["items"][1], {"kind": "separator", "comment": "Работы на объекте"})
+        preview = self.store().preview(self.path, row["id"])
+        issued = self.issue(saved)
+        body, _ = self.store().pdf(self.path, row["id"])
+        for label, content in (("preview", preview), ("issued", body)):
+            pdf = self.base / (label + ".pdf")
+            pdf.write_bytes(content)
+            extracted = subprocess.check_output([str(manager.pdf_renderer()), str(pdf), "invoice-text"], text=True)
+            self.assertLess(extracted.index("Панель"), extracted.index("Работы на объекте"))
+            self.assertLess(extracted.index("Работы на объекте"), extracted.index("Крепёж"))
+            self.assertRegex(extracted, r"\b2\s+Крепёж")
+            self.assertIn("Позиций: 2", extracted)
+            self.assertEqual(invoices.total_from_text(extracted), 35000)
+        copied = self.store().create({"id": str(uuid.uuid4()), "path": self.path, "source": issued["id"]})
+        self.assertEqual(copied["data"]["items"], saved["data"]["items"])
+
+    def test_separator_validation_allows_empty_drafts_but_requires_comment_and_products_for_issue(self):
+        row = self.draft(items=[{"kind": "separator", "comment": ""}])
+        with self.assertRaisesRegex(ValueError, "Заполни комментарий разделителя"):
+            self.store().preview(self.path, row["id"])
+        for comment in (None, "Две\nстроки", "а" * 501):
+            row["data"]["items"][0]["comment"] = comment
+            with self.assertRaisesRegex(ValueError, "Комментарий разделителя"):
+                self.save(row)
+        row["data"]["items"][0]["comment"] = "Материалы"
+        saved = self.save(row)
+        with self.assertRaisesRegex(ValueError, "ненулевую сумму"):
+            self.store().preview(self.path, saved["id"])
+
+    def test_row_comment_survives_draft_saves_and_does_not_change_issued_pdf(self):
+        row = self.draft(note="Примечание для PDF")
+        self.assertEqual(self.store().catalog()[0]["comment"], "Примечание для PDF")
+        edited = self.store().save_comment({**row, "comment": "Согласовать отправку"})
+        self.assertEqual(edited["revision"], row["revision"] + 1)
+        with self.assertRaises(invoices.InvoiceConflict):
+            self.save(row)
+        with self.assertRaises(invoices.InvoiceConflict):
+            self.store().save_comment({**row, "comment": "Устаревшая форма"})
+        edited["data"]["comment"] = "Подмена полным сохранением"
+        edited["data"]["buyer_name"] = "Новый покупатель"
+        draft = self.save(edited)
+        self.assertEqual(draft["data"]["comment"], "Согласовать отправку")
+        self.assertEqual(draft["data"]["note"], "Примечание для PDF")
+        issued = self.issue(draft)
+        original = self.store().pdf(self.path, issued["id"])
+        updated = self.store().save_comment({**issued, "comment": "Оплата после звонка\nВ пятницу"})
+        self.assertEqual(updated["state"], "issued")
+        self.assertEqual(self.store().catalog()[0]["comment"], "Оплата после звонка\nВ пятницу")
+        cleared = self.store().save_comment({**updated, "comment": ""})
+        self.assertEqual(self.store().catalog()[0]["comment"], "")
+        self.assertEqual(self.store().pdf(self.path, issued["id"]), original)
+        self.assertEqual(self.store().save_comment({**cleared, "comment": ""})["revision"], cleared["revision"])
+        copy = self.store().create({"id": str(uuid.uuid4()), "path": self.path, "source": updated["id"]})
+        self.assertNotIn("comment", copy["data"])
+
     def test_list_status_survives_draft_edits_and_issue_and_new_copy_is_unmarked(self):
         draft = self.draft()
         marked = self.store().save_list_status({**draft, 'value': 'later'})
