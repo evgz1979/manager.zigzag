@@ -64,7 +64,7 @@ def html(snapshot, app_dir, now):
     start, through = period(snapshot, now)
     payload = json.dumps({'snapshot': snapshot, 'now': now.isoformat(), 'start': start, 'through': through}, ensure_ascii=True).replace('<', '\\u003c')
     scripts = '\n'.join((app_dir / 'static' / name).read_text() for name in
-                        ['vendor/html2canvas/html2canvas.min.js', 'order-sorting.js', 'home-calendar.js', 'calendar-snapshot.js'])
+                        ['vendor/html2canvas/html2canvas.min.js', 'client-badge.js', 'order-sorting.js', 'home-calendar.js', 'calendar-snapshot.js'])
     scripts = scripts.replace('</script', '<\\/script')
     css = (app_dir / 'static/styles.css').read_text()
     return f'''<!doctype html><html><head><meta charset="utf-8"><style>{css}</style></head><body>
@@ -79,6 +79,7 @@ const delivery = {payload};
 async function makeCalendar() {{
   try {{
     const data = delivery.snapshot;
+    ClientBadge.replace(data.client_colors);
     const orders = [...data.orders].sort((a,b) => OrderSorting.compare(a,b,'title',1));
     HomeCalendar.show(orders, data.calendar_events || [], data.calendar_invoice_plans || [], new Date(delivery.now));
     const result = await CalendarSnapshot.capture(new Date(delivery.now));

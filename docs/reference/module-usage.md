@@ -11,7 +11,8 @@
 | [calendar_layout.py](python/calendar_layout.md) | `order_calendar.py`, `orders.py` | 1 | Нет |
 | [calendar_todos.py](python/calendar_todos.md) | `server.py`, `telegram_calendar.py` | 3 | Нет |
 | [client_activity.py](python/client_activity.md) | `hidden_orders.py`, `object_activity.py`, `server.py`, `supplier_purchases.py` | 2 | Нет |
-| [event_folder_undo.py](python/event_folder_undo.md) | `client_activity.py`, `event_folders.py`, `file_uploads.py`, `folder_notes.py`, `folder_rename.py`, `invoices.py`, `local_metadata.py`, `mobile_sync.py`, `object_orders.py`, `object_years.py`, `order_creation.py`, `order_links.py`, `orders.py`, `reconciliations.py`, `server.py`, `supplier_purchases.py`, `weekly_events_migration.py`, `work_order_list.py`, `work_orders.py` | 6 | Да |
+| [client_colors.py](python/client_colors.md) | `server.py` | 0 | Нет |
+| [event_folder_undo.py](python/event_folder_undo.md) | `client_activity.py`, `client_colors.py`, `event_folders.py`, `file_uploads.py`, `folder_notes.py`, `folder_rename.py`, `invoices.py`, `local_metadata.py`, `mobile_sync.py`, `object_orders.py`, `object_years.py`, `order_creation.py`, `order_links.py`, `orders.py`, `reconciliations.py`, `server.py`, `supplier_purchases.py`, `weekly_events_migration.py`, `work_order_list.py`, `work_orders.py` | 6 | Да |
 | [event_folders.py](python/event_folders.md) | `server.py` | 6 | Нет |
 | [event_relevance.py](python/event_relevance.md) | `folder_notes.py`, `server.py`, `sketches.py` | 1 | Нет |
 | [event_trash.py](python/event_trash.md) | `server.py` | 1 | Нет |
@@ -20,9 +21,9 @@
 | [file_uploads.py](python/file_uploads.md) | `server.py` | 4 | Нет |
 | [folder_layout.py](python/folder_layout.md) | `event_folders.py`, `event_trash.py`, `file_uploads.py`, `folder_rename.py`, `image_reports.py`, `invoices.py`, `local_metadata.py`, `object_move.py`, `object_years.py`, `order_creation.py`, `order_folders.py`, `recovery_backup.py`, `scripts/archive_order_duplicate.py`, `scripts/rebind_glass_notes.py`, `scripts/rebind_order.py` | 8 | Да |
 | [folder_notes.py](python/folder_notes.md) | `event_folders.py`, `event_trash.py`, `file_uploads.py`, `folder_rename.py`, `object_move.py`, `object_years.py`, `order_todos.py`, `orders.py`, `scripts/rebind_glass_notes.py`, `server.py` | 4 | Нет |
-| [folder_rename.py](python/folder_rename.md) | `event_trash.py`, `object_move.py`, `server.py` | 8 | Нет |
+| [folder_rename.py](python/folder_rename.md) | `client_colors.py`, `event_trash.py`, `object_move.py`, `server.py` | 8 | Нет |
 | [folder_rename_undo.py](python/folder_rename_undo.md) | `event_trash.py`, `folder_rename.py`, `local_metadata.py`, `object_years.py` | 7 | Да |
-| [folder_structure.py](python/folder_structure.md) | `client_activity.py`, `event_folders.py`, `event_relevance.py`, `file_uploads.py`, `folder_notes.py`, `folder_rename.py`, `hidden_orders.py`, `invoices.py`, `object_activity.py`, `object_move.py`, `object_orders.py`, `object_years.py`, `order_creation.py`, `order_folders.py`, `order_links.py`, `orders.py`, `reconciliations.py`, `scripts/rebind_glass_notes.py`, `server.py`, `supplier_purchases.py`, `work_order_list.py`, `work_orders.py` | 8 | Нет |
+| [folder_structure.py](python/folder_structure.md) | `client_activity.py`, `client_colors.py`, `event_folders.py`, `event_relevance.py`, `file_uploads.py`, `folder_notes.py`, `folder_rename.py`, `hidden_orders.py`, `invoices.py`, `object_activity.py`, `object_move.py`, `object_orders.py`, `object_years.py`, `order_creation.py`, `order_folders.py`, `order_links.py`, `orders.py`, `reconciliations.py`, `scripts/rebind_glass_notes.py`, `server.py`, `supplier_purchases.py`, `work_order_list.py`, `work_orders.py` | 8 | Нет |
 | [hidden_orders.py](python/hidden_orders.md) | `server.py` | 1 | Нет |
 | [icloud_access.py](python/icloud_access.md) | `file_trash.py`, `invoice_discovery.py`, `invoices.py`, `local_metadata.py`, `order_document.py`, `server.py`, `spreadsheet_preview.py` | 1 | Нет |
 | [image_reports.py](python/image_reports.md) | `server.py` | 0 | Нет |
@@ -31,7 +32,7 @@
 | [invoice_documents.py](python/invoice_documents.md) | `invoices.py`, `server.py` | 2 | Нет |
 | [invoice_preferences.py](python/invoice_preferences.md) | `invoices.py`, `server.py` | 1 | Нет |
 | [invoices.py](python/invoices.md) | `invoice_discovery.py`, `invoice_documents.py`, `invoice_preferences.py`, `server.py` | 13 | Нет |
-| [local_metadata.py](python/local_metadata.md) | `calendar_events.py`, `calendar_layout.py`, `folder_notes.py`, `invoices.py`, `object_orders.py`, `order_calendar.py`, `order_creation.py`, `orders.py`, `reconciliations.py`, `server.py`, `supplier_purchases.py`, `telegram_calendar_commands.py`, `telegram_inbox.py`, `weekly_events_migration.py`, `work_orders.py` | 9 | Нет |
+| [local_metadata.py](python/local_metadata.md) | `calendar_events.py`, `calendar_layout.py`, `client_colors.py`, `folder_notes.py`, `invoices.py`, `object_orders.py`, `order_calendar.py`, `order_creation.py`, `orders.py`, `reconciliations.py`, `server.py`, `supplier_purchases.py`, `telegram_calendar_commands.py`, `telegram_inbox.py`, `weekly_events_migration.py`, `work_orders.py` | 9 | Нет |
 | [mobile_sync.py](python/mobile_sync.md) | `orders.py`, `server.py` | 2 | Нет |
 | [native_renderers.py](python/native_renderers.md) | `calendar_delivery.py`, `icloud_access.py`, `image_reports.py`, `invoices.py`, `server.py`, `thumbnail_cache.py` | 3 | Нет |
 | [object_activity.py](python/object_activity.md) | `server.py` | 1 | Нет |

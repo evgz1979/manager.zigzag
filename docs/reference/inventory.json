@@ -127,6 +127,17 @@
         ]
       },
       {
+        "path": "client_colors.py",
+        "symbols": [
+          {"name": "ClientColorConflict", "type": "class", "anchor": "symbol-ClientColorConflict"},
+          {"name": "catalog", "type": "function", "anchor": "symbol-catalog"},
+          {"name": "checked_path", "type": "function", "anchor": "symbol-checked_path"},
+          {"name": "read", "type": "function", "anchor": "symbol-read"},
+          {"name": "record", "type": "function", "anchor": "symbol-record"},
+          {"name": "save", "type": "function", "anchor": "symbol-save"}
+        ]
+      },
+      {
         "path": "event_folder_undo.py",
         "symbols": [
           {"name": "EventRenamePending", "type": "class", "anchor": "symbol-EventRenamePending"},
@@ -1315,6 +1326,7 @@
           {"name": "cancelCalendarTodoPreviewSwitch", "type": "FunctionDeclaration", "anchor": "symbol-cancelCalendarTodoPreviewSwitch"},
           {"name": "changeOrderDeadline", "type": "FunctionDeclaration", "anchor": "symbol-changeOrderDeadline"},
           {"name": "changeOrderProductionStatus", "type": "FunctionDeclaration", "anchor": "symbol-changeOrderProductionStatus"},
+          {"name": "chosenClientColor", "type": "FunctionDeclaration", "anchor": "symbol-chosenClientColor"},
           {"name": "closeCalendarEvent", "type": "FunctionDeclaration", "anchor": "symbol-closeCalendarEvent"},
           {"name": "closeCalendarEventMenu", "type": "FunctionDeclaration", "anchor": "symbol-closeCalendarEventMenu"},
           {"name": "closeCalendarTodoPreview", "type": "FunctionDeclaration", "anchor": "symbol-closeCalendarTodoPreview"},
@@ -1341,6 +1353,7 @@
           {"name": "expandCardDeadlineWeeks", "type": "FunctionDeclaration", "anchor": "symbol-expandCardDeadlineWeeks"},
           {"name": "fileCard", "type": "FunctionDeclaration", "anchor": "symbol-fileCard"},
           {"name": "fileDownloadButton", "type": "FunctionDeclaration", "anchor": "symbol-fileDownloadButton"},
+          {"name": "fillClientColor", "type": "FunctionDeclaration", "anchor": "symbol-fillClientColor"},
           {"name": "filteredFiles", "type": "FunctionDeclaration", "anchor": "symbol-filteredFiles"},
           {"name": "findListOrder", "type": "FunctionDeclaration", "anchor": "symbol-findListOrder"},
           {"name": "flushDeadlineComments", "type": "FunctionDeclaration", "anchor": "symbol-flushDeadlineComments"},
@@ -1384,6 +1397,7 @@
           {"name": "openCalendarEvent", "type": "FunctionDeclaration", "anchor": "symbol-openCalendarEvent"},
           {"name": "openCalendarEventMenu", "type": "FunctionDeclaration", "anchor": "symbol-openCalendarEventMenu"},
           {"name": "openCalendarTodoPreview", "type": "FunctionDeclaration", "anchor": "symbol-openCalendarTodoPreview"},
+          {"name": "openClientColor", "type": "FunctionDeclaration", "anchor": "symbol-openClientColor"},
           {"name": "openCreateEventFolder", "type": "FunctionDeclaration", "anchor": "symbol-openCreateEventFolder"},
           {"name": "openCreateObject", "type": "FunctionDeclaration", "anchor": "symbol-openCreateObject"},
           {"name": "openCreateOrderFolder", "type": "FunctionDeclaration", "anchor": "symbol-openCreateOrderFolder"},
@@ -1416,6 +1430,7 @@
           {"name": "printFiles", "type": "FunctionDeclaration", "anchor": "symbol-printFiles"},
           {"name": "productionStatusGroups", "type": "FunctionDeclaration", "anchor": "symbol-productionStatusGroups"},
           {"name": "purchaseSupplierButtons", "type": "FunctionDeclaration", "anchor": "symbol-purchaseSupplierButtons"},
+          {"name": "readClientColor", "type": "FunctionDeclaration", "anchor": "symbol-readClientColor"},
           {"name": "refreshCalendarEvent", "type": "FunctionDeclaration", "anchor": "symbol-refreshCalendarEvent"},
           {"name": "refreshEventProposal", "type": "FunctionDeclaration", "anchor": "symbol-refreshEventProposal"},
           {"name": "refreshEventRelevance", "type": "FunctionDeclaration", "anchor": "symbol-refreshEventRelevance"},
@@ -1436,6 +1451,7 @@
           {"name": "renderCalendarTodoPreview", "type": "FunctionDeclaration", "anchor": "symbol-renderCalendarTodoPreview"},
           {"name": "renderCardDeadlines", "type": "FunctionDeclaration", "anchor": "symbol-renderCardDeadlines"},
           {"name": "renderClientActivity", "type": "FunctionDeclaration", "anchor": "symbol-renderClientActivity"},
+          {"name": "renderClientColorEditor", "type": "FunctionDeclaration", "anchor": "symbol-renderClientColorEditor"},
           {"name": "renderCompactOrderLinks", "type": "FunctionDeclaration", "anchor": "symbol-renderCompactOrderLinks"},
           {"name": "renderDeadlineComments", "type": "FunctionDeclaration", "anchor": "symbol-renderDeadlineComments"},
           {"name": "renderDeadlineMonthLegend", "type": "FunctionDeclaration", "anchor": "symbol-renderDeadlineMonthLegend"},
@@ -1500,6 +1516,7 @@
           {"name": "run", "type": "FunctionDeclaration", "anchor": "symbol-run"},
           {"name": "saveCalendarEvent", "type": "FunctionDeclaration", "anchor": "symbol-saveCalendarEvent"},
           {"name": "saveClientActivity", "type": "FunctionDeclaration", "anchor": "symbol-saveClientActivity"},
+          {"name": "saveClientColor", "type": "FunctionDeclaration", "anchor": "symbol-saveClientColor"},
           {"name": "saveCurrentPrintTask", "type": "FunctionDeclaration", "anchor": "symbol-saveCurrentPrintTask"},
           {"name": "saveCurrentStatus", "type": "FunctionDeclaration", "anchor": "symbol-saveCurrentStatus"},
           {"name": "saveEventRelevance", "type": "FunctionDeclaration", "anchor": "symbol-saveEventRelevance"},
@@ -1571,6 +1588,16 @@
           {"name": "setSettingsBusy", "type": "FunctionDeclaration", "anchor": "symbol-setSettingsBusy"},
           {"name": "settingsRequest", "type": "FunctionDeclaration", "anchor": "symbol-settingsRequest"},
           {"name": "showSettings", "type": "FunctionDeclaration", "anchor": "symbol-showSettings"}
+        ]
+      },
+      {
+        "path": "static/client-badge.js",
+        "symbols": [
+          {"name": "foreground", "type": "FunctionDeclaration", "anchor": "symbol-foreground"},
+          {"name": "markup", "type": "FunctionDeclaration", "anchor": "symbol-markup"},
+          {"name": "render", "type": "FunctionDeclaration", "anchor": "symbol-render"},
+          {"name": "replace", "type": "FunctionDeclaration", "anchor": "symbol-replace"},
+          {"name": "set", "type": "FunctionDeclaration", "anchor": "symbol-set"}
         ]
       },
       {

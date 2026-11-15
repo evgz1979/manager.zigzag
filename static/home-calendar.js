@@ -201,7 +201,7 @@ const HomeCalendar = (() => {
       const label = order.client || "Без клиента";
       const identity = order.client_path || order.client || "";
       const key = JSON.stringify(["client", identity.normalize("NFC")]);
-      if (!groups.has(key)) groups.set(key, { key, label, orders: [] });
+      if (!groups.has(key)) groups.set(key, { key, label, path: order.client_path, orders: [] });
       groups.get(key).orders.push(order);
     }
     return groups.values();
@@ -247,7 +247,7 @@ const HomeCalendar = (() => {
       label.setAttribute("aria-level", "3");
       heading.append(label);
     }
-    heading.firstElementChild.textContent = group.label;
+    heading.firstElementChild.innerHTML = ClientBadge.markup(group.label, group.path);
     heading.firstElementChild.title = group.label;
   }
 
@@ -360,7 +360,8 @@ const HomeCalendar = (() => {
       link.dataset.calendarOrder = order.path;
       const title = order.title || order.path;
       const label = title + (order.client ? " · " + order.client : "");
-      link.textContent = label;
+      link.innerHTML = ClientBadge.markup(title) +
+        (order.client ? " · " + ClientBadge.markup(order.client, order.client_path) : "");
       link.setAttribute("aria-label", "Мелкий заказ · " + label + (order.object ? " · " + order.object : ""));
       if (link !== before) container.insertBefore(link, before);
       before = link.nextElementSibling; retained.add(link);

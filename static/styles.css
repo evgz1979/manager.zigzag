@@ -8,6 +8,20 @@
   --sidebar: #f3f5f2;
 }
 * { box-sizing: border-box; }
+.client-badge {
+  padding-inline: var(--client-badge-padding, 0px);
+  border-radius: 4px;
+  background-color: var(--client-badge-bg, transparent);
+  box-shadow: var(--client-badge-edge, none);
+  color: var(--client-badge-fg, inherit);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.client-color-rgb { display: grid; grid-template-columns: auto repeat(3, minmax(0, 1fr)); gap: 8px; align-items: end; }
+.client-color-rgb input[type="color"] { width: 44px; height: 34px; padding: 3px; cursor: pointer; }
+.client-color-rgb input[type="number"] { width: 100%; min-width: 0; }
+#clientColorDialog .confirm-actions { flex-wrap: wrap; }
+.order-client-column .client-badge { padding-block: var(--client-badge-row-padding, 0px); }
 [hidden] { display: none !important; }
 body { margin: 0; color: var(--text); background: #fff; font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 button, input, select, textarea { font: inherit; color: inherit; }

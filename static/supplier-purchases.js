@@ -30,12 +30,13 @@
       const items = order.items.filter(item => showDone || !item.done || itemKey(order, item) === pendingKey);
       if (!items.length) return "";
       const name = [order.client, order.object, order.title].filter(Boolean).join(" · ");
+      const label = [ClientBadge.markup(order.client, order.client_path), ...[order.object, order.title].filter(Boolean).map(escapeHtml)].filter(Boolean).join(" · ");
       return '<section class="supplier-purchase-group" data-supplier-purchase-order="' + escapeHtml(order.id) + '">' +
         items.map(item => '<div class="supplier-purchase-row' + (item.done ? ' done' : '') + '"><div class="supplier-purchase-task"><input type="checkbox" class="todo-check" data-supplier-purchase-done="' + escapeHtml(itemKey(order, item)) +
           '" data-purchase-index="' + item.index + '" aria-label="Закупка выполнена: ' + escapeHtml(item.text + ' · ' + name) + '"' + (item.done ? ' checked' : '') + (saving ? ' disabled' : '') +
           '><span title="' + escapeHtml(item.text) + '">' + escapeHtml(item.text) + '</span></div>' +
           '<a class="order-row-link supplier-purchase-source" data-supplier-purchase-path="' + escapeHtml(order.path) + '" data-supplier-purchase-source="' + escapeHtml(itemKey(order, item)) +
-          '" href="?path=' + encodeURIComponent(order.path) + '" title="' + escapeHtml(name + ' · ' + order.path) + '" aria-label="' + escapeHtml('Открыть заказ · ' + name + ' · ' + order.path) + '">' + escapeHtml(name) + '</a>' +
+          '" href="?path=' + encodeURIComponent(order.path) + '" title="' + escapeHtml(name + ' · ' + order.path) + '" aria-label="' + escapeHtml('Открыть заказ · ' + name + ' · ' + order.path) + '">' + label + '</a>' +
           '<button class="secondary-button supplier-purchase-copy" type="button" data-supplier-purchase-copy="' + escapeHtml(itemKey(order, item)) +
           '" title="Копировать весь текст закупки" aria-label="' + escapeHtml('Копировать: ' + item.text + ' · ' + name) + '">Копировать</button>' +
           '<button class="supplier-purchase-edit" type="button" data-supplier-purchase-edit="' + escapeHtml(itemKey(order, item)) + '" data-purchase-index="' + item.index + '" title="Изменить закупку" aria-label="' + escapeHtml('Изменить закупку: ' + item.text + ' · ' + name) + '"' + (saving ? ' disabled' : '') + '>' + icon("edit") + '</button></div>').join("") + '</section>';
@@ -98,7 +99,8 @@
     const item = order?.items.find(row => row.index === Number(button.dataset.purchaseIndex));
     if (!item) return;
     editor = { folder, order: { ...order }, item: { ...item }, key: itemKey(order, item), busy: false, conflict: false };
-    $("supplierPurchaseSource").textContent = [order.client, order.object, order.title].filter(Boolean).join(" · ");
+    $("supplierPurchaseSource").innerHTML = [ClientBadge.markup(order.client, order.client_path),
+      ...[order.object, order.title].filter(Boolean).map(escapeHtml)].filter(Boolean).join(" · ");
     $("supplierPurchaseText").value = item.text;
     $("supplierPurchaseEditState").textContent = "";
     $("supplierPurchaseCurrent").hidden = true;

@@ -10,14 +10,17 @@ const ReconciliationUI = (() => {
   const date = value => /^\d{4}-\d{2}-\d{2}$/.test(value || '') ? value.split('-').reverse().join('.') : '—';
 
   // Строит строки текущего списка компонента.
-  // Обращается к DOM текущего документа или переданного контейнера.
+  // Связывает свободную подпись клиента с цветом только при однозначном совпадении с каталогом.
   function renderList(folder, records) {
     const byPath = new Map(records.map(item => [item.path.normalize('NFC'), item]));
+    const clients = [...state.tree, ...state.groups.flatMap(group => group.children)].filter(node => node.isClient);
     const rows = folder.directories.filter(item => !item.name.startsWith('#'));
     const markup = rows.map(item => {
       const record = byPath.get(item.path.normalize('NFC'));
+      const client = (record?.client || '').normalize('NFC');
+      const matches = clients.filter(node => node.name.normalize('NFC') === client || node.path.normalize('NFC') === client);
       return '<tr><td><a href="?path=' + encodeURIComponent(item.path) + '" data-reconciliation-path="' + escapeHtml(item.path) + '">' +
-        escapeHtml(record?.title || item.name) + '</a></td><td>' + escapeHtml(record?.client || '—') +
+        escapeHtml(record?.title || item.name) + '</a></td><td>' + ClientBadge.markup(record?.client || '—', matches.length === 1 ? matches[0].path : '') +
         '</td><td><span class="reconciliation-list-note">' + escapeHtml(record?.note || '—') + '</span></td></tr>';
     }).join('');
     if (markup !== listMarkup || listPath !== folder.path) {

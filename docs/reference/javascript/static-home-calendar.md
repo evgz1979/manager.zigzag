@@ -284,9 +284,9 @@ function renderCompactOrders(container, compact)
 
 Сохраняет подписи, нижнюю левую область, узлы ссылок и фокус без показа скрытых событий.
 
-Непосредственные вызовы: `container.contains`, `Map`, `[...container.children].map`, `Set`, `existing.get`, `document.createElement`, `encodeURIComponent`, `link.setAttribute`, `container.insertBefore`, `retained.add`, `retained.has`, `link.remove`, `(focused.isConnected ? focused : get("calendarViewport")).focus`, `get`.
+Непосредственные вызовы: `container.contains`, `Map`, `[...container.children].map`, `Set`, `existing.get`, `document.createElement`, `encodeURIComponent`, `ClientBadge.markup`, `link.setAttribute`, `container.insertBefore`, `retained.add`, `retained.has`, `link.remove`, `(focused.isConnected ? focused : get("calendarViewport")).focus`, `get`.
 
-Прямые присваивания полям/свойствам: `link.className`, `link.href`, `link.dataset.calendarOrder`, `link.textContent`.
+Прямые присваивания полям/свойствам: `link.className`, `link.href`, `link.dataset.calendarOrder`, `link.innerHTML`.
 
 <a id="symbol-renderFreeEvents"></a>
 
@@ -490,9 +490,9 @@ function updateGroupHeading(heading, group)
 
 Название выводится безопасным текстом.
 
-Непосредственные вызовы: `document.createElement`, `label.setAttribute`, `heading.append`.
+Непосредственные вызовы: `document.createElement`, `label.setAttribute`, `heading.append`, `ClientBadge.markup`.
 
-Прямые присваивания полям/свойствам: `heading.className`, `heading.dataset.groupKey`, `heading.firstElementChild.textContent`, `heading.firstElementChild.title`.
+Прямые присваивания полям/свойствам: `heading.className`, `heading.dataset.groupKey`, `heading.firstElementChild.innerHTML`, `heading.firstElementChild.title`.
 
 <a id="symbol-updateHeading"></a>
 

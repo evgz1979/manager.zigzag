@@ -8,7 +8,7 @@
 
 ## Python
 
-66 файлов; 960 именованных объявлений.
+67 файлов; 966 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
@@ -19,6 +19,7 @@
 | [calendar_layout.py](python/calendar_layout.md) | 3 |
 | [calendar_todos.py](python/calendar_todos.md) | 2 |
 | [client_activity.py](python/client_activity.md) | 21 |
+| [client_colors.py](python/client_colors.md) | 6 |
 | [event_folder_undo.py](python/event_folder_undo.md) | 7 |
 | [event_folders.py](python/event_folders.md) | 9 |
 | [event_relevance.py](python/event_relevance.md) | 4 |
@@ -81,14 +82,15 @@
 
 ## JavaScript
 
-23 файлов; 468 именованных объявлений.
+24 файлов; 479 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
-| [static/app.js](javascript/static-app.md) | 238 |
+| [static/app.js](javascript/static-app.md) | 244 |
 | [static/bills.js](javascript/static-bills.md) | 11 |
 | [static/calendar-snapshot.js](javascript/static-calendar-snapshot.md) | 4 |
 | [static/calendar-telegram.js](javascript/static-calendar-telegram.md) | 6 |
+| [static/client-badge.js](javascript/static-client-badge.md) | 5 |
 | [static/hidden-orders.js](javascript/static-hidden-orders.md) | 10 |
 | [static/home-calendar.js](javascript/static-home-calendar.md) | 34 |
 | [static/inbox.js](javascript/static-inbox.md) | 13 |

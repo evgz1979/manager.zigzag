@@ -310,6 +310,22 @@ async function changeOrderProductionStatus(select)
 
 Прямые присваивания полям/свойствам: `state.ordersRequest`, `select.disabled`, `state.workArchivedOrders`.
 
+<a id="symbol-chosenClientColor"></a>
+
+## chosenClientColor
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function chosenClientColor()
+```
+
+Читает введённый RGB для предпросмотра и сохранения.
+
+Возвращает шестизначный цвет только при валидности всех трёх полей.
+
+Непосредственные вызовы: `clientColorInputs.every`, `clientColorInputs.map(input => input.valueAsNumber.toString(16).padStart(2, "0")).join`, `clientColorInputs.map`.
+
 <a id="symbol-closeCalendarEvent"></a>
 
 ## closeCalendarEvent
@@ -753,6 +769,24 @@ function fileDownloadButton(file)
 Использует прежний `/api/file?download=1`, не запуская приложение на сервере.
 
 Непосредственные вызовы: `escapeHtml`, `apiUrl`.
+
+<a id="symbol-fillClientColor"></a>
+
+## fillClientColor
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function fillClientColor(color)
+```
+
+Синхронизирует три канала RGB с цветом системной палитры.
+
+Передаёт точные целые значения от 0 до 255 в числовые поля.
+
+Непосредственные вызовы: `$`, `clientColorInputs.forEach`.
+
+Прямые присваивания полям/свойствам: `$("clientColorPicker").value`.
 
 <a id="symbol-filteredFiles"></a>
 
@@ -1329,7 +1363,7 @@ async function loadOrders()
 
 Использует `/api/orders`, `/api/work-orders`, `/api/object-orders`.
 
-Непосредственные вызовы: `isFolderOrderList`, `isWorkOrderList`, `request`, `renderMoneyOverview`, `apiUrl`, `(object.archived_paths || []).map`, `result.orders.filter`, `renderSupplierSchedule`, `renderFavoriteOrders`, `hasOrderList`, `renderOrders`, `renderCardDeadlines`, `[...(result.orders || []), ...(result.favorites || [])].find`, `renderOrderCardLinks`.
+Непосредственные вызовы: `isFolderOrderList`, `isWorkOrderList`, `request`, `renderMoneyOverview`, `apiUrl`, `(object.archived_paths || []).map`, `ClientBadge.replace`, `result.orders.filter`, `renderSupplierSchedule`, `renderFavoriteOrders`, `hasOrderList`, `renderOrders`, `renderCardDeadlines`, `[...(result.orders || []), ...(result.favorites || [])].find`, `renderOrderCardLinks`.
 
 Прямые присваивания полям/свойствам: `state.ordersRequest`, `state.calendarPlansError`, `state.objectOrders`, `state.objectOrdersError`, `state.workOrderGroups`, `state.workArchivedOrders`, `state.workArchivedPaths`, `state.orders`, `state.calendarSupplierOrders`, `state.calendarEvents`, `state.calendarInvoicePlans`, `state.calendarPlansLoaded`, `state.deadlineWeekOptions`, `state.favoriteOrders`, `state.unregistrations`, `state.scan`, `state.storage`.
 
@@ -1469,9 +1503,13 @@ function openCalendarEvent(slot)
 
 Запоминает оба исходных поля для защиты черновика; комментарий заказа не редактирует.
 
-Непосредственные вызовы: `closeCalendarEventMenu`, `state.calendarEvents.find`, `calendarSlotOrder`, `state.calendarMoving.has`, `orderRowSaving`, `hasPendingDeadlineComments`, `notify`, `calendarEventEntries`, `Boolean`, `order.calendar_inactive?.[period]?.includes`, `order.calendar_completed?.[period]?.includes`, `order.calendar_trip?.[period]?.includes`, `order.calendar_watch_todos?.[period]?.includes`, `freeCalendarIdentity`, `$`, `(order.work_supplier ? [order.title, order.work_supplier] : [order.title, order.client, order.object]).filter(Boolean).join`, `(order.work_supplier ? [order.title, order.work_supplier] : [order.title, order.client, order.object]).filter`, `Date`, `Intl.DateTimeFormat`, `end.setUTCDate`, `end.getUTCDate`, `format.format`, `renderCalendarEventControls`, `$("calendarEventDialog").showModal`, `$("calendarEventText").focus`.
+Непосредственные вызовы: `closeCalendarEventMenu`, `state.calendarEvents.find`, `calendarSlotOrder`, `state.calendarMoving.has`, `orderRowSaving`, `hasPendingDeadlineComments`, `notify`, `calendarEventEntries`, `Boolean`, `order.calendar_inactive?.[period]?.includes`, `order.calendar_completed?.[period]?.includes`, `order.calendar_trip?.[period]?.includes`, `order.calendar_watch_todos?.[period]?.includes`, `freeCalendarIdentity`, `$`, `(order.work_supplier ?
+    [escapeHtml(order.title), escapeHtml(order.work_supplier)] :
+    [escapeHtml(order.title), ClientBadge.markup(order.client, order.client_path), order.object && escapeHtml(order.object)]).filter(Boolean).join`, `(order.work_supplier ?
+    [escapeHtml(order.title), escapeHtml(order.work_supplier)] :
+    [escapeHtml(order.title), ClientBadge.markup(order.client, order.client_path), order.object && escapeHtml(order.object)]).filter`, `escapeHtml`, `ClientBadge.markup`, `Date`, `Intl.DateTimeFormat`, `end.setUTCDate`, `end.getUTCDate`, `format.format`, `renderCalendarEventControls`, `$("calendarEventDialog").showModal`, `$("calendarEventText").focus`.
 
-Прямые присваивания полям/свойствам: `state.calendarEvent`, `$("calendarEventTitle").textContent`, `$("calendarEventOrder").textContent`, `$("calendarEventDate").textContent`, `$("calendarEventText").value`, `$("calendarEventComment").value`, `$("calendarEventState").textContent`.
+Прямые присваивания полям/свойствам: `state.calendarEvent`, `$("calendarEventTitle").textContent`, `$("calendarEventOrder").innerHTML`, `$("calendarEventDate").textContent`, `$("calendarEventText").value`, `$("calendarEventComment").value`, `$("calendarEventState").textContent`.
 
 <a id="symbol-openCalendarEventMenu"></a>
 
@@ -1508,6 +1546,24 @@ function openCalendarTodoPreview(anchor, pinned = false)
 Непосредственные вызовы: `cancelCalendarTodoPreviewSwitch`, `clearTimeout`, `closeCalendarTodoPreview`, `$`, `anchor.setAttribute`, `renderCalendarTodoPreview`.
 
 Прямые присваивания полям/свойствам: `calendarTodoPreview.anchor`, `calendarTodoPreview.markup`, `$("calendarTodoPreviewBody").scrollTop`, `calendarTodoPreview.pinned`, `$("calendarTodoPreview").hidden`.
+
+<a id="symbol-openClientColor"></a>
+
+## openClientColor
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function openClientColor()
+```
+
+Открывает ручной выбор RGB в карточке клиента.
+
+Форма привязана к точному пути открытого клиента.
+
+Непосредственные вызовы: `$`, `ClientBadge.markup`, `fillClientColor`, `$("clientColorDialog").showModal`, `readClientColor`.
+
+Прямые присваивания полям/свойствам: `state.clientColor`, `$("clientColorName").innerHTML`.
 
 <a id="symbol-openCreateEventFolder"></a>
 
@@ -2053,6 +2109,24 @@ function purchaseSupplierButtons(item)
       (inactive ? ' class="purchase-supplier-retained"' : '') + '>' + escapeHtml(name) + (inactive ? ' ×' : '') + '</button>';
   }).join`, `names.map`.
 
+<a id="symbol-readClientColor"></a>
+
+## readClientColor
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+async function readClientColor(edit, initial = false)
+```
+
+Читает последнюю версию цвета клиента для открытой формы.
+
+При проверке после ошибки сохраняет введённый пользователем RGB.
+
+Непосредственные вызовы: `renderClientColorEditor`, `request`, `apiUrl`, `AbortSignal.timeout`, `fillClientColor`, `color.slice(1).match(/../g).map(channel => parseInt(channel, 16)).join`, `color.slice(1).match(/../g).map`, `color.slice(1).match`, `color.slice`.
+
+Прямые присваивания полям/свойствам: `edit.busy`, `edit.message`, `edit.record`, `edit.check`.
+
 <a id="symbol-refreshCalendarEvent"></a>
 
 ## refreshCalendarEvent
@@ -2407,6 +2481,24 @@ function renderClientActivity()
 
 Прямые присваивания полям/свойствам: `$("folderFooter").hidden`, `$("clientActivityCard").hidden`, `$("activityLabel").textContent`, `$("activityHint").textContent`, `$("clientInactive").checked`, `$("clientInactive").disabled`, `$("clientActivityState").textContent`, `$("clientActivityAcceptFile").hidden`, `$("clientActivityAcceptFile").disabled`.
 
+<a id="symbol-renderClientColorEditor"></a>
+
+## renderClientColorEditor
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function renderClientColorEditor(edit)
+```
+
+Показывает состояние редактора цвета клиента и доступные действия.
+
+Конфликт блокирует запись до явной проверки сохранённого значения.
+
+Непосредственные вызовы: `$`, `clientColorInputs.forEach`.
+
+Прямые присваивания полям/свойствам: `$("saveClientColor").disabled`, `$("clearClientColor").hidden`, `$("clearClientColor").disabled`, `$("refreshClientColor").hidden`, `$("refreshClientColor").disabled`, `$("cancelClientColor").disabled`, `$("clientColorPicker").disabled`, `$("clientColorState").textContent`.
+
 <a id="symbol-renderCompactOrderLinks"></a>
 
 ## renderCompactOrderLinks
@@ -2537,7 +2629,7 @@ function renderFavoriteOrders()
 
 Непосредственные вызовы: `$`, `state.favoriteOrders.filter((order) => order.is_favorite === true && order.supplier_status !== "archived").sort`, `state.favoriteOrders.filter`, `favorites.map((order) => {
     const active = state.view !== "orders" && (state.selected === order.path || state.selected.startsWith(order.path + "/"));
-    return '<button type="button" class="favorite-order-button' + (active ? ' active' : '') + '" data-path="' + escapeHtml(order.path) + '" title="' + escapeHtml(order.title + " · " + (order.client || "") + "\n" + order.path) + '"' + (active ? ' aria-current="page"' : '') + '><span class="favorite-order-star" aria-hidden="true">★</span><span class="favorite-order-text"><span class="favorite-order-title">' + escapeHtml(order.title) + '</span>' + (order.client ? '<span class="favorite-order-client">' + escapeHtml(order.client) + '</span>' : '') + '</span></button>';
+    return '<button type="button" class="favorite-order-button' + (active ? ' active' : '') + '" data-path="' + escapeHtml(order.path) + '" title="' + escapeHtml(order.title + " · " + (order.client || "") + "\n" + order.path) + '"' + (active ? ' aria-current="page"' : '') + '><span class="favorite-order-star" aria-hidden="true">★</span><span class="favorite-order-text"><span class="favorite-order-title">' + escapeHtml(order.title) + '</span>' + (order.client ? '<span class="favorite-order-client">' + ClientBadge.markup(order.client, order.client_path) + '</span>' : '') + '</span></button>';
   }).join`, `favorites.map`, `container.contains`, `[...container.querySelectorAll("[data-path]")].find((button) => button.dataset.path === focusedPath)?.focus`, `[...container.querySelectorAll("[data-path]")].find`, `container.querySelectorAll`.
 
 Прямые присваивания полям/свойствам: `container.innerHTML`, `container.scrollTop`, `container.hidden`.
@@ -2626,9 +2718,9 @@ function renderFolder(preserveForm = false)
 Непосредственные вызовы: `renderMoneyOverview`, `document.dispatchEvent`, `CustomEvent`, `renderClientActivity`, `Boolean`, `Object.hasOwn`, `isWorkOrderPath`, `hasDescendantTodos`, `$`, `$("orderOverview").classList.toggle`, `folder.breadcrumbs.map((part, index) =>
     (index ? '<span class="breadcrumb-divider">/</span>' : "") +
     '<button data-path="' + escapeHtml(part.path) + '"' + (index === folder.breadcrumbs.length - 1 ? ' aria-current="page"' : "") + ">" +
-    escapeHtml(part.name) + "</button>").join`, `folder.breadcrumbs.map`, `renderOrderHeading`, `renderOrderCardLinks`, `printCountLabel`, `folder.directories.filter`, `formatSize`, `foldersAnchor.before`, `renderSubfolders`, `renderSketches`, `renderOrderFileFolders`, `renderDescendantTodos`, `$("statusForm").classList.toggle`, `["supplier_root", "work_section"].includes`, `renderTodos`, `renderPurchases`, `(card[key] / 100).toFixed`, `renderOrderCalculated`, `renderExportState`, `Object.entries(supplierStatusLabels).map(([key, label]) => '<option value="' + key + '">' + label + '</option>').join`, `Object.entries(supplierStatusLabels).map`, `Object.entries`, `resizeOrderNote`, `renderStatus`, `warnings.push`, `warnings.join`, `["events", "subfolders"].includes`, `renderUpload`, `renderPrintList`, `new URLSearchParams(location.search).get`, `URLSearchParams`, `printFiles().find`, `printFiles`, `run`, `renderFiles`, `$("files").replaceChildren`, `renderCardDeadlines`, `mountOrderList`, `isFolderOrderList`, `renderOrders`.
+    ClientBadge.markup(part.name, part.path && part.path.normalize("NFC") === folder.client_path?.normalize("NFC") ? part.path : "") + "</button>").join`, `folder.breadcrumbs.map`, `renderOrderHeading`, `renderOrderCardLinks`, `ClientBadge.markup`, `printCountLabel`, `folder.directories.filter`, `formatSize`, `foldersAnchor.before`, `renderSubfolders`, `renderSketches`, `renderOrderFileFolders`, `renderDescendantTodos`, `$("statusForm").classList.toggle`, `["supplier_root", "work_section"].includes`, `renderTodos`, `renderPurchases`, `(card[key] / 100).toFixed`, `renderOrderCalculated`, `renderExportState`, `Object.entries(supplierStatusLabels).map(([key, label]) => '<option value="' + key + '">' + label + '</option>').join`, `Object.entries(supplierStatusLabels).map`, `Object.entries`, `resizeOrderNote`, `renderStatus`, `warnings.push`, `warnings.join`, `["events", "subfolders"].includes`, `renderUpload`, `renderPrintList`, `new URLSearchParams(location.search).get`, `URLSearchParams`, `printFiles().find`, `printFiles`, `run`, `renderFiles`, `$("files").replaceChildren`, `renderCardDeadlines`, `mountOrderList`, `isFolderOrderList`, `renderOrders`.
 
-Прямые присваивания полям/свойствам: `$("orderFinanceOverview").hidden`, `$("purchasePanel").hidden`, `$("orderOverview").hidden`, `$("todoPanel").hidden`, `$("orderTasksColumn").hidden`, `$("breadcrumbs").innerHTML`, `$("clientLabel").textContent`, `$("folderSummary").textContent`, `$("orderDetails").hidden`, `$("folderDetailsTitle").textContent`, `$("statusLabel").hidden`, `$("orderStatusFields").hidden`, `$("supplierStatusLabel").hidden`, `$("supplierStatusLabel").firstChild.textContent`, `$("orderTitleLabel").hidden`, `$("orderTitleLabel").firstChild.textContent`, `$("reconciliationClientLabel").hidden`, `$("financialFields").hidden`, `$("orderNote").placeholder`, `$("removeOrderButton").hidden`, `$("addOrderButton").textContent`, `$("removeOrderButton").textContent`, `$("createObjectFolderButton").hidden`, `$("groupObjectYearsButton").hidden`, `$("createOrderFolderButton").hidden`, `$("createOrderFolderButton").textContent`, `$("createEventFolderButton").hidden`, `$("renameFolderButton").hidden`, `$("moveObjectButton").hidden`, `$("deleteEventButton").hidden`, `$("openEventTrash").hidden`, `folder.todo_items`, `folder.purchase_items`, `$("todoNewText").value`, `$("purchaseNewText").value`, `$("orderDetails").open`, `$("orderTitleInput").value`, `$("reconciliationClient").value`, `$(field).value`, `$("addOrderButton").hidden`, `$("statusSelect").value`, `$("supplierStatusSelect").innerHTML`, `$("supplierStatusSelect").value`, `$("supplierStatusSelect").disabled`, `$("supplierStatusSelect").title`, `$("financialStatusSelect").value`, `$("orderNote").value`, `$("loadOrderFilesButton").hidden`, `$("notice").hidden`, `$("notice").textContent`, `$("fileSearch").value`, `$("filesSection").hidden`, `$("uploadDropZone").hidden`, `$("printWorkspace").hidden`, `state.printQuery`, `$("printTaskSearch").value`, `$("printEditorForm").hidden`, `$("printEditorEmpty").hidden`, `$("printEditorEmpty").textContent`.
+Прямые присваивания полям/свойствам: `$("orderFinanceOverview").hidden`, `$("purchasePanel").hidden`, `$("orderOverview").hidden`, `$("todoPanel").hidden`, `$("orderTasksColumn").hidden`, `$("breadcrumbs").innerHTML`, `$("clientLabel").innerHTML`, `$("editClientColor").hidden`, `$("folderSummary").textContent`, `$("orderDetails").hidden`, `$("folderDetailsTitle").textContent`, `$("statusLabel").hidden`, `$("orderStatusFields").hidden`, `$("supplierStatusLabel").hidden`, `$("supplierStatusLabel").firstChild.textContent`, `$("orderTitleLabel").hidden`, `$("orderTitleLabel").firstChild.textContent`, `$("reconciliationClientLabel").hidden`, `$("financialFields").hidden`, `$("orderNote").placeholder`, `$("removeOrderButton").hidden`, `$("addOrderButton").textContent`, `$("removeOrderButton").textContent`, `$("createObjectFolderButton").hidden`, `$("groupObjectYearsButton").hidden`, `$("createOrderFolderButton").hidden`, `$("createOrderFolderButton").textContent`, `$("createEventFolderButton").hidden`, `$("renameFolderButton").hidden`, `$("moveObjectButton").hidden`, `$("deleteEventButton").hidden`, `$("openEventTrash").hidden`, `folder.todo_items`, `folder.purchase_items`, `$("todoNewText").value`, `$("purchaseNewText").value`, `$("orderDetails").open`, `$("orderTitleInput").value`, `$("reconciliationClient").value`, `$(field).value`, `$("addOrderButton").hidden`, `$("statusSelect").value`, `$("supplierStatusSelect").innerHTML`, `$("supplierStatusSelect").value`, `$("supplierStatusSelect").disabled`, `$("supplierStatusSelect").title`, `$("financialStatusSelect").value`, `$("orderNote").value`, `$("loadOrderFilesButton").hidden`, `$("notice").hidden`, `$("notice").textContent`, `$("fileSearch").value`, `$("filesSection").hidden`, `$("uploadDropZone").hidden`, `$("printWorkspace").hidden`, `state.printQuery`, `$("printTaskSearch").value`, `$("printEditorForm").hidden`, `$("printEditorEmpty").hidden`, `$("printEditorEmpty").textContent`.
 
 <a id="symbol-renderFolderRename"></a>
 
@@ -2881,9 +2973,9 @@ function renderOrderHeading()
 
 Использует `$`, `supplierLabel.setAttribute`, `supplierLabel.style.setProperty`.
 
-Непосредственные вызовы: `$`, `supplierLabel.setAttribute`, `supplierLabel.style.setProperty`, `String`, `supplierLabel.classList.toggle`, `Boolean`, `createEvent.before`, `metaParent.append`, `headingMeta.classList.toggle`, `$("orderHeadingTitle").parentElement.classList.toggle`, `button.setAttribute`, `orderRowSaving`.
+Непосредственные вызовы: `$`, `supplierLabel.setAttribute`, `supplierLabel.style.setProperty`, `String`, `supplierLabel.classList.toggle`, `Boolean`, `ClientBadge.markup`, `createEvent.before`, `metaParent.append`, `headingMeta.classList.toggle`, `$("orderHeadingTitle").parentElement.classList.toggle`, `button.setAttribute`, `orderRowSaving`.
 
-Прямые присваивания полям/свойствам: `supplierLabel.hidden`, `supplierLabel.textContent`, `$("folderTitleText").textContent`, `$("orderFolderName").hidden`, `$("orderFolderName").textContent`, `button.hidden`, `button.title`, `button.disabled`, `button.firstElementChild.textContent`.
+Прямые присваивания полям/свойствам: `supplierLabel.hidden`, `supplierLabel.textContent`, `$("folderTitleText").innerHTML`, `$("orderFolderName").hidden`, `$("orderFolderName").textContent`, `button.hidden`, `button.title`, `button.disabled`, `button.firstElementChild.textContent`.
 
 <a id="symbol-renderOrderLinks"></a>
 
@@ -2899,9 +2991,9 @@ function renderOrderLinks()
 
 Обращается к DOM текущего документа или переданного контейнера.
 
-Непосредственные вызовы: `$`, `Boolean`, `normalize`, `$("orderLinksSearch").value.trim`, `[document.body, $("orderLinksDialog")].includes`, `section`, `[...$("orderLinksOptions").querySelectorAll('[data-related-target]')].find(button => button.dataset.relatedTarget === active)?.focus`, `[...$("orderLinksOptions").querySelectorAll('[data-related-target]')].find`, `$("orderLinksOptions").querySelectorAll`.
+Непосредственные вызовы: `$`, `Boolean`, `escapeHtml`, `ClientBadge.markup`, `normalize`, `$("orderLinksSearch").value.trim`, `[document.body, $("orderLinksDialog")].includes`, `section`, `[...$("orderLinksOptions").querySelectorAll('[data-related-target]')].find(button => button.dataset.relatedTarget === active)?.focus`, `[...$("orderLinksOptions").querySelectorAll('[data-related-target]')].find`, `$("orderLinksOptions").querySelectorAll`.
 
-Прямые присваивания полям/свойствам: `$("closeOrderLinks").disabled`, `$("refreshOrderLinks").disabled`, `$("initializeOrderLinks").hidden`, `$("initializeOrderLinks").disabled`, `$("orderLinksOrder").textContent`, `$("orderLinksState").textContent`, `$("orderLinksOptions").innerHTML`, `$("orderLinksOptions").scrollTop`.
+Прямые присваивания полям/свойствам: `$("closeOrderLinks").disabled`, `$("refreshOrderLinks").disabled`, `$("initializeOrderLinks").hidden`, `$("initializeOrderLinks").disabled`, `$("orderLinksOrder").innerHTML`, `$("orderLinksState").textContent`, `$("orderLinksOptions").innerHTML`, `$("orderLinksOptions").scrollTop`.
 
 <a id="symbol-renderOrderLinks.section"></a>
 
@@ -2931,14 +3023,14 @@ const section = (items, linked) =>
 [static/app.js](../../../static/app.js) · `FunctionDeclaration`.
 
 ```javascript
-function renderOrderLocationLink(label, path)
+function renderOrderLocationLink(label, path, isClient = false)
 ```
 
 Строит переход к клиенту или объекту заказа.
 
-Использует `escapeHtml`, `encodeURIComponent`.
+Цветная подпись применяется только к клиенту, ссылка сохраняет точный путь.
 
-Непосредственные вызовы: `escapeHtml`, `encodeURIComponent`.
+Непосредственные вызовы: `ClientBadge.markup`, `escapeHtml`, `encodeURIComponent`.
 
 <a id="symbol-renderOrderMarkerButton"></a>
 
@@ -3101,13 +3193,13 @@ function renderOrders({ force = false } = {})
 
 Обращается к DOM текущего документа или переданного контейнера.
 
-Непосредственные вызовы: `document.activeElement?.closest`, `relatedLink.closest('tr').querySelector`, `relatedLink.closest`, `$("ordersWorkspace").querySelector`, `$`, `document.querySelector`, `orderListRows().filter`, `orderListRows`, `isObjectOrderList`, `isWorkOrderList`, `orderListDeadlineOptions`, `renderWorkArchive`, `renderHomeCalendar`, `normalize`, `state.orderQuery.trim`, `orders.filter`, `filtered.sort`, `orderGroupScope`, `orderListGroups().map`, `orderListGroups`, `filtered.forEach`, `renderWorkOrders`, `groups.filter((group) => group.orders.length).map((group) =>
+Непосредственные вызовы: `document.activeElement?.closest`, `relatedLink.closest('tr').querySelector`, `relatedLink.closest`, `focusedLocation?.closest("tr").querySelector`, `focusedLocation?.closest`, `$("ordersWorkspace").querySelector`, `$`, `document.querySelector`, `orderListRows().filter`, `orderListRows`, `isObjectOrderList`, `isWorkOrderList`, `orderListDeadlineOptions`, `renderWorkArchive`, `renderHomeCalendar`, `normalize`, `state.orderQuery.trim`, `orders.filter`, `filtered.sort`, `orderGroupScope`, `orderListGroups().map`, `orderListGroups`, `filtered.forEach`, `renderWorkOrders`, `groups.filter((group) => group.orders.length).map((group) =>
     '<tr class="order-group-divider"><th colspan="' + (object ? 11 : 10) + '"><button type="button" class="order-group-toggle" data-order-group-toggle="' + group.key +
     '" data-order-group-scope="' + escapeHtml(groupScope) + '" aria-expanded="' + !group.collapsed +
     '"><span class="order-group-chevron" aria-hidden="true">▸</span><span>' + escapeHtml(group.label) +
     '</span><span class="count-badge">' + group.orders.length + '</span></button></th><td class="order-deadline-column">' + renderDeadlineMonthLegend(deadlineOptions) + '</td><td colspan="2"></td></tr>' +
-    group.orders.map((order) => '<tr data-order-group-row="' + group.key + '"' + (group.collapsed ? ' hidden' : '') + '><td class="order-blue-plus-column">' + renderOrderMarkerButton(order, "bluePlus") + '</td><td class="order-dollar-column">' + renderOrderMarkerButton(order, "dollar") + '</td><td class="order-flag-column">' + renderOrderMarkerButton(order, "flag") + '</td><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td>' + (object ? '<td class="order-related-column">' + renderOrderRelatedButton(order) + '</td>' : '') + '<td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + renderOrderLocationLink(order.client, order.client_path) + '</td><td class="order-object-column">' + renderOrderLocationLink(order.object, order.object_path) + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен</span>' : '') + '<span class="order-row-path">' + escapeHtml(order.path) + '</span>' + (object ? renderCompactOrderLinks(order) : '') + '</td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td class="order-deadline-column">' + renderOrderDeadlines(order, { options: deadlineOptions }) + '</td><td>' + renderOrderProductionStatus(order) + '</td>' +
-    '<td class="order-updated">' + (order.updated ? formatDate(order.updated) : '—') + (order.sync_pending ? '<span class="sync-pending" title="' + escapeHtml(order.sync_error || "Ожидает выгрузки в папку") + '">' + (order.sync_error ? "В очереди · автоповтор" : "Ожидает выгрузки") + '</span>' : '<span class="sync-complete">' + (order.storage === 'database' ? 'В базе' : 'Выгружено') + '</span>') + '</td></tr>').join("")).join`, `groups.filter((group) => group.orders.length).map`, `groups.filter`, `Boolean`, `pending.filter`, `[scan?.folders ? "Поиск завершён: добавлено " + scan.added + (scan.errors.length ? ", ошибок: " + scan.errors.length : "") : "", errors.length ? "Сохранено в базе · в очереди выгрузки: " + pending.length + " · ошибок: " + errors.length + " · повторим автоматически" : pending.length ? "Ожидает выгрузки: " + pending.length : "Изменения выгружены в папки"].filter(Boolean).join`, `[scan?.folders ? "Поиск завершён: добавлено " + scan.added + (scan.errors.length ? ", ошибок: " + scan.errors.length : "") : "", errors.length ? "Сохранено в базе · в очереди выгрузки: " + pending.length + " · ошибок: " + errors.length + " · повторим автоматически" : pending.length ? "Ожидает выгрузки: " + pending.length : "Изменения выгружены в папки"].filter`, `storage.errors.slice(0, 2).map(item => item.path + ": " + item.error).join`, `storage.errors.slice(0, 2).map`, `storage.errors.slice`, `formatDate`, `Date.parse`, `scan.errors.slice(0, 3).join`, `scan.errors.slice`, `state.unregistrations.some`, `$("ordersWorkspace").querySelectorAll("th").forEach`, `$("ordersWorkspace").querySelectorAll`, `renderOrderTodoDialog`, `focusOrderMarker`, `focusOrderFavorite`, `[...$("ordersTableBody").querySelectorAll("[data-order-related]")].find(button => button.dataset.orderRelated === focusedRelated)?.focus`, `[...$("ordersTableBody").querySelectorAll("[data-order-related]")].find`, `$("ordersTableBody").querySelectorAll`, `[...$("ordersTableBody").querySelectorAll('[data-order]')].find(button => button.dataset.order === focusedRelatedLink.path)?.closest`, `[...$("ordersTableBody").querySelectorAll('[data-order]')].find`, `[...(row?.querySelectorAll('[data-related-card-id]') || [])].find(link => link.dataset.relatedCardId === focusedRelatedLink.id)?.focus`, `[...(row?.querySelectorAll('[data-related-card-id]') || [])].find`, `row?.querySelectorAll`, `focusOrderDeadline`, `[...$("ordersTableBody").querySelectorAll("[data-order-calendar-compact]")].find(el => el.dataset.orderCalendarCompact === focusedCompact)?.focus`, `[...$("ordersTableBody").querySelectorAll("[data-order-calendar-compact]")].find`, `focusOrderGroup`, `[...$("ordersTableBody").querySelectorAll("[data-order], [data-order-todos]")].find((button) => focusedOrder ? button.dataset.order === focusedOrder : button.dataset.orderTodos === focusedTodos)?.focus`, `[...$("ordersTableBody").querySelectorAll("[data-order], [data-order-todos]")].find`.
+    group.orders.map((order) => '<tr data-order-group-row="' + group.key + '"' + (group.collapsed ? ' hidden' : '') + '><td class="order-blue-plus-column">' + renderOrderMarkerButton(order, "bluePlus") + '</td><td class="order-dollar-column">' + renderOrderMarkerButton(order, "dollar") + '</td><td class="order-flag-column">' + renderOrderMarkerButton(order, "flag") + '</td><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td>' + (object ? '<td class="order-related-column">' + renderOrderRelatedButton(order) + '</td>' : '') + '<td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + renderOrderLocationLink(order.client, order.client_path, true) + '</td><td class="order-object-column">' + renderOrderLocationLink(order.object, order.object_path) + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен</span>' : '') + '<span class="order-row-path">' + escapeHtml(order.path) + '</span>' + (object ? renderCompactOrderLinks(order) : '') + '</td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td class="order-deadline-column">' + renderOrderDeadlines(order, { options: deadlineOptions }) + '</td><td>' + renderOrderProductionStatus(order) + '</td>' +
+    '<td class="order-updated">' + (order.updated ? formatDate(order.updated) : '—') + (order.sync_pending ? '<span class="sync-pending" title="' + escapeHtml(order.sync_error || "Ожидает выгрузки в папку") + '">' + (order.sync_error ? "В очереди · автоповтор" : "Ожидает выгрузки") + '</span>' : '<span class="sync-complete">' + (order.storage === 'database' ? 'В базе' : 'Выгружено') + '</span>') + '</td></tr>').join("")).join`, `groups.filter((group) => group.orders.length).map`, `groups.filter`, `Boolean`, `pending.filter`, `[scan?.folders ? "Поиск завершён: добавлено " + scan.added + (scan.errors.length ? ", ошибок: " + scan.errors.length : "") : "", errors.length ? "Сохранено в базе · в очереди выгрузки: " + pending.length + " · ошибок: " + errors.length + " · повторим автоматически" : pending.length ? "Ожидает выгрузки: " + pending.length : "Изменения выгружены в папки"].filter(Boolean).join`, `[scan?.folders ? "Поиск завершён: добавлено " + scan.added + (scan.errors.length ? ", ошибок: " + scan.errors.length : "") : "", errors.length ? "Сохранено в базе · в очереди выгрузки: " + pending.length + " · ошибок: " + errors.length + " · повторим автоматически" : pending.length ? "Ожидает выгрузки: " + pending.length : "Изменения выгружены в папки"].filter`, `storage.errors.slice(0, 2).map(item => item.path + ": " + item.error).join`, `storage.errors.slice(0, 2).map`, `storage.errors.slice`, `formatDate`, `Date.parse`, `scan.errors.slice(0, 3).join`, `scan.errors.slice`, `state.unregistrations.some`, `$("ordersWorkspace").querySelectorAll("th").forEach`, `$("ordersWorkspace").querySelectorAll`, `renderOrderTodoDialog`, `focusOrderMarker`, `focusOrderFavorite`, `[...$("ordersTableBody").querySelectorAll("[data-order-related]")].find(button => button.dataset.orderRelated === focusedRelated)?.focus`, `[...$("ordersTableBody").querySelectorAll("[data-order-related]")].find`, `$("ordersTableBody").querySelectorAll`, `[...$("ordersTableBody").querySelectorAll('[data-order]')].find(button => button.dataset.order === focusedRelatedLink.path)?.closest`, `[...$("ordersTableBody").querySelectorAll('[data-order]')].find`, `[...(row?.querySelectorAll('[data-related-card-id]') || [])].find(link => link.dataset.relatedCardId === focusedRelatedLink.id)?.focus`, `[...(row?.querySelectorAll('[data-related-card-id]') || [])].find`, `row?.querySelectorAll`, `focusOrderDeadline`, `[...$("ordersTableBody").querySelectorAll("[data-order-calendar-compact]")].find(el => el.dataset.orderCalendarCompact === focusedCompact)?.focus`, `[...$("ordersTableBody").querySelectorAll("[data-order-calendar-compact]")].find`, `focusOrderGroup`, `[...$("ordersTableBody").querySelectorAll("[data-order]")].find(button => button.dataset.order === focusedLocationRow)?.closest`, `[...$("ordersTableBody").querySelectorAll("[data-order]")].find`, `row?.cells[focusedLocationColumn]?.querySelector("[data-order-location]")?.focus`, `row?.cells[focusedLocationColumn]?.querySelector`, `[...$("ordersTableBody").querySelectorAll("[data-order], [data-order-todos]")].find((button) => focusedOrder ? button.dataset.order === focusedOrder : button.dataset.orderTodos === focusedTodos)?.focus`, `[...$("ordersTableBody").querySelectorAll("[data-order], [data-order-todos]")].find`.
 
 Прямые присваивания полям/свойствам: `$(work ? "workOrderDirectoryCount" : object ? "objectOrdersSummary" : "folderSummary").textContent`, `$("ordersTableBody").innerHTML`, `$("ordersEmpty").hidden`, `$("ordersEmptyTitle").textContent`, `$("ordersEmptyHint").textContent`, `$("ordersSyncState").textContent`, `listScroll.scrollLeft`, `pane.scrollTop`.
 
@@ -3644,6 +3736,24 @@ async function saveClientActivity(inactive, acceptFile = false)
 
 Прямые присваивания полям/свойствам: `state.clientActivitySaving`.
 
+<a id="symbol-saveClientColor"></a>
+
+## saveClientColor
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+async function saveClientColor(color)
+```
+
+Сохраняет выбранный RGB или снимает цвет через тот же API.
+
+Обновляет видимые плашки после подтверждения сервера и оставляет форму при ошибке.
+
+Непосредственные вызовы: `renderClientColorEditor`, `request`, `AbortSignal.timeout`, `ClientBadge.set`, `$("clientColorDialog").close`, `$`.
+
+Прямые присваивания полям/свойствам: `edit.busy`, `edit.message`, `state.ordersRequest`, `edit.check`.
+
 <a id="symbol-saveCurrentPrintTask"></a>
 
 ## saveCurrentPrintTask
@@ -3887,7 +3997,7 @@ async function showOrders({ history = true } = {})
 
 Непосредственные вызовы: `closeCalendarTodoPreview`, `$`, `$("orderTodoDialog").close`, `closePreview`, `saveCurrentPrintTask`, `saveCurrentStatus`, `state.folderRequest?.abort`, `mountOrderList`, `state.selectedFiles.clear`, `$("homeButton").setAttribute`, `document.querySelector(".content-pane").setAttribute`, `document.querySelector`, `window.history.pushState`, `renderTree`, `renderOrders`, `document.dispatchEvent`, `Event`, `loadOrders`.
 
-Прямые присваивания полям/свойствам: `state.navigation`, `state.view`, `state.folder`, `state.imageReport`, `state.printTask`, `state.selected`, `$("folderView").hidden`, `$("ordersWorkspace").hidden`, `$("openFolderButton").hidden`, `$("addOrderButton").hidden`, `$("removeOrderButton").hidden`, `$("createObjectFolderButton").hidden`, `$("groupObjectYearsButton").hidden`, `$("createOrderFolderButton").hidden`, `$("createEventFolderButton").hidden`, `$("renameFolderButton").hidden`, `$("moveObjectButton").hidden`, `$("deleteEventButton").hidden`, `$("openEventTrash").hidden`, `$("notice").hidden`, `$("loadOrderFilesButton").hidden`, `$("breadcrumbs").innerHTML`, `$("workSupplierName").hidden`, `$("folderTitleText").textContent`, `$("orderFolderName").hidden`, `$("orderPageFavorite").hidden`, `$("clientLabel").textContent`, `$("scanState").textContent`.
+Прямые присваивания полям/свойствам: `state.navigation`, `state.view`, `state.folder`, `state.imageReport`, `state.printTask`, `state.selected`, `$("folderView").hidden`, `$("ordersWorkspace").hidden`, `$("openFolderButton").hidden`, `$("addOrderButton").hidden`, `$("removeOrderButton").hidden`, `$("createObjectFolderButton").hidden`, `$("groupObjectYearsButton").hidden`, `$("createOrderFolderButton").hidden`, `$("createEventFolderButton").hidden`, `$("renameFolderButton").hidden`, `$("moveObjectButton").hidden`, `$("deleteEventButton").hidden`, `$("openEventTrash").hidden`, `$("notice").hidden`, `$("loadOrderFilesButton").hidden`, `$("breadcrumbs").innerHTML`, `$("workSupplierName").hidden`, `$("folderTitleText").textContent`, `$("orderFolderName").hidden`, `$("orderPageFavorite").hidden`, `$("clientLabel").textContent`, `$("editClientColor").hidden`, `$("scanState").textContent`.
 
 <a id="symbol-showPdfPages"></a>
 
@@ -3991,7 +4101,7 @@ function subfolderButton(item)
 
 Использует `Number.isSafeInteger`, `Number`, `escapeHtml`.
 
-Непосредственные вызовы: `Number.isSafeInteger`, `Number`, `escapeHtml`, `icon`, `Boolean`, `state.supplierFavoriteSaving.has`.
+Непосредственные вызовы: `Number.isSafeInteger`, `Number`, `escapeHtml`, `icon`, `ClientBadge.markup`, `Boolean`, `state.supplierFavoriteSaving.has`.
 
 <a id="symbol-submitFolderRename"></a>
 
@@ -4193,7 +4303,7 @@ function treeMarkup(nodes, depth = 0, searching = false)
       '" data-path="' + escapeHtml(node.path) + '" style="--depth:' + depth + '" title="' + escapeHtml(node.name + (node.inactive ? " · Неактивная папка" : "")) + '">' +
       '<button class="tree-toggle' + (open ? " expanded" : "") + '" tabindex="-1" aria-label="' +
       (open ? "Свернуть " : "Раскрыть ") + escapeHtml(node.name) + '"' + (!node.hasChildren ? ' disabled aria-hidden="true"' : "") + ">" +
-      icon("chevron") + "</button>" + icon("folder") + '<span class="tree-name">' + escapeHtml(node.name) +
+      icon("chevron") + "</button>" + icon("folder") + '<span class="tree-name">' + ClientBadge.markup(node.name, node.isClient ? node.path : "") +
       '</span></div>' + (open && children.length ? '<div role="group">' + treeMarkup(children, depth + 1, searching) + "</div>" : "") + "</div>";
   }).join`, `nodes.map`.
 

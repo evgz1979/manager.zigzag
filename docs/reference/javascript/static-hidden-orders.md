@@ -118,7 +118,7 @@ async function load()
 
 Использует `/api/hidden-orders`.
 
-Непосредственные вызовы: `$("hiddenOrdersRefresh").setAttribute`, `$`, `$("hiddenOrdersGroups").setAttribute`, `fetch`, `response.json`, `Error`, `data.warnings.slice(0, 3).join`, `data.warnings.slice`, `render`.
+Непосредственные вызовы: `$("hiddenOrdersRefresh").setAttribute`, `$`, `$("hiddenOrdersGroups").setAttribute`, `fetch`, `response.json`, `Error`, `ClientBadge.replace`, `data.warnings.slice(0, 3).join`, `data.warnings.slice`, `render`.
 
 Прямые присваивания полям/свойствам: `$("hiddenOrdersState").textContent`, `$("hiddenOrdersCount").textContent`.
 
@@ -170,7 +170,7 @@ function render()
 
 Непосредственные вызовы: `normalize`, `$("hiddenOrdersSearch").value.trim`, `$`, `Object.hasOwn`, `orders.filter`, `Object.entries(labels).map(([key, label]) => '<option value="' + escape(key) + '">' + escape(label) + ' · ' + matching.filter((order) => order.reasons.includes(key)).length + '</option>').join`, `Object.entries(labels).map`, `Object.entries`, `matching.filter`, `groupOrders`, `clients.map((client) => {
       const key = groupKey("client", client.path || client.name);
-      return '<details class="hidden-orders-client" data-group="' + escape(key) + '"' + (collapsed.has(key) ? '' : ' open') + '><summary data-focus-key="' + escape(key) + '"><strong>' + escape(client.name) + '</strong><span class="count-badge">' + client.count + '</span><span class="hidden-orders-group-path">' + escape(client.path) + '</span></summary><div class="hidden-orders-objects">' +
+      return '<details class="hidden-orders-client" data-group="' + escape(key) + '"' + (collapsed.has(key) ? '' : ' open') + '><summary data-focus-key="' + escape(key) + '"><strong>' + ClientBadge.markup(client.name, client.path) + '</strong><span class="count-badge">' + client.count + '</span><span class="hidden-orders-group-path">' + escape(client.path) + '</span></summary><div class="hidden-orders-objects">' +
         [...client.objects.values()].sort((a, b) => !a.path - !b.path || compare(a.name, b.name) || compare(a.path, b.path)).map((object) => {
           const objectKey = groupKey("object", [client.path || client.name, object.path]);
           const sorted = object.orders.slice().sort((a, b) => (b.updated || 0) - (a.updated || 0) || compare(a.title, b.title) || compare(a.path, b.path));

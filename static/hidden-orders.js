@@ -58,7 +58,7 @@
     const scrollTop = document.scrollingElement.scrollTop;
     const markup = clients.map((client) => {
       const key = groupKey("client", client.path || client.name);
-      return '<details class="hidden-orders-client" data-group="' + escape(key) + '"' + (collapsed.has(key) ? '' : ' open') + '><summary data-focus-key="' + escape(key) + '"><strong>' + escape(client.name) + '</strong><span class="count-badge">' + client.count + '</span><span class="hidden-orders-group-path">' + escape(client.path) + '</span></summary><div class="hidden-orders-objects">' +
+      return '<details class="hidden-orders-client" data-group="' + escape(key) + '"' + (collapsed.has(key) ? '' : ' open') + '><summary data-focus-key="' + escape(key) + '"><strong>' + ClientBadge.markup(client.name, client.path) + '</strong><span class="count-badge">' + client.count + '</span><span class="hidden-orders-group-path">' + escape(client.path) + '</span></summary><div class="hidden-orders-objects">' +
         [...client.objects.values()].sort((a, b) => !a.path - !b.path || compare(a.name, b.name) || compare(a.path, b.path)).map((object) => {
           const objectKey = groupKey("object", [client.path || client.name, object.path]);
           const sorted = object.orders.slice().sort((a, b) => (b.updated || 0) - (a.updated || 0) || compare(a.title, b.title) || compare(a.path, b.path));
@@ -89,6 +89,7 @@
       const response = await fetch("/api/hidden-orders");
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Не удалось загрузить заказы");
+      ClientBadge.replace(data.client_colors);
       orders = data.orders; labels = data.reason_labels; loaded = true;
       $("hiddenOrdersState").textContent = data.warnings.length ? data.warnings.slice(0, 3).join(" · ") : "";
       render();

@@ -154,12 +154,14 @@ function renderList(folder, records)
 
 Строит строки текущего списка компонента.
 
-Обращается к DOM текущего документа или переданного контейнера.
+Связывает свободную подпись клиента с цветом только при однозначном совпадении с каталогом.
 
-Непосредственные вызовы: `Map`, `records.map`, `folder.directories.filter`, `rows.map(item => {
+Непосредственные вызовы: `Map`, `records.map`, `[...state.tree, ...state.groups.flatMap(group => group.children)].filter`, `state.groups.flatMap`, `folder.directories.filter`, `rows.map(item => {
       const record = byPath.get(item.path.normalize('NFC'));
+      const client = (record?.client || '').normalize('NFC');
+      const matches = clients.filter(node => node.name.normalize('NFC') === client || node.path.normalize('NFC') === client);
       return '<tr><td><a href="?path=' + encodeURIComponent(item.path) + '" data-reconciliation-path="' + escapeHtml(item.path) + '">' +
-        escapeHtml(record?.title || item.name) + '</a></td><td>' + escapeHtml(record?.client || '—') +
+        escapeHtml(record?.title || item.name) + '</a></td><td>' + ClientBadge.markup(record?.client || '—', matches.length === 1 ? matches[0].path : '') +
         '</td><td><span class="reconciliation-list-note">' + escapeHtml(record?.note || '—') + '</span></td></tr>';
     }).join`, `rows.map`, `document.querySelector`, `$`, `[...$('reconciliationListRows').querySelectorAll('[data-reconciliation-path]')].find(el => el.dataset.reconciliationPath === focused)?.focus`, `[...$('reconciliationListRows').querySelectorAll('[data-reconciliation-path]')].find`, `$('reconciliationListRows').querySelectorAll`.
 

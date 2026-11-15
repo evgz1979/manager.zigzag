@@ -70,6 +70,7 @@ from file_comments import FileCommentConflict
 from folder_structure import folder_role, is_catalog_group, client_name, is_etc_year, is_print_section, in_payroll, in_reconciliations
 import reconciliations
 from folder_structure import client_path, in_freza, is_freza_task
+import client_colors
 from client_activity import ClientActivity, ClientActivityConflict
 from client_activity import is_inactive
 import hidden_orders
@@ -577,13 +578,15 @@ def directory_children(path):
 
 
 # Формирует один узел дерева с ролью и сохранёнными признаками папки.
-# Возвращает `{'name': path.name, 'path': relative_path(path), 'hasChildren': has_children}`.
+# Распознаёт папку клиента по полному пути, включая клиентов в числовых группах.
 def folder_node(path):
     try:
         has_children = any(visible(item) and item.is_dir() for item in path.iterdir())
     except OSError:
         has_children = False
-    return {"name": path.name, "path": relative_path(path), "hasChildren": has_children}
+    relative = relative_path(path)
+    return {"name": path.name, "path": relative, "hasChildren": has_children,
+            "isClient": bool(relative) and relative == client_path(relative)}
 
 
 # Строит выбранный участок дерева с учётом поиска и неактивных путей.
@@ -998,6 +1001,7 @@ def listed_orders():
     return {"orders": OrderTodos(store).attach([order for order in visible if not work_orders.in_work(order["path"]) and not work_orders.archived(order)]),
             "calendar_supplier_orders": OrderTodos(store).attach([order for order in visible if order["work_supplier"]]),
             "calendar_events": calendar_events.CalendarEvents(store).list(),
+            "client_colors": client_colors.catalog(store),
             "calendar_invoice_plans": invoice_store().calendar_plans([order for order in visible if not work_orders.in_work(order['path'])]),
             "favorites": [order for order in visible if order["is_favorite"] is True and not work_orders.archived(order)],
             "deadline_week_options": order_deadlines.week_options(),
@@ -1361,6 +1365,7 @@ def read_folder(relative="", show_inactive=False):
         except (OSError, ValueError) as error:
             object_list = {"path": relative, "orders": [], "error": object_error or str(error)}
     return {"name": target.name, "path": relative_path(target), "client": client_name(relative),
+            "client_path": client_path(relative),
             "workSupplier": work_orders.supplier_name(relative),
             "workSupplierColor": supplier_color,
             "purchaseSupplier": supplier_purchases.supplier_name(relative),
@@ -1677,8 +1682,11 @@ class ManagerHandler(BaseHTTPRequestHandler):
             elif parsed.path == "/api/orders":
                 self.send_json(listed_orders(), head=head)
             elif parsed.path == "/api/hidden-orders":
-                self.send_json(hidden_orders.listed(order_store(), client_activity_store().inactive_paths(),
-                    object_activity_store().inactive_paths()), head=head)
+                store = order_store()
+                result = hidden_orders.listed(store, client_activity_store().inactive_paths(), object_activity_store().inactive_paths())
+                self.send_json({**result, "client_colors": client_colors.catalog(store)}, head=head)
+            elif parsed.path == "/api/client-color":
+                self.send_json(client_colors.read(order_store(), relative), head=head)
             elif parsed.path == "/api/calendar-telegram-settings":
                 self.send_json(telegram_calendar.status(DATA_DIR), head=head)
             elif parsed.path == "/api/inbox":
@@ -2374,6 +2382,14 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(record)
                 schedule_order_sync()
                 return
+            elif route == "/api/client-color":
+                origin = self.headers.get("Origin")
+                if (self.headers.get_content_type() != "application/json"
+                        or (origin and urllib.parse.urlsplit(origin).netloc != self.headers.get("Host"))):
+                    self.send_json({"error": "Выбирай цвет через карточку клиента"}, 403)
+                    return
+                self.send_json(client_colors.save(order_store(), payload))
+                return
             elif route == "/api/work-supplier-favorite":
                 self.send_json(work_orders.save_supplier_favorite(order_store(), payload))
                 return
@@ -2514,7 +2530,7 @@ class ManagerHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": True})
         except FileNotFoundError as error:
             self.send_json({"error": str(error)}, 404)
-        except (reconciliations.ReconciliationConflict, invoices.InvoiceConflict, PrintConflict, OrderConflict, work_orders.SupplierFavoriteConflict, ClientActivityConflict, FileCommentConflict, file_trash.TrashConflict, order_folders.OrderFolderConflict, object_years.YearGroupConflict, folder_rename.FolderRenameConflict, FolderNoteConflict, event_folders.EventFolderConflict, EventRenamePending) as error:
+        except (reconciliations.ReconciliationConflict, invoices.InvoiceConflict, PrintConflict, OrderConflict, work_orders.SupplierFavoriteConflict, ClientActivityConflict, client_colors.ClientColorConflict, FileCommentConflict, file_trash.TrashConflict, order_folders.OrderFolderConflict, object_years.YearGroupConflict, folder_rename.FolderRenameConflict, FolderNoteConflict, event_folders.EventFolderConflict, EventRenamePending) as error:
             self.send_json({"error": str(error)}, 409)
         except (ValueError, UnicodeDecodeError) as error:
             self.send_json({"error": str(error)}, 400)

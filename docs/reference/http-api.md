@@ -55,10 +55,24 @@ self.send_json(listed_orders(), head=head)
 Выражения JSON-ответа (значения раскрываются в вызываемом методе):
 
 ```python
-self.send_json(hidden_orders.listed(order_store(), client_activity_store().inactive_paths(), object_activity_store().inactive_paths()), head=head)
+self.send_json({**result, 'client_colors': client_colors.catalog(store)}, head=head)
 ```
 
-Вызовы ветки: `hidden_orders.listed`, `order_store`, `client_activity_store().inactive_paths`, `object_activity_store().inactive_paths`, `client_activity_store`, `object_activity_store`.
+Вызовы ветки: `order_store`, `hidden_orders.listed`, `client_activity_store().inactive_paths`, `object_activity_store().inactive_paths`, `client_activity_store`, `object_activity_store`, `client_colors.catalog`.
+
+## GET / HEAD /api/client-color
+
+[ManagerHandler.handle_get](python/server.md#symbol-ManagerHandler.handle_get).
+
+Условие: `parsed.path == '/api/client-color'`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json(client_colors.read(order_store(), relative), head=head)
+```
+
+Вызовы ветки: `client_colors.read`, `order_store`.
 
 ## GET / HEAD /api/calendar-telegram-settings
 
@@ -1924,6 +1938,21 @@ self.send_json(record)
 ```
 
 Вызовы ветки: `order_store().move_calendar_event`, `order_store`, `schedule_order_sync`.
+
+## POST /api/client-color
+
+[ManagerHandler.do_POST](python/server.md#symbol-ManagerHandler.do_POST).
+
+Условие: `route == '/api/client-color'`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json({'error': 'Выбирай цвет через карточку клиента'}, 403)
+self.send_json(client_colors.save(order_store(), payload))
+```
+
+Вызовы ветки: `self.headers.get`, `self.headers.get_content_type`, `urllib.parse.urlsplit`, `client_colors.save`, `order_store`.
 
 ## POST /api/work-supplier-favorite
 

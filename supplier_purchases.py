@@ -163,7 +163,7 @@ class SupplierPurchases:
         for order in self.source_orders(inactive):
             items = [{"index": index, **item} for index, item in enumerate(order["purchase_items"] or []) if document.purchase_matches_supplier(item, name)]
             if items:
-                groups.append({key: order[key] for key in ("path", "id", "revision", "title", "client", "object")})
+                groups.append({key: order[key] for key in ("path", "id", "revision", "title", "client", "client_path", "object")})
                 groups[-1]["items"] = items
         groups.sort(key=lambda row: tuple(unicodedata.normalize("NFC", row[key]).casefold() for key in ("client", "object", "title", "path")))
         return {"path": relative, "supplier": name, "orders": groups}

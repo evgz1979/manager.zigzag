@@ -35,6 +35,7 @@ const state = {
   newObjectParent:null, creatingObject:false, objectYears:null, groupingYears:false,
   eventPlan: null, eventBusy: false,
   folderRename: null, folderRenaming: false,
+  clientColor: null,
   eventRemoval: null, eventRemoving: false,
   trashEventsOnly: false,
   orderTodoPath: null, orderTodoMarkup: null, orderTodoKind: "todos",
@@ -279,7 +280,7 @@ function treeMarkup(nodes, depth = 0, searching = false) {
       '" data-path="' + escapeHtml(node.path) + '" style="--depth:' + depth + '" title="' + escapeHtml(node.name + (node.inactive ? " · Неактивная папка" : "")) + '">' +
       '<button class="tree-toggle' + (open ? " expanded" : "") + '" tabindex="-1" aria-label="' +
       (open ? "Свернуть " : "Раскрыть ") + escapeHtml(node.name) + '"' + (!node.hasChildren ? ' disabled aria-hidden="true"' : "") + ">" +
-      icon("chevron") + "</button>" + icon("folder") + '<span class="tree-name">' + escapeHtml(node.name) +
+      icon("chevron") + "</button>" + icon("folder") + '<span class="tree-name">' + ClientBadge.markup(node.name, node.isClient ? node.path : "") +
       '</span></div>' + (open && children.length ? '<div role="group">' + treeMarkup(children, depth + 1, searching) + "</div>" : "") + "</div>";
   }).join("");
 }
@@ -292,7 +293,7 @@ function renderFavoriteOrders() {
     (a.client || "").localeCompare(b.client || "", "ru", { numeric:true }) || a.title.localeCompare(b.title,"ru",{ numeric:true }) || a.path.localeCompare(b.path,"ru"));
   const markup = favorites.map((order) => {
     const active = state.view !== "orders" && (state.selected === order.path || state.selected.startsWith(order.path + "/"));
-    return '<button type="button" class="favorite-order-button' + (active ? ' active' : '') + '" data-path="' + escapeHtml(order.path) + '" title="' + escapeHtml(order.title + " · " + (order.client || "") + "\n" + order.path) + '"' + (active ? ' aria-current="page"' : '') + '><span class="favorite-order-star" aria-hidden="true">★</span><span class="favorite-order-text"><span class="favorite-order-title">' + escapeHtml(order.title) + '</span>' + (order.client ? '<span class="favorite-order-client">' + escapeHtml(order.client) + '</span>' : '') + '</span></button>';
+    return '<button type="button" class="favorite-order-button' + (active ? ' active' : '') + '" data-path="' + escapeHtml(order.path) + '" title="' + escapeHtml(order.title + " · " + (order.client || "") + "\n" + order.path) + '"' + (active ? ' aria-current="page"' : '') + '><span class="favorite-order-star" aria-hidden="true">★</span><span class="favorite-order-text"><span class="favorite-order-title">' + escapeHtml(order.title) + '</span>' + (order.client ? '<span class="favorite-order-client">' + ClientBadge.markup(order.client, order.client_path) + '</span>' : '') + '</span></button>';
   }).join("");
   if (container.innerHTML !== markup) {
     const focusedPath = container.contains(document.activeElement) ? document.activeElement.dataset.path : null;
@@ -542,6 +543,94 @@ function renderClientActivity() {
   $("clientActivityAcceptFile").disabled = state.clientActivitySaving;
 }
 
+const clientColorInputs = ["clientColorR", "clientColorG", "clientColorB"].map(id => $(id));
+
+// Синхронизирует три канала RGB с цветом системной палитры.
+// Передаёт точные целые значения от 0 до 255 в числовые поля.
+function fillClientColor(color) {
+  $("clientColorPicker").value = color;
+  clientColorInputs.forEach((input, index) => { input.value = parseInt(color.slice(1 + index * 2, 3 + index * 2), 16); });
+}
+
+// Читает введённый RGB для предпросмотра и сохранения.
+// Возвращает шестизначный цвет только при валидности всех трёх полей.
+function chosenClientColor() {
+  return clientColorInputs.every(input => input.validity.valid) ?
+    "#" + clientColorInputs.map(input => input.valueAsNumber.toString(16).padStart(2, "0")).join("") : null;
+}
+
+// Показывает состояние редактора цвета клиента и доступные действия.
+// Конфликт блокирует запись до явной проверки сохранённого значения.
+function renderClientColorEditor(edit) {
+  const disabled = edit.busy || edit.check || !edit.record?.editable;
+  $("saveClientColor").disabled = disabled;
+  $("clearClientColor").hidden = !edit.record?.color;
+  $("clearClientColor").disabled = disabled;
+  $("refreshClientColor").hidden = !edit.check;
+  $("refreshClientColor").disabled = edit.busy;
+  $("cancelClientColor").disabled = edit.busy;
+  $("clientColorPicker").disabled = edit.busy;
+  clientColorInputs.forEach(input => { input.readOnly = edit.busy; });
+  $("clientColorState").textContent = edit.message;
+}
+
+// Читает последнюю версию цвета клиента для открытой формы.
+// При проверке после ошибки сохраняет введённый пользователем RGB.
+async function readClientColor(edit, initial = false) {
+  edit.busy = true;
+  edit.message = "Загружаю цвет…";
+  renderClientColorEditor(edit);
+  try {
+    edit.record = await request(apiUrl("/api/client-color", edit.path), undefined, { signal: AbortSignal.timeout(15000) });
+    edit.check = false;
+    const color = edit.record.color;
+    if (initial) fillClientColor(color || "#ffffff");
+    edit.message = !edit.record.editable ? "У сохранённого цвета неизвестный формат" : color ?
+      "Сохранённый цвет: RGB(" + color.slice(1).match(/../g).map(channel => parseInt(channel, 16)).join(", ") + ")" : "Цвет пока не задан";
+  } catch (error) {
+    edit.check = true;
+    edit.message = error.message;
+  } finally {
+    edit.busy = false;
+    if (state.clientColor === edit) renderClientColorEditor(edit);
+  }
+}
+
+// Открывает ручной выбор RGB в карточке клиента.
+// Форма привязана к точному пути открытого клиента.
+function openClientColor() {
+  const folder = state.folder;
+  if (folder?.folderKind !== "client") return;
+  const edit = { path: folder.path, record: null, busy: false, check: false, message: "" };
+  state.clientColor = edit;
+  $("clientColorName").innerHTML = ClientBadge.markup(folder.name, folder.path);
+  fillClientColor("#ffffff");
+  $("clientColorDialog").showModal();
+  readClientColor(edit, true);
+}
+
+// Сохраняет выбранный RGB или снимает цвет через тот же API.
+// Обновляет видимые плашки после подтверждения сервера и оставляет форму при ошибке.
+async function saveClientColor(color) {
+  const edit = state.clientColor;
+  if (!edit || edit.busy || edit.check || !edit.record?.editable || state.folder?.path !== edit.path) return;
+  edit.busy = true;
+  edit.message = "Сохраняю цвет…";
+  renderClientColorEditor(edit);
+  try {
+    const saved = await request("/api/client-color", { path: edit.path, color, revision: edit.record.revision }, { signal: AbortSignal.timeout(15000) });
+    ++state.ordersRequest;
+    ClientBadge.set(edit.path, saved.color);
+    $("clientColorDialog").close();
+  } catch (error) {
+    edit.check = true;
+    edit.message = error.message;
+  } finally {
+    edit.busy = false;
+    if (state.clientColor === edit) renderClientColorEditor(edit);
+  }
+}
+
 // Сохраняет выбранную активность с версией текущей записи.
 // Дожидается серверного ответа; ошибку передаёт вызывающему обработчику.
 async function saveClientActivity(inactive, acceptFile = false) {
@@ -700,7 +789,7 @@ function subfolderButton(item) {
   const openLabel = item.name + (count === null ? "" : " · Невыполненных закупок: " + count);
   const open = '<button type="button" class="subfolder' + (item.inactive ? ' inactive' : '') + (color ? ' work-supplier-button' + (color.neutral ? ' supplier-neutral' : '') : '') +
     '"' + (color ? ' style="--supplier-hue:' + Number(color.hue) + '"' : '') + ' data-path="' + escapeHtml(item.path) + '" title="' + escapeHtml(openLabel) + '" aria-label="' + escapeHtml(openLabel) + '">' +
-    icon("folder") + '<span>' + escapeHtml(item.name) + '</span>' + (count === null ? "" : '<span class="supplier-purchase-count" aria-hidden="true">' + count + '</span>') + icon("chevron") + "</button>";
+    icon("folder") + '<span>' + ClientBadge.markup(item.name, item.isClient ? item.path : "") + '</span>' + (count === null ? "" : '<span class="supplier-purchase-count" aria-hidden="true">' + count + '</span>') + icon("chevron") + "</button>";
   const favorite = item.supplierFavorite;
   if (!favorite) return open;
   const label = (favorite.is_favorite ? "Убрать раздел из избранного: " : "Добавить раздел в избранное: ") + item.name;
@@ -918,10 +1007,12 @@ function renderFolder(preserveForm = false) {
   $("breadcrumbs").innerHTML = folder.breadcrumbs.map((part, index) =>
     (index ? '<span class="breadcrumb-divider">/</span>' : "") +
     '<button data-path="' + escapeHtml(part.path) + '"' + (index === folder.breadcrumbs.length - 1 ? ' aria-current="page"' : "") + ">" +
-    escapeHtml(part.name) + "</button>").join("");
+    ClientBadge.markup(part.name, part.path && part.path.normalize("NFC") === folder.client_path?.normalize("NFC") ? part.path : "") + "</button>").join("");
   renderOrderHeading();
   renderOrderCardLinks();
-  $("clientLabel").textContent = folder.frezaSection || folder.frezaTask ? "ФРЕЗЕРОВКА" : printView ? "ШИРОКОФОРМАТНАЯ ПРОДУКЦИЯ" : service ? "СЛУЖЕБНАЯ ПАПКА" : folder.folderKindLabel && folder.folderKind !== "order" ? folder.folderKindLabel : folder.client || folder.name;
+  const clientLabel = folder.frezaSection || folder.frezaTask ? "ФРЕЗЕРОВКА" : printView ? "ШИРОКОФОРМАТНАЯ ПРОДУКЦИЯ" : service ? "СЛУЖЕБНАЯ ПАПКА" : folder.folderKindLabel && folder.folderKind !== "order" ? folder.folderKindLabel : folder.client || folder.name;
+  $("clientLabel").innerHTML = ClientBadge.markup(clientLabel, clientLabel === folder.client ? folder.client_path : "");
+  $("editClientColor").hidden = folder.folderKind !== "client";
   $("folderSummary").textContent = folder.frezaSection ? printCountLabel(folder.directories.filter((item) => !item.name.startsWith("#")).length) + " · превью и файлы" : printView ? printCountLabel(folder.fileCount) + " · название, ссылка и описание" : folder.filesLoading ? "Карточка из локальной базы · подпапки загружаются…" : folder.filesUnavailable ? "Карточка из локальной базы · папка сейчас недоступна" : folder.frezaTask ? "Файлов: " + folder.fileCount + " · " + formatSize(folder.totalSize) + " · добавляй файлы прямо в задание" : folder.filesScope === "events" ? folder.folderCount + " папок · файлы доступны в событиях" : folder.filesScope === "subfolders" ? folder.folderCount + " папок" : folder.path
     ? folder.fileCount + " файлов · " + folder.folderCount + " папок · " + formatSize(folder.totalSize)
     : "Выберите клиента или заказ в дереве слева";
@@ -1034,7 +1125,8 @@ function renderOrderHeading() {
   const color = folder?.workSupplierColor ?? order?.work_supplier_color;
   supplierLabel.style.setProperty("--supplier-hue", String(color?.hue ?? 0));
   supplierLabel.classList.toggle("supplier-neutral", Boolean(color?.neutral));
-  $("folderTitleText").textContent = folder?.frezaSection ? "Задания на фрезеровку" : folder?.view === "print" ? "Задания на печать" : folder?.path ? folder.reconciliation?.title || order?.title || folder.draftCard?.title || folder.name : "Клиенты и заказы";
+  const title = folder?.frezaSection ? "Задания на фрезеровку" : folder?.view === "print" ? "Задания на печать" : folder?.path ? folder.reconciliation?.title || order?.title || folder.draftCard?.title || folder.name : "Клиенты и заказы";
+  $("folderTitleText").innerHTML = ClientBadge.markup(title, folder?.folderKind === "client" ? folder.path : "");
   const showFolderName = Boolean(folder?.reconciliation || order || folder?.folderKind === "order");
   $("orderFolderName").hidden = !showFolderName;
   $("orderFolderName").textContent = showFolderName ? "Папка: " + folder.name : "";
@@ -2237,6 +2329,7 @@ async function loadOrders() {
       if (isFolderOrderList() && state.folder.path === objectPath) state.objectOrdersError = "Показаны последние данные: " + error.message;
     }
   }
+  ClientBadge.replace(result.client_colors);
   state.orders = result.orders;
   state.calendarSupplierOrders = result.calendar_supplier_orders || [];
   state.calendarEvents = result.calendar_events || [];
@@ -2901,7 +2994,8 @@ function renderOrderLinks() {
   $("initializeOrderLinks").hidden = !edit.data?.needs_primary || Boolean(edit.data?.group_error);
   $("initializeOrderLinks").disabled = edit.loading || edit.saving || edit.conflict;
   const order = edit.data?.order;
-  $("orderLinksOrder").textContent = order ? "Главный заказ: " + order.title + " · " + order.client + " · " + order.object : edit.title;
+  $("orderLinksOrder").innerHTML = order ? "Главный заказ: " + escapeHtml(order.title) + " · " +
+    ClientBadge.markup(order.client, order.client_path) + " · " + escapeHtml(order.object) : escapeHtml(edit.title);
   const unknown = edit.data?.linked_ids === null || order?.primary_related_order_ids === null;
   $("orderLinksState").textContent = edit.error || edit.data?.group_error || (edit.loading ? "Загружаю заказы…" : edit.saving ? "Сохраняю связь…" :
     unknown ? "Неизвестный формат связей сохранён без изменений" : edit.data?.needs_primary ? "У прежней группы ещё не подтверждён главный заказ" : "Один главный заказ и его подчинённые в этом объекте");
@@ -3192,10 +3286,11 @@ function renderOrderComment(order) {
 }
 
 // Строит переход к клиенту или объекту заказа.
-// Использует `escapeHtml`, `encodeURIComponent`.
-function renderOrderLocationLink(label, path) {
+// Цветная подпись применяется только к клиенту, ссылка сохраняет точный путь.
+function renderOrderLocationLink(label, path, isClient = false) {
+  const name = isClient ? ClientBadge.markup(label || "—", path) : escapeHtml(label || "—");
   return path ? '<a class="order-location-link" data-order-location="' + escapeHtml(path) + '" href="?path=' +
-    encodeURIComponent(path) + '">' + escapeHtml(label || "—") + '</a>' : escapeHtml(label || "—");
+    encodeURIComponent(path) + '">' + name + '</a>' : name;
 }
 
 const compareOrderText = OrderSorting.text;
@@ -3705,7 +3800,9 @@ function openCalendarEvent(slot) {
   const color = free ? order?.color : order.calendar_colors?.[period]?.[date];
   state.calendarEvent = { free: Boolean(free), path: order?.path, id: order?.id || freeCalendarIdentity(), revision: order?.revision || 0, date, period, previous, previousComment, inactive, completed, trip, watch_todos, color, saving: false, conflict: false };
   $("calendarEventTitle").textContent = period === "week" ? "Событие на неделю" : "Событие календаря";
-  $("calendarEventOrder").textContent = free ? "Без привязки к заказу" : (order.work_supplier ? [order.title, order.work_supplier] : [order.title, order.client, order.object]).filter(Boolean).join(" · ");
+  $("calendarEventOrder").innerHTML = free ? "Без привязки к заказу" : (order.work_supplier ?
+    [escapeHtml(order.title), escapeHtml(order.work_supplier)] :
+    [escapeHtml(order.title), ClientBadge.markup(order.client, order.client_path), order.object && escapeHtml(order.object)]).filter(Boolean).join(" · ");
   const start = new Date(date + "T00:00:00Z");
   const format = new Intl.DateTimeFormat("ru-RU", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
   const end = new Date(start); end.setUTCDate(end.getUTCDate() + 6);
@@ -3882,6 +3979,9 @@ function renderOrders({ force = false } = {}) {
   const focusedRelatedLink = relatedLink ? { id: relatedLink.dataset.relatedCardId, path: relatedLink.closest('tr').querySelector('[data-order]')?.dataset.order } : null;
   const focusedOrder = document.activeElement?.dataset.order;
   const focusedTodos = document.activeElement?.dataset.orderTodos;
+  const focusedLocation = document.activeElement?.closest("#ordersTableBody [data-order-location]");
+  const focusedLocationRow = focusedLocation?.closest("tr").querySelector("[data-order]")?.dataset.order;
+  const focusedLocationColumn = focusedLocation?.closest("td").cellIndex;
   const listScroll = $("ordersWorkspace").querySelector(".orders-table-scroll"), scrollLeft = listScroll.scrollLeft;
   const pane = document.querySelector(".content-pane"), scrollTop = pane.scrollTop;
   const focusedDeadline = document.activeElement?.dataset.orderDeadline, focusedWeek = document.activeElement?.dataset.deadlineWeek;
@@ -3907,7 +4007,7 @@ function renderOrders({ force = false } = {}) {
     '" data-order-group-scope="' + escapeHtml(groupScope) + '" aria-expanded="' + !group.collapsed +
     '"><span class="order-group-chevron" aria-hidden="true">▸</span><span>' + escapeHtml(group.label) +
     '</span><span class="count-badge">' + group.orders.length + '</span></button></th><td class="order-deadline-column">' + renderDeadlineMonthLegend(deadlineOptions) + '</td><td colspan="2"></td></tr>' +
-    group.orders.map((order) => '<tr data-order-group-row="' + group.key + '"' + (group.collapsed ? ' hidden' : '') + '><td class="order-blue-plus-column">' + renderOrderMarkerButton(order, "bluePlus") + '</td><td class="order-dollar-column">' + renderOrderMarkerButton(order, "dollar") + '</td><td class="order-flag-column">' + renderOrderMarkerButton(order, "flag") + '</td><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td>' + (object ? '<td class="order-related-column">' + renderOrderRelatedButton(order) + '</td>' : '') + '<td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + renderOrderLocationLink(order.client, order.client_path) + '</td><td class="order-object-column">' + renderOrderLocationLink(order.object, order.object_path) + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен</span>' : '') + '<span class="order-row-path">' + escapeHtml(order.path) + '</span>' + (object ? renderCompactOrderLinks(order) : '') + '</td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td class="order-deadline-column">' + renderOrderDeadlines(order, { options: deadlineOptions }) + '</td><td>' + renderOrderProductionStatus(order) + '</td>' +
+    group.orders.map((order) => '<tr data-order-group-row="' + group.key + '"' + (group.collapsed ? ' hidden' : '') + '><td class="order-blue-plus-column">' + renderOrderMarkerButton(order, "bluePlus") + '</td><td class="order-dollar-column">' + renderOrderMarkerButton(order, "dollar") + '</td><td class="order-flag-column">' + renderOrderMarkerButton(order, "flag") + '</td><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td>' + (object ? '<td class="order-related-column">' + renderOrderRelatedButton(order) + '</td>' : '') + '<td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + renderOrderLocationLink(order.client, order.client_path, true) + '</td><td class="order-object-column">' + renderOrderLocationLink(order.object, order.object_path) + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен</span>' : '') + '<span class="order-row-path">' + escapeHtml(order.path) + '</span>' + (object ? renderCompactOrderLinks(order) : '') + '</td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td class="order-deadline-column">' + renderOrderDeadlines(order, { options: deadlineOptions }) + '</td><td>' + renderOrderProductionStatus(order) + '</td>' +
     '<td class="order-updated">' + (order.updated ? formatDate(order.updated) : '—') + (order.sync_pending ? '<span class="sync-pending" title="' + escapeHtml(order.sync_error || "Ожидает выгрузки в папку") + '">' + (order.sync_error ? "В очереди · автоповтор" : "Ожидает выгрузки") + '</span>' : '<span class="sync-complete">' + (order.storage === 'database' ? 'В базе' : 'Выгружено') + '</span>') + '</td></tr>').join("")).join("");
   $("ordersEmpty").hidden = Boolean(filtered.length);
   $("ordersEmptyTitle").textContent = orders.length ? "Нет заказов по этому запросу" : "Заказов пока нет";
@@ -3949,6 +4049,10 @@ function renderOrders({ force = false } = {}) {
   focusOrderDeadline(focusedDeadline, focusedWeek);
   if (focusedCompact) [...$("ordersTableBody").querySelectorAll("[data-order-calendar-compact]")].find(el => el.dataset.orderCalendarCompact === focusedCompact)?.focus({ preventScroll: true });
   focusOrderGroup(focusedGroup);
+  if (focusedLocationRow) {
+    const row = [...$("ordersTableBody").querySelectorAll("[data-order]")].find(button => button.dataset.order === focusedLocationRow)?.closest("tr");
+    row?.cells[focusedLocationColumn]?.querySelector("[data-order-location]")?.focus({ preventScroll: true });
+  }
   if (work && (focusedOrder || focusedTodos)) [...$("ordersTableBody").querySelectorAll("[data-order], [data-order-todos]")].find((button) => focusedOrder ? button.dataset.order === focusedOrder : button.dataset.orderTodos === focusedTodos)?.focus({ preventScroll: true });
   if (work || object) { listScroll.scrollLeft = scrollLeft; pane.scrollTop = scrollTop; }
 }
@@ -3992,6 +4096,7 @@ async function showOrders({ history = true } = {}) {
   $("orderFolderName").hidden = true;
   $("orderPageFavorite").hidden = true;
   $("clientLabel").textContent = "ЗИГЗАГ · ОБЩИЙ СПИСОК";
+  $("editClientColor").hidden = true;
   $("scanState").textContent = "";
   $("homeButton").setAttribute("aria-current", "page");
   document.querySelector(".content-pane").setAttribute("aria-busy", "false");
@@ -4032,7 +4137,7 @@ async function navigate(path, { history = true } = {}) {
     let data;
     if (order) {
       const parts = path.split("/");
-      data = { path, name: parts.at(-1), client: order.client, status: order.status, financial_status: order.financial_status, note: order.note, todo_items: order.todo_items, purchase_items: order.purchase_items, order,
+      data = { path, name: parts.at(-1), client: order.client, client_path: order.client_path, status: order.status, financial_status: order.financial_status, note: order.note, todo_items: order.todo_items, purchase_items: order.purchase_items, order,
         purchaseSupplierPath: order.purchaseSupplierPath,
         breadcrumbs: [{ name: $("rootLabel").textContent, path: "" }, ...parts.map((name, index) => ({ name, path: parts.slice(0, index + 1).join("/") }))],
         directories: [], files: [], counts: {}, warnings: [], fileCount: 0, folderCount: 0, totalSize: 0, view: "files", filesScope: "events", filesLoading: true };
@@ -4563,6 +4668,24 @@ $("showInactiveClients").addEventListener("click", () => run(async () => {
 }));
 $("clientInactive").addEventListener("change", (event) => run(() => saveClientActivity(event.target.checked)));
 $("clientActivityAcceptFile").addEventListener("click", () => run(() => saveClientActivity(false, true)));
+$("editClientColor").addEventListener("click", openClientColor);
+$("clientColorPicker").addEventListener("input", event => fillClientColor(event.target.value));
+for (const input of clientColorInputs) input.addEventListener("input", () => {
+  const color = chosenClientColor();
+  if (color) $("clientColorPicker").value = color;
+});
+$("clientColorForm").addEventListener("submit", event => {
+  event.preventDefault();
+  const color = chosenClientColor();
+  if (color) saveClientColor(color);
+});
+$("clearClientColor").addEventListener("click", () => saveClientColor(null));
+$("refreshClientColor").addEventListener("click", () => {
+  if (state.clientColor?.check && !state.clientColor.busy) readClientColor(state.clientColor);
+});
+$("cancelClientColor").addEventListener("click", () => $("clientColorDialog").close());
+$("clientColorDialog").addEventListener("cancel", event => { if (state.clientColor?.busy) event.preventDefault(); });
+$("clientColorDialog").addEventListener("close", () => { state.clientColor = null; });
 $("files").addEventListener("click", (event) => {
   const native = event.target.closest("[data-native]");
   const file = event.target.closest("[data-file]");
