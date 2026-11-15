@@ -91,7 +91,7 @@ sequenceDiagram
 
 ## Три вида календарных записей
 
-[renderWeekOrders](reference/javascript/static-home-calendar.md#symbol-renderWeekOrders) группирует обычные заказы по точным путям клиентов. Заголовок клиента отдельный, в строке заказа название и мелко объект. [renderCompactOrders](reference/javascript/static-home-calendar.md#symbol-renderCompactOrders) строит плоский список ссылок мелких заказов. В снимке удаляются закрытые строки истории и опустевшие заголовки.
+[renderWeekOrders](reference/javascript/static-home-calendar.md#symbol-renderWeekOrders) группирует обычные заказы по точным путям клиентов. Заголовок клиента отдельный, в строке заказа название и мелко объект. [renderCompactOrders](reference/javascript/static-home-calendar.md#symbol-renderCompactOrders) строит плоский список ссылок мелких заказов с плашкой клиента перед названием. В снимке удаляются закрытые строки истории и опустевшие заголовки.
 
 [renderSupplierSchedule](reference/javascript/static-app.md#symbol-renderSupplierSchedule) строит отдельный список поставщиков между кнопками папок и избранным. Название открывает карточку. Отмеченные недели с непустыми комментариями начиная с текущей показаны отдельными строками. Если отмечена ровно одна такая неделя и комментарий пуст, номер стоит в ссылке на заказ. Строки с комментариями используют общую [updateOrderEvent](reference/javascript/static-home-calendar.md#symbol-updateOrderEvent) для признаков и доступных имён. Ключи по UUID/пути и дате понедельника позволяют переиспользовать узлы при опросе. Меню и окно задач работают в том же боковом диалоге на телефоне, поэтому закрытие всплывающего окна возвращает фокус в список.
 

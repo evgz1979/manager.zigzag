@@ -280,11 +280,11 @@ function planHeader(date, label, period = 'day')
 function renderCompactOrders(container, compact)
 ```
 
-Строит прежний плоский список синих ссылок мелких заказов без заголовков клиентов.
+Показывает клиента перед названием в каждой ссылке мелкого заказа.
 
-Сохраняет подписи, нижнюю левую область, узлы ссылок и фокус без показа скрытых событий.
+Сохраняет плоский список внизу слева, узлы ссылок и фокус.
 
-Непосредственные вызовы: `container.contains`, `Map`, `[...container.children].map`, `Set`, `existing.get`, `document.createElement`, `encodeURIComponent`, `ClientBadge.markup`, `link.setAttribute`, `container.insertBefore`, `retained.add`, `retained.has`, `link.remove`, `(focused.isConnected ? focused : get("calendarViewport")).focus`, `get`.
+Непосредственные вызовы: `container.contains`, `Map`, `[...container.children].map`, `Set`, `existing.get`, `document.createElement`, `encodeURIComponent`, `ClientBadge.markup`, `link.setAttribute`, `["Мелкий заказ", order.client, title, order.object].filter(Boolean).join`, `["Мелкий заказ", order.client, title, order.object].filter`, `container.insertBefore`, `retained.add`, `retained.has`, `link.remove`, `(focused.isConnected ? focused : get("calendarViewport")).focus`, `get`.
 
 Прямые присваивания полям/свойствам: `link.className`, `link.href`, `link.dataset.calendarOrder`, `link.innerHTML`.
 

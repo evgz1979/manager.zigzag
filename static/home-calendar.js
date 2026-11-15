@@ -348,8 +348,8 @@ const HomeCalendar = (() => {
     }
   }
 
-  // Строит прежний плоский список синих ссылок мелких заказов без заголовков клиентов.
-  // Сохраняет подписи, нижнюю левую область, узлы ссылок и фокус без показа скрытых событий.
+  // Показывает клиента перед названием в каждой ссылке мелкого заказа.
+  // Сохраняет плоский список внизу слева, узлы ссылок и фокус.
   function renderCompactOrders(container, compact) {
     const focused = container.contains(document.activeElement) ? document.activeElement : null;
     const existing = new Map([...container.children].map(link => [link.dataset.calendarOrder, link]));
@@ -361,10 +361,9 @@ const HomeCalendar = (() => {
       link.href = "?path=" + encodeURIComponent(order.path);
       link.dataset.calendarOrder = order.path;
       const title = order.title || order.path;
-      const label = title + (order.client ? " · " + order.client : "");
-      link.innerHTML = ClientBadge.markup(title) +
-        (order.client ? " · " + ClientBadge.markup(order.client, order.client_path) : "");
-      link.setAttribute("aria-label", "Мелкий заказ · " + label + (order.object ? " · " + order.object : ""));
+      const client = ClientBadge.markup(order.client, order.client_path);
+      link.innerHTML = (client ? client + " · " : "") + ClientBadge.markup(title);
+      link.setAttribute("aria-label", ["Мелкий заказ", order.client, title, order.object].filter(Boolean).join(" · "));
       if (link !== before) container.insertBefore(link, before);
       before = link.nextElementSibling; retained.add(link);
     }
