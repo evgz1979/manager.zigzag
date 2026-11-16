@@ -22,7 +22,7 @@ async function checkText()
 
 Непосредственные вызовы: `editorControls`, `Error`, `request`, `apiUrl`, `current.orders.find`, `order?.items.find`, `render`, `$`, `item.suppliers.join`, `$("supplierPurchaseText").focus`.
 
-Прямые присваивания полям/свойствам: `edit.busy`, `$("supplierPurchaseCurrent").textContent`, `$("supplierPurchaseCurrent").hidden`, `edit.order`, `edit.item`, `edit.conflict`, `$("supplierPurchaseEditState").textContent`.
+Прямые присваивания полям/свойствам: `edit.busy`, `$("supplierPurchaseCurrent").textContent`, `$("supplierPurchaseCurrent").hidden`, `form.elements[colorName].value`, `edit.order`, `edit.item`, `edit.conflict`, `$("supplierPurchaseEditState").textContent`.
 
 <a id="symbol-editorControls"></a>
 
@@ -40,7 +40,7 @@ function editorControls()
 
 Непосредственные вызовы: `Boolean`, `$`.
 
-Прямые присваивания полям/свойствам: `$("supplierPurchaseText").readOnly`, `$("saveSupplierPurchase").disabled`, `$("cancelSupplierPurchase").disabled`, `$("checkSupplierPurchase").disabled`, `$("checkSupplierPurchase").hidden`.
+Прямые присваивания полям/свойствам: `$("supplierPurchaseText").readOnly`, `colorField.disabled`, `$("saveSupplierPurchase").disabled`, `$("cancelSupplierPurchase").disabled`, `$("checkSupplierPurchase").disabled`, `$("checkSupplierPurchase").hidden`.
 
 <a id="symbol-focusEdit"></a>
 
@@ -88,9 +88,9 @@ function openEditor(button)
 
 Непосредственные вызовы: `model.orders.find`, `order?.items.find`, `itemKey`, `$`, `[ClientBadge.markup(order.client, order.client_path),
       ...[order.object, order.title].filter(Boolean).map(escapeHtml)].filter(Boolean).join`, `[ClientBadge.markup(order.client, order.client_path),
-      ...[order.object, order.title].filter(Boolean).map(escapeHtml)].filter`, `ClientBadge.markup`, `[order.object, order.title].filter(Boolean).map`, `[order.object, order.title].filter`, `editorControls`, `dialog.showModal`, `$("supplierPurchaseText").focus`.
+      ...[order.object, order.title].filter(Boolean).map(escapeHtml)].filter`, `ClientBadge.markup`, `[order.object, order.title].filter(Boolean).map`, `[order.object, order.title].filter`, `colorField.querySelector`, `todoColorOptions`, `editorControls`, `dialog.showModal`, `$("supplierPurchaseText").focus`.
 
-Прямые присваивания полям/свойствам: `$("supplierPurchaseSource").innerHTML`, `$("supplierPurchaseText").value`, `$("supplierPurchaseEditState").textContent`, `$("supplierPurchaseCurrent").hidden`.
+Прямые присваивания полям/свойствам: `$("supplierPurchaseSource").innerHTML`, `$("supplierPurchaseText").value`, `colorField.querySelector(".todo-color-options").innerHTML`, `$("supplierPurchaseEditState").textContent`, `$("supplierPurchaseCurrent").hidden`.
 
 <a id="symbol-refresh"></a>
 
@@ -130,7 +130,7 @@ function render()
       const name = [order.client, order.object, order.title].filter(Boolean).join(" · ");
       const label = [ClientBadge.markup(order.client, order.client_path), ...[order.object, order.title].filter(Boolean).map(escapeHtml)].filter(Boolean).join(" · ");
       return '<section class="supplier-purchase-group" data-supplier-purchase-order="' + escapeHtml(order.id) + '">' +
-        items.map(item => '<div class="supplier-purchase-row' + (item.done ? ' done' : '') + '"><div class="supplier-purchase-task"><input type="checkbox" class="todo-check" data-supplier-purchase-done="' + escapeHtml(itemKey(order, item)) +
+        items.map(item => '<div class="supplier-purchase-row' + (item.done ? ' done' : '') + '"' + todoColorAttribute(item) + '><div class="supplier-purchase-task"><input type="checkbox" class="todo-check" data-supplier-purchase-done="' + escapeHtml(itemKey(order, item)) +
           '" data-purchase-index="' + item.index + '" aria-label="Закупка выполнена: ' + escapeHtml(item.text + ' · ' + name) + '"' + (item.done ? ' checked' : '') + (saving ? ' disabled' : '') +
           '><span title="' + escapeHtml(item.text) + '">' + escapeHtml(item.text) + '</span></div>' +
           '<a class="order-row-link supplier-purchase-source" data-supplier-purchase-path="' + escapeHtml(order.path) + '" data-supplier-purchase-source="' + escapeHtml(itemKey(order, item)) +
@@ -152,7 +152,7 @@ function render()
 async function saveText()
 ```
 
-Сохраняет текст исходной закупки с её версией и проверочной строкой.
+Сохраняет текст и выбранный цвет исходной закупки с проверкой версии.
 
 Использует `/api/supplier-purchase-text`.
 

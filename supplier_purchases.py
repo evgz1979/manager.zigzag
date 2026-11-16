@@ -177,7 +177,7 @@ class SupplierPurchases:
             raise ValueError("Заказ скрыт отметкой неактивности. Обнови список закупок")
         return self.store.save_purchase_done(payload, name)
 
-    # Частично меняет текст исходной закупки после проверки её идентичности.
+    # Частично меняет текст и цвет исходной закупки после проверки её идентичности.
     # При недопустимом состоянии возбуждает ValueError.
     def edit(self, payload, *, inactive=()):
         name = self.section(payload.get("supplier_path"))

@@ -13,6 +13,7 @@ const orderStatusGroups = [
 ];
 const financialStatusLabels = { unspecified: "Не указан", payment: "На оплате", partial: "Частично оплачен", paid: "Оплачен" };
 const eventRelevanceLabels = { none: "Без статуса", active: "Актуально", check: "Проверить", inactive: "Неактуально" };
+const todoColorLabels = { red: "Красный", orange: "Оранжевый", yellow: "Жёлтый", green: "Зелёный", blue: "Синий", purple: "Фиолетовый", "": "Без цвета" };
 const typeLabels = { all: "Все", images: "Фото", pdf: "PDF", design: "Макеты", docs: "Документы", video: "Видео", audio: "Аудио", other: "Другое" };
 const state = {
   purchaseSuppliers: null, purchaseSupplierRequest: 0,
@@ -1233,6 +1234,42 @@ async function refreshPurchaseSuppliers() {
 
 document.addEventListener("manager-folder-rendered", () => { refreshPurchaseSuppliers().catch(() => {}); });
 
+// Строит группу цветных кружков для редактора задачи или закупки.
+// Имя связывает переключатели одной строки, пустое значение снимает цвет.
+function todoColorOptions(color, name) {
+  const selected = Object.hasOwn(todoColorLabels, color) ? color : "";
+  return Object.entries(todoColorLabels).map(([key, label]) =>
+    '<label class="todo-color-option" data-todo-swatch="' + key + '" title="' + label + '">' +
+    '<input class="todo-color-radio" type="radio" name="' + escapeHtml(name) + '" value="' + key + '" aria-label="' + label + '"' +
+    (key === selected ? ' checked' : '') + '><span class="todo-color-dot" aria-hidden="true"></span></label>').join("");
+}
+
+// Добавляет цвет к строке редактора или сводки.
+// Использует только имена из списка допустимых вариантов.
+function todoColorAttribute(item) {
+  return item.color && Object.hasOwn(todoColorLabels, item.color) ? ' data-todo-color="' + item.color + '"' : "";
+}
+
+// Показывает кружки с доступным именем и независимой группой для каждой строки.
+// Использует те же переключатели в задачах и исходных закупках.
+function renderTodoColorPicker(item, name) {
+  return '<span class="todo-color-options" role="radiogroup" aria-label="' + escapeHtml("Цвет строки: " + item.text) + '">' +
+    todoColorOptions(item.color, name) + '</span>';
+}
+
+// Применяет цвет в открытой строке, сохраняя фокус на выбранном кружке.
+// Планирует обычное сохранение карточки вместе с текстом задачи.
+function changeTodoColor(row, item, value) {
+  if (value) {
+    item.color = value;
+    row.dataset.todoColor = value;
+  } else {
+    delete item.color;
+    delete row.dataset.todoColor;
+  }
+  saveTodosSoon();
+}
+
 // Показывает редактор исходных закупок текущего заказа.
 // Использует `Array.isArray`, `$`, `Boolean`.
 function renderPurchases() {
@@ -1243,10 +1280,11 @@ function renderPurchases() {
   $("purchaseAddForm").hidden = !editable;
   $("purchaseEmpty").hidden = !editable || Boolean(items.length);
   $("purchaseCount").textContent = editable ? items.filter((item) => item.done).length + " / " + items.length : "";
-  $("purchaseList").innerHTML = editable ? items.map((item, index) => '<div class="todo-row' + (item.done ? ' done' : '') + '" data-purchase-index="' + index + '">' +
+  $("purchaseList").innerHTML = editable ? items.map((item, index) => '<div class="todo-row' + (item.done ? ' done' : '') + '" data-purchase-index="' + index + '"' + todoColorAttribute(item) + '>' +
     '<input class="todo-check" type="checkbox" aria-label="Закупка выполнена: ' + escapeHtml(item.text) + '"' + (item.done ? ' checked' : '') + '>' +
     '<input class="todo-text" type="text" maxlength="1000" size="' + Math.max(4, Array.from(item.text).length + 1) + '" aria-label="Текст закупки или затраты" value="' + escapeHtml(item.text) + '">' +
     '<div class="purchase-suppliers" role="group" aria-label="Поставщики для закупки: ' + escapeHtml(item.text) + '">' + purchaseSupplierButtons(item) + '</div>' +
+    renderTodoColorPicker(item, "purchase-color-" + index) +
     '<button class="todo-delete" type="button" aria-label="Удалить закупку: ' + escapeHtml(item.text) + '">×</button></div>').join("") : "";
   renderPurchaseSaveState();
 }
@@ -1283,9 +1321,10 @@ function renderTodos() {
   $("todoEmpty").hidden = !editable || Boolean(items.length);
   $("todoEmpty").textContent = state.folder.reconciliation ? 'Добавь задачи по сверке.' : state.folder.folderNote ? "Добавьте, что нужно сделать в этой папке." : "Добавьте, что нужно сделать по заказу.";
   $("todoCount").textContent = editable ? items.filter((item) => item.done).length + " / " + items.length : "";
-  $("todoList").innerHTML = editable ? items.map((item, index) => '<div class="todo-row' + (item.done ? ' done' : '') + '" data-todo-index="' + index + '">' +
+  $("todoList").innerHTML = editable ? items.map((item, index) => '<div class="todo-row' + (item.done ? ' done' : '') + '" data-todo-index="' + index + '"' + todoColorAttribute(item) + '>' +
     '<input class="todo-check" type="checkbox" aria-label="Выполнено: ' + escapeHtml(item.text) + '"' + (item.done ? ' checked' : '') + '>' +
     '<input class="todo-text" type="text" maxlength="1000" aria-label="Текст задачи" value="' + escapeHtml(item.text) + '">' +
+    renderTodoColorPicker(item, "todo-color-" + index) +
     '<button class="todo-delete" type="button" aria-label="Удалить задачу: ' + escapeHtml(item.text) + '">×</button></div>').join("") : "";
 }
 
@@ -1311,9 +1350,11 @@ function renderDescendantTodos() {
   $("descendantTodoCount").textContent = groups.reduce((total, group) => total + (group.items || []).filter((item) => !item.done).length, 0);
   const markup = visible.length ? visible.map(renderOrderTodoGroup).join("") : '<p class="order-todo-empty">' + (summary ? "Во вложенных папках актуальных задач нет." : "Загружаю задачи вложенных папок…") + '</p>';
   if (folder.descendantTodoMarkup !== markup) {
-    const scroll = $("descendantTodoList").scrollTop;
-    $("descendantTodoList").innerHTML = markup;
-    $("descendantTodoList").scrollTop = scroll;
+    const list = $("descendantTodoList"), scroll = list.scrollTop;
+    const path = list.contains(document.activeElement) ? document.activeElement.dataset.order : null;
+    list.innerHTML = markup;
+    if (path) [...list.querySelectorAll("[data-order]")].find(button => button.dataset.order === path)?.focus({ preventScroll: true });
+    list.scrollTop = scroll;
     folder.descendantTodoMarkup = markup;
   }
   $("descendantTodoState").textContent = folder.descendantTodoError || (summary ? orderTodoSummary(summary).warning : "");
@@ -2401,7 +2442,7 @@ function renderOrderPurchaseButton(order) {
 function renderOrderPurchases(order) {
   const { items } = orderPurchaseSummary(order);
   const contents = items === null ? '<p class="order-todo-empty">Прежние записи закупок — просмотрите в заказе.</p>' : !items.length ? '<p class="order-todo-empty">Актуальных закупок нет.</p>' :
-    '<ul class="order-purchase-list">' + items.map((item) => '<li><div class="order-purchase-text"><span aria-hidden="true">○</span><span class="visually-hidden">Нужно закупить: </span><span class="order-todo-text">' + escapeHtml(item.text) + '</span></div>' +
+    '<ul class="order-purchase-list">' + items.map((item) => '<li' + todoColorAttribute(item) + '><div class="order-purchase-text"><span aria-hidden="true">○</span><span class="visually-hidden">Нужно закупить: </span><span class="order-todo-text">' + escapeHtml(item.text) + '</span></div>' +
       '<div class="order-purchase-suppliers" aria-label="Выбранные поставщики">' + ((item.suppliers || []).length ? item.suppliers.map((name) => '<span>' + escapeHtml(name) + '</span>').join("") : '<span class="no-supplier">Поставщик не выбран</span>') + '</div></li>').join("") + '</ul>';
   const sync = order.sync_pending ? '<small class="order-todo-state">' + escapeHtml(order.sync_error ? "Сохранено в базе · выгрузка: " + order.sync_error : "Сохранено в базе · ожидает выгрузки") + '</small>' : "";
   return '<div class="order-todos" aria-label="Актуальные закупки заказа">' + contents + sync + '</div>';
@@ -2413,7 +2454,7 @@ function renderOrderTodoGroup(group) {
   return '<section class="order-todo-group">' +
     '<button class="order-todo-folder" data-order="' + escapeHtml(group.path) + '" title="' + escapeHtml(group.path) + '">' + escapeHtml(group.label) + '</button>' +
       (group.items === null ? '<small class="order-todo-state">Прежние записи задач — просмотрите в папке</small>' :
-        '<ul>' + group.items.map((item) => '<li' + (item.done ? ' class="done"' : '') + '><span aria-hidden="true">' + (item.done ? '✓' : '○') + '</span><span class="visually-hidden">' + (item.done ? 'Выполнено: ' : 'Нужно сделать: ') + '</span><span class="order-todo-text">' + escapeHtml(item.text) + '</span></li>').join("") + '</ul>') +
+        '<ul>' + group.items.map((item) => '<li' + (item.done ? ' class="done"' : '') + todoColorAttribute(item) + '><span aria-hidden="true">' + (item.done ? '✓' : '○') + '</span><span class="visually-hidden">' + (item.done ? 'Выполнено: ' : 'Нужно сделать: ') + '</span><span class="order-todo-text">' + escapeHtml(item.text) + '</span></li>').join("") + '</ul>') +
       (group.sync_pending ? '<small class="order-todo-state">' + escapeHtml(group.sync_error ? "Сохранено в базе · выгрузка: " + group.sync_error : "Сохранено в базе · ожидает выгрузки") + '</small>' : "") + '</section>';
 }
 
@@ -5223,15 +5264,20 @@ $("todoList").addEventListener("input", (event) => {
   const item = state.folder.todo_items[Number(row.dataset.todoIndex)];
   item.text = event.target.value;
   row.querySelector(".todo-check").setAttribute("aria-label", "Выполнено: " + item.text);
+  row.querySelector(".todo-color-options").setAttribute("aria-label", "Цвет строки: " + item.text);
   row.querySelector(".todo-delete").setAttribute("aria-label", "Удалить задачу: " + item.text);
   saveTodosSoon(700);
 });
 $("todoList").addEventListener("change", (event) => {
   const row = event.target.closest("[data-todo-index]");
   if (!row) return;
+  const items = state.folder.todo_items, item = items[Number(row.dataset.todoIndex)];
+  if (event.target.matches(".todo-color-radio:checked")) changeTodoColor(row, item, event.target.value);
   if (event.target.matches(".todo-check")) {
-    state.folder.todo_items[Number(row.dataset.todoIndex)].done = event.target.checked;
-    renderTodos(); saveTodosSoon();
+    item.done = event.target.checked;
+    row.classList.toggle("done", item.done);
+    $("todoCount").textContent = items.filter(item => item.done).length + " / " + items.length;
+    saveTodosSoon();
   }
 });
 $("todoList").addEventListener("click", (event) => {
@@ -5257,14 +5303,18 @@ $("purchaseList").addEventListener("input", (event) => {
   item.text = event.target.value;
   event.target.size = Math.max(4, Array.from(item.text).length + 1);
   row.querySelector(".todo-check").setAttribute("aria-label", "Закупка выполнена: " + item.text);
+  row.querySelector(".todo-color-options").setAttribute("aria-label", "Цвет строки: " + item.text);
   row.querySelector(".todo-delete").setAttribute("aria-label", "Удалить закупку: " + item.text);
   row.querySelector(".purchase-suppliers").setAttribute("aria-label", "Поставщики для закупки: " + item.text);
   saveTodosSoon(700);
 });
 $("purchaseList").addEventListener("change", (event) => {
-  if (!event.target.matches(".todo-check")) return;
   const row = event.target.closest("[data-purchase-index]");
-  state.folder.purchase_items[Number(row.dataset.purchaseIndex)].done = event.target.checked;
+  if (!row) return;
+  const item = state.folder.purchase_items[Number(row.dataset.purchaseIndex)];
+  if (event.target.matches(".todo-color-radio:checked")) changeTodoColor(row, item, event.target.value);
+  if (!event.target.matches(".todo-check")) return;
+  item.done = event.target.checked;
   row.classList.toggle("done", event.target.checked);
   $("purchaseCount").textContent = state.folder.purchase_items.filter((item) => item.done).length + " / " + state.folder.purchase_items.length;
   saveTodosSoon();

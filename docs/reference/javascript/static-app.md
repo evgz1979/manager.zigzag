@@ -310,6 +310,24 @@ async function changeOrderProductionStatus(select)
 
 Прямые присваивания полям/свойствам: `state.ordersRequest`, `select.disabled`, `state.workArchivedOrders`.
 
+<a id="symbol-changeTodoColor"></a>
+
+## changeTodoColor
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function changeTodoColor(row, item, value)
+```
+
+Применяет цвет в открытой строке, сохраняя фокус на выбранном кружке.
+
+Планирует обычное сохранение карточки вместе с текстом задачи.
+
+Непосредственные вызовы: `saveTodosSoon`.
+
+Прямые присваивания полям/свойствам: `item.color`, `row.dataset.todoColor`.
+
 <a id="symbol-chosenClientColor"></a>
 
 ## chosenClientColor
@@ -2568,9 +2586,9 @@ function renderDescendantTodos()
 Использует `$`, `hasDescendantTodos`, `groups.some`.
 
 Непосредственные вызовы: `$`, `hasDescendantTodos`, `groups.some`, `Boolean`, `groups.map((group) => ({ ...group, items: group.items?.filter((item) => folder.showCompletedTodos || !item.done) ?? null }))
-    .filter`, `groups.map`, `groups.reduce`, `visible.map(renderOrderTodoGroup).join`, `visible.map`, `orderTodoSummary`.
+    .filter`, `groups.map`, `groups.reduce`, `visible.map(renderOrderTodoGroup).join`, `visible.map`, `list.contains`, `[...list.querySelectorAll("[data-order]")].find(button => button.dataset.order === path)?.focus`, `[...list.querySelectorAll("[data-order]")].find`, `list.querySelectorAll`, `orderTodoSummary`.
 
-Прямые присваивания полям/свойствам: `$("descendantTodos").hidden`, `$("descendantCompletedLabel").hidden`, `$("descendantCompleted").checked`, `$("descendantTodoCount").textContent`, `$("descendantTodoList").innerHTML`, `$("descendantTodoList").scrollTop`, `folder.descendantTodoMarkup`, `$("descendantTodoState").textContent`.
+Прямые присваивания полям/свойствам: `$("descendantTodos").hidden`, `$("descendantCompletedLabel").hidden`, `$("descendantCompleted").checked`, `$("descendantTodoCount").textContent`, `list.innerHTML`, `list.scrollTop`, `folder.descendantTodoMarkup`, `$("descendantTodoState").textContent`.
 
 <a id="symbol-renderEventProposal"></a>
 
@@ -3094,7 +3112,7 @@ function renderOrderPurchases(order)
 
 Использует `orderPurchaseSummary`, `items.map`.
 
-Непосредственные вызовы: `orderPurchaseSummary`, `items.map((item) => '<li><div class="order-purchase-text"><span aria-hidden="true">○</span><span class="visually-hidden">Нужно закупить: </span><span class="order-todo-text">' + escapeHtml(item.text) + '</span></div>' +
+Непосредственные вызовы: `orderPurchaseSummary`, `items.map((item) => '<li' + todoColorAttribute(item) + '><div class="order-purchase-text"><span aria-hidden="true">○</span><span class="visually-hidden">Нужно закупить: </span><span class="order-todo-text">' + escapeHtml(item.text) + '</span></div>' +
       '<div class="order-purchase-suppliers" aria-label="Выбранные поставщики">' + ((item.suppliers || []).length ? item.suppliers.map((name) => '<span>' + escapeHtml(name) + '</span>').join("") : '<span class="no-supplier">Поставщик не выбран</span>') + '</div></li>').join`, `items.map`, `escapeHtml`.
 
 <a id="symbol-renderOrderRelatedButton"></a>
@@ -3161,7 +3179,7 @@ function renderOrderTodoGroup(group)
 
 Использует `escapeHtml`, `group.items.map`.
 
-Непосредственные вызовы: `escapeHtml`, `group.items.map((item) => '<li' + (item.done ? ' class="done"' : '') + '><span aria-hidden="true">' + (item.done ? '✓' : '○') + '</span><span class="visually-hidden">' + (item.done ? 'Выполнено: ' : 'Нужно сделать: ') + '</span><span class="order-todo-text">' + escapeHtml(item.text) + '</span></li>').join`, `group.items.map`.
+Непосредственные вызовы: `escapeHtml`, `group.items.map((item) => '<li' + (item.done ? ' class="done"' : '') + todoColorAttribute(item) + '><span aria-hidden="true">' + (item.done ? '✓' : '○') + '</span><span class="visually-hidden">' + (item.done ? 'Выполнено: ' : 'Нужно сделать: ') + '</span><span class="order-todo-text">' + escapeHtml(item.text) + '</span></li>').join`, `group.items.map`.
 
 <a id="symbol-renderOrderTodos"></a>
 
@@ -3295,10 +3313,11 @@ function renderPurchases()
 
 Использует `Array.isArray`, `$`, `Boolean`.
 
-Непосредственные вызовы: `Array.isArray`, `$`, `Boolean`, `items.filter`, `items.map((item, index) => '<div class="todo-row' + (item.done ? ' done' : '') + '" data-purchase-index="' + index + '">' +
+Непосредственные вызовы: `Array.isArray`, `$`, `Boolean`, `items.filter`, `items.map((item, index) => '<div class="todo-row' + (item.done ? ' done' : '') + '" data-purchase-index="' + index + '"' + todoColorAttribute(item) + '>' +
     '<input class="todo-check" type="checkbox" aria-label="Закупка выполнена: ' + escapeHtml(item.text) + '"' + (item.done ? ' checked' : '') + '>' +
     '<input class="todo-text" type="text" maxlength="1000" size="' + Math.max(4, Array.from(item.text).length + 1) + '" aria-label="Текст закупки или затраты" value="' + escapeHtml(item.text) + '">' +
     '<div class="purchase-suppliers" role="group" aria-label="Поставщики для закупки: ' + escapeHtml(item.text) + '">' + purchaseSupplierButtons(item) + '</div>' +
+    renderTodoColorPicker(item, "purchase-color-" + index) +
     '<button class="todo-delete" type="button" aria-label="Удалить закупку: ' + escapeHtml(item.text) + '">×</button></div>').join`, `items.map`, `renderPurchaseSaveState`.
 
 Прямые присваивания полям/свойствам: `$("purchaseLegacy").hidden`, `$("purchaseLegacyText").textContent`, `$("purchaseAddForm").hidden`, `$("purchaseEmpty").hidden`, `$("purchaseCount").textContent`, `$("purchaseList").innerHTML`.
@@ -3415,6 +3434,22 @@ function renderSupplierSchedule()
 
 Прямые присваивания полям/свойствам: `card.dataset.orderKey`, `card.className`, `card.innerHTML`, `link.href`, `link.dataset.calendarOrder`, `name.textContent`, `inlineBadge.hidden`, `inlineBadge.textContent`, `link.title`, `row.dataset.key`, `row.className`, `row.innerHTML`, `badge.className`, `badge.textContent`, `slot.title`, `list.hidden`.
 
+<a id="symbol-renderTodoColorPicker"></a>
+
+## renderTodoColorPicker
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function renderTodoColorPicker(item, name)
+```
+
+Показывает кружки с доступным именем и независимой группой для каждой строки.
+
+Использует те же переключатели в задачах и исходных закупках.
+
+Непосредственные вызовы: `escapeHtml`, `todoColorOptions`.
+
 <a id="symbol-renderTodos"></a>
 
 ## renderTodos
@@ -3429,9 +3464,10 @@ function renderTodos()
 
 Использует `Array.isArray`, `$`, `Boolean`.
 
-Непосредственные вызовы: `Array.isArray`, `$`, `Boolean`, `items.filter`, `items.map((item, index) => '<div class="todo-row' + (item.done ? ' done' : '') + '" data-todo-index="' + index + '">' +
+Непосредственные вызовы: `Array.isArray`, `$`, `Boolean`, `items.filter`, `items.map((item, index) => '<div class="todo-row' + (item.done ? ' done' : '') + '" data-todo-index="' + index + '"' + todoColorAttribute(item) + '>' +
     '<input class="todo-check" type="checkbox" aria-label="Выполнено: ' + escapeHtml(item.text) + '"' + (item.done ? ' checked' : '') + '>' +
     '<input class="todo-text" type="text" maxlength="1000" aria-label="Текст задачи" value="' + escapeHtml(item.text) + '">' +
+    renderTodoColorPicker(item, "todo-color-" + index) +
     '<button class="todo-delete" type="button" aria-label="Удалить задачу: ' + escapeHtml(item.text) + '">×</button></div>').join`, `items.map`.
 
 Прямые присваивания полям/свойствам: `$("todoLegacy").hidden`, `$("todoLegacyText").textContent`, `$("todoAddForm").hidden`, `$("todoEmpty").hidden`, `$("todoEmpty").textContent`, `$("todoCount").textContent`, `$("todoList").innerHTML`.
@@ -4120,6 +4156,41 @@ async function submitFolderRename()
 Непосредственные вызовы: `controls.forEach`, `$`, `saveCurrentStatus`, `request`, `$("renameFolderDialog").close`, `openRelocatedFolder`, `notify`.
 
 Прямые присваивания полям/свойствам: `state.folderRenaming`, `$("renameFolderError").hidden`, `$("renameFolderError").textContent`.
+
+<a id="symbol-todoColorAttribute"></a>
+
+## todoColorAttribute
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function todoColorAttribute(item)
+```
+
+Добавляет цвет к строке редактора или сводки.
+
+Использует только имена из списка допустимых вариантов.
+
+Непосредственные вызовы: `Object.hasOwn`.
+
+<a id="symbol-todoColorOptions"></a>
+
+## todoColorOptions
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function todoColorOptions(color, name)
+```
+
+Строит группу цветных кружков для редактора задачи или закупки.
+
+Имя связывает переключатели одной строки, пустое значение снимает цвет.
+
+Непосредственные вызовы: `Object.hasOwn`, `Object.entries(todoColorLabels).map(([key, label]) =>
+    '<label class="todo-color-option" data-todo-swatch="' + key + '" title="' + label + '">' +
+    '<input class="todo-color-radio" type="radio" name="' + escapeHtml(name) + '" value="' + key + '" aria-label="' + label + '"' +
+    (key === selected ? ' checked' : '') + '><span class="todo-color-dot" aria-hidden="true"></span></label>').join`, `Object.entries(todoColorLabels).map`, `Object.entries`.
 
 <a id="symbol-toggleCalendarCompact"></a>
 

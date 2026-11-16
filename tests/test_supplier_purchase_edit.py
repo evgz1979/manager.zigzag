@@ -54,6 +54,7 @@ class SupplierPurchaseEditTests(unittest.TestCase):
             {"index": True}, {"index": -1}, {"index": 200}, {"text": "Другой текст"},
             {"supplier_path": "#work/#antares"}, {"supplier_path": "#work"},
             {"revision": True}, {"id": "other"},
+            {"color": "unknown"}, {"color": ["red"]},
         ):
             payload = {**self.payload(new_text="Правка"), **changes}
             with self.subTest(changes=changes), self.assertRaises(ValueError):
@@ -62,6 +63,25 @@ class SupplierPurchaseEditTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.view.edit(self.payload(new_text="Правка"), inactive={"Клиент"})
         self.assertEqual(self.store.get(self.path), self.order)
+
+    def test_source_color_round_trips_through_supplier_text_and_done_edits(self):
+        route = "/api/supplier-purchase-text"
+        text = self.items[0]["text"]
+        payload = self.payload(new_text=text, color="purple")
+        with patch.object(manager, "schedule_order_sync"):
+            status, _, data = self.http(route, "POST", json.dumps(payload), {"Content-Type": "application/json"})
+        self.assertEqual(status, 200, data)
+        colored = json.loads(data)
+        self.assertEqual(colored["purchase_items"][0], {**self.items[0], "color": "purple"})
+        self.assertEqual(colored["purchase_items"][1:], self.items[1:])
+        self.assertEqual(self.view.read("#work/#tbm")["orders"][0]["items"][0]["color"], "purple")
+        checked = self.view.save(self.payload(colored, done=True))
+        changed = self.view.edit(self.payload(checked, new_text="Новое стекло"))
+        self.assertEqual(changed["purchase_items"][0], {**self.items[0], "text": "Новое стекло", "done": True, "color": "purple"})
+        with self.assertRaises(OrderConflict):
+            self.view.edit(self.payload(checked, new_text=text, color=None))
+        cleared = self.view.edit(self.payload(changed, text="Новое стекло", new_text="Новое стекло", color=None))
+        self.assertEqual(cleared["purchase_items"][0], {**self.items[0], "text": "Новое стекло", "done": True})
 
     def test_reordered_removed_and_unknown_purchases_are_never_replaced(self):
         changed = self.store.save({**self.order, "amount": "100", "costs": "20", "paid": "50",

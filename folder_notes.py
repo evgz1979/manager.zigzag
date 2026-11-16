@@ -215,8 +215,6 @@ class FolderNotes:
                     from supplier_purchases import write_assignments
                     body["extra_blocks"] = write_assignments(db, body.get("extra_blocks", {}), payload["purchase_items"])
             if "todo_items" in payload:
-                if document.read_todos(body.get("extra_blocks", {})) is None:
-                    raise ValueError("Прежний раздел задач содержит произвольный текст; он сохранён без замены")
                 body["extra_blocks"] = document.write_todos(body.get("extra_blocks", {}), payload["todo_items"])
             body["note"] = note
             document.render(body, self.store.labels)

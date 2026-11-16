@@ -8,7 +8,7 @@
 
 ## Python
 
-67 файлов; 966 именованных объявлений.
+67 файлов; 970 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
@@ -50,7 +50,7 @@
 | [order_calendar.py](python/order_calendar.md) | 31 |
 | [order_creation.py](python/order_creation.md) | 6 |
 | [order_deadlines.py](python/order_deadlines.md) | 8 |
-| [order_document.py](python/order_document.md) | 32 |
+| [order_document.py](python/order_document.md) | 35 |
 | [order_folders.py](python/order_folders.md) | 6 |
 | [order_links.py](python/order_links.md) | 18 |
 | [order_todos.py](python/order_todos.md) | 9 |
@@ -61,7 +61,7 @@
 | [scripts/archive_order_duplicate.py](python/scripts-archive_order_duplicate.md) | 8 |
 | [scripts/build_documentation.py](python/scripts-build_documentation.md) | 22 |
 | [scripts/deploy.py](python/scripts-deploy.md) | 3 |
-| [scripts/deploy_remote.py](python/scripts-deploy_remote.md) | 17 |
+| [scripts/deploy_remote.py](python/scripts-deploy_remote.md) | 18 |
 | [scripts/handoff.py](python/scripts-handoff.md) | 8 |
 | [scripts/handoff_host.py](python/scripts-handoff_host.md) | 23 |
 | [scripts/rebind_glass_notes.py](python/scripts-rebind_glass_notes.md) | 6 |
@@ -82,11 +82,11 @@
 
 ## JavaScript
 
-25 файлов; 483 именованных объявлений.
+25 файлов; 487 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
-| [static/app.js](javascript/static-app.md) | 244 |
+| [static/app.js](javascript/static-app.md) | 248 |
 | [static/appearance.js](javascript/static-appearance.md) | 1 |
 | [static/bills.js](javascript/static-bills.md) | 11 |
 | [static/calendar-snapshot.js](javascript/static-calendar-snapshot.md) | 4 |

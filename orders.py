@@ -344,14 +344,15 @@ class OrderStore:
         return self._save_extra_block(payload, lambda blocks: document.write_purchase_done(
             blocks, payload.get("index"), payload.get("text"), supplier, payload.get("done")), update_time=False)
 
-    # Меняет текст исходной закупки с проверкой строки и версии.
-    # При недопустимом состоянии возбуждает ValueError.
+    # Меняет текст исходной закупки и явно переданный цвет.
+    # Проверяет выбранную строку, поставщика, UUID и revision.
     def save_purchase_text(self, payload, supplier):
         relative = self.path(payload.get("path"))
         if not client_path(relative):
             raise ValueError("Выбери закупку обычного заказа")
         return self._save_extra_block(payload, lambda blocks: document.write_purchase_text(
-            blocks, payload.get("index"), payload.get("text"), supplier, payload.get("new_text")), update_time=False)
+            blocks, payload.get("index"), payload.get("text"), supplier, payload.get("new_text"),
+            color=payload.get("color", document.UNSET_TODOS)), update_time=False)
 
     # Сохраняет текст выбранного дневного или недельного события заказа.
     # Формирует возвращаемое значение из проверенного локального состояния.

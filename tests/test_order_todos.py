@@ -45,6 +45,26 @@ class OrderTodoTests(unittest.TestCase):
         self.assertTrue(order["todo_groups"][2]["sync_pending"])
         self.assertFalse(order["todo_groups"][2]["items"][0]["done"])
 
+    def test_colors_follow_individual_tasks_in_a_card_and_nested_summary(self):
+        store = manager.order_store()
+        red = {"text": "Повтор", "done": False, "color": "red"}
+        blue = {**red, "color": "blue"}
+        order = self.add(items=[red, blue])
+        saved = store.save({**order, "todo_items": [{**blue, "text": "Уточнить", "done": True}, {**red, "color": None}]})
+        self.assertEqual(saved["todo_items"], [
+            {**blue, "text": "Уточнить", "done": True}, {"text": "Повтор", "done": False}])
+        for color in ("gray", "", {}, True):
+            with self.assertRaises(ValueError):
+                store.save({**saved, "todo_items": [{**blue, "color": color}]})
+        self.assertEqual(store.get(self.order), saved)
+
+        notes = manager.folder_note_store()
+        path = self.order + "/Фото"
+        note = notes.read(path)
+        notes.save({"path": path, "revision": note["revision"], "note": "", "todo_items": [blue]})
+        summary = OrderTodos(store).in_order(self.order)
+        self.assertEqual(summary["todo_groups"][0]["items"], [blue])
+
     def test_background_refresh_imports_unopened_cards_read_only_and_skips_hidden_symlinks(self):
         self.add()
         paths = [self.order + suffix for suffix in ("/02 - Монтаж", "/02 - Монтаж/Глубже/Детали", "/# bills")]

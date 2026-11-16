@@ -350,6 +350,30 @@ class DeploymentTests(unittest.TestCase):
         (release / 'folder_rename_undo.py').touch()
         remote.check_event_rename_compatibility(self.db, release)
 
+    def test_old_code_cannot_open_saved_todo_colors(self):
+        release = self.base / 'old-todos'
+        release.mkdir()
+        remote.check_event_rename_compatibility(self.db, release)
+        with sqlite3.connect(self.db) as db:
+            db.execute("ALTER TABLE orders ADD COLUMN extra_blocks TEXT NOT NULL DEFAULT '{}'")
+            db.execute("UPDATE orders SET extra_blocks=?", (json.dumps({"Закупки и затраты": "- [ ] Купить\n  Цвет: blue"}),))
+        with self.assertRaisesRegex(RuntimeError, 'цвета строк To-do'):
+            remote.check_event_rename_compatibility(self.db, release)
+        with sqlite3.connect(self.db) as db:
+            db.execute("UPDATE orders SET extra_blocks='{}'")
+            db.execute("CREATE TABLE folder_notes (document TEXT)")
+            db.execute("INSERT INTO folder_notes VALUES (?)", (json.dumps({"extra_blocks": {"Задачи": "- [x] Готово\n  Цвет: green"}}),))
+        with self.assertRaisesRegex(RuntimeError, 'цвета строк To-do'):
+            remote.check_event_rename_compatibility(self.db, release)
+        with sqlite3.connect(self.db) as db:
+            db.execute("DELETE FROM folder_notes")
+            db.execute("CREATE TABLE reconciliations (data TEXT)")
+            db.execute("INSERT INTO reconciliations VALUES (?)", (json.dumps({"todo_items": [{"text": "Готово", "done": True, "color": "red"}]}),))
+        with self.assertRaisesRegex(RuntimeError, 'цвета строк To-do'):
+            remote.check_event_rename_compatibility(self.db, release)
+        (release / 'order_document.py').write_text('TODO_COLORS_VERSION = 1')
+        remote.check_event_rename_compatibility(self.db, release)
+
     def test_old_code_cannot_restore_trash_to_paths_before_object_move(self):
         release = self.base / 'old-trash'
         release.mkdir()

@@ -77,6 +77,8 @@ sequenceDiagram
 
 [OrderTodos.in_order](reference/python/order_todos.md#symbol-OrderTodos.in_order) возвращает задачи для страницы одного заказа. Выполненные сохраняются, но скрыты в обычной актуальной сводке. Обновление индекса не переносит задачи в родителя и не меняет их исходный текст.
 
+[renderTodoColorPicker](reference/javascript/static-app.md#symbol-renderTodoColorPicker) показывает независимую группу кружков в каждой строке. Между цветами можно переключаться стрелками. Выбор сразу применяет оформление и запускает прежнее сохранение карточки. [renderOrderTodoGroup](reference/javascript/static-app.md#symbol-renderOrderTodoGroup) показывает сохранённый цвет в сводках вложенных задач, окне To-do и «Смотри ту-ду».
+
 ## Закупка у поставщика
 
 [SupplierPurchases.read](reference/python/supplier_purchases.md#symbol-SupplierPurchases.read) выбирает закупки из исходных заказов. У `etc` — только неназначенные строки; у поставщика — строки с соответствующим назначением. Выбор доступных кнопок опирается на сохранённые избранные разделы `# work`, при этом старые назначения не исчезают после снятия звезды.
@@ -85,7 +87,7 @@ sequenceDiagram
 
 «Копировать» читает полный текст строки из DOM и передаёт его в [copyText](reference/javascript/static-app.md#symbol-copyText), общий с Inbox. В защищённом контексте функция использует Clipboard API, по обычному HTTP записывает текст через событие `copy` и возвращает фокус и выделение. Сервер в копировании не участвует.
 
-Карандаш открывает [openEditor](reference/javascript/static-supplier-purchases.md#symbol-openEditor). Сохранение передаёт путь поставщика, путь/UUID/revision источника, индекс и исходный текст. [SupplierPurchases.edit](reference/python/supplier_purchases.md#symbol-SupplierPurchases.edit) проверяет принадлежность, а [write_purchase_text](reference/python/order_document.md#symbol-write_purchase_text) меняет только текст исходной строки с сохранением checkbox, назначений и переводов строк.
+Карандаш открывает [openEditor](reference/javascript/static-supplier-purchases.md#symbol-openEditor) с текстом и цветом. Сохранение передаёт путь поставщика, путь/UUID/revision источника, индекс и исходный текст. [SupplierPurchases.edit](reference/python/supplier_purchases.md#symbol-SupplierPurchases.edit) проверяет принадлежность, а [write_purchase_text](reference/python/order_document.md#symbol-write_purchase_text) меняет текст и цвет исходной строки с сохранением отметки выполнения, назначений и переводов строк.
 
 При изменении источника «Проверить изменения» перечитывает его без подмены черновика. Переставленная или исчезнувшая строка требует нового явного выбора; совпавший индекс не является идентичностью задачи.
 

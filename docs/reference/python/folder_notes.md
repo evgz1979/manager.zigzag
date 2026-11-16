@@ -223,7 +223,7 @@ def save(self, payload):
 
 Работает с таблицами orders, folder_notes.
 
-Непосредственные вызовы: `payload.get`, `self.path`, `isinstance`, `len`, `ValueError`, `self.connect`, `db.execute`, `assert_unlocked`, `db.execute('SELECT 1 FROM orders WHERE path=? AND registered=1', (relative,)).fetchone`, `FolderNoteConflict`, `db.execute('SELECT * FROM folder_notes WHERE path=?', (relative,)).fetchone`, `json.loads`, `is_service_folder`, `body.get`, `value.strip`, `any`, `document.money`, `write_assignments`, `document.read_todos`, `document.write_todos`, `document.render`, `json.dumps`, `time.time`, `self.record`.
+Непосредственные вызовы: `payload.get`, `self.path`, `isinstance`, `len`, `ValueError`, `self.connect`, `db.execute`, `assert_unlocked`, `db.execute('SELECT 1 FROM orders WHERE path=? AND registered=1', (relative,)).fetchone`, `FolderNoteConflict`, `db.execute('SELECT * FROM folder_notes WHERE path=?', (relative,)).fetchone`, `json.loads`, `is_service_folder`, `body.get`, `value.strip`, `any`, `document.money`, `write_assignments`, `document.write_todos`, `document.render`, `json.dumps`, `time.time`, `self.record`.
 
 Явные исключения: `ValueError`, `FolderNoteConflict`.
 

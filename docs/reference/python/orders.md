@@ -816,9 +816,9 @@ self._save_extra_block(payload, lambda blocks: document.write_purchase_done(bloc
 def save_purchase_text(self, payload, supplier):
 ```
 
-Меняет текст исходной закупки с проверкой строки и версии.
+Меняет текст исходной закупки и явно переданный цвет.
 
-При недопустимом состоянии возбуждает ValueError.
+Проверяет выбранную строку, поставщика, UUID и revision.
 
 Непосредственные вызовы: `self.path`, `payload.get`, `client_path`, `ValueError`, `self._save_extra_block`.
 
@@ -827,7 +827,7 @@ def save_purchase_text(self, payload, supplier):
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-self._save_extra_block(payload, lambda blocks: document.write_purchase_text(blocks, payload.get('index'), payload.get('text'), supplier, payload.get('new_text')), update_time=False)
+self._save_extra_block(payload, lambda blocks: document.write_purchase_text(blocks, payload.get('index'), payload.get('text'), supplier, payload.get('new_text'), color=payload.get('color', document.UNSET_TODOS)), update_time=False)
 ```
 
 <a id="symbol-OrderStore.save_status"></a>

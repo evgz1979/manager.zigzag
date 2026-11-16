@@ -252,6 +252,29 @@ False
 {'да': True, 'нет': False}.get(value.strip().casefold()) if isinstance(value, str) else None
 ```
 
+<a id="symbol-read_checklist"></a>
+
+## read_checklist
+
+[order_document.py](../../../order_document.py) · `function`.
+
+```python
+def read_checklist(body, *, purchases=False):
+```
+
+Разбирает строки задач и их свойства в прежних текстовых блоках.
+
+Неизвестная строка или повтор свойства возвращает None для всего блока.
+
+Непосредственные вызовы: `isinstance`, `body.splitlines`, `line.strip`, `re.fullmatch`, `items.append`, `match[1].lower`, `line.startswith`, `len`, `selected.split`, `validate_purchases`, `validate_todos`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+None
+validate_purchases(items) if purchases else validate_todos(items)
+```
+
 <a id="symbol-read_dollar"></a>
 
 ## read_dollar
@@ -335,13 +358,12 @@ def read_purchases(blocks):
 
 Возвращает `None`; либо `validate_purchases(items)`.
 
-Непосредственные вызовы: `blocks.get(PURCHASE_BLOCK, '').splitlines`, `blocks.get`, `line.strip`, `re.fullmatch`, `items.append`, `match[1].lower`, `line.startswith`, `len`, `selected.split`, `validate_purchases`.
+Непосредственные вызовы: `read_checklist`, `blocks.get`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-None
-validate_purchases(items)
+read_checklist(blocks.get(PURCHASE_BLOCK, ''), purchases=True)
 ```
 
 <a id="symbol-read_text"></a>
@@ -378,17 +400,16 @@ icloud_access.read_bytes(path).decode('utf-8-sig').replace('\r\n', '\n')
 def read_todos(blocks):
 ```
 
-Разбирает задачи карточки, отличая пустой список от неизвестного текста.
+Читает собственные задачи карточки с необязательными цветами.
 
-Возвращает `None`; либо `validate_todos(items)`.
+Возвращает None для неизвестного формата и пустой список для пустого блока.
 
-Непосредственные вызовы: `blocks.get`, `body.splitlines`, `line.strip`, `re.fullmatch`, `items.append`, `match[1].lower`, `validate_todos`.
+Непосредственные вызовы: `read_checklist`, `blocks.get`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-None
-validate_todos(items)
+read_checklist(blocks.get(TODO_BLOCK, ''))
 ```
 
 <a id="symbol-render"></a>
@@ -413,6 +434,26 @@ def render(record, labels):
 
 ```python
 text
+```
+
+<a id="symbol-render_todo_line"></a>
+
+## render_todo_line
+
+[order_document.py](../../../order_document.py) · `function`.
+
+```python
+def render_todo_line(item):
+```
+
+Формирует строку задачи с отметкой и необязательной строкой цвета.
+
+Принимает строку после валидации; назначения поставщика добавляет вызывающий код.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+row
 ```
 
 <a id="symbol-split_statuses"></a>
@@ -533,6 +574,30 @@ def validate_purchases(items):
 result
 ```
 
+<a id="symbol-validate_todo_color"></a>
+
+## validate_todo_color
+
+[order_document.py](../../../order_document.py) · `function`.
+
+```python
+def validate_todo_color(color):
+```
+
+Проверяет цвет одной строки задачи или закупки.
+
+Возвращает допустимое имя цвета или None для снятия цвета.
+
+Непосредственные вызовы: `ValueError`.
+
+Явные исключения: `ValueError`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+color
+```
+
 <a id="symbol-validate_todos"></a>
 
 ## validate_todos
@@ -543,11 +608,11 @@ result
 def validate_todos(items):
 ```
 
-Проверяет допустимую структуру строк собственных задач.
+Проверяет допустимую структуру, текст, выполнение и цвет строк.
 
-При недопустимом состоянии возбуждает ValueError.
+Задачи без цвета возвращает без поля color.
 
-Непосредственные вызовы: `isinstance`, `len`, `ValueError`, `item.get`, `type`, `item['text'].strip`, `any`, `result.append`.
+Непосредственные вызовы: `isinstance`, `len`, `ValueError`, `item.get`, `type`, `item['text'].strip`, `text.splitlines`, `validate_todo_color`, `result.append`.
 
 Явные исключения: `ValueError`.
 
@@ -684,14 +749,14 @@ def write_purchase_done(blocks, index, text, supplier, done):
 [order_document.py](../../../order_document.py) · `function`.
 
 ```python
-def write_purchase_text(blocks, index, text, supplier, new_text):
+def write_purchase_text(blocks, index, text, supplier, new_text, *, color=UNSET_TODOS):
 ```
 
-Меняет текст одной закупки, сохраняя выполнение, назначения и переводы строк.
+Меняет текст и при явном запросе цвет выбранной закупки.
 
-При недопустимом состоянии возбуждает ValueError.
+Сохраняет выполнение, назначения и исходное оформление соседних строк.
 
-Непосредственные вызовы: `read_purchases`, `ValueError`, `type`, `len`, `purchase_matches_supplier`, `validate_todos`, `value.splitlines`, `blocks[PURCHASE_BLOCK].splitlines`, `enumerate`, `line.startswith`, `line.rstrip`, `''.join`.
+Непосредственные вызовы: `read_purchases`, `ValueError`, `type`, `len`, `purchase_matches_supplier`, `validate_todos`, `validate_todo_color`, `blocks[PURCHASE_BLOCK].splitlines`, `enumerate`, `line.startswith`, `line.rstrip`, `item.get`, `next`, `range`, `lines[i].startswith`, `lines.insert`, `old.rstrip`, `''.join`.
 
 Явные исключения: `ValueError`.
 
@@ -715,7 +780,7 @@ def write_purchases(blocks, items):
 
 Возвращает `result`.
 
-Непосредственные вызовы: `dict`, `'\n'.join`, `', '.join`, `validate_purchases`.
+Непосредственные вызовы: `dict`, `'\n'.join`, `render_todo_line`, `', '.join`, `validate_purchases`.
 
 Выражения возврата (ветки читаются в исходнике):
 
@@ -735,12 +800,14 @@ def write_todos(blocks, items):
 
 Сериализует задачи и сохраняет прочие дополнительные блоки.
 
-Возвращает `result`.
+Отклоняет замену неизвестного раздела прежней карточки.
 
-Непосредственные вызовы: `dict`, `'\n'.join`, `validate_todos`.
+Непосредственные вызовы: `read_todos`, `ValueError`, `'\n'.join`, `render_todo_line`, `validate_todos`.
+
+Явные исключения: `ValueError`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-result
+{**blocks, TODO_BLOCK: '\n'.join((render_todo_line(item) for item in validate_todos(items)))}
 ```

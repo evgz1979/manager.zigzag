@@ -20,6 +20,9 @@ ORDER_FIELDS = {"status", "financial_status", "title", "client", "path", "amount
 MAX_MONEY = 999_999_999_999_99
 TODO_BLOCK = "Задачи"
 PURCHASE_BLOCK = "Закупки и затраты"
+TODO_COLORS_VERSION = 1
+TODO_COLORS = ("red", "orange", "yellow", "green", "blue", "purple")
+TODO_COLOR_PREFIX = "  Цвет: "
 FAVORITE_BLOCK = "Избранное"
 FLAG_BLOCK = "Флажок"
 BLUE_PLUS_BLOCK = "Синий плюс"
@@ -104,8 +107,16 @@ def write_dollar(blocks, value):
     return {**blocks, DOLLAR_BLOCK: "Да" if value else "Нет"}
 
 
-# Проверяет допустимую структуру строк собственных задач.
-# При недопустимом состоянии возбуждает ValueError.
+# Проверяет цвет одной строки задачи или закупки.
+# Возвращает допустимое имя цвета или None для снятия цвета.
+def validate_todo_color(color):
+    if color is not None and color not in TODO_COLORS:
+        raise ValueError("Выбери один из доступных цветов задачи")
+    return color
+
+
+# Проверяет допустимую структуру, текст, выполнение и цвет строк.
+# Задачи без цвета возвращает без поля color.
 def validate_todos(items):
     if not isinstance(items, list) or len(items) > 200:
         raise ValueError("В списке может быть не более 200 задач")
@@ -114,36 +125,62 @@ def validate_todos(items):
         if not isinstance(item, dict) or not isinstance(item.get("text"), str) or type(item.get("done")) is not bool:
             raise ValueError("Некорректная задача")
         text = item["text"].strip()
-        if not text or len(text) > 1000 or any(char in text for char in "\r\n\x00"):
+        if not text or len(text) > 1000 or "\x00" in text or len(text.splitlines()) != 1:
             raise ValueError("Укажите задачу одной строкой, до 1000 символов")
-        result.append({"text": text, "done": item["done"]})
+        row = {"text": text, "done": item["done"]}
+        color = validate_todo_color(item.get("color"))
+        if color is not None:
+            row["color"] = color
+        result.append(row)
     return result
 
 
-# Разбирает задачи карточки, отличая пустой список от неизвестного текста.
-# Возвращает `None`; либо `validate_todos(items)`.
-def read_todos(blocks):
-    body = blocks.get(TODO_BLOCK, "")
+# Разбирает строки задач и их свойства в прежних текстовых блоках.
+# Неизвестная строка или повтор свойства возвращает None для всего блока.
+def read_checklist(body, *, purchases=False):
+    if not isinstance(body, str):
+        return None
     items = []
     for line in body.splitlines():
         if not line.strip():
             continue
         match = re.fullmatch(r"- \[([ xX])\] (.+)", line)
-        if not match:
-            return None  # Preserve an existing free-form section without rewriting it.
-        items.append({"text": match[2], "done": match[1].lower() == "x"})
+        if match:
+            items.append({"text": match[2], "done": match[1].lower() == "x"})
+        elif items and line.startswith(TODO_COLOR_PREFIX) and "color" not in items[-1]:
+            items[-1]["color"] = line[len(TODO_COLOR_PREFIX):]
+        elif purchases and items and line.startswith("  Поставщики: ") and "suppliers" not in items[-1]:
+            selected = line[len("  Поставщики: "):]
+            items[-1]["suppliers"] = [] if selected == "—" else selected.split(", ")
+        else:
+            return None
     try:
-        return validate_todos(items)
+        return validate_purchases(items) if purchases else validate_todos(items)
     except ValueError:
         return None
 
 
+# Читает собственные задачи карточки с необязательными цветами.
+# Возвращает None для неизвестного формата и пустой список для пустого блока.
+def read_todos(blocks):
+    return read_checklist(blocks.get(TODO_BLOCK, ""))
+
+
+# Формирует строку задачи с отметкой и необязательной строкой цвета.
+# Принимает строку после валидации; назначения поставщика добавляет вызывающий код.
+def render_todo_line(item):
+    row = "- [" + ("x" if item["done"] else " ") + "] " + item["text"]
+    if "color" in item:
+        row += "\n" + TODO_COLOR_PREFIX + item["color"]
+    return row
+
+
 # Сериализует задачи и сохраняет прочие дополнительные блоки.
-# Возвращает `result`.
+# Отклоняет замену неизвестного раздела прежней карточки.
 def write_todos(blocks, items):
-    result = dict(blocks)
-    result[TODO_BLOCK] = "\n".join("- [" + ("x" if item["done"] else " ") + "] " + item["text"] for item in validate_todos(items))
-    return result
+    if read_todos(blocks) is None:
+        raise ValueError("Прежний раздел задач содержит произвольный текст; он сохранён без замены")
+    return {**blocks, TODO_BLOCK: "\n".join(render_todo_line(item) for item in validate_todos(items))}
 
 
 # Проверяет допустимый ключ поставщика закупки.
@@ -171,31 +208,14 @@ def validate_purchases(items):
 # Разбирает закупки с сохранением признака неизвестного исходного формата.
 # Возвращает `None`; либо `validate_purchases(items)`.
 def read_purchases(blocks):
-    items, has_suppliers = [], False
-    for line in blocks.get(PURCHASE_BLOCK, "").splitlines():
-        if not line.strip():
-            continue
-        match = re.fullmatch(r"- \[([ xX])\] (.+)", line)
-        if match:
-            items.append({"text": match[2], "done": match[1].lower() == "x", "suppliers": []})
-            has_suppliers = False
-        elif line.startswith("  Поставщики: ") and items and not has_suppliers:
-            selected = line[len("  Поставщики: "):]
-            items[-1]["suppliers"] = [] if selected == "—" else selected.split(", ")
-            has_suppliers = True
-        else:
-            return None
-    try:
-        return validate_purchases(items)
-    except ValueError:
-        return None
+    return read_checklist(blocks.get(PURCHASE_BLOCK, ""), purchases=True)
 
 
 # Сериализует известные закупки и сохраняет прочие блоки карточки.
 # Возвращает `result`.
 def write_purchases(blocks, items):
     result = dict(blocks)
-    result[PURCHASE_BLOCK] = "\n".join("- [" + ("x" if item["done"] else " ") + "] " + item["text"] +
+    result[PURCHASE_BLOCK] = "\n".join(render_todo_line(item) +
         "\n  Поставщики: " + (", ".join(item["suppliers"]) or "—") for item in validate_purchases(items))
     return result
 
@@ -231,9 +251,9 @@ def write_purchase_done(blocks, index, text, supplier, done):
     return {**blocks, PURCHASE_BLOCK: "".join(lines)}
 
 
-# Меняет текст одной закупки, сохраняя выполнение, назначения и переводы строк.
-# При недопустимом состоянии возбуждает ValueError.
-def write_purchase_text(blocks, index, text, supplier, new_text):
+# Меняет текст и при явном запросе цвет выбранной закупки.
+# Сохраняет выполнение, назначения и исходное оформление соседних строк.
+def write_purchase_text(blocks, index, text, supplier, new_text, *, color=UNSET_TODOS):
     """Edit one purchase's text, preserving checkboxes, suppliers and raw layout."""
     items = read_purchases(blocks)
     if items is None:
@@ -244,17 +264,27 @@ def write_purchase_text(blocks, index, text, supplier, new_text):
     if not purchase_matches_supplier(item, supplier) or text != item["text"]:
         raise ValueError("Закупка или выбор поставщика изменились. Обнови список")
     value = validate_todos([{"text": new_text, "done": item["done"]}])[0]["text"]
-    if len(value.splitlines()) != 1:
-        raise ValueError("Укажите закупку одной строкой, до 1000 символов")
+    if color is not UNSET_TODOS:
+        validate_todo_color(color)
     lines = blocks[PURCHASE_BLOCK].splitlines(keepends=True)
-    position = -1
-    for line_index, line in enumerate(lines):
-        if line.startswith("- ["):
-            position += 1
-            if position == index:
-                ending = line[len(line.rstrip("\r\n")):]
-                lines[line_index] = line[:6] + value + ending
-                break
+    positions = [offset for offset, line in enumerate(lines) if line.startswith("- [")]
+    position = positions[index]
+    line = lines[position]
+    ending = line[len(line.rstrip("\r\n")):]
+    if value != item["text"]:
+        lines[position] = line[:6] + value + ending
+    if color is not UNSET_TODOS and color != item.get("color"):
+        stop = positions[index + 1] if index + 1 < len(positions) else len(lines)
+        existing = next((i for i in range(position + 1, stop) if lines[i].startswith(TODO_COLOR_PREFIX)), None)
+        if existing is None:
+            if not ending:
+                lines[position] += "\n"
+            lines.insert(position + 1, TODO_COLOR_PREFIX + color + ending)
+        elif color is None:
+            del lines[existing]
+        else:
+            old = lines[existing]
+            lines[existing] = TODO_COLOR_PREFIX + color + old[len(old.rstrip("\r\n")):]
     return {**blocks, PURCHASE_BLOCK: "".join(lines)}
 
 

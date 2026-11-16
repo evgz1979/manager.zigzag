@@ -231,12 +231,31 @@ def check_remote_access_compatibility(config, release_dir):
             raise RuntimeError('Настроен внешний вход с паролем. Старый код не поддерживает его; откат заблокирован')
 
 
-# Проверяет поддержку незавершённых переименований целевым релизом.
+# Проверяет сохранение цветов задач и закупок при смене релиза.
+# Ищет строки цвета в карточках и поля в сверках, в том числе в снятых с регистрации заказах.
+def check_todo_color_compatibility(db, release_dir):
+    source = release_dir / 'order_document.py'
+    if source.is_file() and 'TODO_COLORS_VERSION = 1' in source.read_text(encoding='utf-8'):
+        return
+    for table, column, prefix in (('orders', 'extra_blocks', '$'), ('folder_notes', 'document', '$.extra_blocks')):
+        if db.execute("SELECT 1 FROM pragma_table_info(?) WHERE name=?", (table, column)).fetchone():
+            paths = (prefix + '."Задачи"', prefix + '."Закупки и затраты"')
+            if db.execute(f"SELECT 1 FROM {table}, json_each(json_array(json_extract({column}, ?), json_extract({column}, ?))) "
+                          "WHERE instr(value, char(10) || '  Цвет: ') OR instr(value, char(13) || '  Цвет: ') LIMIT 1", paths).fetchone():
+                raise RuntimeError('В базе есть цвета строк To-do. Старый код не поддерживает их; откат заблокирован')
+    if (db.execute("SELECT 1 FROM pragma_table_info('reconciliations') WHERE name='data'").fetchone()
+            and db.execute("SELECT 1 FROM reconciliations, json_each(reconciliations.data, '$.todo_items') "
+                           "WHERE json_each.type='object' AND json_type(json_each.value, '$.color')='text' LIMIT 1").fetchone()):
+        raise RuntimeError('В сверках есть цвета строк To-do. Старый код не поддерживает их; откат заблокирован')
+
+
+# Проверяет поддержку рабочих форматов и незавершённых операций целевым релизом.
 # Работает с таблицами sqlite_master, metadata_settings, invoices, event_renames, folder_renames.
 def check_event_rename_compatibility(database, release_dir):
     if not database.exists():
         return
     with closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)) as db:
+        check_todo_color_compatibility(db, release_dir)
         if (db.execute("SELECT 1 FROM sqlite_master WHERE name='metadata_settings'").fetchone()
                 and db.execute("SELECT 1 FROM metadata_settings WHERE key='telegram_calendar_commands' AND value='1'").fetchone()):
             source = release_dir / 'telegram_calendar_commands.py'
