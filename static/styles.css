@@ -18,6 +18,7 @@
   --danger: light-dark(#b43b36, #ffa9a7);
   --danger-soft: light-dark(#fbefec, #3a2929);
   --focus-blue: light-dark(#4480ca, #90baf1);
+  --order-flag-color: light-dark(#b56c69, #e2a2a0);
 }
 :root[data-appearance="light"] { color-scheme: light; }
 :root[data-appearance="dark"] { color-scheme: dark; }
@@ -191,11 +192,14 @@ h1, h2, h3, p { margin: 0; }
 }
 .favorite-order-button { display: flex; align-items: flex-start; gap: 8px; min-width: 0; padding: 8px 10px; text-align: left; background: var(--surface-subtle); font-size: 12px; }
 .favorite-order-button.active { color: var(--accent); background: var(--accent-soft); border-color: var(--accent-line); }
+.favorite-order-button.flagged { border-color: var(--order-flag-color); }
 .favorite-order-button:focus-visible { outline-offset: -2px; }
 .favorite-order-star { flex-shrink: 0; color: light-dark(#b57b0b, #f1ca78); }
 .favorite-order-text { min-width: 0; }
 .favorite-order-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
 .favorite-order-client { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
+.favorite-order-flag { flex: none; margin-inline-start: auto; margin-top: 1px; color: var(--order-flag-color); }
+.favorite-order-flag svg { display: block; width: 14px; height: 14px; fill: currentColor; }
 @media (max-width: 640px) { .favorite-orders { margin-left: 9px; margin-right: 9px; } }
 .tree-heading { display: flex; justify-content: space-between; align-items: center; padding: 0 22px 11px; font-size: 11px; color: light-dark(#84918c, #a5b3ac); text-transform: uppercase; letter-spacing: 1.1px; font-weight: 650; }
 .tree-heading span:last-child { letter-spacing: 0; font-size: 11px; }
@@ -762,7 +766,7 @@ h2 { font-size: 13px; font-weight: 600; }
 .calendar-order-blue-plus { color: light-dark(#236da8, #9bc8f5); }
 .calendar-order-blue-plus svg { stroke-width: 3.6; }
 .calendar-order-dollar { color: light-dark(#238246, #98d6ab); font-size: 11px; font-weight: 700; }
-.calendar-order-flag { color: light-dark(#b56c69, #e2a2a0); }
+.calendar-order-flag { color: var(--order-flag-color); }
 .calendar-order-flag svg { fill: currentColor; }
 .calendar-order-favorite { color: light-dark(#b57b0b, #f1ca78); font-size: 11px; }
 .calendar-order-object { display: inline; font-size: 9px; line-height: 1; color: var(--muted); }
@@ -916,7 +920,7 @@ h2 { font-size: 13px; font-weight: 600; }
 .order-flag-column > svg { width: 14px; height: 14px; }
 .order-flag-button { display: inline-grid; place-items: center; width: 26px; height: 28px; padding: 0; border: 0; background: transparent; color: light-dark(#b8bcb6, #77827b); }
 .order-flag-button svg { width: 16px; height: 16px; }
-.order-flag-button[aria-pressed="true"] { color: light-dark(#b56c69, #e2a2a0); }
+.order-flag-button[aria-pressed="true"] { color: var(--order-flag-color); }
 .order-flag-button[aria-pressed="true"] svg { fill: currentColor; }
 .order-flag-button:hover { color: light-dark(#a35f5c, #f3a595); background: light-dark(#faf1f0, #3a2929); }
 .orders-table th.order-favorite-column { color: var(--muted); font-weight: 400; }

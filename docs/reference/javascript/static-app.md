@@ -2643,11 +2643,17 @@ function renderFavoriteOrders()
 
 Показывает избранные заказы в панели навигации.
 
-Обращается к DOM текущего документа или переданного контейнера.
+Отмечает сохранённые флажки и восстанавливает фокус и прокрутку при обновлении.
 
 Непосредственные вызовы: `$`, `state.favoriteOrders.filter((order) => order.is_favorite === true && order.supplier_status !== "archived").sort`, `state.favoriteOrders.filter`, `favorites.map((order) => {
     const active = state.view !== "orders" && (state.selected === order.path || state.selected.startsWith(order.path + "/"));
-    return '<button type="button" class="favorite-order-button' + (active ? ' active' : '') + '" data-path="' + escapeHtml(order.path) + '" title="' + escapeHtml(order.title + " · " + (order.client || "") + "\n" + order.path) + '"' + (active ? ' aria-current="page"' : '') + '><span class="favorite-order-star" aria-hidden="true">★</span><span class="favorite-order-text"><span class="favorite-order-title">' + escapeHtml(order.title) + '</span>' + (order.client ? '<span class="favorite-order-client">' + ClientBadge.markup(order.client, order.client_path) + '</span>' : '') + '</span></button>';
+    const flagged = order.is_flagged === true;
+    return '<button type="button" class="favorite-order-button' + (active ? ' active' : '') + (flagged ? ' flagged' : '') +
+      '" data-path="' + escapeHtml(order.path) + '" title="' + escapeHtml(order.title + " · " + (order.client || "") + "\n" + order.path) + '"' +
+      (active ? ' aria-current="page"' : '') + '><span class="favorite-order-star" aria-hidden="true">★</span>' +
+      '<span class="favorite-order-text"><span class="favorite-order-title">' + escapeHtml(order.title) + '</span>' +
+      (order.client ? '<span class="favorite-order-client">' + ClientBadge.markup(order.client, order.client_path) + '</span>' : '') + '</span>' +
+      (flagged ? '<span class="favorite-order-flag"><svg aria-hidden="true"><use href="#icon-flag"></use></svg><span class="visually-hidden">С флажком</span></span>' : '') + '</button>';
   }).join`, `favorites.map`, `container.contains`, `[...container.querySelectorAll("[data-path]")].find((button) => button.dataset.path === focusedPath)?.focus`, `[...container.querySelectorAll("[data-path]")].find`, `container.querySelectorAll`.
 
 Прямые присваивания полям/свойствам: `container.innerHTML`, `container.scrollTop`, `container.hidden`.
@@ -4327,7 +4333,7 @@ async function toggleOrderMarker(button, kind)
 
 Использует `/api/order-`.
 
-Непосредственные вызовы: `findListOrder`, `orderRowSaving`, `Number`, `button.getAttribute`, `state.markerSaving.add`, `button.setAttribute`, `$("ordersTableBody").querySelectorAll("[data-order-flag], [data-order-favorite], [data-order-status], [data-order-deadline], [data-order-blue-plus], [data-order-dollar]").forEach`, `$("ordersTableBody").querySelectorAll`, `$`, `applyOrderRecord`, `request`, `loadOrders`, `state.markerSaving.delete`, `hasOrderList`, `renderOrders`, `focusOrderMarker`.
+Непосредственные вызовы: `findListOrder`, `orderRowSaving`, `Number`, `button.getAttribute`, `state.markerSaving.add`, `button.setAttribute`, `$("ordersTableBody").querySelectorAll("[data-order-flag], [data-order-favorite], [data-order-status], [data-order-deadline], [data-order-blue-plus], [data-order-dollar]").forEach`, `$("ordersTableBody").querySelectorAll`, `$`, `applyOrderRecord`, `request`, `renderFavoriteOrders`, `loadOrders`, `state.markerSaving.delete`, `hasOrderList`, `renderOrders`, `focusOrderMarker`.
 
 Прямые присваивания полям/свойствам: `state.ordersRequest`.
 

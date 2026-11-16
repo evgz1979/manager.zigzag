@@ -287,14 +287,20 @@ function treeMarkup(nodes, depth = 0, searching = false) {
 }
 
 // Показывает избранные заказы в панели навигации.
-// Обращается к DOM текущего документа или переданного контейнера.
+// Отмечает сохранённые флажки и восстанавливает фокус и прокрутку при обновлении.
 function renderFavoriteOrders() {
   const container = $("favoriteOrders");
   const favorites = state.favoriteOrders.filter((order) => order.is_favorite === true && order.supplier_status !== "archived").sort((a,b) =>
     (a.client || "").localeCompare(b.client || "", "ru", { numeric:true }) || a.title.localeCompare(b.title,"ru",{ numeric:true }) || a.path.localeCompare(b.path,"ru"));
   const markup = favorites.map((order) => {
     const active = state.view !== "orders" && (state.selected === order.path || state.selected.startsWith(order.path + "/"));
-    return '<button type="button" class="favorite-order-button' + (active ? ' active' : '') + '" data-path="' + escapeHtml(order.path) + '" title="' + escapeHtml(order.title + " · " + (order.client || "") + "\n" + order.path) + '"' + (active ? ' aria-current="page"' : '') + '><span class="favorite-order-star" aria-hidden="true">★</span><span class="favorite-order-text"><span class="favorite-order-title">' + escapeHtml(order.title) + '</span>' + (order.client ? '<span class="favorite-order-client">' + ClientBadge.markup(order.client, order.client_path) + '</span>' : '') + '</span></button>';
+    const flagged = order.is_flagged === true;
+    return '<button type="button" class="favorite-order-button' + (active ? ' active' : '') + (flagged ? ' flagged' : '') +
+      '" data-path="' + escapeHtml(order.path) + '" title="' + escapeHtml(order.title + " · " + (order.client || "") + "\n" + order.path) + '"' +
+      (active ? ' aria-current="page"' : '') + '><span class="favorite-order-star" aria-hidden="true">★</span>' +
+      '<span class="favorite-order-text"><span class="favorite-order-title">' + escapeHtml(order.title) + '</span>' +
+      (order.client ? '<span class="favorite-order-client">' + ClientBadge.markup(order.client, order.client_path) + '</span>' : '') + '</span>' +
+      (flagged ? '<span class="favorite-order-flag"><svg aria-hidden="true"><use href="#icon-flag"></use></svg><span class="visually-hidden">С флажком</span></span>' : '') + '</button>';
   }).join("");
   if (container.innerHTML !== markup) {
     const focusedPath = container.contains(document.activeElement) ? document.activeElement.dataset.path : null;
@@ -2964,6 +2970,7 @@ async function toggleOrderMarker(button, kind) {
   });
   try {
     applyOrderRecord(null, await request("/api/order-" + marker.suffix, payload));
+    if (kind === "flag") renderFavoriteOrders();
   } catch (error) {
     try { await loadOrders(); } catch (_) { /* Keep the last loaded list while offline. */ }
     throw error;
