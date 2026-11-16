@@ -10,7 +10,6 @@
   const itemKey = (order, item) => order.id + ":" + item.index;
   const dialog = $("supplierPurchaseDialog");
   const form = $("supplierPurchaseForm"), colorField = $("supplierPurchaseColor");
-  const colorName = "supplier-purchase-color";
   let editor = null;
 
   // Показывает текущие закупки и сохраняет фокус и прокрутку при обновлении.
@@ -86,8 +85,10 @@
   // Использует `Boolean`, `$`.
   function editorControls() {
     const busy = Boolean(editor?.busy);
+    if (busy && state.todoColorMenu?.trigger === colorField) closeTodoColorMenu();
     $("supplierPurchaseText").readOnly = busy;
     colorField.disabled = busy;
+    colorField.textContent = "Цвет строки · " + todoColorLabels[editor?.color || ""];
     $("saveSupplierPurchase").disabled = busy || Boolean(editor?.conflict);
     $("cancelSupplierPurchase").disabled = busy;
     $("checkSupplierPurchase").disabled = busy;
@@ -101,11 +102,10 @@
     const order = model.orders.find(row => row.id === button.closest("[data-supplier-purchase-order]").dataset.supplierPurchaseOrder);
     const item = order?.items.find(row => row.index === Number(button.dataset.purchaseIndex));
     if (!item) return;
-    editor = { folder, order: { ...order }, item: { ...item }, key: itemKey(order, item), busy: false, conflict: false };
+    editor = { folder, order: { ...order }, item: { ...item }, color: item.color || "", key: itemKey(order, item), busy: false, conflict: false };
     $("supplierPurchaseSource").innerHTML = [ClientBadge.markup(order.client, order.client_path),
       ...[order.object, order.title].filter(Boolean).map(escapeHtml)].filter(Boolean).join(" · ");
     $("supplierPurchaseText").value = item.text;
-    colorField.querySelector(".todo-color-options").innerHTML = todoColorOptions(item.color, colorName);
     $("supplierPurchaseEditState").textContent = "";
     $("supplierPurchaseCurrent").hidden = true;
     editorControls();
@@ -119,7 +119,7 @@
     const edit = editor;
     if (!edit || edit.busy || edit.conflict) return;
     if (state.folder !== edit.folder) { $("supplierPurchaseEditState").textContent = "Страница поставщика изменилась. Текст остался в поле; открой нужную закупку заново."; return; }
-    const value = $("supplierPurchaseText").value.trim(), color = form.elements[colorName].value || null;
+    const value = $("supplierPurchaseText").value.trim(), color = edit.color || null;
     const colorChanged = color !== (edit.item.color || null);
     if (!value) { $("supplierPurchaseEditState").textContent = "Введи текст закупки"; return; }
     if (value === edit.item.text && !colorChanged) { dialog.close(); return; }
@@ -160,7 +160,7 @@
       $("supplierPurchaseCurrent").textContent = "Сейчас в заказе: " + item.text + (item.done ? " · выполнено" : " · не выполнено") + " · поставщики: " + (item.suppliers.join(", ") || "без поставщика") + " · " + todoColorLabels[item.color || ""];
       $("supplierPurchaseCurrent").hidden = false;
       if (item.text !== edit.item.text) throw new Error("Текст строки изменился или закупки переставлены. Твой ввод сохранён; отмени редактирование и выбери нужную строку в обновлённом списке.");
-      if (form.elements[colorName].value === (edit.item.color || "")) form.elements[colorName].value = item.color || "";
+      if (edit.color === (edit.item.color || "")) edit.color = item.color || "";
       edit.order = { ...order }; edit.item = { ...item }; edit.conflict = false;
       $("supplierPurchaseEditState").textContent = "Актуальная строка показана выше. Проверь правку и нажми «Сохранить».";
     } catch (problem) {
@@ -215,11 +215,24 @@
   });
   $("supplierPurchasesShowDone").addEventListener("change", render);
   $("refreshSupplierPurchases").addEventListener("click", () => { error = ""; readError = ""; run(refresh); });
+  colorField.addEventListener("click", () => {
+    const edit = editor;
+    if (!edit || edit.busy) return;
+    openTodoColorMenu(colorField, edit.color, (value) => {
+      if (editor !== edit) return;
+      edit.color = value;
+      editorControls();
+    });
+  });
   form.addEventListener("submit", event => { event.preventDefault(); run(saveText); });
   $("cancelSupplierPurchase").addEventListener("click", () => { if (!editor?.busy) dialog.close(); });
   $("checkSupplierPurchase").addEventListener("click", () => run(checkText));
   dialog.addEventListener("cancel", event => { if (editor?.busy) event.preventDefault(); });
-  dialog.addEventListener("close", () => { const key = editor?.key; editor = null; if (state.folder === folder && visible() && key) focusEdit(key); });
+  dialog.addEventListener("close", () => {
+    if (state.todoColorMenu?.trigger === colorField) closeTodoColorMenu();
+    const key = editor?.key; editor = null;
+    if (state.folder === folder && visible() && key) focusEdit(key);
+  });
   dialog.addEventListener("keydown", event => {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") { event.preventDefault(); event.stopPropagation(); form.requestSubmit(); }
   });

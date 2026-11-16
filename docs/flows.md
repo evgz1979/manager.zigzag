@@ -77,7 +77,7 @@ sequenceDiagram
 
 [OrderTodos.in_order](reference/python/order_todos.md#symbol-OrderTodos.in_order) возвращает задачи для страницы одного заказа. Выполненные сохраняются, но скрыты в обычной актуальной сводке. Обновление индекса не переносит задачи в родителя и не меняет их исходный текст.
 
-[renderTodoColorPicker](reference/javascript/static-app.md#symbol-renderTodoColorPicker) показывает независимую группу кружков в каждой строке. Между цветами можно переключаться стрелками. Выбор сразу применяет оформление и запускает прежнее сохранение карточки. [renderOrderTodoGroup](reference/javascript/static-app.md#symbol-renderOrderTodoGroup) показывает сохранённый цвет в сводках вложенных задач, окне To-do и «Смотри ту-ду».
+[bindTodoColorMenu](reference/javascript/static-app.md#symbol-bindTodoColorMenu) связывает кнопку «⋯», правый клик и Shift+F10 с конкретной строкой. Стрелки перемещают фокус, Enter или пробел применяет цвет, Escape закрывает меню и возвращает фокус. Выбор сразу меняет оформление и запускает прежнее сохранение карточки. В редакторе закупки поставщика меню меняет черновик до нажатия «Сохранить». [renderOrderTodoGroup](reference/javascript/static-app.md#symbol-renderOrderTodoGroup) показывает сохранённый цвет в сводках вложенных задач, окне To-do и «Смотри ту-ду».
 
 ## Закупка у поставщика
 

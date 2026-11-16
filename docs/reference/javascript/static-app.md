@@ -226,6 +226,38 @@ function askRemoveOrder(path)
 
 Прямые присваивания полям/свойствам: `state.removeOrder`, `$("removeOrderName").textContent`, `$("removeOrderPath").textContent`, `$("removeOrderTitle").textContent`, `$("confirmRemoveOrder").textContent`, `$("removeOrderDescription").textContent`.
 
+<a id="symbol-bindTodoColorMenu"></a>
+
+## bindTodoColorMenu
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function bindTodoColorMenu(list, itemsKey, indexKey)
+```
+
+Подключает кнопку, правый клик и клавиатурное меню к редактируемым строкам.
+
+Перед изменением проверяет, что строка и объект данных остались в исходной карточке.
+
+Непосредственные вызовы: `list.addEventListener`.
+
+<a id="symbol-bindTodoColorMenu.open"></a>
+
+## bindTodoColorMenu.open
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function open(event)
+```
+
+Находит редактор строки, на которой вызвано меню.
+
+Выбор относится к этой строке, даже если текст другой задачи совпадает.
+
+Непосредственные вызовы: `event.target.closest`, `row?.querySelector`, `Number`, `event.preventDefault`, `openTodoColorMenu`.
+
 <a id="symbol-calendarEventEntries"></a>
 
 ## calendarEventEntries
@@ -320,7 +352,7 @@ async function changeOrderProductionStatus(select)
 function changeTodoColor(row, item, value)
 ```
 
-Применяет цвет в открытой строке, сохраняя фокус на выбранном кружке.
+Применяет цвет к строке после выбора из контекстного меню.
 
 Планирует обычное сохранение карточки вместе с текстом задачи.
 
@@ -431,6 +463,24 @@ async function closePreview()
 Использует `saveFileComment`, `$("previewDialog").close`, `$`.
 
 Непосредственные вызовы: `saveFileComment`, `$("previewDialog").close`, `$`.
+
+<a id="symbol-closeTodoColorMenu"></a>
+
+## closeTodoColorMenu
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function closeTodoColorMenu(restoreFocus = false)
+```
+
+Закрывает меню цветов и при необходимости возвращает фокус.
+
+При переходе или перерисовке строки вызывается без переноса фокуса.
+
+Непосредственные вызовы: `$`, `trigger.setAttribute`, `menu.hidePopover`, `trigger.focus`.
+
+Прямые присваивания полям/свойствам: `state.todoColorMenu`, `menu.hidden`.
 
 <a id="symbol-colorCalendarEvent"></a>
 
@@ -1439,6 +1489,22 @@ targetPeriod передаёт только свободной записи; ос
 
 Прямые присваивания полям/свойствам: `state.ordersRequest`.
 
+<a id="symbol-moveContextMenuFocus"></a>
+
+## moveContextMenuFocus
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function moveContextMenuFocus(event)
+```
+
+Перемещает фокус между доступными пунктами контекстного меню.
+
+Стрелки, Home и End меняют фокус до отдельного подтверждения выбора.
+
+Непосредственные вызовы: `["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "Home", "End"].includes`, `event.preventDefault`, `[...event.currentTarget.querySelectorAll("button:not(:disabled)")].filter`, `event.currentTarget.querySelectorAll`, `buttons.indexOf`, `["ArrowDown", "ArrowRight"].includes`, `buttons[index].focus`.
+
 <a id="symbol-navigate"></a>
 
 ## navigate
@@ -1453,7 +1519,7 @@ async function navigate(path, { history = true } = {})
 
 Использует `/api/order`, `/api/todos-refresh`.
 
-Непосредственные вызовы: `closeCalendarTodoPreview`, `$`, `$("orderTodoDialog").close`, `closePreview`, `saveCurrentPrintTask`, `saveCurrentStatus`, `state.folderRequest?.abort`, `AbortController`, `document.querySelector(".content-pane").setAttribute`, `document.querySelector`, `request`, `apiUrl`, `path.split`, `parts.at`, `parts.map`, `fetch`, `folderUrl`, `response.json`, `Error`, `Boolean`, `$("homeButton").removeAttribute`, `(data.objectOrders?.archived_paths || []).map`, `state.selectedFiles.clear`, `window.history.pushState`, `encodeURIComponent`, `renderTree`, `renderFolder`, `document.dispatchEvent`, `Event`, `run`, `revealPath(data.path, navigation).catch`, `revealPath`, `notify`.
+Непосредственные вызовы: `closeTodoColorMenu`, `closeCalendarTodoPreview`, `$`, `$("orderTodoDialog").close`, `closePreview`, `saveCurrentPrintTask`, `saveCurrentStatus`, `state.folderRequest?.abort`, `AbortController`, `document.querySelector(".content-pane").setAttribute`, `document.querySelector`, `request`, `apiUrl`, `path.split`, `parts.at`, `parts.map`, `fetch`, `folderUrl`, `response.json`, `Error`, `Boolean`, `$("homeButton").removeAttribute`, `(data.objectOrders?.archived_paths || []).map`, `state.selectedFiles.clear`, `window.history.pushState`, `encodeURIComponent`, `renderTree`, `renderFolder`, `document.dispatchEvent`, `Event`, `run`, `revealPath(data.path, navigation).catch`, `revealPath`, `notify`.
 
 Прямые присваивания полям/свойствам: `state.navigation`, `state.folderRequest`, `$("scanState").textContent`, `data.service`, `state.view`, `$("folderView").hidden`, `$("ordersWorkspace").hidden`, `$("openFolderButton").hidden`, `state.folder`, `state.objectOrders`, `state.objectOrdersError`, `state.workOrderGroups`, `state.workArchivedOrders`, `state.workArchivedPaths`, `state.deadlineWeekOptions`, `$("fileTrashState").textContent`, `state.imageReport`, `state.printTask`, `$("frezaTaskSearch").value`, `$("frezaLegacyFolders").open`, `state.selected`, `state.fileType`, `state.fileQuery`, `state.limit`, `state.dirty`, `document.querySelector(".content-pane").scrollTop`, `$("notice").textContent`, `$("notice").hidden`.
 
@@ -1847,6 +1913,24 @@ async function openSketch(path, key)
 
 Прямые присваивания полям/свойствам: `item.opening`.
 
+<a id="symbol-openTodoColorMenu"></a>
+
+## openTodoColorMenu
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function openTodoColorMenu(trigger, color, choose, point = null)
+```
+
+Открывает кружки возле кнопки или в точке правого клика.
+
+Помещает меню в текущий редактор, чтобы его фокус учитывался при опросе.
+
+Непосредственные вызовы: `closeTodoColorMenu`, `trigger.focus`, `closeCalendarEventMenu`, `$`, `trigger.closest`, `host.append`, `todoColorOptions`, `menu.showPopover`, `trigger.setAttribute`, `trigger.getBoundingClientRect`, `positionContextMenu`, `menu.querySelector('[aria-checked="true"]').focus`, `menu.querySelector`.
+
+Прямые присваивания полям/свойствам: `menu.innerHTML`, `menu.hidden`, `state.todoColorMenu`.
+
 <a id="symbol-orderDeadlineRange"></a>
 
 ## orderDeadlineRange
@@ -2056,6 +2140,24 @@ function positionCalendarTodoPreview()
 Непосредственные вызовы: `$`, `anchor.getBoundingClientRect`, `preview.getBoundingClientRect`, `Math.max`, `Math.min`.
 
 Прямые присваивания полям/свойствам: `preview.style.left`, `preview.style.top`.
+
+<a id="symbol-positionContextMenu"></a>
+
+## positionContextMenu
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function positionContextMenu(menu, x, y)
+```
+
+Размещает открытое контекстное меню внутри окна.
+
+Учитывает фактическую ширину и высоту после показа.
+
+Непосредственные вызовы: `menu.getBoundingClientRect`, `Math.max`, `Math.min`.
+
+Прямые присваивания полям/свойствам: `menu.style.left`, `menu.style.top`.
 
 <a id="symbol-previewUnavailable"></a>
 
@@ -3345,12 +3447,11 @@ function renderPurchases()
 
 Использует `Array.isArray`, `$`, `Boolean`.
 
-Непосредственные вызовы: `Array.isArray`, `$`, `Boolean`, `items.filter`, `items.map((item, index) => '<div class="todo-row' + (item.done ? ' done' : '') + '" data-purchase-index="' + index + '"' + todoColorAttribute(item) + '>' +
+Непосредственные вызовы: `$("purchaseList").contains`, `$`, `closeTodoColorMenu`, `Array.isArray`, `Boolean`, `items.filter`, `items.map((item, index) => '<div class="todo-row' + (item.done ? ' done' : '') + '" data-purchase-index="' + index + '"' + todoColorAttribute(item) + '>' +
     '<input class="todo-check" type="checkbox" aria-label="Закупка выполнена: ' + escapeHtml(item.text) + '"' + (item.done ? ' checked' : '') + '>' +
     '<input class="todo-text" type="text" maxlength="1000" size="' + Math.max(4, Array.from(item.text).length + 1) + '" aria-label="Текст закупки или затраты" value="' + escapeHtml(item.text) + '">' +
     '<div class="purchase-suppliers" role="group" aria-label="Поставщики для закупки: ' + escapeHtml(item.text) + '">' + purchaseSupplierButtons(item) + '</div>' +
-    renderTodoColorPicker(item, "purchase-color-" + index) +
-    '<button class="todo-delete" type="button" aria-label="Удалить закупку: ' + escapeHtml(item.text) + '">×</button></div>').join`, `items.map`, `renderPurchaseSaveState`.
+    renderTodoRowActions(item, "Удалить закупку: ") + '</div>').join`, `items.map`, `renderPurchaseSaveState`.
 
 Прямые присваивания полям/свойствам: `$("purchaseLegacy").hidden`, `$("purchaseLegacyText").textContent`, `$("purchaseAddForm").hidden`, `$("purchaseEmpty").hidden`, `$("purchaseCount").textContent`, `$("purchaseList").innerHTML`.
 
@@ -3466,21 +3567,21 @@ function renderSupplierSchedule()
 
 Прямые присваивания полям/свойствам: `card.dataset.orderKey`, `card.className`, `card.innerHTML`, `link.href`, `link.dataset.calendarOrder`, `link.textContent`, `link.title`, `events.hidden`, `row.dataset.key`, `row.className`, `row.innerHTML`, `slot.title`, `list.hidden`.
 
-<a id="symbol-renderTodoColorPicker"></a>
+<a id="symbol-renderTodoRowActions"></a>
 
-## renderTodoColorPicker
+## renderTodoRowActions
 
 [static/app.js](../../../static/app.js) · `FunctionDeclaration`.
 
 ```javascript
-function renderTodoColorPicker(item, name)
+function renderTodoRowActions(item, deleteLabel)
 ```
 
-Показывает кружки с доступным именем и независимой группой для каждой строки.
+Показывает меню цвета и удаление в компактной группе действий строки.
 
-Использует те же переключатели в задачах и исходных закупках.
+Название строки включается в доступное имя обеих кнопок.
 
-Непосредственные вызовы: `escapeHtml`, `todoColorOptions`.
+Непосредственные вызовы: `escapeHtml`.
 
 <a id="symbol-renderTodos"></a>
 
@@ -3496,11 +3597,10 @@ function renderTodos()
 
 Использует `Array.isArray`, `$`, `Boolean`.
 
-Непосредственные вызовы: `Array.isArray`, `$`, `Boolean`, `items.filter`, `items.map((item, index) => '<div class="todo-row' + (item.done ? ' done' : '') + '" data-todo-index="' + index + '"' + todoColorAttribute(item) + '>' +
+Непосредственные вызовы: `$("todoList").contains`, `$`, `closeTodoColorMenu`, `Array.isArray`, `Boolean`, `items.filter`, `items.map((item, index) => '<div class="todo-row' + (item.done ? ' done' : '') + '" data-todo-index="' + index + '"' + todoColorAttribute(item) + '>' +
     '<input class="todo-check" type="checkbox" aria-label="Выполнено: ' + escapeHtml(item.text) + '"' + (item.done ? ' checked' : '') + '>' +
     '<input class="todo-text" type="text" maxlength="1000" aria-label="Текст задачи" value="' + escapeHtml(item.text) + '">' +
-    renderTodoColorPicker(item, "todo-color-" + index) +
-    '<button class="todo-delete" type="button" aria-label="Удалить задачу: ' + escapeHtml(item.text) + '">×</button></div>').join`, `items.map`.
+    renderTodoRowActions(item, "Удалить задачу: ") + '</div>').join`, `items.map`.
 
 Прямые присваивания полям/свойствам: `$("todoLegacy").hidden`, `$("todoLegacyText").textContent`, `$("todoAddForm").hidden`, `$("todoEmpty").hidden`, `$("todoEmpty").textContent`, `$("todoCount").textContent`, `$("todoList").innerHTML`.
 
@@ -4041,13 +4141,13 @@ function shiftDeadlineWeek(start, offset)
 function showCalendarEventMenu(menu, x, y)
 ```
 
-Размещает контекстное меню в видимой области.
+Показывает меню календаря и ставит фокус на доступное действие.
 
-После показа фокусирует первый доступный пункт.
+Позиционирует меню после снятия hidden.
 
-Непосредственные вызовы: `menu.getBoundingClientRect`, `Math.max`, `Math.min`, `([...menu.querySelectorAll("button:not(:disabled)")].find(button => button.getClientRects().length) || menu).focus`, `[...menu.querySelectorAll("button:not(:disabled)")].find`, `menu.querySelectorAll`.
+Непосредственные вызовы: `positionContextMenu`, `([...menu.querySelectorAll("button:not(:disabled)")].find(button => button.getClientRects().length) || menu).focus`, `[...menu.querySelectorAll("button:not(:disabled)")].find`, `menu.querySelectorAll`.
 
-Прямые присваивания полям/свойствам: `menu.hidden`, `menu.style.left`, `menu.style.top`.
+Прямые присваивания полям/свойствам: `menu.hidden`.
 
 <a id="symbol-showInvoicePreview"></a>
 
@@ -4081,7 +4181,7 @@ async function showOrders({ history = true } = {})
 
 Обращается к DOM текущего документа или переданного контейнера.
 
-Непосредственные вызовы: `closeCalendarTodoPreview`, `$`, `$("orderTodoDialog").close`, `closePreview`, `saveCurrentPrintTask`, `saveCurrentStatus`, `state.folderRequest?.abort`, `mountOrderList`, `state.selectedFiles.clear`, `$("homeButton").setAttribute`, `document.querySelector(".content-pane").setAttribute`, `document.querySelector`, `window.history.pushState`, `renderTree`, `renderOrders`, `document.dispatchEvent`, `Event`, `loadOrders`.
+Непосредственные вызовы: `closeTodoColorMenu`, `closeCalendarTodoPreview`, `$`, `$("orderTodoDialog").close`, `closePreview`, `saveCurrentPrintTask`, `saveCurrentStatus`, `state.folderRequest?.abort`, `mountOrderList`, `state.selectedFiles.clear`, `$("homeButton").setAttribute`, `document.querySelector(".content-pane").setAttribute`, `document.querySelector`, `window.history.pushState`, `renderTree`, `renderOrders`, `document.dispatchEvent`, `Event`, `loadOrders`.
 
 Прямые присваивания полям/свойствам: `state.navigation`, `state.view`, `state.folder`, `state.imageReport`, `state.printTask`, `state.selected`, `$("folderView").hidden`, `$("ordersWorkspace").hidden`, `$("openFolderButton").hidden`, `$("addOrderButton").hidden`, `$("removeOrderButton").hidden`, `$("createObjectFolderButton").hidden`, `$("groupObjectYearsButton").hidden`, `$("createOrderFolderButton").hidden`, `$("createEventFolderButton").hidden`, `$("renameFolderButton").hidden`, `$("moveObjectButton").hidden`, `$("deleteEventButton").hidden`, `$("openEventTrash").hidden`, `$("notice").hidden`, `$("loadOrderFilesButton").hidden`, `$("breadcrumbs").innerHTML`, `$("workSupplierName").hidden`, `$("folderTitleText").textContent`, `$("orderFolderName").hidden`, `$("orderPageFavorite").hidden`, `$("clientLabel").textContent`, `$("editClientColor").hidden`, `$("scanState").textContent`.
 
@@ -4230,17 +4330,16 @@ function todoColorAttribute(item)
 [static/app.js](../../../static/app.js) · `FunctionDeclaration`.
 
 ```javascript
-function todoColorOptions(color, name)
+function todoColorOptions(color)
 ```
 
-Строит группу цветных кружков для редактора задачи или закупки.
+Строит пункты контекстного меню цвета задачи или закупки.
 
-Имя связывает переключатели одной строки, пустое значение снимает цвет.
+Пустое значение снимает цвет, текущий вариант отмечается через aria-checked.
 
 Непосредственные вызовы: `Object.hasOwn`, `Object.entries(todoColorLabels).map(([key, label]) =>
-    '<label class="todo-color-option" data-todo-swatch="' + key + '" title="' + label + '">' +
-    '<input class="todo-color-radio" type="radio" name="' + escapeHtml(name) + '" value="' + key + '" aria-label="' + label + '"' +
-    (key === selected ? ' checked' : '') + '><span class="todo-color-dot" aria-hidden="true"></span></label>').join`, `Object.entries(todoColorLabels).map`, `Object.entries`.
+    '<button class="todo-color-option" type="button" role="menuitemradio" tabindex="-1" data-todo-swatch="' + key + '" title="' + label +
+    '" aria-label="' + label + '" aria-checked="' + (key === selected) + '"><span class="todo-color-dot" aria-hidden="true"></span></button>').join`, `Object.entries(todoColorLabels).map`, `Object.entries`.
 
 <a id="symbol-toggleCalendarCompact"></a>
 

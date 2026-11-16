@@ -233,6 +233,7 @@
         </div>
       </section>
     </main>
+    <div id="todoColorMenu" class="todo-color-menu" role="menu" aria-label="Цвет строки" popover="manual" hidden></div>
     <div id="calendarEventMenu" class="calendar-event-menu" role="menu" aria-label="Действия с событием" tabindex="-1" hidden>
       <div id="calendarEventColors" class="calendar-event-colors" role="group" aria-label="Цвет события" hidden><button type="button" role="menuitemradio" aria-checked="false" data-calendar-color="red" aria-label="Красный"></button><button type="button" role="menuitemradio" aria-checked="false" data-calendar-color="orange" aria-label="Оранжевый"></button><button type="button" role="menuitemradio" aria-checked="false" data-calendar-color="yellow" aria-label="Жёлтый"></button><button type="button" role="menuitemradio" aria-checked="false" data-calendar-color="green" aria-label="Зелёный"></button><button type="button" role="menuitemradio" aria-checked="false" data-calendar-color="blue" aria-label="Синий"></button><button type="button" role="menuitemradio" aria-checked="false" data-calendar-color="purple" aria-label="Фиолетовый"></button><button type="button" role="menuitemradio" aria-checked="false" data-calendar-color="gray" aria-label="Серый"></button></div>
       <p id="calendarEventMenuName" class="calendar-event-menu-name"></p>
@@ -475,7 +476,7 @@
         <h2 id="supplierPurchaseTitle">Изменить закупку</h2>
         <p id="supplierPurchaseSource" class="supplier-purchase-editor-source"></p>
         <label>Текст закупки<input id="supplierPurchaseText" type="text" maxlength="1000" autocomplete="off" required></label>
-        <fieldset id="supplierPurchaseColor" class="supplier-purchase-color"><legend>Цвет строки</legend><div class="todo-color-options"></div></fieldset>
+        <button id="supplierPurchaseColor" class="secondary-button supplier-purchase-color" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="todoColorMenu">Цвет строки</button>
         <p id="supplierPurchaseCurrent" class="supplier-purchase-editor-current" hidden></p>
         <p id="supplierPurchaseEditState" class="todo-save-state" role="status"></p>
         <div class="confirm-actions"><button id="checkSupplierPurchase" class="secondary-button" type="button" hidden>Проверить изменения</button><button id="cancelSupplierPurchase" class="secondary-button" type="button">Отмена</button><button id="saveSupplierPurchase" class="primary-button" type="submit">Сохранить</button></div>

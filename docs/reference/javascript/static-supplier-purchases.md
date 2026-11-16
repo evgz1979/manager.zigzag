@@ -22,7 +22,7 @@ async function checkText()
 
 Непосредственные вызовы: `editorControls`, `Error`, `request`, `apiUrl`, `current.orders.find`, `order?.items.find`, `render`, `$`, `item.suppliers.join`, `$("supplierPurchaseText").focus`.
 
-Прямые присваивания полям/свойствам: `edit.busy`, `$("supplierPurchaseCurrent").textContent`, `$("supplierPurchaseCurrent").hidden`, `form.elements[colorName].value`, `edit.order`, `edit.item`, `edit.conflict`, `$("supplierPurchaseEditState").textContent`.
+Прямые присваивания полям/свойствам: `edit.busy`, `$("supplierPurchaseCurrent").textContent`, `$("supplierPurchaseCurrent").hidden`, `edit.color`, `edit.order`, `edit.item`, `edit.conflict`, `$("supplierPurchaseEditState").textContent`.
 
 <a id="symbol-editorControls"></a>
 
@@ -38,9 +38,9 @@ function editorControls()
 
 Использует `Boolean`, `$`.
 
-Непосредственные вызовы: `Boolean`, `$`.
+Непосредственные вызовы: `Boolean`, `closeTodoColorMenu`, `$`.
 
-Прямые присваивания полям/свойствам: `$("supplierPurchaseText").readOnly`, `colorField.disabled`, `$("saveSupplierPurchase").disabled`, `$("cancelSupplierPurchase").disabled`, `$("checkSupplierPurchase").disabled`, `$("checkSupplierPurchase").hidden`.
+Прямые присваивания полям/свойствам: `$("supplierPurchaseText").readOnly`, `colorField.disabled`, `colorField.textContent`, `$("saveSupplierPurchase").disabled`, `$("cancelSupplierPurchase").disabled`, `$("checkSupplierPurchase").disabled`, `$("checkSupplierPurchase").hidden`.
 
 <a id="symbol-focusEdit"></a>
 
@@ -88,9 +88,9 @@ function openEditor(button)
 
 Непосредственные вызовы: `model.orders.find`, `order?.items.find`, `itemKey`, `$`, `[ClientBadge.markup(order.client, order.client_path),
       ...[order.object, order.title].filter(Boolean).map(escapeHtml)].filter(Boolean).join`, `[ClientBadge.markup(order.client, order.client_path),
-      ...[order.object, order.title].filter(Boolean).map(escapeHtml)].filter`, `ClientBadge.markup`, `[order.object, order.title].filter(Boolean).map`, `[order.object, order.title].filter`, `colorField.querySelector`, `todoColorOptions`, `editorControls`, `dialog.showModal`, `$("supplierPurchaseText").focus`.
+      ...[order.object, order.title].filter(Boolean).map(escapeHtml)].filter`, `ClientBadge.markup`, `[order.object, order.title].filter(Boolean).map`, `[order.object, order.title].filter`, `editorControls`, `dialog.showModal`, `$("supplierPurchaseText").focus`.
 
-Прямые присваивания полям/свойствам: `$("supplierPurchaseSource").innerHTML`, `$("supplierPurchaseText").value`, `colorField.querySelector(".todo-color-options").innerHTML`, `$("supplierPurchaseEditState").textContent`, `$("supplierPurchaseCurrent").hidden`.
+Прямые присваивания полям/свойствам: `$("supplierPurchaseSource").innerHTML`, `$("supplierPurchaseText").value`, `$("supplierPurchaseEditState").textContent`, `$("supplierPurchaseCurrent").hidden`.
 
 <a id="symbol-refresh"></a>
 

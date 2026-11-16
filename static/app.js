@@ -48,7 +48,7 @@ const state = {
   calendarEvents: [],
   calendarInvoicePlans: [],
   calendarPlansLoaded: false, calendarPlansError: "",
-  calendarMenu: null, calendarMoving: new Set(),
+  calendarMenu: null, calendarMoving: new Set(), todoColorMenu: null,
 };
 let searchTimer, toastTimer, todoSaveTimer, previewVersion = 0, treeSearchVersion = 0, printReadVersion = 0;
 // Строит SVG-значок из локального набора символов.
@@ -1244,14 +1244,13 @@ async function refreshPurchaseSuppliers() {
 
 document.addEventListener("manager-folder-rendered", () => { refreshPurchaseSuppliers().catch(() => {}); });
 
-// Строит группу цветных кружков для редактора задачи или закупки.
-// Имя связывает переключатели одной строки, пустое значение снимает цвет.
-function todoColorOptions(color, name) {
+// Строит пункты контекстного меню цвета задачи или закупки.
+// Пустое значение снимает цвет, текущий вариант отмечается через aria-checked.
+function todoColorOptions(color) {
   const selected = Object.hasOwn(todoColorLabels, color) ? color : "";
   return Object.entries(todoColorLabels).map(([key, label]) =>
-    '<label class="todo-color-option" data-todo-swatch="' + key + '" title="' + label + '">' +
-    '<input class="todo-color-radio" type="radio" name="' + escapeHtml(name) + '" value="' + key + '" aria-label="' + label + '"' +
-    (key === selected ? ' checked' : '') + '><span class="todo-color-dot" aria-hidden="true"></span></label>').join("");
+    '<button class="todo-color-option" type="button" role="menuitemradio" tabindex="-1" data-todo-swatch="' + key + '" title="' + label +
+    '" aria-label="' + label + '" aria-checked="' + (key === selected) + '"><span class="todo-color-dot" aria-hidden="true"></span></button>').join("");
 }
 
 // Добавляет цвет к строке редактора или сводки.
@@ -1260,14 +1259,69 @@ function todoColorAttribute(item) {
   return item.color && Object.hasOwn(todoColorLabels, item.color) ? ' data-todo-color="' + item.color + '"' : "";
 }
 
-// Показывает кружки с доступным именем и независимой группой для каждой строки.
-// Использует те же переключатели в задачах и исходных закупках.
-function renderTodoColorPicker(item, name) {
-  return '<span class="todo-color-options" role="radiogroup" aria-label="' + escapeHtml("Цвет строки: " + item.text) + '">' +
-    todoColorOptions(item.color, name) + '</span>';
+// Показывает меню цвета и удаление в компактной группе действий строки.
+// Название строки включается в доступное имя обеих кнопок.
+function renderTodoRowActions(item, deleteLabel) {
+  const text = escapeHtml(item.text);
+  return '<span class="todo-row-actions"><button class="todo-color-trigger" type="button" aria-label="Цвет строки: ' + text +
+    '" aria-haspopup="menu" aria-expanded="false" aria-controls="todoColorMenu" title="Цвет строки">⋯</button>' +
+    '<button class="todo-delete" type="button" aria-label="' + deleteLabel + text + '">×</button></span>';
 }
 
-// Применяет цвет в открытой строке, сохраняя фокус на выбранном кружке.
+// Закрывает меню цветов и при необходимости возвращает фокус.
+// При переходе или перерисовке строки вызывается без переноса фокуса.
+function closeTodoColorMenu(restoreFocus = false) {
+  const trigger = state.todoColorMenu?.trigger;
+  if (!trigger) return;
+  const menu = $("todoColorMenu");
+  state.todoColorMenu = null;
+  trigger.setAttribute("aria-expanded", "false");
+  menu.hidePopover?.();
+  menu.hidden = true;
+  if (restoreFocus && trigger.isConnected) trigger.focus({ preventScroll: true });
+}
+
+// Открывает кружки возле кнопки или в точке правого клика.
+// Помещает меню в текущий редактор, чтобы его фокус учитывался при опросе.
+function openTodoColorMenu(trigger, color, choose, point = null) {
+  const wasOpen = state.todoColorMenu?.trigger === trigger;
+  closeTodoColorMenu();
+  if (wasOpen && !point) { trigger.focus({ preventScroll: true }); return; }
+  closeCalendarEventMenu(false);
+  const menu = $("todoColorMenu"), host = trigger.closest("dialog, #todoPanel, #purchasePanel");
+  if (menu.parentElement !== host) host.append(menu);
+  menu.innerHTML = todoColorOptions(color);
+  menu.hidden = false;
+  menu.showPopover?.();
+  state.todoColorMenu = { trigger, color, choose };
+  trigger.setAttribute("aria-expanded", "true");
+  const bounds = trigger.getBoundingClientRect();
+  positionContextMenu(menu, point?.clientX ?? bounds.left, point?.clientY ?? bounds.bottom);
+  menu.querySelector('[aria-checked="true"]').focus({ preventScroll: true });
+}
+
+// Подключает кнопку, правый клик и клавиатурное меню к редактируемым строкам.
+// Перед изменением проверяет, что строка и объект данных остались в исходной карточке.
+function bindTodoColorMenu(list, itemsKey, indexKey) {
+  // Находит редактор строки, на которой вызвано меню.
+  // Выбор относится к этой строке, даже если текст другой задачи совпадает.
+  function open(event) {
+    const row = event.target.closest(".todo-row"), trigger = row?.querySelector(".todo-color-trigger");
+    const folder = state.folder, items = folder?.[itemsKey], index = Number(row?.dataset[indexKey]), item = items?.[index];
+    if (!trigger || !item) return;
+    event.preventDefault();
+    openTodoColorMenu(trigger, item.color || "", (value) => {
+      if (state.folder === folder && folder[itemsKey]?.[index] === item && row.isConnected) changeTodoColor(row, item, value);
+    }, event.type === "contextmenu" && event.button === 2 ? event : null);
+  }
+  list.addEventListener("click", (event) => { if (event.target.closest(".todo-color-trigger")) open(event); });
+  list.addEventListener("contextmenu", open);
+  list.addEventListener("keydown", (event) => {
+    if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) open(event);
+  });
+}
+
+// Применяет цвет к строке после выбора из контекстного меню.
 // Планирует обычное сохранение карточки вместе с текстом задачи.
 function changeTodoColor(row, item, value) {
   if (value) {
@@ -1284,6 +1338,7 @@ function changeTodoColor(row, item, value) {
 // Использует `Array.isArray`, `$`, `Boolean`.
 function renderPurchases() {
   const folder = state.folder, items = folder.purchase_items;
+  if ($("purchaseList").contains(state.todoColorMenu?.trigger)) closeTodoColorMenu();
   const editable = Array.isArray(items);
   $("purchaseLegacy").hidden = editable;
   $("purchaseLegacyText").textContent = editable ? "" : (folder.order?.extra_blocks || folder.extra_blocks || {})["Закупки и затраты"] || "";
@@ -1294,8 +1349,7 @@ function renderPurchases() {
     '<input class="todo-check" type="checkbox" aria-label="Закупка выполнена: ' + escapeHtml(item.text) + '"' + (item.done ? ' checked' : '') + '>' +
     '<input class="todo-text" type="text" maxlength="1000" size="' + Math.max(4, Array.from(item.text).length + 1) + '" aria-label="Текст закупки или затраты" value="' + escapeHtml(item.text) + '">' +
     '<div class="purchase-suppliers" role="group" aria-label="Поставщики для закупки: ' + escapeHtml(item.text) + '">' + purchaseSupplierButtons(item) + '</div>' +
-    renderTodoColorPicker(item, "purchase-color-" + index) +
-    '<button class="todo-delete" type="button" aria-label="Удалить закупку: ' + escapeHtml(item.text) + '">×</button></div>').join("") : "";
+    renderTodoRowActions(item, "Удалить закупку: ") + '</div>').join("") : "";
   renderPurchaseSaveState();
 }
 
@@ -1324,6 +1378,7 @@ function applyRemotePurchaseUpdate(folder, order) {
 // Использует `Array.isArray`, `$`, `Boolean`.
 function renderTodos() {
   const items = state.folder.todo_items;
+  if ($("todoList").contains(state.todoColorMenu?.trigger)) closeTodoColorMenu();
   const editable = Array.isArray(items);
   $("todoLegacy").hidden = editable;
   $("todoLegacyText").textContent = editable ? "" : (state.folder.order?.extra_blocks || state.folder.extra_blocks || {})["Задачи"] || "";
@@ -1334,8 +1389,7 @@ function renderTodos() {
   $("todoList").innerHTML = editable ? items.map((item, index) => '<div class="todo-row' + (item.done ? ' done' : '') + '" data-todo-index="' + index + '"' + todoColorAttribute(item) + '>' +
     '<input class="todo-check" type="checkbox" aria-label="Выполнено: ' + escapeHtml(item.text) + '"' + (item.done ? ' checked' : '') + '>' +
     '<input class="todo-text" type="text" maxlength="1000" aria-label="Текст задачи" value="' + escapeHtml(item.text) + '">' +
-    renderTodoColorPicker(item, "todo-color-" + index) +
-    '<button class="todo-delete" type="button" aria-label="Удалить задачу: ' + escapeHtml(item.text) + '">×</button></div>').join("") : "";
+    renderTodoRowActions(item, "Удалить задачу: ") + '</div>').join("") : "";
 }
 
 // Проверяет наличие вложенных задач для показа сводки.
@@ -3513,14 +3567,32 @@ function closeCalendarEventMenu(restoreFocus = true) {
   if (restoreFocus && menu) (menu.trigger.isConnected ? menu.trigger : menu.sidebar ? $("homeButton") : $("calendarViewport")).focus({ preventScroll: true });
 }
 
-// Размещает контекстное меню в видимой области.
-// После показа фокусирует первый доступный пункт.
-function showCalendarEventMenu(menu, x, y) {
-  menu.hidden = false;
+// Размещает открытое контекстное меню внутри окна.
+// Учитывает фактическую ширину и высоту после показа.
+function positionContextMenu(menu, x, y) {
   const bounds = menu.getBoundingClientRect();
   menu.style.left = Math.max(8, Math.min(x, window.innerWidth - bounds.width - 8)) + "px";
   menu.style.top = Math.max(8, Math.min(y, window.innerHeight - bounds.height - 8)) + "px";
+}
+
+// Показывает меню календаря и ставит фокус на доступное действие.
+// Позиционирует меню после снятия hidden.
+function showCalendarEventMenu(menu, x, y) {
+  menu.hidden = false;
+  positionContextMenu(menu, x, y);
   ([...menu.querySelectorAll("button:not(:disabled)")].find(button => button.getClientRects().length) || menu).focus({ preventScroll: true });
+}
+
+// Перемещает фокус между доступными пунктами контекстного меню.
+// Стрелки, Home и End меняют фокус до отдельного подтверждения выбора.
+function moveContextMenuFocus(event) {
+  if (!["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+  event.preventDefault();
+  const buttons = [...event.currentTarget.querySelectorAll("button:not(:disabled)")].filter(item => item.getClientRects().length);
+  if (!buttons.length) return;
+  const current = buttons.indexOf(document.activeElement);
+  const index = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (current + (["ArrowDown", "ArrowRight"].includes(event.key) ? 1 : -1) + buttons.length) % buttons.length;
+  buttons[index].focus({ preventScroll: true });
 }
 
 // Открывает меню избранного заказа из кнопки под флажком.
@@ -4148,6 +4220,7 @@ function renderOrders({ force = false } = {}) {
 // Открывает главную страницу и загружает её сводку.
 // Обращается к DOM текущего документа или переданного контейнера.
 async function showOrders({ history = true } = {}) {
+  closeTodoColorMenu();
   closeCalendarTodoPreview();
   if ($("orderTodoDialog").open) $("orderTodoDialog").close();
   if ($("previewDialog").open) await closePreview();
@@ -4205,6 +4278,7 @@ function openLocation() {
 // Загружает выбранную папку и применяет соответствующий интерфейс.
 // Использует `/api/order`, `/api/todos-refresh`.
 async function navigate(path, { history = true } = {}) {
+  closeTodoColorMenu();
   closeCalendarTodoPreview();
   if ($("orderTodoDialog").open) $("orderTodoDialog").close();
   if ($("previewDialog").open) await closePreview();
@@ -4944,12 +5018,7 @@ $("calendarEventMenu").addEventListener("click", (event) => {
 $("calendarEventMenu").addEventListener("keydown", (event) => {
   if (event.key === "Escape") { event.preventDefault(); closeCalendarEventMenu(); return; }
   if (event.key === "Tab") { closeCalendarEventMenu(); return; }
-  if (!["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-  event.preventDefault();
-  const buttons = [...$("calendarEventMenu").querySelectorAll("button:not(:disabled)")].filter((item) => item.getClientRects().length), current = buttons.indexOf(document.activeElement);
-  if (!buttons.length) return;
-  const index = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (current + (["ArrowDown", "ArrowRight"].includes(event.key) ? 1 : -1) + buttons.length) % buttons.length;
-  buttons[index].focus({ preventScroll: true });
+  moveContextMenuFocus(event);
 });
 document.addEventListener("pointerdown", (event) => {
   if (state.calendarMenu && !$("calendarEventMenu").contains(event.target) &&
@@ -5308,6 +5377,29 @@ $("refreshDescendantTodos").addEventListener("click", () => run(async () => {
     if (state.folder === folder) $("descendantTodoState").textContent = "Обновление карточек папок запущено…";
   } finally { $("refreshDescendantTodos").disabled = false; }
 }));
+bindTodoColorMenu($("todoList"), "todo_items", "todoIndex");
+bindTodoColorMenu($("purchaseList"), "purchase_items", "purchaseIndex");
+$("todoColorMenu").addEventListener("click", (event) => {
+  const option = event.target.closest("[data-todo-swatch]"), current = state.todoColorMenu;
+  if (!option || !current) return;
+  const value = option.dataset.todoSwatch;
+  closeTodoColorMenu(true);
+  if (value !== current.color) current.choose(value);
+});
+$("todoColorMenu").addEventListener("keydown", (event) => {
+  if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closeTodoColorMenu(true); return; }
+  if (event.key === "Tab") { closeTodoColorMenu(true); return; }
+  moveContextMenuFocus(event);
+});
+for (const type of ["pointerdown", "focusin"]) {
+  document.addEventListener(type, (event) => {
+    const trigger = state.todoColorMenu?.trigger;
+    if (trigger && !$("todoColorMenu").contains(event.target) && !trigger.contains(event.target)) closeTodoColorMenu();
+  });
+}
+window.addEventListener("resize", () => closeTodoColorMenu(true));
+window.addEventListener("scroll", () => closeTodoColorMenu(true), true);
+window.addEventListener("blur", () => closeTodoColorMenu());
 $("todoAddForm").addEventListener("submit", (event) => {
   event.preventDefault();
   const text = $("todoNewText").value.trim();
@@ -5322,7 +5414,7 @@ $("todoList").addEventListener("input", (event) => {
   const item = state.folder.todo_items[Number(row.dataset.todoIndex)];
   item.text = event.target.value;
   row.querySelector(".todo-check").setAttribute("aria-label", "Выполнено: " + item.text);
-  row.querySelector(".todo-color-options").setAttribute("aria-label", "Цвет строки: " + item.text);
+  row.querySelector(".todo-color-trigger").setAttribute("aria-label", "Цвет строки: " + item.text);
   row.querySelector(".todo-delete").setAttribute("aria-label", "Удалить задачу: " + item.text);
   saveTodosSoon(700);
 });
@@ -5330,7 +5422,6 @@ $("todoList").addEventListener("change", (event) => {
   const row = event.target.closest("[data-todo-index]");
   if (!row) return;
   const items = state.folder.todo_items, item = items[Number(row.dataset.todoIndex)];
-  if (event.target.matches(".todo-color-radio:checked")) changeTodoColor(row, item, event.target.value);
   if (event.target.matches(".todo-check")) {
     item.done = event.target.checked;
     row.classList.toggle("done", item.done);
@@ -5361,7 +5452,7 @@ $("purchaseList").addEventListener("input", (event) => {
   item.text = event.target.value;
   event.target.size = Math.max(4, Array.from(item.text).length + 1);
   row.querySelector(".todo-check").setAttribute("aria-label", "Закупка выполнена: " + item.text);
-  row.querySelector(".todo-color-options").setAttribute("aria-label", "Цвет строки: " + item.text);
+  row.querySelector(".todo-color-trigger").setAttribute("aria-label", "Цвет строки: " + item.text);
   row.querySelector(".todo-delete").setAttribute("aria-label", "Удалить закупку: " + item.text);
   row.querySelector(".purchase-suppliers").setAttribute("aria-label", "Поставщики для закупки: " + item.text);
   saveTodosSoon(700);
@@ -5370,7 +5461,6 @@ $("purchaseList").addEventListener("change", (event) => {
   const row = event.target.closest("[data-purchase-index]");
   if (!row) return;
   const item = state.folder.purchase_items[Number(row.dataset.purchaseIndex)];
-  if (event.target.matches(".todo-color-radio:checked")) changeTodoColor(row, item, event.target.value);
   if (!event.target.matches(".todo-check")) return;
   item.done = event.target.checked;
   row.classList.toggle("done", event.target.checked);
