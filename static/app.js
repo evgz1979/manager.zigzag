@@ -313,7 +313,7 @@ function renderFavoriteOrders() {
 }
 
 // Показывает сохранённое расписание поставщиков между общими папками и избранным.
-// Единственную отмеченную неделю без комментария ставит рядом с названием. Прошедшие недели Москвы скрыты.
+// Показывает названия без номеров и список комментариев к срокам начиная с текущей недели Москвы.
 function renderSupplierSchedule() {
   const list = $("supplierSchedule"), focused = list.contains(document.activeElement) ? document.activeElement : null;
   const oldCard = focused?.closest(".supplier-schedule-order");
@@ -326,31 +326,25 @@ function renderSupplierSchedule() {
     if (!order.work_supplier || !order.path || order.registered === false) continue;
     const selectedWeeks = (order.deadline_weeks || []).filter(week => week >= currentWeek);
     const weeks = selectedWeeks.filter(week => order.calendar_week_events?.[week]?.trim()).sort();
-    const inlineWeek = selectedWeeks.length === 1 && !weeks.length && order.calendar_week_events !== null
+    const uncommentedWeek = selectedWeeks.length === 1 && !weeks.length && order.calendar_week_events !== null
       ? deadlineWeekInfo(selectedWeeks[0]) : null;
-    if (!weeks.length && !inlineWeek) continue;
+    if (!weeks.length && !uncommentedWeek) continue;
     const key = JSON.stringify([order.id, order.path]), color = order.work_supplier_color;
     let card = cards.get(key);
     if (!card) {
       card = document.createElement("div");
       card.dataset.orderKey = key;
       card.className = "supplier-schedule-order";
-      card.innerHTML = '<a class="supplier-schedule-title"><span class="deadline-week" aria-hidden="true" hidden></span><span></span></a>' +
-        '<div class="supplier-schedule-events"></div>';
+      card.innerHTML = '<a class="supplier-schedule-title"></a><ul class="supplier-schedule-events" role="list"></ul>';
     }
     cards.delete(key);
     const link = card.firstElementChild, events = card.lastElementChild;
-    const [inlineBadge, name] = link.children;
     const label = order.work_supplier + " · " + (order.title || order.path);
     link.href = "?path=" + encodeURIComponent(order.path);
     link.dataset.calendarOrder = order.path;
-    if (name.textContent !== label) name.textContent = label;
-    inlineBadge.hidden = !inlineWeek;
-    if (inlineWeek) {
-      inlineBadge.textContent = inlineWeek.number;
-      inlineBadge.classList.toggle("current", inlineWeek.current);
-      inlineBadge.style.setProperty("--deadline-month-hue", inlineWeek.hue);
-      link.title = label + "\nНеделя " + inlineWeek.number + " · " + inlineWeek.label;
+    if (link.textContent !== label) link.textContent = label;
+    if (uncommentedWeek) {
+      link.title = label + "\nНеделя " + uncommentedWeek.number + " · " + uncommentedWeek.label;
       link.setAttribute("aria-label", link.title);
     } else {
       link.title = label;
@@ -360,24 +354,22 @@ function renderSupplierSchedule() {
     else link.removeAttribute("aria-current");
     card.classList.toggle("supplier-neutral", Boolean(color?.neutral));
     card.style.setProperty("--supplier-hue", String(color?.hue ?? 0));
+    events.hidden = !weeks.length;
     const rows = new Map([...events.children].map(row => [row.dataset.key, row]));
     let nextRow = events.firstElementChild;
     for (const week of weeks) {
       const info = deadlineWeekInfo(week);
       let row = rows.get(week);
       if (!row) {
-        row = document.createElement("div");
+        row = document.createElement("li");
         row.dataset.key = week;
         row.className = "supplier-schedule-row";
-        row.innerHTML = '<button type="button" class="supplier-schedule-event"><span aria-hidden="true"></span><span class="supplier-schedule-comment"></span></button>' +
+        row.innerHTML = '<button type="button" class="supplier-schedule-event"><span class="supplier-schedule-comment"></span></button>' +
           '<button type="button" class="supplier-schedule-menu" aria-haspopup="menu">⋯</button>';
       }
       rows.delete(week);
-      const slot = row.firstElementChild, badge = slot.firstElementChild, comment = slot.lastElementChild, menu = row.lastElementChild;
+      const slot = row.firstElementChild, comment = slot.firstElementChild, menu = row.lastElementChild;
       const periodLabel = "Неделя " + info.number + " · " + info.label;
-      badge.className = "deadline-week" + (info.current ? " current" : "");
-      badge.textContent = info.number;
-      badge.style.setProperty("--deadline-month-hue", info.hue);
       HomeCalendar.updateOrderEvent(slot, order, week, "week", periodLabel, comment);
       slot.title = slot.getAttribute("aria-label");
       menu.setAttribute("aria-label", "Действия с событием · " + label + " · " + periodLabel);
