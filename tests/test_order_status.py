@@ -63,7 +63,8 @@ class OrderStatusTests(unittest.TestCase):
     def test_http_partial_update_rejects_stale_version_and_exposes_new_status(self):
         with patch.object(manager, "schedule_order_sync") as schedule:
             saved = self.order
-            for value in ("awaiting_client", "awaiting_payment", "waiting", "offer_later"):
+            statuses = ("awaiting_client", "awaiting_payment", "waiting", "offer_later", "prepare_ahead", "small_tasks")
+            for value in statuses:
                 with self.subTest(status=value):
                     payload = self.payload(revision=saved["revision"], status=value)
                     status, _, body = self.http("/api/order-status", "POST", json.dumps(payload))
@@ -71,13 +72,13 @@ class OrderStatusTests(unittest.TestCase):
                     saved = json.loads(body)
                     self.assertEqual(saved["status"], value)
                     self.assertEqual(self.http("/api/order-status", "POST", json.dumps(payload))[0], 409)
-            self.assertEqual(schedule.call_count, 4)
+            self.assertEqual(schedule.call_count, len(statuses))
             self.assertEqual(self.http("/api/order-status", "POST", json.dumps(self.payload(status="unknown")))[0], 400)
         listed = json.loads(self.http("/api/orders")[2])["orders"]
-        self.assertEqual((listed[0]["status"], listed[0]["revision"]), ("offer_later", saved["revision"]))
+        self.assertEqual((listed[0]["status"], listed[0]["revision"]), ("small_tasks", saved["revision"]))
 
     def test_added_stages_are_independent_and_survive_document_round_trip(self):
-        for production in ("awaiting_client", "awaiting_payment", "related", "done"):
+        for production in ("awaiting_client", "awaiting_payment", "related", "done", "prepare_ahead", "small_tasks"):
             for financial in manager.FINANCIAL_STATUS_LABELS:
                 with self.subTest(status=production, financial_status=financial):
                     record = {**self.order, "financial_status": financial}
