@@ -376,7 +376,7 @@ function closeCalendarEventMenu(restoreFocus = true)
 
 Использует `$`, `(menu.slot.isConnected ? menu.slot : $("calendarViewport")).focus`.
 
-Непосредственные вызовы: `$`, `(menu.trigger.isConnected ? menu.trigger : menu.sidebar ? $("homeButton") : $("calendarViewport")).focus`.
+Непосредственные вызовы: `$`, `menu.trigger.setAttribute`, `(menu.trigger.isConnected ? menu.trigger : menu.sidebar ? $("homeButton") : $("calendarViewport")).focus`.
 
 Прямые присваивания полям/свойствам: `state.calendarMenu`, `$("calendarEventMenu").hidden`.
 
@@ -394,9 +394,9 @@ function closeCalendarTodoPreview(restoreFocus = false)
 
 Управляет отложенным обновлением через таймер или кадр браузера.
 
-Непосредственные вызовы: `clearTimeout`, `cancelCalendarTodoPreviewSwitch`, `$`, `anchor.removeAttribute`, `anchor.focus`.
+Непосредственные вызовы: `clearTimeout`, `cancelCalendarTodoPreviewSwitch`, `$`, `anchor.removeAttribute`, `returnFocus.focus`.
 
-Прямые присваивания полям/свойствам: `calendarTodoPreview.anchor`, `calendarTodoPreview.pinned`, `$("calendarTodoPreview").hidden`, `calendarTodoPreview.suppressed`.
+Прямые присваивания полям/свойствам: `calendarTodoPreview.anchor`, `calendarTodoPreview.returnFocus`, `calendarTodoPreview.pinned`, `$("calendarTodoPreview").hidden`, `calendarTodoPreview.suppressed`.
 
 <a id="symbol-closeOrderLinks"></a>
 
@@ -1543,9 +1543,9 @@ function openCalendarEventMenu(slot, x, y, trigger = slot)
 
 Поставщикам в левой колонке показывает только «Смотри ту-ду», сетке — действия для её вида записи.
 
-Непосредственные вызовы: `closeCalendarTodoPreview`, `slot.closest`, `state.calendarInvoicePlans.find`, `state.calendarEvents.find`, `calendarSlotOrder`, `slot.getAttribute`, `calendarEventEntries`, `state.calendarMoving.has`, `orderRowSaving`, `hasPendingDeadlineComments`, `notify`, `[0, 1].includes`, `closeCalendarEventMenu`, `Boolean`, `order.calendar_inactive?.[period]?.includes`, `order.calendar_completed?.[period]?.includes`, `order.calendar_trip?.[period]?.includes`, `order.calendar_watch_todos?.[period]?.includes`, `$`, `host.append`, `Date`, `start.setUTCDate`, `start.getUTCDate`, `start.getUTCDay`, `end.setUTCDate`, `end.getUTCDate`, `start.toLocaleDateString`, `end.toLocaleDateString`, `$("calendarEventToWeek").setAttribute`, `$("calendarEventNextDays").setAttribute`, `$("calendarEventNextDays").querySelectorAll("[data-calendar-move]").forEach`, `$("calendarEventNextDays").querySelectorAll`, `$("calendarEventInactive").setAttribute`, `String`, `$("calendarEventCompleted").setAttribute`, `$("calendarEventTrip").setAttribute`, `$("calendarEventWatchTodos").setAttribute`, `["incoming", "outgoing"].includes`, `$("calendarEventCarryover").setAttribute`, `$("calendarEventNotified").setAttribute`, `menu.querySelectorAll("[data-calendar-color]").forEach`, `menu.querySelectorAll`, `menu.getBoundingClientRect`, `Math.max`, `Math.min`, `([...menu.querySelectorAll("button:not(:disabled)")].find(button => button.getClientRects().length) || menu).focus`, `[...menu.querySelectorAll("button:not(:disabled)")].find`.
+Непосредственные вызовы: `closeCalendarTodoPreview`, `slot.closest`, `state.calendarInvoicePlans.find`, `state.calendarEvents.find`, `calendarSlotOrder`, `slot.getAttribute`, `calendarEventEntries`, `state.calendarMoving.has`, `orderRowSaving`, `hasPendingDeadlineComments`, `notify`, `[0, 1].includes`, `closeCalendarEventMenu`, `Boolean`, `order.calendar_inactive?.[period]?.includes`, `order.calendar_completed?.[period]?.includes`, `order.calendar_trip?.[period]?.includes`, `order.calendar_watch_todos?.[period]?.includes`, `$`, `menu.classList.remove`, `menu.setAttribute`, `host.append`, `Date`, `start.setUTCDate`, `start.getUTCDate`, `start.getUTCDay`, `end.setUTCDate`, `end.getUTCDate`, `start.toLocaleDateString`, `end.toLocaleDateString`, `$("calendarEventToWeek").setAttribute`, `$("calendarEventNextDays").setAttribute`, `$("calendarEventNextDays").querySelectorAll("[data-calendar-move]").forEach`, `$("calendarEventNextDays").querySelectorAll`, `$("calendarEventInactive").setAttribute`, `String`, `$("calendarEventCompleted").setAttribute`, `$("calendarEventTrip").setAttribute`, `$("calendarEventWatchTodos").setAttribute`, `["incoming", "outgoing"].includes`, `$("calendarEventCarryover").setAttribute`, `$("calendarEventNotified").setAttribute`, `menu.querySelectorAll("[data-calendar-color]").forEach`, `menu.querySelectorAll`, `showCalendarEventMenu`.
 
-Прямые присваивания полям/свойствам: `state.calendarMenu`, `$("calendarEventMenuName").textContent`, `$("calendarEventDayMoves").hidden`, `$("calendarEventToWeek").hidden`, `$("calendarEventToWeek").title`, `$("calendarEventNextDays").hidden`, `$("calendarEventMoveDivider").hidden`, `$("calendarEventMoves").hidden`, `$("calendarEventCompleted").hidden`, `$("calendarEventTrip").hidden`, `$("calendarEventInactive").hidden`, `$("calendarEventWatchTodos").hidden`, `$("calendarEventWatchTodos").disabled`, `$("calendarEventCarryover").hidden`, `$("calendarEventCarryover").disabled`, `$("calendarEventNotified").hidden`, `$("calendarEventNotified").disabled`, `$("calendarEventDelete").hidden`, `$("calendarEventColors").hidden`, `menu.hidden`, `menu.style.left`, `menu.style.top`.
+Прямые присваивания полям/свойствам: `state.calendarMenu`, `$("calendarEventMenuName").textContent`, `$("calendarEventDayMoves").hidden`, `$("calendarEventToWeek").hidden`, `$("calendarEventToWeek").title`, `$("calendarEventNextDays").hidden`, `$("calendarEventMoveDivider").hidden`, `$("calendarEventMoves").hidden`, `$("calendarEventCompleted").hidden`, `$("calendarEventTrip").hidden`, `$("calendarEventInactive").hidden`, `$("calendarEventWatchTodos").hidden`, `$("calendarEventWatchTodos").disabled`, `$("calendarEventCarryover").hidden`, `$("calendarEventCarryover").disabled`, `$("calendarEventNotified").hidden`, `$("calendarEventNotified").disabled`, `$("calendarEventDelete").hidden`, `$("calendarEventColors").hidden`.
 
 <a id="symbol-openCalendarTodoPreview"></a>
 
@@ -1554,16 +1554,16 @@ function openCalendarEventMenu(slot, x, y, trigger = slot)
 [static/app.js](../../../static/app.js) · `FunctionDeclaration`.
 
 ```javascript
-function openCalendarTodoPreview(anchor, pinned = false)
+function openCalendarTodoPreview(anchor, pinned = false, returnFocus = anchor)
 ```
 
 Открывает или закрепляет общее окно задач либо комментария события.
 
-Значок и Alt+↓ закрепляют окно; наведение сохраняет прежние задержки и подавление после Escape.
+Закреплённое окно возвращает фокус на кнопку, из которой открыто; наведение сохраняет задержки.
 
 Непосредственные вызовы: `cancelCalendarTodoPreviewSwitch`, `clearTimeout`, `closeCalendarTodoPreview`, `$`, `anchor.setAttribute`, `renderCalendarTodoPreview`.
 
-Прямые присваивания полям/свойствам: `calendarTodoPreview.anchor`, `calendarTodoPreview.markup`, `$("calendarTodoPreviewBody").scrollTop`, `calendarTodoPreview.pinned`, `$("calendarTodoPreview").hidden`.
+Прямые присваивания полям/свойствам: `calendarTodoPreview.anchor`, `calendarTodoPreview.markup`, `$("calendarTodoPreviewBody").scrollTop`, `calendarTodoPreview.returnFocus`, `calendarTodoPreview.pinned`, `$("calendarTodoPreview").hidden`.
 
 <a id="symbol-openClientColor"></a>
 
@@ -1636,6 +1636,24 @@ function openCreateOrderFolder()
 Непосредственные вызовы: `Boolean`, `["supplier_root", "work_section"].includes`, `$`, `Object.fromEntries`, `new Intl.DateTimeFormat("ru-RU", { timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()).map`, `new Intl.DateTimeFormat("ru-RU", { timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts`, `Intl.DateTimeFormat`, `Date`, `renderNewOrderName`, `$("createOrderFolderDialog").showModal`, `$("newOrderTitle").focus`.
 
 Прямые присваивания полям/свойствам: `state.newOrderParent`, `$("newOrderDateField").hidden`, `$("newOrderDate").required`, `$("newOrderDateLabel").textContent`, `$("newOrderTitleLabel").textContent`, `$("createOrderFolderTitle").textContent`, `$("submitCreateOrderFolder").textContent`, `$("newOrderParentLabel").textContent`, `$("newOrderTitle").placeholder`, `$("newOrderDate").value`, `$("newOrderTitle").value`, `$("newOrderParent").textContent`, `$("newOrderError").hidden`.
+
+<a id="symbol-openFavoriteOrderMenu"></a>
+
+## openFavoriteOrderMenu
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function openFavoriteOrderMenu(trigger)
+```
+
+Открывает меню избранного заказа из кнопки под флажком.
+
+В меню доступен просмотр задач этого заказа.
+
+Непосредственные вызовы: `closeCalendarEventMenu`, `trigger.closest`, `$`, `trigger.getBoundingClientRect`, `closeCalendarTodoPreview`, `menu.classList.add`, `menu.setAttribute`, `slot.querySelector`, `trigger.setAttribute`, `sidebar.append`, `showCalendarEventMenu`.
+
+Прямые присваивания полям/свойствам: `state.calendarMenu`, `$("calendarEventMenuName").textContent`.
 
 <a id="symbol-openFileTrash"></a>
 
@@ -2459,7 +2477,7 @@ function renderCalendarTodoPreview()
 
 Комментарий выводит через textContent с переносами строк; опрос сохраняет прокрутку и фокус.
 
-Непосредственные вызовы: `anchor.closest`, `state.calendarEvents.find`, `state.calendarSupplierOrders.find`, `findListOrder`, `record.comment.trim`, `closeCalendarTodoPreview`, `anchor.getBoundingClientRect`, `$(sidebar ? "supplierSchedule" : "calendarViewport").getBoundingClientRect`, `$`, `$("calendarWeekdays").getBoundingClientRect`, `Math.max`, `Math.min`, `host.append`, `Boolean`, `orderTodoSummary`, `$("closeCalendarTodoPreview").setAttribute`, `renderOrderTodos`, `body.classList.toggle`, `body.setAttribute`, `body.contains`, `([...body.querySelectorAll('[data-order]')].find((link) => link.dataset.order === path) || body).focus`, `[...body.querySelectorAll('[data-order]')].find`, `body.querySelectorAll`, `positionCalendarTodoPreview`.
+Непосредственные вызовы: `anchor.closest`, `state.calendarEvents.find`, `state.favoriteOrders.find`, `state.calendarSupplierOrders.find`, `findListOrder`, `record.comment.trim`, `closeCalendarTodoPreview`, `anchor.getBoundingClientRect`, `(favorites || $(sidebar ? "supplierSchedule" : "calendarViewport")).getBoundingClientRect`, `$`, `$("calendarWeekdays").getBoundingClientRect`, `Math.max`, `Math.min`, `host.append`, `Boolean`, `orderTodoSummary`, `$("closeCalendarTodoPreview").setAttribute`, `renderOrderTodos`, `body.classList.toggle`, `body.setAttribute`, `body.contains`, `([...body.querySelectorAll('[data-order]')].find((link) => link.dataset.order === path) || body).focus`, `[...body.querySelectorAll('[data-order]')].find`, `body.querySelectorAll`, `positionCalendarTodoPreview`.
 
 Прямые присваивания полям/свойствам: `$("calendarTodoPreviewHeading").textContent`, `$("calendarTodoPreviewTitle").textContent`, `$("calendarTodoPreviewCount").hidden`, `$("calendarTodoPreviewCount").textContent`, `$("calendarTodoPreviewFooter").hidden`, `body.textContent`, `body.innerHTML`, `calendarTodoPreview.markup`, `body.scrollTop`.
 
@@ -2643,20 +2661,28 @@ function renderFavoriteOrders()
 
 Показывает избранные заказы в панели навигации.
 
-Отмечает сохранённые флажки и восстанавливает фокус и прокрутку при обновлении.
+Показывает флажок над меню заказа и восстанавливает фокус и прокрутку при обновлении.
 
 Непосредственные вызовы: `$`, `state.favoriteOrders.filter((order) => order.is_favorite === true && order.supplier_status !== "archived").sort`, `state.favoriteOrders.filter`, `favorites.map((order) => {
     const active = state.view !== "orders" && (state.selected === order.path || state.selected.startsWith(order.path + "/"));
     const flagged = order.is_flagged === true;
-    return '<button type="button" class="favorite-order-button' + (active ? ' active' : '') + (flagged ? ' flagged' : '') +
-      '" data-path="' + escapeHtml(order.path) + '" title="' + escapeHtml(order.title + " · " + (order.client || "") + "\n" + order.path) + '"' +
+    const path = escapeHtml(order.path);
+    return '<div class="favorite-order-entry' + (active ? ' active' : '') + (flagged ? ' flagged' : '') + '">' +
+      '<button type="button" class="favorite-order-button" data-path="' + path + '" data-calendar-todos="' + path +
+      '" title="' + escapeHtml(order.title + " · " + (order.client || "") + "\n" + order.path) + '"' +
       (active ? ' aria-current="page"' : '') + '><span class="favorite-order-star" aria-hidden="true">★</span>' +
       '<span class="favorite-order-text"><span class="favorite-order-title">' + escapeHtml(order.title) + '</span>' +
       (order.client ? '<span class="favorite-order-client">' + ClientBadge.markup(order.client, order.client_path) + '</span>' : '') + '</span>' +
-      (flagged ? '<span class="favorite-order-flag"><svg aria-hidden="true"><use href="#icon-flag"></use></svg><span class="visually-hidden">С флажком</span></span>' : '') + '</button>';
-  }).join`, `favorites.map`, `container.contains`, `[...container.querySelectorAll("[data-path]")].find((button) => button.dataset.path === focusedPath)?.focus`, `[...container.querySelectorAll("[data-path]")].find`, `container.querySelectorAll`.
+      (flagged ? '<span class="visually-hidden">С флажком</span>' : '') + '</button>' +
+      '<div class="favorite-order-actions">' + (flagged ? '<span class="favorite-order-flag">' + icon("flag") + '</span>' : '') +
+      '<button type="button" class="favorite-order-menu" data-favorite-menu="' + path +
+      '" aria-haspopup="menu" aria-controls="calendarEventMenu" aria-expanded="false" aria-label="' +
+      escapeHtml("Действия с избранным заказом · " + order.title) + '">⋯</button></div></div>';
+  }).join`, `favorites.map`, `closeCalendarEventMenu`, `container.contains`, `focused?.hasAttribute`, `[...container.querySelectorAll(focusMenu ? "[data-favorite-menu]" : "[data-path]")]
+      .find(button => (focusMenu ? button.dataset.favoriteMenu : button.dataset.path) === focusPath)?.focus`, `[...container.querySelectorAll(focusMenu ? "[data-favorite-menu]" : "[data-path]")]
+      .find`, `container.querySelectorAll`, `calendarTodoPreview.anchor?.closest`, `renderCalendarTodoPreview`.
 
-Прямые присваивания полям/свойствам: `container.innerHTML`, `container.scrollTop`, `container.hidden`.
+Прямые присваивания полям/свойствам: `container.innerHTML`, `state.favoriteOrdersMarkup`, `container.scrollTop`, `container.hidden`.
 
 <a id="symbol-renderFileActions"></a>
 
@@ -4004,6 +4030,24 @@ function shiftDeadlineWeek(start, offset)
 Использует `Date`, `date.setUTCDate`, `date.getUTCDate`.
 
 Непосредственные вызовы: `Date`, `date.setUTCDate`, `date.getUTCDate`, `date.toISOString().slice`, `date.toISOString`, `end.setUTCDate`, `end.getUTCDate`, `/^\d{4}-\d{2}-\d{2}$/.test`, `end.getUTCFullYear`.
+
+<a id="symbol-showCalendarEventMenu"></a>
+
+## showCalendarEventMenu
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function showCalendarEventMenu(menu, x, y)
+```
+
+Размещает контекстное меню в видимой области.
+
+После показа фокусирует первый доступный пункт.
+
+Непосредственные вызовы: `menu.getBoundingClientRect`, `Math.max`, `Math.min`, `([...menu.querySelectorAll("button:not(:disabled)")].find(button => button.getClientRects().length) || menu).focus`, `[...menu.querySelectorAll("button:not(:disabled)")].find`, `menu.querySelectorAll`.
+
+Прямые присваивания полям/свойствам: `menu.hidden`, `menu.style.left`, `menu.style.top`.
 
 <a id="symbol-showInvoicePreview"></a>
 

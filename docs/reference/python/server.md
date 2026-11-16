@@ -964,12 +964,12 @@ def listed_orders():
 
 Формирует возвращаемое значение из проверенного локального состояния.
 
-Непосредственные вызовы: `order_store`, `client_activity_store`, `object_activity_store`, `objects.visible_orders`, `activity.visible_orders`, `store.list`, `OrderTodos(store).attach`, `OrderTodos`, `work_orders.in_work`, `work_orders.archived`, `calendar_events.CalendarEvents(store).list`, `calendar_events.CalendarEvents`, `client_colors.catalog`, `invoice_store().calendar_plans`, `invoice_store`, `order_deadlines.week_options`, `store.pending_unregistrations`, `dict`, `metadata_store().status`, `metadata_store`.
+Непосредственные вызовы: `order_store`, `client_activity_store`, `object_activity_store`, `OrderTodos(store).attach`, `OrderTodos`, `objects.visible_orders`, `activity.visible_orders`, `store.list`, `work_orders.in_work`, `work_orders.archived`, `calendar_events.CalendarEvents(store).list`, `calendar_events.CalendarEvents`, `client_colors.catalog`, `invoice_store().calendar_plans`, `invoice_store`, `order_deadlines.week_options`, `store.pending_unregistrations`, `dict`, `metadata_store().status`, `metadata_store`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-{'orders': OrderTodos(store).attach([order for order in visible if not work_orders.in_work(order['path']) and (not work_orders.archived(order))]), 'calendar_supplier_orders': OrderTodos(store).attach([order for order in visible if order['work_supplier']]), 'calendar_events': calendar_events.CalendarEvents(store).list(), 'client_colors': client_colors.catalog(store), 'calendar_invoice_plans': invoice_store().calendar_plans([order for order in visible if not work_orders.in_work(order['path'])]), 'favorites': [order for order in visible if order['is_favorite'] is True and (not work_orders.arch...
+{'orders': [order for order in visible if not work_orders.in_work(order['path']) and (not work_orders.archived(order))], 'calendar_supplier_orders': [order for order in visible if order['work_supplier']], 'calendar_events': calendar_events.CalendarEvents(store).list(), 'client_colors': client_colors.catalog(store), 'calendar_invoice_plans': invoice_store().calendar_plans([order for order in visible if not work_orders.in_work(order['path'])]), 'favorites': [order for order in visible if order['is_favorite'] is True and (not work_orders.archived(order))], 'deadline_week_options': order_deadli...
 ```
 
 <a id="symbol-listed_work_orders"></a>

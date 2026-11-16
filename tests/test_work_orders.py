@@ -414,6 +414,7 @@ class WorkOrderTests(unittest.TestCase):
         self.assertEqual([item['id'] for item in result['orders']], [ordinary['id']])
         self.assertEqual({item['id'] for item in result['calendar_supplier_orders']}, {production[1]['id'], production[3]['id']})
         self.assertEqual([item['id'] for item in result['favorites']], [starred['id']])
+        self.assertEqual(result['favorites'][0]['todo_groups'][0]['items'], [{'text': 'Проверить размеры', 'done': False}])
         for order in production:
             self.assertEqual(json.loads(self.http(self.url('/api/order', order['path']))[2])['id'], order['id'])
         self.assertEqual(len(store.list()), 5)

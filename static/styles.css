@@ -188,16 +188,20 @@ h1, h2, h3, p { margin: 0; }
   .hidden-orders-reasons { grid-column: 1 / -1; }
   .hidden-orders-group-path { display: block; margin-left: 16px; }
 }
-.favorite-order-button { display: flex; align-items: flex-start; gap: 8px; min-width: 0; padding: 8px 10px; text-align: left; background: var(--surface-subtle); font-size: 12px; }
-.favorite-order-button.active { color: var(--accent); background: var(--accent-soft); border-color: var(--accent-line); }
-.favorite-order-button.flagged { border-color: var(--order-flag-color); }
+.favorite-order-entry { display: grid; grid-template-columns: minmax(0, 1fr) auto; border: 1px solid var(--line); border-radius: 7px; background: var(--surface-subtle); }
+.favorite-order-entry.active { color: var(--accent); background: var(--accent-soft); border-color: var(--accent-line); }
+.favorite-order-entry.flagged { border-color: var(--order-flag-color); }
+.favorite-order-button { display: flex; align-items: flex-start; gap: 8px; min-width: 0; padding: 8px 4px 8px 10px; border: 0; background: transparent; text-align: left; font-size: 12px; }
 .favorite-order-button:focus-visible { outline-offset: -2px; }
 .favorite-order-star { flex-shrink: 0; color: light-dark(#b57b0b, #f1ca78); }
 .favorite-order-text { min-width: 0; }
 .favorite-order-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
 .favorite-order-client { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
-.favorite-order-flag { flex: none; margin-inline-start: auto; margin-top: 1px; color: var(--order-flag-color); }
+.favorite-order-actions { display: grid; justify-items: center; align-content: start; gap: 1px; padding: 3px; }
+.favorite-order-flag { margin-top: 4px; color: var(--order-flag-color); }
 .favorite-order-flag svg { display: block; width: 14px; height: 14px; fill: currentColor; }
+.favorite-order-menu { min-width: 30px; min-height: 26px; padding: 0; border: 0; background: transparent; color: var(--muted); }
+.favorite-order-menu:focus-visible { outline-offset: -2px; }
 @media (max-width: 640px) { .favorite-orders { margin-left: 9px; margin-right: 9px; } }
 .tree-heading { display: flex; justify-content: space-between; align-items: center; padding: 0 22px 11px; font-size: 11px; color: light-dark(#84918c, #a5b3ac); text-transform: uppercase; letter-spacing: 1.1px; font-weight: 650; }
 .tree-heading span:last-child { letter-spacing: 0; font-size: 11px; }
@@ -1396,6 +1400,8 @@ h2 { font-size: 13px; font-weight: 600; }
 .calendar-menu-todo-mark { visibility: visible; opacity: .45; }
 [aria-checked="true"] > .calendar-menu-todo-mark { opacity: 1; }
 .calendar-event-menu button[hidden] { display: none; }
+#calendarEventMenu:not(.favorite-order-context) > #favoriteOrderWatchTodos,
+#calendarEventMenu.favorite-order-context > :not(#calendarEventMenuName, #favoriteOrderWatchTodos) { display: none; }
 .calendar-todo-preview { position: fixed; z-index: 110; width: min(390px, calc(100vw - 16px)); max-height: calc(100dvh - 16px); display: flex; flex-direction: column; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-raised); box-shadow: 0 10px 36px light-dark(#18252b24, #0005); }
 .calendar-todo-preview[hidden] { display: none; }
 .calendar-todo-preview header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }

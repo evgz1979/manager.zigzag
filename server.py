@@ -998,9 +998,9 @@ def listed_orders():
     store = order_store()
     activity = client_activity_store()
     objects = object_activity_store()
-    visible = objects.visible_orders(activity.visible_orders(store.list()))
-    return {"orders": OrderTodos(store).attach([order for order in visible if not work_orders.in_work(order["path"]) and not work_orders.archived(order)]),
-            "calendar_supplier_orders": OrderTodos(store).attach([order for order in visible if order["work_supplier"]]),
+    visible = OrderTodos(store).attach(objects.visible_orders(activity.visible_orders(store.list())))
+    return {"orders": [order for order in visible if not work_orders.in_work(order["path"]) and not work_orders.archived(order)],
+            "calendar_supplier_orders": [order for order in visible if order["work_supplier"]],
             "calendar_events": calendar_events.CalendarEvents(store).list(),
             "client_colors": client_colors.catalog(store),
             "calendar_invoice_plans": invoice_store().calendar_plans([order for order in visible if not work_orders.in_work(order['path'])]),

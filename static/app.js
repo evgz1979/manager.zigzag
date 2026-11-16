@@ -27,7 +27,8 @@ const state = {
   unregistrations: [], removeOrder: null, removingOrder: false,
   objectOrders: [], objectOrdersError: "", workOrderGroups: [], workArchivedOrders: [], workArchivedPaths: [], orderListScope: "",
   collapsedOrderGroups: new Map(),
-  markerSaving: new Set(), favoriteSaving: new Set(), orderStatusSaving: new Set(), deadlineSaving: new Set(), deadlineWeekOptions: [], favoriteOrders: [], supplierFavoriteSaving: new Set(), supplierFavoriteFocus: null,
+  markerSaving: new Set(), favoriteSaving: new Set(), orderStatusSaving: new Set(), deadlineSaving: new Set(), deadlineWeekOptions: [], favoriteOrders: [], favoriteOrdersMarkup: null,
+  supplierFavoriteSaving: new Set(), supplierFavoriteFocus: null,
   fileComment: null, fileCommentSaving: null,
   selectedFiles: new Set(), imageReport: null,
   fileRemoval: null, fileRemoving: false, trashRestoring: false,
@@ -287,7 +288,7 @@ function treeMarkup(nodes, depth = 0, searching = false) {
 }
 
 // Показывает избранные заказы в панели навигации.
-// Отмечает сохранённые флажки и восстанавливает фокус и прокрутку при обновлении.
+// Показывает флажок над меню заказа и восстанавливает фокус и прокрутку при обновлении.
 function renderFavoriteOrders() {
   const container = $("favoriteOrders");
   const favorites = state.favoriteOrders.filter((order) => order.is_favorite === true && order.supplier_status !== "archived").sort((a,b) =>
@@ -295,21 +296,32 @@ function renderFavoriteOrders() {
   const markup = favorites.map((order) => {
     const active = state.view !== "orders" && (state.selected === order.path || state.selected.startsWith(order.path + "/"));
     const flagged = order.is_flagged === true;
-    return '<button type="button" class="favorite-order-button' + (active ? ' active' : '') + (flagged ? ' flagged' : '') +
-      '" data-path="' + escapeHtml(order.path) + '" title="' + escapeHtml(order.title + " · " + (order.client || "") + "\n" + order.path) + '"' +
+    const path = escapeHtml(order.path);
+    return '<div class="favorite-order-entry' + (active ? ' active' : '') + (flagged ? ' flagged' : '') + '">' +
+      '<button type="button" class="favorite-order-button" data-path="' + path + '" data-calendar-todos="' + path +
+      '" title="' + escapeHtml(order.title + " · " + (order.client || "") + "\n" + order.path) + '"' +
       (active ? ' aria-current="page"' : '') + '><span class="favorite-order-star" aria-hidden="true">★</span>' +
       '<span class="favorite-order-text"><span class="favorite-order-title">' + escapeHtml(order.title) + '</span>' +
       (order.client ? '<span class="favorite-order-client">' + ClientBadge.markup(order.client, order.client_path) + '</span>' : '') + '</span>' +
-      (flagged ? '<span class="favorite-order-flag"><svg aria-hidden="true"><use href="#icon-flag"></use></svg><span class="visually-hidden">С флажком</span></span>' : '') + '</button>';
+      (flagged ? '<span class="visually-hidden">С флажком</span>' : '') + '</button>' +
+      '<div class="favorite-order-actions">' + (flagged ? '<span class="favorite-order-flag">' + icon("flag") + '</span>' : '') +
+      '<button type="button" class="favorite-order-menu" data-favorite-menu="' + path +
+      '" aria-haspopup="menu" aria-controls="calendarEventMenu" aria-expanded="false" aria-label="' +
+      escapeHtml("Действия с избранным заказом · " + order.title) + '">⋯</button></div></div>';
   }).join("");
-  if (container.innerHTML !== markup) {
-    const focusedPath = container.contains(document.activeElement) ? document.activeElement.dataset.path : null;
+  if (state.favoriteOrdersMarkup !== markup) {
+    if (state.calendarMenu?.favorite) closeCalendarEventMenu();
+    const focused = container.contains(document.activeElement) ? document.activeElement : null;
+    const focusPath = focused?.dataset.favoriteMenu ?? focused?.dataset.path, focusMenu = focused?.hasAttribute("data-favorite-menu");
     const scroll = container.scrollTop;
     container.innerHTML = markup;
+    state.favoriteOrdersMarkup = markup;
     container.scrollTop = scroll;
-    if (focusedPath) [...container.querySelectorAll("[data-path]")].find((button) => button.dataset.path === focusedPath)?.focus({ preventScroll:true });
+    if (focusPath) [...container.querySelectorAll(focusMenu ? "[data-favorite-menu]" : "[data-path]")]
+      .find(button => (focusMenu ? button.dataset.favoriteMenu : button.dataset.path) === focusPath)?.focus({ preventScroll: true });
   }
   container.hidden = !favorites.length;
+  if (calendarTodoPreview.anchor?.closest("#favoriteOrders")) renderCalendarTodoPreview();
 }
 
 // Показывает сохранённое расписание поставщиков между общими папками и избранным.
@@ -3189,7 +3201,7 @@ async function toggleOrderFavorite(path) {
         if (current && current.id === saved.id && current.revision <= saved.revision) Object.assign(current, saved);
       }
       state.favoriteOrders = state.favoriteOrders.filter((item) => item.path !== path);
-      if (saved.is_favorite === true) state.favoriteOrders.push(saved);
+      if (saved.is_favorite === true) state.favoriteOrders.push({ ...findListOrder(path), ...saved });
       if (folder) folder.order = saved;
     });
     // Serialize card saves with the star while leaving unsaved editor values intact.
@@ -3355,7 +3367,7 @@ function renderHomeCalendar() {
   renderCalendarTodoPreview();
 }
 
-const calendarTodoPreview = { anchor: null, pinned: false, markup: null, timer: null, switchTimer: null, pendingAnchor: null, suppressed: null };
+const calendarTodoPreview = { anchor: null, returnFocus: null, pinned: false, markup: null, timer: null, switchTimer: null, pendingAnchor: null, suppressed: null };
 
 // Отменяет ожидающее переключение окна задач на соседнее событие.
 // Управляет отложенным обновлением через таймер или кадр браузера.
@@ -3368,16 +3380,17 @@ function cancelCalendarTodoPreviewSwitch() {
 // Закрывает общее окно задач или комментария и отменяет отложенные действия.
 // Управляет отложенным обновлением через таймер или кадр браузера.
 function closeCalendarTodoPreview(restoreFocus = false) {
-  const anchor = calendarTodoPreview.anchor;
+  const { anchor, returnFocus } = calendarTodoPreview;
   clearTimeout(calendarTodoPreview.timer);
   cancelCalendarTodoPreviewSwitch();
   calendarTodoPreview.anchor = null;
+  calendarTodoPreview.returnFocus = null;
   calendarTodoPreview.pinned = false;
   $("calendarTodoPreview").hidden = true;
   if (anchor) anchor.removeAttribute("aria-describedby");
-  if (restoreFocus && anchor?.isConnected) {
+  if (restoreFocus && returnFocus?.isConnected) {
     calendarTodoPreview.suppressed = anchor;
-    anchor.focus({ preventScroll: true });
+    returnFocus.focus({ preventScroll: true });
   }
 }
 
@@ -3397,12 +3410,14 @@ function positionCalendarTodoPreview() {
 function renderCalendarTodoPreview() {
   const anchor = calendarTodoPreview.anchor;
   if (!anchor) return;
-  const commentId = anchor.dataset.calendarComment, sidebar = anchor.closest("#sidebar");
-  const record = commentId ? state.calendarEvents.find((event) => event.id === commentId) : sidebar ?
-    state.calendarSupplierOrders.find(order => order.path === anchor.dataset.calendarTodos) : findListOrder(anchor.dataset.calendarTodos);
+  const commentId = anchor.dataset.calendarComment, path = anchor.dataset.calendarTodos;
+  const sidebar = anchor.closest("#sidebar"), favorites = anchor.closest("#favoriteOrders");
+  const record = commentId ? state.calendarEvents.find((event) => event.id === commentId) : favorites ?
+    state.favoriteOrders.find(order => order.path === path) : sidebar ?
+      state.calendarSupplierOrders.find(order => order.path === path) : findListOrder(path);
   if (!anchor.isConnected || anchor.disabled || !record || (commentId ? record.deleted || typeof record.comment !== "string" || !record.comment.trim() : !anchor.dataset.calendarTodos) ||
       (sidebar ? sidebar.inert : state.view !== "orders")) { closeCalendarTodoPreview(); return; }
-  const box = anchor.getBoundingClientRect(), viewport = $(sidebar ? "supplierSchedule" : "calendarViewport").getBoundingClientRect();
+  const box = anchor.getBoundingClientRect(), viewport = (favorites || $(sidebar ? "supplierSchedule" : "calendarViewport")).getBoundingClientRect();
   const viewportTop = sidebar ? viewport.top : $("calendarWeekdays").getBoundingClientRect().bottom;
   if (box.bottom <= Math.max(0, viewportTop) || box.top >= Math.min(innerHeight, viewport.bottom) ||
       box.right <= Math.max(0, viewport.left) || box.left >= Math.min(innerWidth, viewport.right)) { closeCalendarTodoPreview(); return; }
@@ -3411,10 +3426,12 @@ function renderCalendarTodoPreview() {
   $("calendarTodoPreviewHeading").textContent = commentId ? "Комментарий" : "Смотри ту-ду";
   $("calendarTodoPreviewTitle").textContent = commentId ? record.text : record.title;
   $("calendarTodoPreviewCount").hidden = Boolean(commentId);
-  $("calendarTodoPreviewCount").textContent = commentId ? "" : orderTodoSummary(record).count;
+  const loading = favorites && !record.todo_groups;
+  $("calendarTodoPreviewCount").textContent = commentId || loading ? "" : orderTodoSummary(record).count;
   $("calendarTodoPreviewFooter").hidden = Boolean(commentId);
   $("closeCalendarTodoPreview").setAttribute("aria-label", commentId ? "Закрыть комментарий" : "Закрыть To-do");
-  const markup = commentId ? record.comment : renderOrderTodos(record), body = $("calendarTodoPreviewBody");
+  const markup = commentId ? record.comment : loading ? '<p class="order-todo-empty">Задачи загружаются…</p>' : renderOrderTodos(record);
+  const body = $("calendarTodoPreviewBody");
   const signature = (commentId ? "comment:" : "todos:") + markup;
   body.classList.toggle("calendar-comment-preview-body", Boolean(commentId));
   body.setAttribute("aria-label", commentId ? "Комментарий события" : "Актуальные задачи заказа и вложенных папок");
@@ -3430,8 +3447,8 @@ function renderCalendarTodoPreview() {
 }
 
 // Открывает или закрепляет общее окно задач либо комментария события.
-// Значок и Alt+↓ закрепляют окно; наведение сохраняет прежние задержки и подавление после Escape.
-function openCalendarTodoPreview(anchor, pinned = false) {
+// Закреплённое окно возвращает фокус на кнопку, из которой открыто; наведение сохраняет задержки.
+function openCalendarTodoPreview(anchor, pinned = false, returnFocus = anchor) {
   if (!(anchor?.dataset.calendarTodos || anchor?.dataset.calendarComment) || state.calendarMenu || (!pinned && calendarTodoPreview.suppressed === anchor)) return;
   if (calendarTodoPreview.pinned && !pinned) return;
   cancelCalendarTodoPreviewSwitch();
@@ -3442,6 +3459,7 @@ function openCalendarTodoPreview(anchor, pinned = false) {
     calendarTodoPreview.markup = null;
     $("calendarTodoPreviewBody").scrollTop = 0;
   }
+  calendarTodoPreview.returnFocus = returnFocus;
   calendarTodoPreview.pinned = pinned || calendarTodoPreview.pinned;
   $("calendarTodoPreview").hidden = false;
   anchor.setAttribute("aria-describedby", "calendarTodoPreviewBody");
@@ -3491,7 +3509,35 @@ function closeCalendarEventMenu(restoreFocus = true) {
   const menu = state.calendarMenu;
   state.calendarMenu = null;
   $("calendarEventMenu").hidden = true;
+  if (menu?.favorite) menu.trigger.setAttribute("aria-expanded", "false");
   if (restoreFocus && menu) (menu.trigger.isConnected ? menu.trigger : menu.sidebar ? $("homeButton") : $("calendarViewport")).focus({ preventScroll: true });
+}
+
+// Размещает контекстное меню в видимой области.
+// После показа фокусирует первый доступный пункт.
+function showCalendarEventMenu(menu, x, y) {
+  menu.hidden = false;
+  const bounds = menu.getBoundingClientRect();
+  menu.style.left = Math.max(8, Math.min(x, window.innerWidth - bounds.width - 8)) + "px";
+  menu.style.top = Math.max(8, Math.min(y, window.innerHeight - bounds.height - 8)) + "px";
+  ([...menu.querySelectorAll("button:not(:disabled)")].find(button => button.getClientRects().length) || menu).focus({ preventScroll: true });
+}
+
+// Открывает меню избранного заказа из кнопки под флажком.
+// В меню доступен просмотр задач этого заказа.
+function openFavoriteOrderMenu(trigger) {
+  if (state.calendarMenu?.trigger === trigger) { closeCalendarEventMenu(); return; }
+  const slot = trigger.closest(".favorite-order-entry").firstElementChild, sidebar = $("sidebar");
+  const menu = $("calendarEventMenu"), bounds = trigger.getBoundingClientRect();
+  closeCalendarTodoPreview();
+  closeCalendarEventMenu(false);
+  state.calendarMenu = { favorite: true, slot, trigger, sidebar };
+  menu.classList.add("favorite-order-context");
+  menu.setAttribute("aria-label", "Действия с избранным заказом");
+  $("calendarEventMenuName").textContent = slot.querySelector(".favorite-order-title").textContent;
+  trigger.setAttribute("aria-expanded", "true");
+  if (menu.parentElement !== sidebar) sidebar.append(menu);
+  showCalendarEventMenu(menu, bounds.left, bounds.bottom);
 }
 
 // Находит заказ события в том же источнике, из которого построена его кнопка.
@@ -3589,6 +3635,8 @@ function openCalendarEventMenu(slot, x, y, trigger = slot) {
   const notified = Boolean(plan) && order.is_notified === true;
   state.calendarMenu = { free: Boolean(free), plan: Boolean(plan), path: order.path, id: order.id, revision: order.revision, date, period, inactive, completed, trip, watch_todos, carryover, notified, color, canColor, slot, trigger, sidebar };
   const menu = $("calendarEventMenu");
+  menu.classList.remove("favorite-order-context");
+  menu.setAttribute("aria-label", "Действия с событием");
   const host = sidebar || document.body;
   if (menu.parentElement !== host) host.append(menu);
   $("calendarEventMenuName").textContent = text;
@@ -3636,11 +3684,7 @@ function openCalendarEventMenu(slot, x, y, trigger = slot) {
   $("calendarEventDelete").hidden = plan ? Boolean(order.path) : !free && period !== 'day';
   $("calendarEventColors").hidden = !canColor;
   menu.querySelectorAll("[data-calendar-color]").forEach((button) => button.setAttribute("aria-checked", String(button.dataset.calendarColor === (color || "green"))));
-  menu.hidden = false;
-  const bounds = menu.getBoundingClientRect();
-  menu.style.left = Math.max(8, Math.min(x, window.innerWidth - bounds.width - 8)) + "px";
-  menu.style.top = Math.max(8, Math.min(y, window.innerHeight - bounds.height - 8)) + "px";
-  ([...menu.querySelectorAll("button:not(:disabled)")].find(button => button.getClientRects().length) || menu).focus({ preventScroll: true });
+  showCalendarEventMenu(menu, x, y);
 }
 
 // Сохраняет перенос события, включая смену привязки свободного события день/неделя.
@@ -4793,6 +4837,10 @@ $("fileFilters").addEventListener("click", (event) => {
 $("fileSearch").addEventListener("input", (event) => { state.fileQuery = event.target.value; state.limit = 120; renderFiles(); });
 $("fileSort").addEventListener("change", (event) => { state.fileSort = event.target.value; state.limit = 120; renderFiles(); });
 $("orderSearch").addEventListener("input", (event) => { state.orderQuery = event.target.value; renderOrders(); });
+$("favoriteOrders").addEventListener("click", (event) => {
+  const trigger = event.target.closest("[data-favorite-menu]");
+  if (trigger) openFavoriteOrderMenu(trigger);
+});
 for (const surface of [$("calendarWeeks"), $("supplierSchedule")]) {
   surface.addEventListener("click", (event) => {
     const todoIcon = event.target.closest('.calendar-todo-icon, .calendar-comment-icon');
@@ -4872,6 +4920,14 @@ for (const surface of [$("calendarWeeks"), $("supplierSchedule")]) {
 }
 $("calendarEventForm").addEventListener("submit", (event) => { event.preventDefault(); run(() => saveCalendarEvent()); });
 $("calendarEventMenu").addEventListener("click", (event) => {
+  if (state.calendarMenu?.favorite) {
+    if (!event.target.closest("#favoriteOrderWatchTodos")) return;
+    const { slot, trigger } = state.calendarMenu;
+    closeCalendarEventMenu(false);
+    openCalendarTodoPreview(slot, true, trigger);
+    if (!$("calendarTodoPreview").hidden) $("calendarTodoPreviewBody").focus({ preventScroll: true });
+    return;
+  }
   if (event.target.closest('#calendarEventToWeek')) { run(() => moveCalendarEvent(0, 'week')); return; }
   if (event.target.closest('#calendarEventDelete')) { run(deleteCalendarEventFromMenu); return; }
   if (event.target.closest("#calendarEventInactive")) { run(() => toggleCalendarEventFlag('inactive')); return; }
@@ -4895,7 +4951,10 @@ $("calendarEventMenu").addEventListener("keydown", (event) => {
   const index = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (current + (["ArrowDown", "ArrowRight"].includes(event.key) ? 1 : -1) + buttons.length) % buttons.length;
   buttons[index].focus({ preventScroll: true });
 });
-document.addEventListener("pointerdown", (event) => { if (state.calendarMenu && !$("calendarEventMenu").contains(event.target)) closeCalendarEventMenu(false); });
+document.addEventListener("pointerdown", (event) => {
+  if (state.calendarMenu && !$("calendarEventMenu").contains(event.target) &&
+      !(state.calendarMenu.favorite && state.calendarMenu.trigger.contains(event.target))) closeCalendarEventMenu(false);
+});
 window.addEventListener("resize", () => closeCalendarEventMenu(false));
 window.addEventListener("scroll", () => { if (state.calendarMenu) closeCalendarEventMenu(false); }, true);
 window.addEventListener("blur", () => closeCalendarEventMenu(false));
@@ -4934,7 +4993,7 @@ document.addEventListener('pointerdown', (event) => {
 });
 window.addEventListener('resize', renderCalendarTodoPreview);
 window.addEventListener('scroll', (event) => {
-  if (event.target === $("calendarViewport") || event.target === $("supplierSchedule") || event.target === $("sidebar")) { renderCalendarTodoPreview(); return; }
+  if (event.target === $("calendarViewport") || event.target === $("supplierSchedule") || event.target === $("favoriteOrders") || event.target === $("sidebar")) { renderCalendarTodoPreview(); return; }
   if (calendarTodoPreview.anchor && !$("calendarTodoPreview").contains(event.target)) closeCalendarTodoPreview();
 }, true);
 window.addEventListener('blur', () => closeCalendarTodoPreview());
