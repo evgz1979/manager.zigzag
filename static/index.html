@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
     <title>Зигзаг · Заказы</title>
+    <script src="/appearance.js"></script>
     <link rel="stylesheet" href="/styles.css">
   </head>
   <body>
@@ -491,6 +492,7 @@
         <button id="managerSellerTab" type="button" role="tab" aria-selected="true" aria-controls="managerSellerSettings" autofocus>Реквизиты исполнителя</button>
         <button id="managerPasswordTab" type="button" role="tab" aria-selected="false" aria-controls="managerPasswordSettings" tabindex="-1">Пароль внешнего входа</button>
         <button id="managerCalDAVTab" type="button" role="tab" aria-selected="false" aria-controls="managerCalDAVSettings" tabindex="-1" hidden>Apple Calendar · CalDAV</button>
+        <button id="managerAppearanceTab" type="button" role="tab" aria-selected="false" aria-controls="managerAppearanceSettings" tabindex="-1">Оформление</button>
       </div>
       <div id="managerSettingsContent" class="manager-settings-content">
         <section id="managerSellerSettings" role="tabpanel" aria-labelledby="managerSellerTab" tabindex="0">
@@ -531,6 +533,27 @@
             <label id="managerCalDAVPasswordLabel" hidden>Пароль CalDAV<input id="managerCalDAVPassword" type="text" readonly autocomplete="off" spellcheck="false"></label>
             <p id="managerCalDAVState" class="todo-save-state" role="status"></p>
           </div>
+        </section>
+        <section id="managerAppearanceSettings" role="tabpanel" aria-labelledby="managerAppearanceTab" tabindex="0" hidden>
+          <fieldset class="appearance-options">
+            <legend class="visually-hidden">Оформление</legend>
+            <label class="appearance-option">
+              <input class="visually-hidden" type="radio" name="appearance" value="light">
+              <span class="appearance-preview" aria-hidden="true"><span class="appearance-example"></span></span>
+              <span>Светлое</span>
+            </label>
+            <label class="appearance-option">
+              <input class="visually-hidden" type="radio" name="appearance" value="dark">
+              <span class="appearance-preview" aria-hidden="true"><span class="appearance-example appearance-example-dark"></span></span>
+              <span>Тёмное</span>
+            </label>
+            <label class="appearance-option">
+              <input class="visually-hidden" type="radio" name="appearance" value="auto" checked>
+              <span class="appearance-preview" aria-hidden="true"><span class="appearance-example"></span><span class="appearance-example appearance-example-dark"></span></span>
+              <span>Автоматически</span>
+            </label>
+          </fieldset>
+          <p id="managerAppearanceState" class="todo-save-state" role="status"></p>
         </section>
       </div>
       <div class="confirm-actions"><button id="managerSettingsClose" class="secondary-button" type="button">Закрыть</button></div>

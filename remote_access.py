@@ -381,8 +381,10 @@ def serve_caldav_settings(handler):
 
 
 # Создаёт отдельный класс обработчика защищённого слушателя.
-# Возвращает `RemoteHandler`.
+# Загружает локальный скрипт оформления для страницы входа и возвращает `RemoteHandler`.
 def handler_class(base_handler):
+    appearance_script = (Path(__file__).with_name('static') / 'appearance.js').read_text(encoding='utf-8')
+
     # Закрывает все унаследованные маршруты проверками отдельного внешнего входа.
     # Основные операции: setup, end_headers, reply, context, same_origin; остальные описаны у методов.
     class RemoteHandler(base_handler):
@@ -490,16 +492,22 @@ def handler_class(base_handler):
                 self.reply(303, headers=[('Location', LOGIN_PATH + '?' + urllib.parse.urlencode({'next': safe_next(self.path)}))])
 
         # Формирует страницу входа и короткую привязку CSRF.
-        # Передаёт работу `urllib.parse.parse_qs`, `urllib.parse.urlsplit`, `safe_next`.
+        # Общий скрипт оформления использует nonce страницы и локальный выбор браузера.
         def login_page(self, gate, document, error='', status=200, retry=0):
             query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
             destination = safe_next(query.get('next', ['/'])[0])
             csrf = gate.token(document, 'login', LOGIN_SECONDS)
             nonce = secrets.token_urlsafe(24)
             body = f'''<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>Вход · Зигзаг</title>
+<script nonce="{nonce}">{appearance_script}</script>
 <style nonce="{nonce}">
-:root{{color-scheme:light dark;--canvas:#f7f9f8;--panel:#fff;--text:#263738;--muted:#667570;--line:#e0e7e4;--input-line:#bdccc6;--error:#b13535}}
-@media(prefers-color-scheme:dark){{:root{{--canvas:#161b19;--panel:#222b27;--text:#e3ebe6;--muted:#a5b3ac;--line:#394741;--input-line:#52645b;--error:#ffa9a7}}}}
+:root{{color-scheme:light dark;--canvas:Canvas;--panel:Field;--text:CanvasText;--muted:GrayText;--line:ButtonBorder;--input-line:ButtonBorder;--error:CanvasText}}
+:root[data-appearance="light"]{{color-scheme:light}}
+:root[data-appearance="dark"]{{color-scheme:dark}}
+@supports (color:light-dark(#000,#fff)){{
+  :root{{--canvas:light-dark(#f7f9f8,#161b19);--panel:light-dark(#fff,#222b27);--text:light-dark(#263738,#e3ebe6);
+  --muted:light-dark(#667570,#a5b3ac);--line:light-dark(#e0e7e4,#394741);--input-line:light-dark(#bdccc6,#52645b);--error:light-dark(#b13535,#ffa9a7)}}
+}}
 *{{box-sizing:border-box}}
 body{{margin:0;min-height:100dvh;display:grid;place-items:center;padding:24px;background:var(--canvas);color:var(--text);font:15px -apple-system,BlinkMacSystemFont,sans-serif}}
 main{{width:100%;max-width:360px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:28px}}

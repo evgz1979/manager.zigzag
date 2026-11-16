@@ -1555,6 +1555,12 @@
         ]
       },
       {
+        "path": "static/appearance.js",
+        "symbols": [
+          {"name": "apply", "type": "FunctionDeclaration", "anchor": "symbol-apply"}
+        ]
+      },
+      {
         "path": "static/bills.js",
         "symbols": [
           {"name": "clientKey", "type": "FunctionDeclaration", "anchor": "symbol-clientKey"},

@@ -19,6 +19,8 @@
   --danger-soft: light-dark(#fbefec, #3a2929);
   --focus-blue: light-dark(#4480ca, #90baf1);
 }
+:root[data-appearance="light"] { color-scheme: light; }
+:root[data-appearance="dark"] { color-scheme: dark; }
 * { box-sizing: border-box; }
 .client-badge {
   padding-inline: var(--client-badge-padding, 0px);
@@ -39,8 +41,9 @@ body { margin: 0; color: var(--text); background: var(--canvas); font: 14px/1.45
 dialog { color: light-dark(#000, #e3ebe6); background: var(--surface-raised); }
 button, input, select, textarea { font: inherit; color: inherit; }
 @media (prefers-color-scheme: dark) {
-  input::placeholder, textarea::placeholder { color: var(--muted); }
+  :root:not([data-appearance="light"]) :is(input, textarea)::placeholder { color: var(--muted); }
 }
+:root[data-appearance="dark"] :is(input, textarea)::placeholder { color: var(--muted); }
 button, a { -webkit-tap-highlight-color: transparent; }
 button { cursor: pointer; }
 button:disabled { cursor: default; opacity: .45; }
@@ -68,10 +71,37 @@ h1, h2, h3, p { margin: 0; }
 .confirm-dialog.manager-settings-dialog .confirm-actions { margin-top: 0; padding-top: 10px; border-top: 1px solid var(--line); }
 .manager-settings-dialog #invoiceSellerSettingsFields { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 #invoiceSellerSettingsFields label:first-child, #invoiceSellerSettingsFields label:nth-child(4), #invoiceSellerSettingsFields label:nth-child(5) { grid-column: 1 / -1; }
+.manager-settings-dialog .appearance-options { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(8px, 3vw, 18px); padding: 4px; }
+.manager-settings-dialog .appearance-option { position: relative; display: grid; gap: 7px; min-width: 0; text-align: center; cursor: pointer; font-size: clamp(11px, 3vw, 13px); color: var(--muted); overflow-wrap: anywhere; }
+.appearance-preview { display: flex; aspect-ratio: 1.65; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+.appearance-example { color-scheme: light; display: grid; grid-template-columns: 28% 1fr; flex: 1; min-width: 0; background: var(--canvas); }
+.appearance-example-dark { color-scheme: dark; }
+.appearance-example::before {
+  content: "";
+  border-right: 1px solid var(--line);
+  background:
+    linear-gradient(var(--accent-solid), var(--accent-solid)) center 16% / 55% 8% no-repeat,
+    repeating-linear-gradient(var(--line) 0 2px, transparent 2px 5px) center 48% / 60% 34% no-repeat var(--sidebar);
+}
+.appearance-example::after {
+  content: "";
+  margin: 12% 10%;
+  background:
+    linear-gradient(var(--accent-solid), var(--accent-solid)) left top / 65% 10% no-repeat,
+    repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px 20%) left bottom / 100% 72% no-repeat,
+    repeating-linear-gradient(var(--line) 0 1px, transparent 1px 25%) left bottom / 100% 72% no-repeat var(--surface);
+}
+.appearance-option input:checked ~ span:last-child { color: var(--text); font-weight: 650; }
+.appearance-option input:checked + .appearance-preview { border-color: var(--focus-blue); box-shadow: 0 0 0 2px var(--focus-blue); }
+.appearance-option input:focus-visible + .appearance-preview { outline: 2px solid var(--accent); outline-offset: 4px; }
+#managerAppearanceState:empty { display: none; }
 @media (max-width: 480px) {
-  .manager-settings-tabs:has(#managerCalDAVTab:not([hidden])) { grid-template-columns: 1.16fr 1fr 1fr; }
+  .manager-settings-tabs:has(#managerCalDAVTab:not([hidden])) { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .manager-settings-tabs button { padding-inline: 2px; }
   #invoiceSellerSettingsFields label:has([data-seller-field="account"]), #invoiceSellerSettingsFields label:has([data-seller-field="correspondent"]) { grid-column: 1 / -1; }
+}
+@media (max-width: 360px) {
+  .appearance-option:last-child > span:last-child { margin-inline: -8px; }
 }
 .invoice-product-fields { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 12px; }
 .invoice-product-fields [hidden] { display: none; }
@@ -980,7 +1010,7 @@ h2 { font-size: 13px; font-weight: 600; }
 .year-group-item span { white-space: nowrap; color: var(--muted); }
 .create-order-dialog form { display: grid; gap: 16px; }
 .create-order-dialog label { display: grid; gap: 7px; font-size: 12px; color: var(--muted); }
-.create-order-dialog input { width: 100%; min-width: 0; padding: 10px; color: var(--text); }
+.create-order-dialog input:not([type="radio"]) { width: 100%; min-width: 0; padding: 10px; color: var(--text); }
 #moveObjectDialog { max-height: 90dvh; overflow: auto; }
 #moveObjectDialog select { width: 100%; min-width: 0; padding: 10px; color: var(--text); }
 #moveObjectMeter { width: 100%; accent-color: var(--accent); }

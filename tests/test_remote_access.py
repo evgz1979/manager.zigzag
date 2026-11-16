@@ -89,7 +89,7 @@ class RemoteAccessTests(unittest.TestCase):
     def test_all_remote_surfaces_are_closed_before_sign_in(self):
         with patch.object(manager, 'read_tree', side_effect=AssertionError('must not read data')):
             for method in ('GET', 'HEAD'):
-                for path in ('/', '/hidden-orders.html', '/app.js', '/remote-access.js', '/api/tree', '/api/file?path=private.txt', '/api/health'):
+                for path in ('/', '/hidden-orders.html', '/app.js', '/appearance.js', '/remote-access.js', '/api/tree', '/api/file?path=private.txt', '/api/health'):
                     status, headers, body = self.http(path, method)
                     self.assertIn(status, (303, 401))
                     self.assertIn(('CDN-Cache-Control', 'no-store'), headers)
@@ -221,6 +221,12 @@ class RemoteAccessTests(unittest.TestCase):
         status, _, body = self.http('/', headers={'Cookie': self.session()})
         self.assertEqual(status, 200)
         self.assertIn(b'<script src="/remote-access.js"></script>', body)
+        status, headers, body = self.http(auth.LOGIN_PATH)
+        self.assertEqual(status, 200)
+        policy = dict(headers)['Content-Security-Policy']
+        nonce = re.search(r"script-src 'nonce-([^']+)'", policy)[1]
+        appearance = (manager.STATIC_DIR / 'appearance.js').read_bytes()
+        self.assertIn(f'<script nonce="{nonce}">'.encode() + appearance + b'</script>', body)
 
     def test_config_disabled_by_default_and_remote_bind_is_loopback(self):
         config = self.path / 'manager.ini'
