@@ -177,16 +177,22 @@ function renderList(folder, records)
 function renderTable(record)
 ```
 
-Показывает назначенные сверке счета с их состоянием и источником.
+Показывает назначенные счета, комментарии, состояние и исходные заказы.
 
-Использует `/api/invoice-pdf`.
+Сохраняет переносы строк в комментариях; готовые счета открывает через `/api/invoice-pdf`.
 
 Непосредственные вызовы: `$`, `rows.map(item => {
       const pdf = !item.trash && ['issued', 'external'].includes(item.state);
       const label = escapeHtml(item.label);
       const href = pdf ? apiUrl('/api/invoice-pdf', item.path, { id: item.id }) : '?path=' + encodeURIComponent(item.path);
       const stateLabel = item.trash ? 'В корзине' : { draft: 'Черновик', issued: 'Выпущен', external: 'Внешний' }[item.state] || item.state;
-      return '<tr data-reconciliation-invoice="' + escapeHtml(item.id) + '"><td><a href="' + escapeHtml(href) + '"' + (pdf ? ' target="_blank" rel="noopener"' : ' data-reconciliation-order="' + escapeHtml(item.path) + '"') + '>' + label + '</a>' + (item.comment ? '<small title="' + escapeHtml(item.comment) + '">' + escapeHtml(item.comment) + '</small>' : '') + '</td><td>' + date(item.date) + '</td><td><a href="?path=' + encodeURIComponent(item.path) + '" data-reconciliation-order="' + escapeHtml(item.path) + '" title="' + escapeHtml(item.path) + '">' + escapeHtml(item.order_title) + '</a></td><td class="reconciliation-amount">' + money(item.total) + '</td><td>' + escapeHtml(stateLabel) + '</td><td><button type="button" class="secondary-button" data-reconciliation-unlink="' + escapeHtml(item.id) + '" aria-label="' + escapeHtml('Убрать из сверки · ' + item.label) + '">×</button></td></tr>';
+      return '<tr data-reconciliation-invoice="' + escapeHtml(item.id) + '">' +
+        '<td><a href="' + escapeHtml(href) + '"' + (pdf ? ' target="_blank" rel="noopener"' : ' data-reconciliation-order="' + escapeHtml(item.path) + '"') + '>' + label + '</a></td>' +
+        '<td class="reconciliation-invoice-comment">' + escapeHtml(item.comment || '—') + '</td>' +
+        '<td>' + date(item.date) + '</td>' +
+        '<td><a href="?path=' + encodeURIComponent(item.path) + '" data-reconciliation-order="' + escapeHtml(item.path) + '" title="' + escapeHtml(item.path) + '">' + escapeHtml(item.order_title) + '</a></td>' +
+        '<td class="reconciliation-amount">' + money(item.total) + '</td><td>' + escapeHtml(stateLabel) + '</td>' +
+        '<td><button type="button" class="secondary-button" data-reconciliation-unlink="' + escapeHtml(item.id) + '" aria-label="' + escapeHtml('Убрать из сверки · ' + item.label) + '">×</button></td></tr>';
     }).join`, `rows.map`, `document.querySelector`, `[...$('reconciliationInvoiceRows').querySelectorAll('[data-reconciliation-unlink]')].find(el => el.dataset.reconciliationUnlink === focused)?.focus`, `[...$('reconciliationInvoiceRows').querySelectorAll('[data-reconciliation-unlink]')].find`, `$('reconciliationInvoiceRows').querySelectorAll`.
 
 Прямые присваивания полям/свойствам: `$('reconciliationInvoiceCount').textContent`, `$('reconciliationInvoiceRows').innerHTML`, `pane.scrollTop`, `$('reconciliationInvoiceState').textContent`, `$('reconciliationInvoiceRows').invoiceRecords`.

@@ -45,8 +45,8 @@ const ReconciliationUI = (() => {
       '" data-assigned="' + Boolean(link?.id) + '" aria-label="' + escapeHtml(label) + '" title="' + escapeHtml(label) + '">' + icon('checklist') + '</button>';
   }
 
-  // Показывает назначенные сверке счета с их состоянием и источником.
-  // Использует `/api/invoice-pdf`.
+  // Показывает назначенные счета, комментарии, состояние и исходные заказы.
+  // Сохраняет переносы строк в комментариях; готовые счета открывает через `/api/invoice-pdf`.
   function renderTable(record) {
     const rows = record.invoices || [];
     $('reconciliationInvoiceCount').textContent = rows.length || '';
@@ -55,7 +55,13 @@ const ReconciliationUI = (() => {
       const label = escapeHtml(item.label);
       const href = pdf ? apiUrl('/api/invoice-pdf', item.path, { id: item.id }) : '?path=' + encodeURIComponent(item.path);
       const stateLabel = item.trash ? 'В корзине' : { draft: 'Черновик', issued: 'Выпущен', external: 'Внешний' }[item.state] || item.state;
-      return '<tr data-reconciliation-invoice="' + escapeHtml(item.id) + '"><td><a href="' + escapeHtml(href) + '"' + (pdf ? ' target="_blank" rel="noopener"' : ' data-reconciliation-order="' + escapeHtml(item.path) + '"') + '>' + label + '</a>' + (item.comment ? '<small title="' + escapeHtml(item.comment) + '">' + escapeHtml(item.comment) + '</small>' : '') + '</td><td>' + date(item.date) + '</td><td><a href="?path=' + encodeURIComponent(item.path) + '" data-reconciliation-order="' + escapeHtml(item.path) + '" title="' + escapeHtml(item.path) + '">' + escapeHtml(item.order_title) + '</a></td><td class="reconciliation-amount">' + money(item.total) + '</td><td>' + escapeHtml(stateLabel) + '</td><td><button type="button" class="secondary-button" data-reconciliation-unlink="' + escapeHtml(item.id) + '" aria-label="' + escapeHtml('Убрать из сверки · ' + item.label) + '">×</button></td></tr>';
+      return '<tr data-reconciliation-invoice="' + escapeHtml(item.id) + '">' +
+        '<td><a href="' + escapeHtml(href) + '"' + (pdf ? ' target="_blank" rel="noopener"' : ' data-reconciliation-order="' + escapeHtml(item.path) + '"') + '>' + label + '</a></td>' +
+        '<td class="reconciliation-invoice-comment">' + escapeHtml(item.comment || '—') + '</td>' +
+        '<td>' + date(item.date) + '</td>' +
+        '<td><a href="?path=' + encodeURIComponent(item.path) + '" data-reconciliation-order="' + escapeHtml(item.path) + '" title="' + escapeHtml(item.path) + '">' + escapeHtml(item.order_title) + '</a></td>' +
+        '<td class="reconciliation-amount">' + money(item.total) + '</td><td>' + escapeHtml(stateLabel) + '</td>' +
+        '<td><button type="button" class="secondary-button" data-reconciliation-unlink="' + escapeHtml(item.id) + '" aria-label="' + escapeHtml('Убрать из сверки · ' + item.label) + '">×</button></td></tr>';
     }).join('');
     if (markup !== tableMarkup || tablePath !== record.path) {
       const focused = document.activeElement?.dataset.reconciliationUnlink;

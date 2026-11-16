@@ -200,8 +200,8 @@ class Reconciliations:
                     if db.execute('SELECT 1 FROM reconciliation_invoices WHERE id=?', (item['id'],)).fetchone()
                     else item for item in items]
 
-    # Читает существующую сверку по нормализованному пути из SQLite.
-    # Работает с таблицами reconciliations, sqlite_master, invoices, reconciliation_invoices, orders.
+    # Читает существующую сверку и назначенные ей счета из SQLite.
+    # Берёт примечание счёта для колонки комментария только при отсутствии поля comment.
     def get(self, path):
         path = checked_path(path)
         with self.connect() as db:
@@ -221,7 +221,7 @@ class Reconciliations:
                 result['invoices'].append({'id': invoice['id'], 'path': invoice['path'], 'revision': invoice['revision'],
                     'link_revision': invoice['link_revision'], 'state': invoice['state'], 'number': invoice['number'],
                     'label': data.get('original_name', 'Внешний счёт') if invoice['state'] == 'external' else ('Счёт-договор' if data.get('kind') == 'contract' else 'Счёт') + ' № ' + invoice['number'],
-                    'date': data.get('date', ''), 'total': data.get('total'), 'comment': data.get('comment') or data.get('note', ''),
+                    'date': data.get('date', ''), 'total': data.get('total'), 'comment': data.get('comment', data.get('note', '')),
                     'order_title': owner['title'] if owner else invoice['path'], 'trash': bool(data.get('_trash'))})
             return result
 

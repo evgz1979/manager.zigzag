@@ -1080,7 +1080,8 @@ h2 { font-size: 13px; font-weight: 600; }
 .reconciliation-table th { color: var(--muted); font-weight: 500; }
 .reconciliation-table a { color: var(--accent); }
 .reconciliation-table td:first-child { min-width: 180px; max-width: 380px; }
-.reconciliation-table small { display: block; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--muted); margin-top: 4px; }
+.reconciliation-invoices td { overflow-wrap: anywhere; }
+.reconciliation-invoice-comment { min-width: 160px; max-width: 420px; white-space: pre-wrap; }
 .reconciliation-table .reconciliation-amount { text-align: right; white-space: nowrap; }
 .reconciliation-list-table { table-layout: fixed; }
 .reconciliation-list-table th:first-child { width: 40%; }

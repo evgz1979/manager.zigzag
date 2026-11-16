@@ -126,9 +126,9 @@ def connect(self):
 def get(self, path):
 ```
 
-Читает существующую сверку по нормализованному пути из SQLite.
+Читает существующую сверку и назначенные ей счета из SQLite.
 
-Работает с таблицами reconciliations, sqlite_master, invoices, reconciliation_invoices, orders.
+Берёт примечание счёта для колонки комментария только при отсутствии поля comment.
 
 Непосредственные вызовы: `checked_path`, `self.connect`, `assert_unlocked`, `db.execute('SELECT * FROM reconciliations WHERE path=?', (path,)).fetchone`, `db.execute`, `ReconciliationConflict`, `record`, `db.execute("SELECT 1 FROM sqlite_master WHERE name='invoices'").fetchone`, `json.loads`, `db.execute('SELECT title FROM orders WHERE path=?', (invoice['path'],)).fetchone`, `result['invoices'].append`, `data.get`, `bool`.
 

@@ -269,6 +269,21 @@ class ReconciliationTests(unittest.TestCase):
             self.assign(plan, target)
         self.assertFalse(self.service.get(target['path'])['invoices'])
 
+    def test_invoice_comment_follows_source_and_keeps_an_explicit_clear(self):
+        invoice, target = self.invoice(), self.reconciliation()
+        store = manager.invoice_store()
+        invoice = store.save({**invoice, 'data': {**invoice['data'], 'note': 'Примечание для PDF'}})
+        self.assign(invoice, target)
+        self.assertEqual(self.service.get(target['path'])['invoices'][0]['comment'], 'Примечание для PDF')
+
+        comment = 'Согласовано\nЖдём оплату'
+        invoice = store.save_comment({**invoice, 'comment': comment})
+        self.assertEqual(self.service.get(target['path'])['invoices'][0]['comment'], comment)
+
+        cleared = store.save_comment({**invoice, 'comment': ''})
+        self.assertEqual(self.service.get(target['path'])['invoices'][0]['comment'], '')
+        self.assertEqual(cleared['data']['note'], 'Примечание для PDF')
+
     def test_save_conflicts_unknown_format_and_http_page_protection(self):
         target = self.reconciliation()
         payload = {**target, 'client': 'Поставщик', 'note': 'Новая заметка', 'todo_items': [{'text': 'Проверить', 'done': False}]}
