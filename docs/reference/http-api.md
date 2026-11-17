@@ -744,6 +744,20 @@ self.send_json({'path': relative, 'comment_key': file_comments.binding(target), 
 
 Вызовы ветки: `comment_file`, `file_comments.binding`, `read_file_comment`.
 
+## GET / HEAD /api/document-relevance
+
+[ManagerHandler.handle_get](python/server.md#symbol-ManagerHandler.handle_get).
+
+Условие: `parsed.path == '/api/document-relevance'`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json(document_relevance(relative), head=head)
+```
+
+Вызовы ветки: `document_relevance`.
+
 ## GET / HEAD /api/file
 
 [ManagerHandler.handle_get](python/server.md#symbol-ManagerHandler.handle_get).
@@ -2173,6 +2187,22 @@ self.send_json({'path': relative, 'comment_key': key, **record})
 ```
 
 Вызовы ветки: `comment_file`, `file_comments.binding`, `FileCommentConflict`, `metadata_store().save_comment`, `file_comments.save`, `metadata_store`.
+
+## POST /api/document-relevance
+
+[ManagerHandler.do_POST](python/server.md#symbol-ManagerHandler.do_POST).
+
+Условие: `route == '/api/document-relevance'`.
+
+Ключи payload, читаемые в ветке: `path`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json(document_relevance(payload.get('path', ''), payload))
+```
+
+Вызовы ветки: `document_relevance`.
 
 ## POST /api/image-report
 

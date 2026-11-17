@@ -20,6 +20,7 @@ LOCK = threading.RLock()
 HISTORY = Path('.folder-layout-history/.file-trash')
 PROTECTED = {'!.txt', '!order.txt', '!status.txt', '.order.json', 'status.txt', '.status.txt'}
 FILE_TRASH_PATHS_VERSION = 1
+DOCUMENT_RELEVANCE_VERSION = 1
 
 
 # Обозначает конфликт изменения в этом модуле.
@@ -275,10 +276,10 @@ def describe(root, plan):
             'files': pending, 'count': len(pending), 'removed': removed}
 
 
-# Перепривязывает комментарии SQLite при журналируемом переносе файла.
+# Перепривязывает комментарии и статусы документов SQLite при переносе файла.
 # Работает с таблицами metadata_file_moves, metadata_records.
 def database_move(plan, operation, *, restore=False, finish=False):
-    """Durable comment relocation; also works from the standalone restore script."""
+    """Durable file metadata relocation; also works from the standalone restore script."""
     if not plan.get('database') or operation['source']!=operation['file']:
         return
     source = unicodedata.normalize('NFC',operation['source'])
@@ -289,24 +290,22 @@ def database_move(plan, operation, *, restore=False, finish=False):
         if restore:
             if not row or row[0]=='restored':
                 return
-            original = db.execute("SELECT id FROM metadata_records WHERE kind='comment' AND path=?",(source,)).fetchone()
-            stored = db.execute("SELECT id FROM metadata_records WHERE kind='comment' AND path=?",(destination,)).fetchone()
+            original = db.execute("SELECT id FROM metadata_records WHERE kind IN ('comment','document_relevance') AND path=?",(source,)).fetchone()
             if original:
-                raise TrashConflict('По исходному пути появился другой комментарий; восстановление остановлено: '+source)
+                raise TrashConflict('По исходному пути появились другие метаданные файла; восстановление остановлено: '+source)
             if not finish:
                 db.execute("UPDATE metadata_file_moves SET state='pending' WHERE session=? AND source=?",(plan['session'],source))
             if finish:
-                if stored:
-                    db.execute("UPDATE metadata_records SET path=?,revision=revision+1 WHERE kind='comment' AND path=?",(source,destination))
+                db.execute("UPDATE metadata_records SET path=?,revision=revision+1 WHERE kind IN ('comment','document_relevance') AND path=?",(source,destination))
                 db.execute("UPDATE metadata_file_moves SET state='restored' WHERE session=? AND source=?",(plan['session'],source))
         elif finish:
             db.execute("UPDATE metadata_file_moves SET state='trashed' WHERE session=? AND source=?",(plan['session'],source))
         elif not row:
             db.execute("INSERT INTO metadata_file_moves VALUES (?,?,?,'pending')",(plan['session'],source,destination))
-            db.execute("UPDATE metadata_records SET path=?,revision=revision+1 WHERE kind='comment' AND path=?",(destination,source))
+            db.execute("UPDATE metadata_records SET path=?,revision=revision+1 WHERE kind IN ('comment','document_relevance') AND path=?",(destination,source))
 
 
-# Журналируемо переносит подтверждённые файлы и связанные комментарии в корзину.
+# Журналируемо переносит подтверждённые файлы и связанные метаданные в корзину.
 # При недопустимом состоянии возбуждает ValueError, TrashConflict.
 def remove(root, folder, files, confirmed=False, database=None, *, token=None, invoice_id=None):
     root = Path(root).resolve()

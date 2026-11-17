@@ -417,6 +417,11 @@ def check_event_rename_compatibility(database, release_dir):
                 source = release_dir / name
                 if not source.is_file() or "FILE_TRASH_PATHS_VERSION = 1" not in source.read_text(encoding="utf-8"):
                     raise RuntimeError("В корзине есть перепривязанные пути. Этот релиз не поддерживает восстановление файлов после переноса объекта")
+        if (db.execute("SELECT 1 FROM sqlite_master WHERE name='metadata_records'").fetchone()
+                and db.execute("SELECT 1 FROM metadata_records WHERE kind='document_relevance' LIMIT 1").fetchone()):
+            source = release_dir / "file_trash.py"
+            if not source.is_file() or "DOCUMENT_RELEVANCE_VERSION = 1" not in source.read_text(encoding="utf-8"):
+                raise RuntimeError("В базе есть статусы документов # docs. Этот релиз не переносит их вместе с файлами в корзину")
 
 
 # Подготавливает и переключает проверенный релиз, сохраняя рабочую базу.

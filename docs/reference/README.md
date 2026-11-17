@@ -8,7 +8,7 @@
 
 ## Python
 
-67 файлов; 972 именованных объявлений.
+67 файлов; 974 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
@@ -68,7 +68,7 @@
 | [scripts/rebind_order.py](python/scripts-rebind_order.md) | 8 |
 | [scripts/remote_access_password.py](python/scripts-remote_access_password.md) | 10 |
 | [scripts/verify_recovery_backup.py](python/scripts-verify_recovery_backup.md) | 1 |
-| [server.py](python/server.md) | 102 |
+| [server.py](python/server.md) | 104 |
 | [sketches.py](python/sketches.md) | 12 |
 | [spreadsheet_preview.py](python/spreadsheet_preview.md) | 1 |
 | [supplier_purchases.py](python/supplier_purchases.md) | 14 |
@@ -82,11 +82,11 @@
 
 ## JavaScript
 
-25 файлов; 495 именованных объявлений.
+25 файлов; 497 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
-| [static/app.js](javascript/static-app.md) | 256 |
+| [static/app.js](javascript/static-app.md) | 258 |
 | [static/appearance.js](javascript/static-appearance.md) | 1 |
 | [static/bills.js](javascript/static-bills.md) | 11 |
 | [static/calendar-snapshot.js](javascript/static-calendar-snapshot.md) | 4 |

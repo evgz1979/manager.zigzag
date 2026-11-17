@@ -74,11 +74,11 @@ root / path
 def database_move(plan, operation, *, restore=False, finish=False):
 ```
 
-Перепривязывает комментарии SQLite при журналируемом переносе файла.
+Перепривязывает комментарии и статусы документов SQLite при переносе файла.
 
 Работает с таблицами metadata_file_moves, metadata_records.
 
-Непосредственные вызовы: `plan.get`, `unicodedata.normalize`, `closing`, `sqlite3.connect`, `Path(plan['database']).as_uri`, `Path`, `db.execute`, `db.execute('SELECT state FROM metadata_file_moves WHERE session=? AND source=?', (plan['session'], source)).fetchone`, `db.execute("SELECT id FROM metadata_records WHERE kind='comment' AND path=?", (source,)).fetchone`, `db.execute("SELECT id FROM metadata_records WHERE kind='comment' AND path=?", (destination,)).fetchone`, `TrashConflict`.
+Непосредственные вызовы: `plan.get`, `unicodedata.normalize`, `closing`, `sqlite3.connect`, `Path(plan['database']).as_uri`, `Path`, `db.execute`, `db.execute('SELECT state FROM metadata_file_moves WHERE session=? AND source=?', (plan['session'], source)).fetchone`, `db.execute("SELECT id FROM metadata_records WHERE kind IN ('comment','document_relevance') AND path=?", (source,)).fetchone`, `TrashConflict`.
 
 Явные исключения: `TrashConflict`.
 
@@ -225,7 +225,7 @@ def read_plan(root, token, *, reader=None, database=None):
 def remove(root, folder, files, confirmed=False, database=None, *, token=None, invoice_id=None):
 ```
 
-Журналируемо переносит подтверждённые файлы и связанные комментарии в корзину.
+Журналируемо переносит подтверждённые файлы и связанные метаданные в корзину.
 
 При недопустимом состоянии возбуждает ValueError, TrashConflict.
 

@@ -829,6 +829,39 @@ def read_file_comment(file):
     return metadata_store().comment(file) if DATABASE_ONLY else file_comments.read(file)
 
 
+# Проверяет принадлежность файла к видимой ветке документов на любой глубине.
+# Учитывает варианты пробелов и регистра имени # docs.
+def in_docs(path):
+    return any(part.startswith("#") and part[1:].strip().casefold() == "docs" for part in Path(path).parts)
+
+
+# Читает или сохраняет актуальность одного файла из # docs.
+# Проверяет отпечаток файла и версию SQLite под общей блокировкой переносов.
+def document_relevance(relative, payload=None):
+    if not DATABASE_ONLY or not isinstance(relative, str) or not in_docs(Path(relative).parent):
+        raise ValueError("Выбери документ из папки # docs")
+    with file_comments.LOCK:
+        target = comment_file(relative)
+        if target.name in (STATUS_DOCUMENT_NAME, "!order.txt", *LEGACY_STATUS_DOCUMENT_NAMES):
+            raise ValueError("Служебная карточка не получает статус документа")
+        key = thumbnail_cache.signature(target.stat())
+        store = metadata_store()
+        path = store.key(target)
+        if payload is None:
+            record = store.get("document_relevance", path) or {"value": "none", "revision": "missing"}
+        else:
+            value = payload.get("value")
+            if not isinstance(value, str) or value not in event_relevance.LABELS:
+                raise ValueError("Выбери статус документа")
+            if payload.get("file_key") != key:
+                raise FileCommentConflict("Документ изменился. Обнови папку перед выбором статуса")
+            try:
+                record = store.put("document_relevance", path, {"value": value}, payload.get("revision"))
+            except FileCommentConflict as error:
+                raise FileCommentConflict("Статус изменён в другом окне. Проверь текущий статус перед повторным выбором") from error
+        return {"path": relative_path(target), "file_key": key, "value": record["value"], "revision": record["revision"]}
+
+
 # Создаёт адаптер счетов текущей базы и каталога приложения.
 # Возвращает `invoices.InvoiceStore(order_store(), APP_DIR)`.
 def invoice_store():
@@ -1251,8 +1284,10 @@ def read_folder(relative="", show_inactive=False):
         warnings.append(f"Не удалось прочитать папку: {error.filename}")
 
     thumbnail_entries = []
+    documents = []
     for current, dirs, names in (entry for root in file_roots for entry in os.walk(root, onerror=walk_error, followlinks=False)):
         current_path = Path(current)
+        docs_view = DATABASE_ONLY and not print_view and in_docs(current_path.relative_to(DATA_ROOT))
         dirs[:] = [name for name in dirs if visible(current_path / name)]
         if print_view or status['folderKind'] == 'bills_inbox':
             dirs[:] = []  # Print sources and incoming bills list only immediate files.
@@ -1284,9 +1319,24 @@ def read_folder(relative="", show_inactive=False):
                           "type": file_group(file), "preview": "cdr" if in_freza(relative) and sketches.sketch_name(file.name) else preview_kind(file),
                           "extension": file.suffix.lstrip(".").upper() or "ФАЙЛ", "comment": comment,
                           "comment_key": file_comments.binding(file)})
+            if docs_view:
+                files[-1]["document_relevance"] = {"file_key": thumbnail_cache.signature(stat), "value": "none", "revision": "missing"}
+                documents.append(files[-1])
             if thumbnail_cache.supported(file):
                 files[-1]['thumbnail_key'] = thumbnail_cache.signature(stat)
                 thumbnail_entries.append((relative_path(file), stat))
+    if documents:
+        store = metadata_store()
+        scope = store.key(target)
+        # '/' сразу предшествует '0', поэтому диапазон выбирает только потомков папки.
+        with store.connect() as db:
+            records = {row["path"]: store.record(row) for row in db.execute(
+                "SELECT * FROM metadata_records WHERE kind='document_relevance' AND path>=? AND path<?",
+                (scope + "/", scope + "0"))}
+        for file in documents:
+            record = records.get(store.key(DATA_ROOT / file["path"]))
+            if record:
+                file["document_relevance"].update(value=record["value"], revision=record["revision"])
     if thumbnail_entries:
         try:
             thumbnail_store().observe(thumbnail_entries, requested=True)
@@ -1816,6 +1866,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 target = comment_file(relative)
                 self.send_json({"path": relative, "comment_key": file_comments.binding(target),
                                 **read_file_comment(target)}, head=head)
+            elif parsed.path == "/api/document-relevance":
+                self.send_json(document_relevance(relative), head=head)
             elif parsed.path in {"/api/file", "/api/preview", "/api/text", "/api/pdf", "/api/pdf-page", "/api/spreadsheet"}:
                 target = safe_path(relative)
                 if not target.is_file():
@@ -2459,6 +2511,9 @@ class ManagerHandler(BaseHTTPRequestHandler):
                         raise FileCommentConflict("Комментарий относится к другому файлу или папке. Ваш текст остался в поле; откройте нужный файл заново")
                     record = metadata_store().save_comment(target,payload.get("comment"),payload.get("revision")) if DATABASE_ONLY else file_comments.save(target, payload.get("comment"), payload.get("revision"))
                 self.send_json({"path": relative, "comment_key": key, **record})
+                return
+            elif route == "/api/document-relevance":
+                self.send_json(document_relevance(payload.get("path", ""), payload))
                 return
             elif route == "/api/image-report":
                 with order_folders.LOCK:

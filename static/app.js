@@ -1465,19 +1465,69 @@ function filteredFiles() {
   return files;
 }
 
-// Строит карточку файла с превью, комментарием и прямым скачиванием CDR.
-// При selectable=false скрывает выбор; скачивание передаёт оригинал через `/api/file`.
+// Строит карточку файла с превью, комментарием и доступными действиями.
+// При selectable=false скрывает выбор; статус отображается у файлов из # docs.
 function fileCard(file, selectable = true) {
   const url = apiUrl(file.thumbnail_key ? "/api/thumbnail" : file.preview === "cdr" ? "/api/freza-preview" : "/api/preview", file.path, file.thumbnail_key ? { v: file.thumbnail_key } : {});
   const media = file.thumbnail_key || ["image", "cdr"].includes(file.preview)
     ? '<img class="' + (file.preview === "cdr" ? "cdr-preview" : "") + '"' + (file.thumbnail_key ? ' data-thumbnail-path="' + escapeHtml(file.path) + '" data-thumbnail-key="' + escapeHtml(file.thumbnail_key) + '"' : '') + ' src="' + escapeHtml(url) + '" alt="" loading="lazy" decoding="async"><span class="thumbnail-fallback">' + icon("file") + '<small>' + escapeHtml(file.extension) + "</small></span>"
     : '<span class="file-symbol">' + icon("file") + '<span>' + escapeHtml(file.extension) + "</span></span>";
-  return '<article class="file-card type-' + file.type + (state.selectedFiles.has(file.path) ? ' selected' : '') + '">' +
+  const relevance = file.document_relevance;
+  const relevanceState = relevance ? ' data-relevance-state="' + escapeHtml(relevance.value) + '"' : '';
+  const relevanceControls = relevance ? '<div class="event-relevance" role="group" data-document-file="' + escapeHtml(file.path) +
+    '" aria-label="' + escapeHtml("Актуальность документа " + file.name) + '">' +
+    Object.entries(eventRelevanceLabels).map(([value, label]) => '<button type="button" data-document-status="' + value +
+      '" aria-pressed="' + (value === relevance.value) + '" aria-disabled="' + Boolean(state.folder.documentRelevanceSaving?.has(file.path)) + '">' + label + '</button>').join("") + '</div>' : '';
+  return '<article class="file-card type-' + file.type + (state.selectedFiles.has(file.path) ? ' selected' : '') + '"' + relevanceState + '>' +
     (selectable ? '<label class="file-select-label"><input type="checkbox" class="file-select" data-select-file="' + escapeHtml(file.path) + '" aria-label="Выбрать файл: ' + escapeHtml(file.name) + '"' + (state.selectedFiles.has(file.path) ? ' checked' : '') + '></label>' : '') +
     '<button class="file-main" data-file="' + escapeHtml(file.path) + '" data-comment-key="' + escapeHtml(file.comment_key || "") + '" title="' +
     escapeHtml(file.name + (file.folder ? "\n" + file.folder : "")) + '" aria-label="' + escapeHtml(file.name) + '"><div class="file-thumbnail">' + media +
     '</div><span class="file-name">' + escapeHtml(file.name) + '</span>' + (file.comment?.trim() ? '<span class="file-comment-caption">' + escapeHtml(file.comment) + '</span>' : '') + '</button>' +
-    (file.extension === "CDR" ? fileDownloadButton(file) : '') + '</article>';
+    (file.extension === "CDR" ? fileDownloadButton(file) : '') + relevanceControls + '</article>';
+}
+
+// Обновляет только цвет плитки и состояние её кнопок.
+// Оставляет на месте превью, комментарий, фокус и выделение файлов.
+function updateDocumentRelevance(file, saving) {
+  for (const group of document.querySelectorAll("[data-document-file]")) {
+    if (group.dataset.documentFile !== file.path) continue;
+    group.closest(".file-card").dataset.relevanceState = file.document_relevance.value;
+    for (const button of group.querySelectorAll("[data-document-status]")) {
+      button.setAttribute("aria-pressed", button.dataset.documentStatus === file.document_relevance.value);
+      button.setAttribute("aria-disabled", saving);
+    }
+  }
+}
+
+// Сохраняет выбор для конкретного файла из # docs.
+// При конфликте читает актуальную версию без повторной записи.
+async function saveDocumentRelevance(path, value) {
+  const folder = state.folder, file = folder?.files.find((item) => item.path === path);
+  const relevance = file?.document_relevance;
+  if (!relevance || relevance.value === value || folder.documentRelevanceSaving?.has(path)) return;
+  folder.documentRelevanceSaving ||= new Set();
+  folder.documentRelevanceSaving.add(path);
+  updateDocumentRelevance(file, true);
+  const { file_key, revision } = relevance;
+  let saved;
+  try {
+    saved = await request("/api/document-relevance", { path, file_key, revision, value });
+    if (saved.path !== path || saved.file_key !== file_key) throw new Error("Документ изменился. Обнови папку перед выбором статуса");
+  } catch (error) {
+    if (error.status === 409) {
+      try { saved = await request(apiUrl("/api/document-relevance", path)); } catch { /* Оставляем последнее известное состояние. */ }
+    }
+    throw error;
+  } finally {
+    folder.documentRelevanceSaving.delete(path);
+    const current = folder.files.find((item) => item.path === path);
+    if (current?.document_relevance?.file_key === file_key) {
+      if (saved?.path === path && saved.file_key === file_key && current.document_relevance.revision === revision) {
+        Object.assign(current.document_relevance, { value: saved.value, revision: saved.revision });
+      }
+      if (state.folder === folder) updateDocumentRelevance(current, false);
+    }
+  }
 }
 
 // Обновляет подпись комментария у соответствующей карточки файла.
@@ -4852,15 +4902,19 @@ $("files").addEventListener("click", (event) => {
   const native = event.target.closest("[data-native]");
   const file = event.target.closest("[data-file]");
   const folder = event.target.closest("[data-path]");
+  const status = event.target.closest("[data-document-status]");
   if (native) run(() => openNative(native.dataset.native));
   else if (file) run(() => showPreview(file.dataset.file));
   else if (folder) run(() => navigate(folder.dataset.path));
+  else if (status) run(() => saveDocumentRelevance(status.closest("[data-document-file]").dataset.documentFile, status.dataset.documentStatus));
   else if (event.target.closest("#loadMoreFiles")) { state.limit += 120; renderFiles(); }
 });
 $("orderFileFolders").addEventListener("click", (event) => {
   const file = event.target.closest("[data-file]"), folder = event.target.closest("[data-path]");
+  const status = event.target.closest("[data-document-status]");
   if (file) run(() => showPreview(file.dataset.file));
   else if (folder) run(() => navigate(folder.dataset.path));
+  else if (status) run(() => saveDocumentRelevance(status.closest("[data-document-file]").dataset.documentFile, status.dataset.documentStatus));
 });
 $("orderFileFolders").addEventListener("error", (event) => {
   if (event.target instanceof HTMLImageElement) {

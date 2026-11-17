@@ -816,11 +816,12 @@ function expandCardDeadlineWeeks(direction)
 function fileCard(file, selectable = true)
 ```
 
-Строит карточку файла с превью, комментарием и прямым скачиванием CDR.
+Строит карточку файла с превью, комментарием и доступными действиями.
 
-При selectable=false скрывает выбор; скачивание передаёт оригинал через `/api/file`.
+При selectable=false скрывает выбор; статус отображается у файлов из # docs.
 
-Непосредственные вызовы: `apiUrl`, `["image", "cdr"].includes`, `escapeHtml`, `icon`, `state.selectedFiles.has`, `file.comment?.trim`, `fileDownloadButton`.
+Непосредственные вызовы: `apiUrl`, `["image", "cdr"].includes`, `escapeHtml`, `icon`, `Object.entries(eventRelevanceLabels).map(([value, label]) => '<button type="button" data-document-status="' + value +
+      '" aria-pressed="' + (value === relevance.value) + '" aria-disabled="' + Boolean(state.folder.documentRelevanceSaving?.has(file.path)) + '">' + label + '</button>').join`, `Object.entries(eventRelevanceLabels).map`, `Object.entries`, `state.selectedFiles.has`, `file.comment?.trim`, `fileDownloadButton`.
 
 <a id="symbol-fileDownloadButton"></a>
 
@@ -3973,6 +3974,24 @@ async function saveCurrentStatus()
 
 Прямые присваивания полям/свойствам: `$("saveStatusButton").disabled`, `$("saveStatusButton").textContent`, `state.saving`, `folder.status`, `folder.financial_status`, `folder.note`, `folder.statusSource`, `folder.order`, `folder.reconciliation`, `folder.folderNote`, `folder.draftCard`, `state.dirty`.
 
+<a id="symbol-saveDocumentRelevance"></a>
+
+## saveDocumentRelevance
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+async function saveDocumentRelevance(path, value)
+```
+
+Сохраняет выбор для конкретного файла из # docs.
+
+При конфликте читает актуальную версию без повторной записи.
+
+Непосредственные вызовы: `folder?.files.find`, `folder.documentRelevanceSaving?.has`, `Set`, `folder.documentRelevanceSaving.add`, `updateDocumentRelevance`, `request`, `Error`, `apiUrl`, `folder.documentRelevanceSaving.delete`, `folder.files.find`, `Object.assign`.
+
+Прямые присваивания полям/свойствам: `folder.documentRelevanceSaving`.
+
 <a id="symbol-saveEventRelevance"></a>
 
 ## saveEventRelevance
@@ -4542,6 +4561,24 @@ const treeUrl = (path = "", extra = {}) =>
 Использует `/api/tree`.
 
 Непосредственные вызовы: `apiUrl`.
+
+<a id="symbol-updateDocumentRelevance"></a>
+
+## updateDocumentRelevance
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function updateDocumentRelevance(file, saving)
+```
+
+Обновляет только цвет плитки и состояние её кнопок.
+
+Оставляет на месте превью, комментарий, фокус и выделение файлов.
+
+Непосредственные вызовы: `document.querySelectorAll`, `group.closest`, `group.querySelectorAll`, `button.setAttribute`.
+
+Прямые присваивания полям/свойствам: `group.closest(".file-card").dataset.relevanceState`.
 
 <a id="symbol-updateFileCommentCaption"></a>
 
