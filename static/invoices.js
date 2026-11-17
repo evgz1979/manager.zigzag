@@ -3,7 +3,7 @@
   let editor = null, attachment = null, listedPath = null, listMarkup = null, trashMarkup = null, loading = 0, pendingCreate = null;
   let folderCandidates = [], candidatePath = null, candidateLoading = 0, candidateMarkup = null;
   let pendingRemoval = null, removing = false, planning = null;
-  let itemDrag = null, invoiceOpening = 0;
+  let invoiceOpening = 0;
   const statusSaving = new Map();
   const commentEdits = new Map();
   const listStatusLabels = { none: "Без отметки", active: "Актуально", inactive: "Неактуально", later: "Позже", sent: "Отправлен", paid: "Оплачен" };
@@ -687,7 +687,7 @@
   // Строит товарную строку или строку-разделитель редактируемого счёта.
   // Экранирует значения полей и добавляет ручку перемещения для обоих типов.
   function itemMarkup(item) {
-    const handle = '<button class="icon-button invoice-drag-handle" type="button" data-invoice-drag ' +
+    const handle = '<button class="icon-button row-drag-handle invoice-drag-handle" type="button" data-invoice-drag ' +
       'aria-label="Переместить строку" aria-keyshortcuts="ArrowUp ArrowDown" title="Перетащить строку"></button>';
     if (item.kind === "separator") {
       return '<tr class="invoice-separator" data-kind="separator"><td colspan="6"><div class="invoice-separator-fields">' + handle +
@@ -714,46 +714,6 @@
       handle.disabled = locked;
       handle.draggable = !locked;
     }
-  }
-
-  // Перемещает существующую строку перед указанной или в конец.
-  // Сохраняет поля строки и возвращает фокус ручке; автосохранение запускается только при смене порядка.
-  function moveItem(row, before) {
-    if (before === row || before === row.nextElementSibling) return;
-    row.parentElement.insertBefore(row, before);
-    row.querySelector("[data-invoice-drag]").focus();
-    changed();
-  }
-
-  // Определяет место вставки по верхней или нижней половине строки под указателем.
-  // Возвращает null вне подходящей строки и в точках, сохраняющих текущий порядок.
-  function itemDropPosition(event) {
-    const target = event.target.closest("#invoiceItems > tr");
-    if (!target || target === itemDrag.row) return null;
-    const bounds = target.getBoundingClientRect();
-    const edge = event.clientY < bounds.top + bounds.height / 2 ? "before" : "after";
-    const before = edge === "before" ? target : target.nextElementSibling;
-    if (before === itemDrag.row || before === itemDrag.row.nextElementSibling) return null;
-    return { target, edge, before };
-  }
-
-  // Переносит подсказку вставки на выбранный край строки.
-  // Подсказка не меняет порядок и снимается, когда подходящего места под указателем нет.
-  function markItemDrop(position) {
-    const marker = itemDrag.marker;
-    if (marker?.target === position?.target && marker?.edge === position?.edge) return;
-    marker?.target.removeAttribute("data-invoice-drop");
-    if (position) position.target.dataset.invoiceDrop = position.edge;
-    itemDrag.marker = position;
-  }
-
-  // Завершает визуальное состояние перетаскивания.
-  // Снимает линию и подсветку исходной строки как при вставке, так и при отмене.
-  function clearItemDrag() {
-    if (!itemDrag) return;
-    markItemDrop(null);
-    itemDrag.row.classList.remove("invoice-item-dragging");
-    itemDrag = null;
   }
 
   // Собирает значения полей редактора счёта для сохранения.
@@ -992,46 +952,7 @@
   InvoiceProducts.init(addItem, newIdentity);
   $("addInvoiceItem").addEventListener("click", () => addItem());
   $("addInvoiceSeparator").addEventListener("click", () => addItem({ kind: "separator", comment: "" }));
-  $("invoiceItems").addEventListener("dragstart", (event) => {
-    const handle = event.target.closest("[data-invoice-drag]");
-    if (!handle || handle.disabled || !event.dataTransfer) return;
-    const row = handle.closest("tr");
-    const bounds = row.getBoundingClientRect();
-    event.dataTransfer.setData("application/x-manager-invoice-row", "move");
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setDragImage(row, event.clientX - bounds.left, event.clientY - bounds.top);
-    clearItemDrag();
-    itemDrag = { row, marker: null };
-    row.classList.add("invoice-item-dragging");
-  });
-  $("invoiceItems").addEventListener("dragover", (event) => {
-    if (!itemDrag) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-    markItemDrop(itemDropPosition(event));
-  });
-  $("invoiceItems").addEventListener("dragleave", (event) => {
-    if (itemDrag && !event.currentTarget.contains(event.relatedTarget)) markItemDrop(null);
-  });
-  $("invoiceItems").addEventListener("drop", (event) => {
-    if (!itemDrag) return;
-    event.preventDefault();
-    const { row } = itemDrag;
-    const position = itemDropPosition(event);
-    clearItemDrag();
-    if (position) moveItem(row, position.before);
-  });
-  $("invoiceItems").addEventListener("dragend", clearItemDrag);
-  $("invoiceItems").addEventListener("keydown", (event) => {
-    const handle = event.target.closest("[data-invoice-drag]");
-    if (!handle || handle.disabled || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
-    const up = event.key === "ArrowUp";
-    if (!up && event.key !== "ArrowDown") return;
-    event.preventDefault();
-    const row = handle.closest("tr");
-    const adjacent = up ? row.previousElementSibling : row.nextElementSibling;
-    if (adjacent) moveItem(row, up ? adjacent : adjacent.nextElementSibling);
-  });
+  const clearItemDrag = bindRowReorder($("invoiceItems"), "tr", "application/x-manager-invoice-row", changed);
   $("invoiceItems").addEventListener("click", (event) => {
     if (!editor || editor.issuing) return;
     if (!event.target.closest("[data-invoice-remove]")) return;

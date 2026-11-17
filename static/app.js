@@ -1061,7 +1061,7 @@ function renderFolder(preserveForm = false) {
   if (!preserveForm) {
     folder.todo_items = folder.order ? folder.order.todo_items : folder.todo_items === undefined ? [] : folder.todo_items;
     folder.purchase_items = folder.order ? folder.order.purchase_items : folder.purchase_items === undefined ? [] : folder.purchase_items;
-    if (hasTodo) { $("todoNewText").value = ""; renderTodos(); }
+    if (hasTodo) $("todoNewText").value = "";
     $("purchaseNewText").value = "";
     renderPurchases();
     $("orderDetails").open = noteOnly || Boolean(folder.note || folder.order);
@@ -1086,6 +1086,7 @@ function renderFolder(preserveForm = false) {
     resizeOrderNote();
     renderStatus();
   }
+  if (hasTodo && (!preserveForm || $("todoList").classList.contains("order-composition") !== Boolean(folder.todoComposition))) renderTodos();
   $("loadOrderFilesButton").hidden = !folder.filesUnavailable;
   const warnings = [...folder.warnings];
   if (folder.order && folder.canRegisterOrder === false && !folder.filesLoading && !folder.filesUnavailable) warnings.push(folder.registrationHint + " Эта папка уже зарегистрирована; убрать её из списка можно с подтверждением.");
@@ -1375,21 +1376,39 @@ function applyRemotePurchaseUpdate(folder, order) {
 }
 
 // Показывает собственные задачи текущей карточки.
-// Использует `Array.isArray`, `$`, `Boolean`.
+// На странице заказа добавляет булавки и ручки перестановки к общему списку.
 function renderTodos() {
-  const items = state.folder.todo_items;
-  if ($("todoList").contains(state.todoColorMenu?.trigger)) closeTodoColorMenu();
+  const folder = state.folder, items = folder.todo_items, list = $("todoList");
+  const composition = Boolean(folder.todoComposition);
+  if (list.contains(state.todoColorMenu?.trigger)) closeTodoColorMenu();
+  clearTodoDrag();
   const editable = Array.isArray(items);
+  $("todoTitle").textContent = composition ? "Состав заказа и туду" : "To-do";
+  list.classList.toggle("order-composition", composition);
   $("todoLegacy").hidden = editable;
-  $("todoLegacyText").textContent = editable ? "" : (state.folder.order?.extra_blocks || state.folder.extra_blocks || {})["Задачи"] || "";
+  $("todoLegacyText").textContent = editable ? "" : (folder.order?.extra_blocks || folder.extra_blocks || {})["Задачи"] || "";
   $("todoAddForm").hidden = !editable;
   $("todoEmpty").hidden = !editable || Boolean(items.length);
-  $("todoEmpty").textContent = state.folder.reconciliation ? 'Добавь задачи по сверке.' : state.folder.folderNote ? "Добавьте, что нужно сделать в этой папке." : "Добавьте, что нужно сделать по заказу.";
-  $("todoCount").textContent = editable ? items.filter((item) => item.done).length + " / " + items.length : "";
-  $("todoList").innerHTML = editable ? items.map((item, index) => '<div class="todo-row' + (item.done ? ' done' : '') + '" data-todo-index="' + index + '"' + todoColorAttribute(item) + '>' +
-    '<input class="todo-check" type="checkbox" aria-label="Выполнено: ' + escapeHtml(item.text) + '"' + (item.done ? ' checked' : '') + '>' +
-    '<input class="todo-text" type="text" maxlength="1000" aria-label="Текст задачи" value="' + escapeHtml(item.text) + '">' +
+  $("todoEmpty").textContent = composition ? "Добавь задачу или раздел заказа." : folder.reconciliation ? 'Добавь задачи по сверке.' : folder.folderNote ? "Добавьте, что нужно сделать в этой папке." : "Добавьте, что нужно сделать по заказу.";
+  renderTodoCount(items);
+  const handle = !composition ? '' : '<button class="icon-button row-drag-handle todo-drag-handle" type="button" ' +
+    'aria-label="Переместить строку" aria-keyshortcuts="ArrowUp ArrowDown" title="Перетащить строку" ' +
+    (items?.length > 1 ? 'draggable="true"' : 'disabled') + '></button>';
+  list.innerHTML = editable ? items.map((item, index) => '<div class="todo-row' + (item.done ? ' done' : '') + (item.pinned ? ' todo-pinned' : '') +
+    '" data-todo-index="' + index + '"' + todoColorAttribute(item) + '>' + handle +
+    '<input class="todo-check" type="checkbox" aria-label="Выполнено: ' + escapeHtml(item.text) + '"' + (item.done ? ' checked' : '') + (item.pinned ? ' disabled' : '') + '>' +
+    '<input class="todo-text" type="text" maxlength="1000" aria-label="Текст задачи" value="' + escapeHtml(item.text) + '"' +
+      (composition ? ' title="' + escapeHtml(item.text) + '"' : '') + '>' +
+    (composition ? '<button class="icon-button todo-pin" type="button" aria-pressed="' + Boolean(item.pinned) +
+      '" aria-label="Закрепить как раздел" title="' + (item.pinned ? 'Открепить раздел' : 'Закрепить как раздел') + '">' + icon("pin") + '</button>' : '') +
     renderTodoRowActions(item, "Удалить задачу: ") + '</div>').join("") : "";
+}
+
+// Показывает выполненные задачи и их общее количество.
+// Закреплённые разделы не входят в счётчик.
+function renderTodoCount(items) {
+  const tasks = items?.filter(item => !item.pinned);
+  $("todoCount").textContent = tasks ? tasks.filter(item => item.done).length + " / " + tasks.length : "";
 }
 
 // Проверяет наличие вложенных задач для показа сводки.
@@ -4349,7 +4368,7 @@ async function navigate(path, { history = true } = {}) {
     let data;
     if (order) {
       const parts = path.split("/");
-      data = { path, name: parts.at(-1), client: order.client, client_path: order.client_path, status: order.status, financial_status: order.financial_status, note: order.note, todo_items: order.todo_items, purchase_items: order.purchase_items, order,
+      data = { path, name: parts.at(-1), client: order.client, client_path: order.client_path, status: order.status, financial_status: order.financial_status, note: order.note, todo_items: order.todo_items, purchase_items: order.purchase_items, todoComposition: order.todoComposition, order,
         purchaseSupplierPath: order.purchaseSupplierPath,
         breadcrumbs: [{ name: $("rootLabel").textContent, path: "" }, ...parts.map((name, index) => ({ name, path: parts.slice(0, index + 1).join("/") }))],
         directories: [], files: [], counts: {}, warnings: [], fileCount: 0, folderCount: 0, totalSize: 0, view: "files", filesScope: "events", filesLoading: true };
@@ -5454,6 +5473,16 @@ for (const type of ["pointerdown", "focusin"]) {
 window.addEventListener("resize", () => closeTodoColorMenu(true));
 window.addEventListener("scroll", () => closeTodoColorMenu(true), true);
 window.addEventListener("blur", () => closeTodoColorMenu());
+const clearTodoDrag = bindRowReorder($("todoList"), "[data-todo-index]", "application/x-manager-todo-row", () => {
+  closeTodoColorMenu();
+  const items = state.folder.todo_items;
+  state.folder.todo_items = [...$("todoList").children].map((row, index) => {
+    const item = items[Number(row.dataset.todoIndex)];
+    row.dataset.todoIndex = index;
+    return item;
+  });
+  saveTodosSoon();
+});
 $("todoAddForm").addEventListener("submit", (event) => {
   event.preventDefault();
   const text = $("todoNewText").value.trim();
@@ -5467,6 +5496,7 @@ $("todoList").addEventListener("input", (event) => {
   const row = event.target.closest("[data-todo-index]");
   const item = state.folder.todo_items[Number(row.dataset.todoIndex)];
   item.text = event.target.value;
+  if (state.folder.todoComposition) event.target.title = item.text;
   row.querySelector(".todo-check").setAttribute("aria-label", "Выполнено: " + item.text);
   row.querySelector(".todo-color-trigger").setAttribute("aria-label", "Цвет строки: " + item.text);
   row.querySelector(".todo-delete").setAttribute("aria-label", "Удалить задачу: " + item.text);
@@ -5476,17 +5506,35 @@ $("todoList").addEventListener("change", (event) => {
   const row = event.target.closest("[data-todo-index]");
   if (!row) return;
   const items = state.folder.todo_items, item = items[Number(row.dataset.todoIndex)];
-  if (event.target.matches(".todo-check")) {
+  if (event.target.matches(".todo-check") && !item.pinned) {
     item.done = event.target.checked;
     row.classList.toggle("done", item.done);
-    $("todoCount").textContent = items.filter(item => item.done).length + " / " + items.length;
+    renderTodoCount(items);
     saveTodosSoon();
   }
 });
 $("todoList").addEventListener("click", (event) => {
-  if (!event.target.closest(".todo-delete")) return;
-  state.folder.todo_items.splice(Number(event.target.closest("[data-todo-index]").dataset.todoIndex), 1);
-  renderTodos(); saveTodosSoon();
+  const row = event.target.closest("[data-todo-index]");
+  if (!row) return;
+  const items = state.folder.todo_items, index = Number(row.dataset.todoIndex), item = items[index];
+  const pin = event.target.closest(".todo-pin");
+  if (pin && state.folder.todoComposition) {
+    if (item.pinned) delete item.pinned;
+    else item.pinned = true;
+    item.done = false;
+    const pinned = Boolean(item.pinned), check = row.querySelector(".todo-check");
+    check.checked = false;
+    check.disabled = pinned;
+    pin.setAttribute("aria-pressed", pinned);
+    pin.title = pinned ? "Открепить раздел" : "Закрепить как раздел";
+    row.classList.remove("done");
+    row.classList.toggle("todo-pinned", pinned);
+    renderTodoCount(items);
+    saveTodosSoon();
+  } else if (event.target.closest(".todo-delete")) {
+    items.splice(index, 1);
+    renderTodos(); saveTodosSoon();
+  }
 });
 $("todoList").addEventListener("keydown", (event) => {
   if (event.key === "Enter" && event.target.matches(".todo-text")) { event.preventDefault(); event.target.blur(); saveTodosSoon(); }

@@ -21,8 +21,10 @@ MAX_MONEY = 999_999_999_999_99
 TODO_BLOCK = "Задачи"
 PURCHASE_BLOCK = "Закупки и затраты"
 TODO_COLORS_VERSION = 1
+ORDER_TODO_PIN_VERSION = 1
 TODO_COLORS = ("red", "orange", "yellow", "green", "blue", "purple")
 TODO_COLOR_PREFIX = "  Цвет: "
+TODO_PINNED_LINE = "  Закреплено: да"
 FAVORITE_BLOCK = "Избранное"
 FLAG_BLOCK = "Флажок"
 BLUE_PLUS_BLOCK = "Синий плюс"
@@ -115,9 +117,9 @@ def validate_todo_color(color):
     return color
 
 
-# Проверяет допустимую структуру, текст, выполнение и цвет строк.
-# Задачи без цвета возвращает без поля color.
-def validate_todos(items):
+# Проверяет структуру, текст и свойства строк.
+# Закрепление допустимо в карточке заказа только у невыполненной строки.
+def validate_todos(items, *, allow_pinned=False):
     if not isinstance(items, list) or len(items) > 200:
         raise ValueError("В списке может быть не более 200 задач")
     result = []
@@ -128,6 +130,11 @@ def validate_todos(items):
         if not text or len(text) > 1000 or "\x00" in text or len(text.splitlines()) != 1:
             raise ValueError("Укажите задачу одной строкой, до 1000 символов")
         row = {"text": text, "done": item["done"]}
+        pinned = item.get("pinned", False)
+        if type(pinned) is not bool or (pinned and (not allow_pinned or row["done"])):
+            raise ValueError("Раздел заказа можно закрепить только как невыполненную строку в самом заказе")
+        if pinned:
+            row["pinned"] = True
         color = validate_todo_color(item.get("color"))
         if color is not None:
             row["color"] = color
@@ -149,38 +156,45 @@ def read_checklist(body, *, purchases=False):
             items.append({"text": match[2], "done": match[1].lower() == "x"})
         elif items and line.startswith(TODO_COLOR_PREFIX) and "color" not in items[-1]:
             items[-1]["color"] = line[len(TODO_COLOR_PREFIX):]
+        elif not purchases and items and line == TODO_PINNED_LINE and "pinned" not in items[-1]:
+            items[-1]["pinned"] = True
         elif purchases and items and line.startswith("  Поставщики: ") and "suppliers" not in items[-1]:
             selected = line[len("  Поставщики: "):]
             items[-1]["suppliers"] = [] if selected == "—" else selected.split(", ")
         else:
             return None
     try:
-        return validate_purchases(items) if purchases else validate_todos(items)
+        return validate_purchases(items) if purchases else validate_todos(items, allow_pinned=True)
     except ValueError:
         return None
 
 
-# Читает собственные задачи карточки с необязательными цветами.
+# Читает собственные задачи карточки с цветами и разделами заказа.
 # Возвращает None для неизвестного формата и пустой список для пустого блока.
 def read_todos(blocks):
     return read_checklist(blocks.get(TODO_BLOCK, ""))
 
 
-# Формирует строку задачи с отметкой и необязательной строкой цвета.
+# Формирует строку задачи с отметкой, цветом и признаком закрепления.
 # Принимает строку после валидации; назначения поставщика добавляет вызывающий код.
 def render_todo_line(item):
     row = "- [" + ("x" if item["done"] else " ") + "] " + item["text"]
     if "color" in item:
         row += "\n" + TODO_COLOR_PREFIX + item["color"]
+    if item.get("pinned"):
+        row += "\n" + TODO_PINNED_LINE
     return row
 
 
 # Сериализует задачи и сохраняет прочие дополнительные блоки.
-# Отклоняет замену неизвестного раздела прежней карточки.
-def write_todos(blocks, items):
+# Отклоняет неизвестный формат и проверяет роль папки при сохранении закреплённых строк.
+def write_todos(blocks, items, *, can_pin=None):
     if read_todos(blocks) is None:
         raise ValueError("Прежний раздел задач содержит произвольный текст; он сохранён без замены")
-    return {**blocks, TODO_BLOCK: "\n".join(render_todo_line(item) for item in validate_todos(items))}
+    rows = validate_todos(items, allow_pinned=True)
+    if can_pin is not None and any(item.get("pinned") for item in rows) and not can_pin():
+        raise ValueError("Разделы можно закреплять только в самом заказе")
+    return {**blocks, TODO_BLOCK: "\n".join(render_todo_line(item) for item in rows)}
 
 
 # Проверяет допустимый ключ поставщика закупки.

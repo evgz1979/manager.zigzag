@@ -58,6 +58,17 @@ class MobileSyncTests(unittest.TestCase):
         op = self.operation("todo_set", task_id=task["id"], done=True, base_done=False, base_text=task["text"])
         self.assertEqual(self.publish(op)["status"], "conflict")
 
+    def test_mobile_edits_preserve_sections_and_cannot_complete_them(self):
+        task = self.catalog["orders"][0]["tasks"][0]
+        pinned = {"text": task["text"], "done": False, "pinned": True}
+        self.save(todo_items=[pinned])
+        toggle = self.operation("todo_set", task_id=task["id"], done=True, base_done=False, base_text=task["text"])
+        self.assertEqual(self.publish(toggle)["status"], "conflict")
+        self.assertEqual(self.publish(self.operation("todo_add", task_id=str(uuid.uuid4()), text="Задача"))["status"], "applied")
+        self.assertEqual(self.store.get(self.relative)["todo_items"], [pinned, {"text": "Задача", "done": False}])
+        catalog = json.loads((self.bridge.folder / ".catalog.json").read_text())
+        self.assertEqual([row["text"] for row in catalog["orders"][0]["tasks"]], ["Задача"])
+
     def publish(self, operation):
         raw = encode(operation).encode()
         path = self.bridge.folder / ".inbox" / ("." + operation["id"] + ".json")

@@ -308,6 +308,7 @@
       {
         "path": "folder_structure.py",
         "symbols": [
+          {"name": "can_compose_order", "type": "function", "anchor": "symbol-can_compose_order"},
           {"name": "client_name", "type": "function", "anchor": "symbol-client_name"},
           {"name": "client_path", "type": "function", "anchor": "symbol-client_path"},
           {"name": "dated", "type": "function", "anchor": "symbol-dated"},
@@ -933,6 +934,7 @@
           {"name": "atomic_write", "type": "function", "anchor": "symbol-atomic_write"},
           {"name": "backup_database", "type": "function", "anchor": "symbol-backup_database"},
           {"name": "check_event_rename_compatibility", "type": "function", "anchor": "symbol-check_event_rename_compatibility"},
+          {"name": "check_order_todo_pin_compatibility", "type": "function", "anchor": "symbol-check_order_todo_pin_compatibility"},
           {"name": "check_remote_access_compatibility", "type": "function", "anchor": "symbol-check_remote_access_compatibility"},
           {"name": "check_todo_color_compatibility", "type": "function", "anchor": "symbol-check_todo_color_compatibility"},
           {"name": "database_name", "type": "function", "anchor": "symbol-database_name"},
@@ -1515,6 +1517,7 @@
           {"name": "renderSubfolders", "type": "FunctionDeclaration", "anchor": "symbol-renderSubfolders"},
           {"name": "renderSupplierOrderStatus", "type": "FunctionDeclaration", "anchor": "symbol-renderSupplierOrderStatus"},
           {"name": "renderSupplierSchedule", "type": "FunctionDeclaration", "anchor": "symbol-renderSupplierSchedule"},
+          {"name": "renderTodoCount", "type": "FunctionDeclaration", "anchor": "symbol-renderTodoCount"},
           {"name": "renderTodoRowActions", "type": "FunctionDeclaration", "anchor": "symbol-renderTodoRowActions"},
           {"name": "renderTodos", "type": "FunctionDeclaration", "anchor": "symbol-renderTodos"},
           {"name": "renderTree", "type": "FunctionDeclaration", "anchor": "symbol-renderTree"},
@@ -1752,7 +1755,6 @@
           {"name": "changed", "type": "FunctionDeclaration", "anchor": "symbol-changed"},
           {"name": "checkInvoiceFolder", "type": "FunctionDeclaration", "anchor": "symbol-checkInvoiceFolder"},
           {"name": "checkPlan", "type": "FunctionDeclaration", "anchor": "symbol-checkPlan"},
-          {"name": "clearItemDrag", "type": "FunctionDeclaration", "anchor": "symbol-clearItemDrag"},
           {"name": "close", "type": "FunctionDeclaration", "anchor": "symbol-close"},
           {"name": "closeExternal", "type": "FunctionDeclaration", "anchor": "symbol-closeExternal"},
           {"name": "closePlan", "type": "FunctionDeclaration", "anchor": "symbol-closePlan"},
@@ -1769,11 +1771,8 @@
           {"name": "invoiceCommentMarkup", "type": "FunctionDeclaration", "anchor": "symbol-invoiceCommentMarkup"},
           {"name": "invoiceLabel", "type": "ArrowFunctionExpression", "anchor": "symbol-invoiceLabel"},
           {"name": "invoiceStatusSelect", "type": "FunctionDeclaration", "anchor": "symbol-invoiceStatusSelect"},
-          {"name": "itemDropPosition", "type": "FunctionDeclaration", "anchor": "symbol-itemDropPosition"},
           {"name": "itemMarkup", "type": "FunctionDeclaration", "anchor": "symbol-itemMarkup"},
-          {"name": "markItemDrop", "type": "FunctionDeclaration", "anchor": "symbol-markItemDrop"},
           {"name": "message", "type": "ArrowFunctionExpression", "anchor": "symbol-message"},
-          {"name": "moveItem", "type": "FunctionDeclaration", "anchor": "symbol-moveItem"},
           {"name": "newIdentity", "type": "FunctionDeclaration", "anchor": "symbol-newIdentity"},
           {"name": "normalizePlanDate", "type": "FunctionDeclaration", "anchor": "symbol-normalizePlanDate"},
           {"name": "openFromCatalog", "type": "FunctionDeclaration", "anchor": "symbol-openFromCatalog"},
@@ -1870,6 +1869,16 @@
         "symbols": [
           {"name": "loginUrl", "type": "ArrowFunctionExpression", "anchor": "symbol-loginUrl"},
           {"name": "requireLogin", "type": "FunctionDeclaration", "anchor": "symbol-requireLogin"}
+        ]
+      },
+      {
+        "path": "static/row-reorder.js",
+        "symbols": [
+          {"name": "bindRowReorder", "type": "FunctionDeclaration", "anchor": "symbol-bindRowReorder"},
+          {"name": "bindRowReorder.clearDrag", "type": "FunctionDeclaration", "anchor": "symbol-bindRowReorder.clearDrag"},
+          {"name": "bindRowReorder.dropPosition", "type": "FunctionDeclaration", "anchor": "symbol-bindRowReorder.dropPosition"},
+          {"name": "bindRowReorder.markDrop", "type": "FunctionDeclaration", "anchor": "symbol-bindRowReorder.markDrop"},
+          {"name": "bindRowReorder.moveRow", "type": "FunctionDeclaration", "anchor": "symbol-bindRowReorder.moveRow"}
         ]
       },
       {

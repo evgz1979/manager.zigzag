@@ -11,7 +11,7 @@ import order_document as document
 import event_relevance
 import sketches
 from event_folder_undo import assert_unlocked
-from folder_structure import folder_role, is_service_folder
+from folder_structure import can_compose_order, folder_role, is_service_folder
 
 SYNC_LOCK = threading.Lock()
 
@@ -215,7 +215,8 @@ class FolderNotes:
                     from supplier_purchases import write_assignments
                     body["extra_blocks"] = write_assignments(db, body.get("extra_blocks", {}), payload["purchase_items"])
             if "todo_items" in payload:
-                body["extra_blocks"] = document.write_todos(body.get("extra_blocks", {}), payload["todo_items"])
+                body["extra_blocks"] = document.write_todos(body.get("extra_blocks", {}), payload["todo_items"],
+                                                          can_pin=lambda: can_compose_order(self.store.root, relative))
             body["note"] = note
             document.render(body, self.store.labels)
             db.execute("UPDATE folder_notes SET document=?, revision=revision+1, updated=?, sync_error='' WHERE path=?",

@@ -105,7 +105,7 @@ def apply_order(self, db, operation, record):
 
 Работает с таблицами orders, mobile_tasks.
 
-Непосредственные вызовы: `operation['text'].strip`, `len`, `MobileConflict`, `db.execute`, `time.time`, `self.tasks`, `next`, `enumerate`, `document.validate_todos`, `items.append`, `document.write_todos`, `encode`.
+Непосредственные вызовы: `operation['text'].strip`, `len`, `MobileConflict`, `db.execute`, `time.time`, `self.tasks`, `next`, `enumerate`, `document.validate_todos`, `items.append`, `items[index].get`, `document.write_todos`, `encode`.
 
 Явные исключения: `MobileConflict`.
 
@@ -119,11 +119,11 @@ def apply_order(self, db, operation, record):
 def catalog(self, root_id):
 ```
 
-Собирает доступный каталог сущностей из сохранённых индексов.
+Собирает каталог заказов и задач из сохранённых индексов.
 
-Работает с таблицами mobile_operations.
+Закреплённые разделы доступны только на странице заказа.
 
-Непосредственные вызовы: `self.store.list`, `self.store.connect`, `self.tasks`, `self.inventory`, `orders.append`, `orders[-1].update`, `record['extra_blocks'].get`, `int`, `self.get_meta`, `self.put_meta`, `json.loads`, `db.execute`, `time.time`.
+Непосредственные вызовы: `self.store.list`, `self.store.connect`, `self.tasks`, `self.inventory`, `orders.append`, `orders[-1].update`, `item.get`, `record['extra_blocks'].get`, `int`, `self.get_meta`, `self.put_meta`, `json.loads`, `db.execute`, `time.time`.
 
 Выражения возврата (ветки читаются в исходнике):
 
@@ -465,9 +465,9 @@ def reconcile_tasks(previous, current):
 
 Сохраняет идентичности однозначных задач и создаёт новые при неоднозначности.
 
-Возвращает `None`; либо `result`.
+Изменение выполнения или закрепления повышает версию существующей задачи.
 
-Непосредственные вызовы: `collections.defaultdict`, `old_groups[item['text']].append`, `new_groups[item['text']].append`, `collections.Counter`, `len`, `str`, `uuid.uuid4`, `old[index].get`, `result.append`.
+Непосредственные вызовы: `collections.defaultdict`, `old_groups[item['text']].append`, `new_groups[item['text']].append`, `collections.Counter`, `bool`, `x.get`, `len`, `str`, `uuid.uuid4`, `old[index].get`, `item.get`, `result.append`.
 
 Выражения возврата (ветки читаются в исходнике):
 

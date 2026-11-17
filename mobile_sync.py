@@ -74,7 +74,7 @@ def write_json(path, value):
 
 
 # Сохраняет идентичности однозначных задач и создаёт новые при неоднозначности.
-# Возвращает `None`; либо `result`.
+# Изменение выполнения или закрепления повышает версию существующей задачи.
 def reconcile_tasks(previous, current):
     """Keep identities for unambiguous text matches; never guess after a rename.
 
@@ -93,13 +93,13 @@ def reconcile_tasks(previous, current):
     for item in current:
         text = item["text"]
         old, group = old_groups[text], new_groups[text]
-        same_group = [(x["text"], x["done"]) for x in old] == [(x["text"], x["done"]) for x in group]
+        same_group = [(x["done"], bool(x.get("pinned"))) for x in old] == [(x["done"], bool(x.get("pinned"))) for x in group]
         keep = len(old) == len(group) == 1 or same_group
         index = counters[text]
         counters[text] += 1
         identity = old[index]["id"] if keep and index < len(old) else str(uuid.uuid4())
         version = old[index].get("version", 1) if keep and index < len(old) else 1
-        if keep and index < len(old) and old[index]["done"] != item["done"]:
+        if keep and index < len(old) and (old[index]["done"] != item["done"] or old[index].get("pinned") != item.get("pinned")):
             version += 1
         result.append({**item, "id": identity, "version": version})
     return result
@@ -328,6 +328,8 @@ class MobileBridge:
         else:
             if index is None or items[index]["text"] != operation["base_text"]:
                 raise MobileConflict("Задача удалена, переименована или неоднозначна; отметка не применена")
+            if items[index].get("pinned"):
+                raise MobileConflict("Строка закреплена как раздел заказа; отметка не применена")
             if items[index]["done"] == operation["done"]:
                 return
             if items[index]["done"] != operation["base_done"] or items[index]["version"] != operation["base_version"]:
@@ -410,8 +412,8 @@ class MobileBridge:
         except (OSError, ValueError) as error:
             return (json.loads(saved["items"]) if saved else []), (saved["scanned"] if saved else 0), str(error)
 
-    # Собирает доступный каталог сущностей из сохранённых индексов.
-    # Работает с таблицами mobile_operations.
+    # Собирает каталог заказов и задач из сохранённых индексов.
+    # Закреплённые разделы доступны только на странице заказа.
     def catalog(self, root_id):
         orders = []
         for record in self.store.list():
@@ -421,7 +423,8 @@ class MobileBridge:
             orders.append({key: record[key] for key in ("id", "path", "title", "client", "note", "revision", "updated", "amount", "costs", "paid", "profit", "debt")})
             orders[-1].update(status=self.store.labels[record["status"]],
                              financial_status=document.FINANCIAL_STATUS_LABELS[record["financial_status"]],
-                             tasks=items, tasks_text=record["extra_blocks"].get(document.TODO_BLOCK, ""),
+                             tasks=[item for item in items if not item.get("pinned")] if items is not None else None,
+                             tasks_text=record["extra_blocks"].get(document.TODO_BLOCK, ""),
                              files=files, files_updated=scanned, files_error=error)
         with self.store.connect() as db:
             generation = int(self.get_meta(db, "generation", 0)) + 1

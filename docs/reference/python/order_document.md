@@ -272,7 +272,7 @@ def read_checklist(body, *, purchases=False):
 
 ```python
 None
-validate_purchases(items) if purchases else validate_todos(items)
+validate_purchases(items) if purchases else validate_todos(items, allow_pinned=True)
 ```
 
 <a id="symbol-read_dollar"></a>
@@ -400,7 +400,7 @@ icloud_access.read_bytes(path).decode('utf-8-sig').replace('\r\n', '\n')
 def read_todos(blocks):
 ```
 
-Читает собственные задачи карточки с необязательными цветами.
+Читает собственные задачи карточки с цветами и разделами заказа.
 
 Возвращает None для неизвестного формата и пустой список для пустого блока.
 
@@ -446,9 +446,11 @@ text
 def render_todo_line(item):
 ```
 
-Формирует строку задачи с отметкой и необязательной строкой цвета.
+Формирует строку задачи с отметкой, цветом и признаком закрепления.
 
 Принимает строку после валидации; назначения поставщика добавляет вызывающий код.
+
+Непосредственные вызовы: `item.get`.
 
 Выражения возврата (ветки читаются в исходнике):
 
@@ -605,12 +607,12 @@ color
 [order_document.py](../../../order_document.py) · `function`.
 
 ```python
-def validate_todos(items):
+def validate_todos(items, *, allow_pinned=False):
 ```
 
-Проверяет допустимую структуру, текст, выполнение и цвет строк.
+Проверяет структуру, текст и свойства строк.
 
-Задачи без цвета возвращает без поля color.
+Закрепление допустимо в карточке заказа только у невыполненной строки.
 
 Непосредственные вызовы: `isinstance`, `len`, `ValueError`, `item.get`, `type`, `item['text'].strip`, `text.splitlines`, `validate_todo_color`, `result.append`.
 
@@ -795,19 +797,19 @@ result
 [order_document.py](../../../order_document.py) · `function`.
 
 ```python
-def write_todos(blocks, items):
+def write_todos(blocks, items, *, can_pin=None):
 ```
 
 Сериализует задачи и сохраняет прочие дополнительные блоки.
 
-Отклоняет замену неизвестного раздела прежней карточки.
+Отклоняет неизвестный формат и проверяет роль папки при сохранении закреплённых строк.
 
-Непосредственные вызовы: `read_todos`, `ValueError`, `'\n'.join`, `render_todo_line`, `validate_todos`.
+Непосредственные вызовы: `read_todos`, `ValueError`, `validate_todos`, `any`, `item.get`, `can_pin`, `'\n'.join`, `render_todo_line`.
 
 Явные исключения: `ValueError`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-{**blocks, TODO_BLOCK: '\n'.join((render_todo_line(item) for item in validate_todos(items)))}
+{**blocks, TODO_BLOCK: '\n'.join((render_todo_line(item) for item in rows))}
 ```

@@ -158,22 +158,6 @@ async function checkPlan()
 
 Прямые присваивания полям/свойствам: `button.disabled`, `current.record`, `current.conflict`, `$("planInvoiceState").textContent`, `button.hidden`, `$("saveInvoicePlan").disabled`, `$("deleteInvoicePlan").disabled`.
 
-<a id="symbol-clearItemDrag"></a>
-
-## clearItemDrag
-
-[static/invoices.js](../../../static/invoices.js) · `FunctionDeclaration`.
-
-```javascript
-function clearItemDrag()
-```
-
-Завершает визуальное состояние перетаскивания.
-
-Снимает линию и подсветку исходной строки как при вставке, так и при отмене.
-
-Непосредственные вызовы: `markItemDrop`, `itemDrag.row.classList.remove`.
-
 <a id="symbol-close"></a>
 
 ## close
@@ -437,22 +421,6 @@ function invoiceStatusSelect(record, label, busy)
 Непосредственные вызовы: `statusSaving.get`, `Object.entries(listStatusLabels).map(([value, name]) =>
       '<option value="' + value + '"' + (status === value ? ' selected' : '') + '>' + name + '</option>').join`, `Object.entries(listStatusLabels).map`, `Object.entries`, `escapeHtml`.
 
-<a id="symbol-itemDropPosition"></a>
-
-## itemDropPosition
-
-[static/invoices.js](../../../static/invoices.js) · `FunctionDeclaration`.
-
-```javascript
-function itemDropPosition(event)
-```
-
-Определяет место вставки по верхней или нижней половине строки под указателем.
-
-Возвращает null вне подходящей строки и в точках, сохраняющих текущий порядок.
-
-Непосредственные вызовы: `event.target.closest`, `target.getBoundingClientRect`.
-
 <a id="symbol-itemMarkup"></a>
 
 ## itemMarkup
@@ -475,24 +443,6 @@ function itemMarkup(item)
       }).join`, `[["name", "Наименование", 500], ["quantity", "Количество", 30], ["unit", "Единица", 16], ["price", "Цена", 30]]
       .map`.
 
-<a id="symbol-markItemDrop"></a>
-
-## markItemDrop
-
-[static/invoices.js](../../../static/invoices.js) · `FunctionDeclaration`.
-
-```javascript
-function markItemDrop(position)
-```
-
-Переносит подсказку вставки на выбранный край строки.
-
-Подсказка не меняет порядок и снимается, когда подходящего места под указателем нет.
-
-Непосредственные вызовы: `marker?.target.removeAttribute`.
-
-Прямые присваивания полям/свойствам: `position.target.dataset.invoiceDrop`, `itemDrag.marker`.
-
 <a id="symbol-message"></a>
 
 ## message
@@ -510,22 +460,6 @@ const message = (text, error = false) =>
 Непосредственные вызовы: `$`, `$("invoiceEditorState").classList.toggle`.
 
 Прямые присваивания полям/свойствам: `$("invoiceEditorState").textContent`.
-
-<a id="symbol-moveItem"></a>
-
-## moveItem
-
-[static/invoices.js](../../../static/invoices.js) · `FunctionDeclaration`.
-
-```javascript
-function moveItem(row, before)
-```
-
-Перемещает существующую строку перед указанной или в конец.
-
-Сохраняет поля строки и возвращает фокус ручке; автосохранение запускается только при смене порядка.
-
-Непосредственные вызовы: `row.parentElement.insertBefore`, `row.querySelector("[data-invoice-drag]").focus`, `row.querySelector`, `changed`.
 
 <a id="symbol-newIdentity"></a>
 

@@ -26,6 +26,42 @@ class OrderTodoTests(unittest.TestCase):
         blocks = {"Задачи": legacy} if legacy is not None else manager.order_document.write_todos({}, items or [])
         self.file(path + "/!.txt", manager.order_document.render({"note": "Заметка", "extra_blocks": blocks}, manager.STATUS_LABELS).encode())
 
+    def test_order_sections_preserve_order_but_do_not_count_as_tasks(self):
+        task = {"text": "Подготовка", "done": False}
+        pinned = {**task, "pinned": True, "color": "blue"}
+        done = {"text": "Обмер", "done": True}
+        store = manager.order_store()
+        order = self.add(items=[task, done])
+        saved = store.save({**order, "todo_items": [pinned, task, done]})
+        self.assertEqual(store.get(self.order)["todo_items"], [pinned, task, done])
+        self.assertEqual(OrderTodos(store).attach([saved])[0]["todo_groups"][0]["items"], [task])
+        with self.assertRaisesRegex(ValueError, "невыполненную"):
+            store.save({**saved, "todo_items": [{**pinned, "done": True}, task, done]})
+        self.assertEqual(store.get(self.order), saved)
+        unpinned = store.save({**saved, "todo_items": [task, {**pinned, "pinned": False}, done]})
+        self.assertEqual(unpinned["todo_items"], [task, {**task, "color": "blue"}, done])
+
+    def test_only_the_order_not_its_folders_supports_pin(self):
+        nested = self.order + "/Фото"
+        pinned = {"text": "Оформление", "done": False, "pinned": True}
+        with patch.object(manager, "DATABASE_ONLY", True):
+            notes = manager.folder_note_store()
+            draft = notes.read(self.order)
+            saved = notes.save({**draft, "todo_items": [pinned]})
+            self.assertEqual(saved["todo_items"], [pinned])
+            self.assertTrue(manager.folder_status(self.root / self.order, [])["todoComposition"])
+            self.assertFalse(manager.folder_status(self.root / nested, [])["todoComposition"])
+            self.assertFalse(manager.can_compose_order(self.root, nested, scan_numbered=False))
+            year_order = "Клиент/2026/2026-01-00 - Заказ"
+            with patch("folder_structure.os.scandir", side_effect=AssertionError("Fast card must not scan folders")):
+                self.assertTrue(manager.can_compose_order(self.root, year_order, scan_numbered=False))
+                self.assertFalse(manager.can_compose_order(self.root, year_order + "/Материалы", scan_numbered=False))
+            folder_note = notes.read(nested)
+            with self.assertRaisesRegex(ValueError, "самом заказе"):
+                notes.save({**folder_note, "todo_items": [pinned]})
+            with self.assertRaises(ValueError):
+                manager.order_document.write_purchases({}, [pinned])
+
     def test_list_reads_only_database_and_includes_independent_pending_tasks_at_every_depth(self):
         self.add(items=[{"text": "Задача заказа", "done": False}])
         notes = manager.folder_note_store()

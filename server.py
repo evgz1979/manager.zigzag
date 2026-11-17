@@ -69,7 +69,7 @@ import supplier_purchases
 from file_comments import FileCommentConflict
 from folder_structure import folder_role, is_catalog_group, client_name, is_etc_year, is_print_section, in_payroll, in_reconciliations
 import reconciliations
-from folder_structure import client_path, in_freza, is_freza_task
+from folder_structure import can_compose_order, client_path, in_freza, is_freza_task
 import client_colors
 from client_activity import ClientActivity, ClientActivityConflict
 from client_activity import is_inactive
@@ -735,7 +735,8 @@ def write_status_document(folder, status, note, financial_status=None, todo_item
             if financial_status is not None:
                 record["financial_status"] = financial_status
             if todo_items is not order_document.UNSET_TODOS:
-                record["extra_blocks"] = order_document.write_todos(record.get("extra_blocks", {}), todo_items)
+                record["extra_blocks"] = order_document.write_todos(record.get("extra_blocks", {}), todo_items,
+                    can_pin=lambda: can_compose_order(DATA_ROOT, relative_path(folder)))
             if purchase_items is not order_document.UNSET_TODOS:
                 blocks = record.get("extra_blocks", {})
                 if order_document.read_purchases(blocks) is None:
@@ -1165,6 +1166,7 @@ def order_sync_worker():
 def folder_status(path, directories):
     relative = relative_path(path)
     role = folder_role(DATA_ROOT, relative)
+    role['todoComposition'] = can_compose_order(DATA_ROOT, relative, role)
     if role['folderKind'] == 'reconciliation':
         item = reconciliations.Reconciliations(order_store()).open(relative)
         return {**role, 'reconciliation': item, 'service': False, 'noteOnly': True, 'eventFolder': False,
@@ -1849,7 +1851,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 record = order_store().get(relative)
                 if not record:
                     raise FileNotFoundError("Заказ не найден в списке")
-                self.send_json({**record, "purchaseSupplierPath": supplier_purchases.section_path(record["path"])}, head=head)
+                self.send_json({**record, "purchaseSupplierPath": supplier_purchases.section_path(record["path"]),
+                                "todoComposition": can_compose_order(DATA_ROOT, record["path"], scan_numbered=False)}, head=head)
             elif parsed.path == "/api/order-todos":
                 self.send_json(OrderTodos(order_store()).in_order(relative), head=head)
             elif parsed.path == "/api/order-links":

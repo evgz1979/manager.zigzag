@@ -19,12 +19,12 @@ def path_key(path):
              for part in re.split(r"([0-9]+)", unicodedata.normalize("NFC", name).casefold())]) for name in Path(path).parts]
 
 
-# Группирует проверенные записи или папки в предусмотренные категории.
-# Возвращает `None`; либо `{'path': path, 'label': label, 'items': items, 'legacy_text': legacy, **metadata}`.
+# Собирает сводку задач одной папки.
+# Исключает разделы заказа, а выполненные задачи включает по запросу.
 def group(path, label, items, blocks, *, include_completed=False, **metadata):
     legacy = blocks.get(document.TODO_BLOCK, "") if items is None else ""
-    if items is not None and not include_completed:
-        items = [item for item in items if not item["done"]]
+    if items is not None:
+        items = [item for item in items if not item.get("pinned") and (include_completed or not item["done"])]
     if not items and not legacy:
         return None
     return {"path": path, "label": label, "items": items, "legacy_text": legacy, **metadata}

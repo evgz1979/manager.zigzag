@@ -249,6 +249,20 @@ def check_todo_color_compatibility(db, release_dir):
         raise RuntimeError('В сверках есть цвета строк To-do. Старый код не поддерживает их; откат заблокирован')
 
 
+# Проверяет поддержку закреплённых разделов заказа в целевом релизе.
+# Проверяет оба хранилища карточек, включая черновики и снятые заказы.
+def check_order_todo_pin_compatibility(db, release_dir):
+    source = release_dir / 'order_document.py'
+    if source.is_file() and 'ORDER_TODO_PIN_VERSION = 1' in source.read_text(encoding='utf-8'):
+        return
+    for table, column, path in (('orders', 'extra_blocks', '$."Задачи"'),
+                                ('folder_notes', 'document', '$.extra_blocks."Задачи"')):
+        if (db.execute("SELECT 1 FROM pragma_table_info(?) WHERE name=?", (table, column)).fetchone()
+                and db.execute(f"SELECT 1 FROM {table} WHERE instr(replace(json_extract({column}, ?), char(13), char(10)) "
+                               "|| char(10), char(10) || '  Закреплено: да' || char(10)) LIMIT 1", (path,)).fetchone()):
+            raise RuntimeError('В базе есть закреплённые разделы заказа. Старый код не поддерживает их; откат заблокирован')
+
+
 # Проверяет поддержку рабочих форматов и незавершённых операций целевым релизом.
 # Работает с таблицами sqlite_master, metadata_settings, invoices, event_renames, folder_renames.
 def check_event_rename_compatibility(database, release_dir):
@@ -256,6 +270,7 @@ def check_event_rename_compatibility(database, release_dir):
         return
     with closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)) as db:
         check_todo_color_compatibility(db, release_dir)
+        check_order_todo_pin_compatibility(db, release_dir)
         if (db.execute("SELECT 1 FROM sqlite_master WHERE name='metadata_settings'").fetchone()
                 and db.execute("SELECT 1 FROM metadata_settings WHERE key='telegram_calendar_commands' AND value='1'").fetchone()):
             source = release_dir / 'telegram_calendar_commands.py'

@@ -149,11 +149,11 @@ def scope(relative):
 def group(path, label, items, blocks, *, include_completed=False, **metadata):
 ```
 
-Группирует проверенные записи или папки в предусмотренные категории.
+Собирает сводку задач одной папки.
 
-Возвращает `None`; либо `{'path': path, 'label': label, 'items': items, 'legacy_text': legacy, **metadata}`.
+Исключает разделы заказа, а выполненные задачи включает по запросу.
 
-Непосредственные вызовы: `blocks.get`.
+Непосредственные вызовы: `blocks.get`, `item.get`.
 
 Выражения возврата (ветки читаются в исходнике):
 

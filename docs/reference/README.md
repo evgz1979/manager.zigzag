@@ -8,7 +8,7 @@
 
 ## Python
 
-67 файлов; 974 именованных объявлений.
+67 файлов; 976 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
@@ -31,7 +31,7 @@
 | [folder_notes.py](python/folder_notes.md) | 20 |
 | [folder_rename.py](python/folder_rename.md) | 7 |
 | [folder_rename_undo.py](python/folder_rename_undo.md) | 8 |
-| [folder_structure.py](python/folder_structure.md) | 20 |
+| [folder_structure.py](python/folder_structure.md) | 21 |
 | [hidden_orders.py](python/hidden_orders.md) | 4 |
 | [icloud_access.py](python/icloud_access.md) | 8 |
 | [image_reports.py](python/image_reports.md) | 2 |
@@ -61,7 +61,7 @@
 | [scripts/archive_order_duplicate.py](python/scripts-archive_order_duplicate.md) | 8 |
 | [scripts/build_documentation.py](python/scripts-build_documentation.md) | 22 |
 | [scripts/deploy.py](python/scripts-deploy.md) | 3 |
-| [scripts/deploy_remote.py](python/scripts-deploy_remote.md) | 18 |
+| [scripts/deploy_remote.py](python/scripts-deploy_remote.md) | 19 |
 | [scripts/handoff.py](python/scripts-handoff.md) | 8 |
 | [scripts/handoff_host.py](python/scripts-handoff_host.md) | 24 |
 | [scripts/rebind_glass_notes.py](python/scripts-rebind_glass_notes.md) | 6 |
@@ -82,11 +82,11 @@
 
 ## JavaScript
 
-25 файлов; 497 именованных объявлений.
+26 файлов; 499 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
-| [static/app.js](javascript/static-app.md) | 258 |
+| [static/app.js](javascript/static-app.md) | 259 |
 | [static/appearance.js](javascript/static-appearance.md) | 1 |
 | [static/bills.js](javascript/static-bills.md) | 11 |
 | [static/calendar-snapshot.js](javascript/static-calendar-snapshot.md) | 4 |
@@ -97,7 +97,7 @@
 | [static/inbox.js](javascript/static-inbox.md) | 13 |
 | [static/invoice-documents.js](javascript/static-invoice-documents.md) | 17 |
 | [static/invoice-products.js](javascript/static-invoice-products.md) | 13 |
-| [static/invoices.js](javascript/static-invoices.md) | 59 |
+| [static/invoices.js](javascript/static-invoices.md) | 55 |
 | [static/mobile.js](javascript/static-mobile.md) | 3 |
 | [static/money-overview.js](javascript/static-money-overview.md) | 8 |
 | [static/navigation.js](javascript/static-navigation.md) | 1 |
@@ -105,6 +105,7 @@
 | [static/order-sorting.js](javascript/static-order-sorting.md) | 2 |
 | [static/reconciliations.js](javascript/static-reconciliations.md) | 10 |
 | [static/remote-access.js](javascript/static-remote-access.md) | 2 |
+| [static/row-reorder.js](javascript/static-row-reorder.md) | 5 |
 | [static/settings.js](javascript/static-settings.md) | 6 |
 | [static/spreadsheet-preview.js](javascript/static-spreadsheet-preview.md) | 7 |
 | [static/spreadsheet-worker.js](javascript/static-spreadsheet-worker.md) | 2 |

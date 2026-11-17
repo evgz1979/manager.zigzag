@@ -2871,7 +2871,7 @@ function renderFolder(preserveForm = false)
 Непосредственные вызовы: `renderMoneyOverview`, `document.dispatchEvent`, `CustomEvent`, `renderClientActivity`, `Boolean`, `Object.hasOwn`, `isWorkOrderPath`, `hasDescendantTodos`, `$`, `$("orderOverview").classList.toggle`, `folder.breadcrumbs.map((part, index) =>
     (index ? '<span class="breadcrumb-divider">/</span>' : "") +
     '<button data-path="' + escapeHtml(part.path) + '"' + (index === folder.breadcrumbs.length - 1 ? ' aria-current="page"' : "") + ">" +
-    ClientBadge.markup(part.name, part.path && part.path.normalize("NFC") === folder.client_path?.normalize("NFC") ? part.path : "") + "</button>").join`, `folder.breadcrumbs.map`, `renderOrderHeading`, `renderOrderCardLinks`, `ClientBadge.markup`, `printCountLabel`, `folder.directories.filter`, `formatSize`, `foldersAnchor.before`, `renderSubfolders`, `renderSketches`, `renderOrderFileFolders`, `renderDescendantTodos`, `$("statusForm").classList.toggle`, `["supplier_root", "work_section"].includes`, `renderTodos`, `renderPurchases`, `(card[key] / 100).toFixed`, `renderOrderCalculated`, `renderExportState`, `Object.entries(supplierStatusLabels).map(([key, label]) => '<option value="' + key + '">' + label + '</option>').join`, `Object.entries(supplierStatusLabels).map`, `Object.entries`, `resizeOrderNote`, `renderStatus`, `warnings.push`, `warnings.join`, `["events", "subfolders"].includes`, `renderUpload`, `renderPrintList`, `new URLSearchParams(location.search).get`, `URLSearchParams`, `printFiles().find`, `printFiles`, `run`, `renderFiles`, `$("files").replaceChildren`, `renderCardDeadlines`, `mountOrderList`, `isFolderOrderList`, `renderOrders`.
+    ClientBadge.markup(part.name, part.path && part.path.normalize("NFC") === folder.client_path?.normalize("NFC") ? part.path : "") + "</button>").join`, `folder.breadcrumbs.map`, `renderOrderHeading`, `renderOrderCardLinks`, `ClientBadge.markup`, `printCountLabel`, `folder.directories.filter`, `formatSize`, `foldersAnchor.before`, `renderSubfolders`, `renderSketches`, `renderOrderFileFolders`, `renderDescendantTodos`, `$("statusForm").classList.toggle`, `["supplier_root", "work_section"].includes`, `renderPurchases`, `(card[key] / 100).toFixed`, `renderOrderCalculated`, `renderExportState`, `Object.entries(supplierStatusLabels).map(([key, label]) => '<option value="' + key + '">' + label + '</option>').join`, `Object.entries(supplierStatusLabels).map`, `Object.entries`, `resizeOrderNote`, `renderStatus`, `$("todoList").classList.contains`, `renderTodos`, `warnings.push`, `warnings.join`, `["events", "subfolders"].includes`, `renderUpload`, `renderPrintList`, `new URLSearchParams(location.search).get`, `URLSearchParams`, `printFiles().find`, `printFiles`, `run`, `renderFiles`, `$("files").replaceChildren`, `renderCardDeadlines`, `mountOrderList`, `isFolderOrderList`, `renderOrders`.
 
 Прямые присваивания полям/свойствам: `$("orderFinanceOverview").hidden`, `$("purchasePanel").hidden`, `$("orderOverview").hidden`, `$("todoPanel").hidden`, `$("orderTasksColumn").hidden`, `$("breadcrumbs").innerHTML`, `$("clientLabel").innerHTML`, `$("editClientColor").hidden`, `$("folderSummary").textContent`, `$("orderDetails").hidden`, `$("folderDetailsTitle").textContent`, `$("statusLabel").hidden`, `$("orderStatusFields").hidden`, `$("supplierStatusLabel").hidden`, `$("supplierStatusLabel").firstChild.textContent`, `$("orderTitleLabel").hidden`, `$("orderTitleLabel").firstChild.textContent`, `$("reconciliationClientLabel").hidden`, `$("financialFields").hidden`, `$("orderNote").placeholder`, `$("removeOrderButton").hidden`, `$("addOrderButton").textContent`, `$("removeOrderButton").textContent`, `$("createObjectFolderButton").hidden`, `$("groupObjectYearsButton").hidden`, `$("createOrderFolderButton").hidden`, `$("createOrderFolderButton").textContent`, `$("createEventFolderButton").hidden`, `$("renameFolderButton").hidden`, `$("moveObjectButton").hidden`, `$("deleteEventButton").hidden`, `$("openEventTrash").hidden`, `folder.todo_items`, `folder.purchase_items`, `$("todoNewText").value`, `$("purchaseNewText").value`, `$("orderDetails").open`, `$("orderTitleInput").value`, `$("reconciliationClient").value`, `$(field).value`, `$("addOrderButton").hidden`, `$("statusSelect").value`, `$("supplierStatusSelect").innerHTML`, `$("supplierStatusSelect").value`, `$("supplierStatusSelect").disabled`, `$("supplierStatusSelect").title`, `$("financialStatusSelect").value`, `$("orderNote").value`, `$("loadOrderFilesButton").hidden`, `$("notice").hidden`, `$("notice").textContent`, `$("fileSearch").value`, `$("filesSection").hidden`, `$("uploadDropZone").hidden`, `$("printWorkspace").hidden`, `state.printQuery`, `$("printTaskSearch").value`, `$("printEditorForm").hidden`, `$("printEditorEmpty").hidden`, `$("printEditorEmpty").textContent`.
 
@@ -3568,6 +3568,24 @@ function renderSupplierSchedule()
 
 Прямые присваивания полям/свойствам: `card.dataset.orderKey`, `card.className`, `card.innerHTML`, `link.href`, `link.dataset.calendarOrder`, `link.textContent`, `link.title`, `events.hidden`, `row.dataset.key`, `row.className`, `row.innerHTML`, `slot.title`, `list.hidden`.
 
+<a id="symbol-renderTodoCount"></a>
+
+## renderTodoCount
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function renderTodoCount(items)
+```
+
+Показывает выполненные задачи и их общее количество.
+
+Закреплённые разделы не входят в счётчик.
+
+Непосредственные вызовы: `items?.filter`, `$`, `tasks.filter`.
+
+Прямые присваивания полям/свойствам: `$("todoCount").textContent`.
+
 <a id="symbol-renderTodoRowActions"></a>
 
 ## renderTodoRowActions
@@ -3596,14 +3614,18 @@ function renderTodos()
 
 Показывает собственные задачи текущей карточки.
 
-Использует `Array.isArray`, `$`, `Boolean`.
+На странице заказа добавляет булавки и ручки перестановки к общему списку.
 
-Непосредственные вызовы: `$("todoList").contains`, `$`, `closeTodoColorMenu`, `Array.isArray`, `Boolean`, `items.filter`, `items.map((item, index) => '<div class="todo-row' + (item.done ? ' done' : '') + '" data-todo-index="' + index + '"' + todoColorAttribute(item) + '>' +
-    '<input class="todo-check" type="checkbox" aria-label="Выполнено: ' + escapeHtml(item.text) + '"' + (item.done ? ' checked' : '') + '>' +
-    '<input class="todo-text" type="text" maxlength="1000" aria-label="Текст задачи" value="' + escapeHtml(item.text) + '">' +
+Непосредственные вызовы: `$`, `Boolean`, `list.contains`, `closeTodoColorMenu`, `clearTodoDrag`, `Array.isArray`, `list.classList.toggle`, `renderTodoCount`, `items.map((item, index) => '<div class="todo-row' + (item.done ? ' done' : '') + (item.pinned ? ' todo-pinned' : '') +
+    '" data-todo-index="' + index + '"' + todoColorAttribute(item) + '>' + handle +
+    '<input class="todo-check" type="checkbox" aria-label="Выполнено: ' + escapeHtml(item.text) + '"' + (item.done ? ' checked' : '') + (item.pinned ? ' disabled' : '') + '>' +
+    '<input class="todo-text" type="text" maxlength="1000" aria-label="Текст задачи" value="' + escapeHtml(item.text) + '"' +
+      (composition ? ' title="' + escapeHtml(item.text) + '"' : '') + '>' +
+    (composition ? '<button class="icon-button todo-pin" type="button" aria-pressed="' + Boolean(item.pinned) +
+      '" aria-label="Закрепить как раздел" title="' + (item.pinned ? 'Открепить раздел' : 'Закрепить как раздел') + '">' + icon("pin") + '</button>' : '') +
     renderTodoRowActions(item, "Удалить задачу: ") + '</div>').join`, `items.map`.
 
-Прямые присваивания полям/свойствам: `$("todoLegacy").hidden`, `$("todoLegacyText").textContent`, `$("todoAddForm").hidden`, `$("todoEmpty").hidden`, `$("todoEmpty").textContent`, `$("todoCount").textContent`, `$("todoList").innerHTML`.
+Прямые присваивания полям/свойствам: `$("todoTitle").textContent`, `$("todoLegacy").hidden`, `$("todoLegacyText").textContent`, `$("todoAddForm").hidden`, `$("todoEmpty").hidden`, `$("todoEmpty").textContent`, `list.innerHTML`.
 
 <a id="symbol-renderTree"></a>
 

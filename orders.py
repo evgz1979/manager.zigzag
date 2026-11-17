@@ -15,7 +15,7 @@ import calendar_layout
 import order_links
 import work_orders
 from order_document import money, MAX_MONEY
-from folder_structure import folder_role, is_service_folder, client_name, client_path, order_location, in_reconciliations
+from folder_structure import folder_role, is_service_folder, client_name, client_path, order_location, in_reconciliations, can_compose_order
 from event_folder_undo import assert_unlocked, guard_database
 
 SNAPSHOT = ".order.json"  # Read-only compatibility with the previous export.
@@ -257,7 +257,8 @@ class OrderStore:
                 from supplier_purchases import write_assignments
                 blocks = write_assignments(db, blocks, payload["purchase_items"])
             if "todo_items" in payload:
-                blocks = document.write_todos(blocks, payload["todo_items"])
+                blocks = document.write_todos(blocks, payload["todo_items"],
+                                             can_pin=lambda: can_compose_order(self.root, relative))
                 # Update phone identities in this same transaction, including an
                 # empty list. A deletion/re-add between syncs must get a new ID.
                 if db.execute("SELECT 1 FROM sqlite_master WHERE name='mobile_tasks'").fetchone():

@@ -637,10 +637,10 @@ self.send_json(object_move.status(order_store(), query.get('id', [''])[0]), head
 Выражения JSON-ответа (значения раскрываются в вызываемом методе):
 
 ```python
-self.send_json({**record, 'purchaseSupplierPath': supplier_purchases.section_path(record['path'])}, head=head)
+self.send_json({**record, 'purchaseSupplierPath': supplier_purchases.section_path(record['path']), 'todoComposition': can_compose_order(DATA_ROOT, record['path'], scan_numbered=False)}, head=head)
 ```
 
-Вызовы ветки: `order_store().get`, `order_store`, `FileNotFoundError`, `supplier_purchases.section_path`.
+Вызовы ветки: `order_store().get`, `order_store`, `FileNotFoundError`, `supplier_purchases.section_path`, `can_compose_order`.
 
 ## GET / HEAD /api/order-todos
 

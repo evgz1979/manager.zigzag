@@ -198,8 +198,8 @@ def order_location(relative):
 
 
 # Классифицирует роль папки для выбора доступного интерфейса и операций.
-# В «02 - etc/ГГГГ» непосредственная рабочая подпапка является заказом независимо от имени.
-def folder_role(root, relative):
+# Без обхода числовых папок считает неоднозначный путь группой до получения полного ответа.
+def folder_role(root, relative, *, scan_numbered=True):
     parts = Path(relative).parts
     if not parts:
         kind = "root"
@@ -241,6 +241,12 @@ def folder_role(root, relative):
             elif DATE.match(name) or DATE_LIKE.match(name):
                 kind = "invalid"
             elif YEAR.fullmatch(name) or NUMBER.match(name):
+                if not scan_numbered:
+                    kind = "group"
+                    child = parts[index + 1] if index + 1 < len(parts) else ""
+                    if dated(child) or YEAR.fullmatch(child):
+                        continue
+                    break
                 folder = Path(root).joinpath(*parts[:index + 1])
                 with os.scandir(folder) as entries:
                     children = [(entry.name, entry.is_dir(follow_symlinks=False)) for entry in entries
@@ -262,3 +268,12 @@ def folder_role(root, relative):
     allowed = kind == "order" and not print_archive
     return {"folderKind": kind, "folderKindLabel": LABELS[kind], "canRegisterOrder": allowed,
             "registrationHint": "Задания печати создаются в отдельном редакторе # print. Прежняя папка сохранена для доступа к данным." if print_archive else "" if allowed else LABELS[kind] + " — не заказ. Выберите папку конкретного заказа по дате или номеру."}
+
+
+# Проверяет доступность закрепления строк в папке заказа.
+# Принимает готовую роль; при первом открытии заказной карточки допускает проверку без обхода файлов.
+def can_compose_order(root, relative, role=None, *, scan_numbered=True):
+    parts = Path(relative).parts
+    if not parts or is_moneys_root(parts[0]) or is_freza_task(relative):
+        return False
+    return (role or folder_role(root, relative, scan_numbered=scan_numbered))["canRegisterOrder"]

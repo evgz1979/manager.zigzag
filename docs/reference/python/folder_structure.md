@@ -10,6 +10,29 @@ Recognize folder roles from names and immediate children, without reading cards.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
+<a id="symbol-can_compose_order"></a>
+
+## can_compose_order
+
+[folder_structure.py](../../../folder_structure.py) · `function`.
+
+```python
+def can_compose_order(root, relative, role=None, *, scan_numbered=True):
+```
+
+Проверяет доступность закрепления строк в папке заказа.
+
+Принимает готовую роль; при первом открытии заказной карточки допускает проверку без обхода файлов.
+
+Непосредственные вызовы: `Path`, `is_moneys_root`, `is_freza_task`, `folder_role`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+False
+(role or folder_role(root, relative, scan_numbered=scan_numbered))['canRegisterOrder']
+```
+
 <a id="symbol-client_name"></a>
 
 ## client_name
@@ -87,12 +110,12 @@ True
 [folder_structure.py](../../../folder_structure.py) · `function`.
 
 ```python
-def folder_role(root, relative):
+def folder_role(root, relative, *, scan_numbered=True):
 ```
 
 Классифицирует роль папки для выбора доступного интерфейса и операций.
 
-В «02 - etc/ГГГГ» непосредственная рабочая подпапка является заказом независимо от имени.
+Без обхода числовых папок считает неоднозначный путь группой до получения полного ответа.
 
 Непосредственные вызовы: `Path`, `len`, `is_work_root`, `is_moneys_root`, `in_bills`, `parts[2].startswith`, `parts[2][1:].strip().casefold`, `parts[2][1:].strip`, `in_reconciliations`, `is_service_folder`, `is_catalog_group`, `is_etc_year`, `dated`, `is_supplier_root`, `supplier_prefix`, `grouped_client`, `enumerate`, `DATE.match`, `DATE_LIKE.match`, `YEAR.fullmatch`, `NUMBER.match`, `Path(root).joinpath`, `os.scandir`, `entry.is_dir`, `entry.name.startswith`, `entry.is_symlink`, `any`, `child.startswith`, `re.match`, `is_print_section`, `Path(*parts[:2]).as_posix`.
 

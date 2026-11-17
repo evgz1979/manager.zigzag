@@ -20,6 +20,23 @@ PREVIOUS = "20261019T170000Z-abcdef12"
 
 
 class DeploymentTests(unittest.TestCase):
+    def test_order_sections_block_rollback_for_registered_orders_and_drafts(self):
+        release = self.base / 'without-order-sections'
+        release.mkdir()
+        source = release / 'order_document.py'
+        for table, column, body in (
+            ('orders', 'extra_blocks', {'Задачи': '- [ ] Раздел\n  Закреплено: да'}),
+            ('folder_notes', 'document', {'extra_blocks': {'Задачи': '- [ ] Раздел\n  Закреплено: да'}}),
+        ):
+            with self.subTest(table=table), sqlite3.connect(self.base / (table + '.sqlite3')) as db:
+                source.write_text('')
+                db.execute(f'CREATE TABLE {table} ({column} TEXT)')
+                db.execute(f'INSERT INTO {table} VALUES (?)', (json.dumps(body),))
+                with self.assertRaisesRegex(RuntimeError, 'закреплённые разделы заказа'):
+                    remote.check_order_todo_pin_compatibility(db, release)
+                source.write_text('ORDER_TODO_PIN_VERSION = 1')
+                remote.check_order_todo_pin_compatibility(db, release)
+
     def test_free_event_comments_block_incompatible_rollback(self):
         release = self.base / 'without-event-comments'
         release.mkdir()
