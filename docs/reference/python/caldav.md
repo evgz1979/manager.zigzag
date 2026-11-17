@@ -54,7 +54,7 @@ def propfind(self, handler, path):
 
 При глубине 1 читает только ресурсы календаря или ctag запрошенных календарей.
 
-Непосредственные вызовы: `parse_xml`, `read_body`, `DavError`, `request.find`, `list`, `dict.fromkeys`, `handler.headers.get`, `xml.Element`, `add_response`, `properties`, `multistatus`, `split_resource`, `self.resources(collection).get`, `self.resources`, `sorted`, `items.items`.
+Непосредственные вызовы: `parse_xml`, `read_body`, `DavError`, `request.find`, `list`, `dict.fromkeys`, `handler.headers.get`, `xml.Element`, `add_response`, `properties`, `multistatus`, `split_resource`, `self.resources(collection, handler.public_authority()).get`, `self.resources`, `handler.public_authority`, `sorted`, `items.items`.
 
 Явные исключения: `DavError`.
 
@@ -72,7 +72,7 @@ def report(self, handler, path):
 
 Применяет фильтр интервала VEVENT и возвращает 404 для исчезнувших ресурсов.
 
-Непосредственные вызовы: `DavError`, `parse_xml`, `read_body`, `request.find`, `list`, `dict.fromkeys`, `self.resources`, `xml.Element`, `request.findall`, `route_for`, `href.startswith`, `split_resource`, `items.get`, `add_response`, `properties`, `len`, `filters[0].get`, `filters[0].find`, `event_filter.get`, `any`, `event_filter.find`, `datetime.min.replace`, `datetime.max.replace`, `interval.get`, `datetime.strptime(interval.get('start'), caldav_events.UTC_FORMAT).replace`, `datetime.strptime`, `datetime.strptime(interval.get('end'), caldav_events.UTC_FORMAT).replace`, `sorted`, `items.items`, `max`, `timedelta`, `multistatus`.
+Непосредственные вызовы: `DavError`, `parse_xml`, `read_body`, `request.find`, `list`, `dict.fromkeys`, `self.resources`, `handler.public_authority`, `xml.Element`, `request.findall`, `route_for`, `href.startswith`, `split_resource`, `items.get`, `add_response`, `properties`, `len`, `filters[0].get`, `filters[0].find`, `event_filter.get`, `any`, `event_filter.find`, `datetime.min.replace`, `datetime.max.replace`, `interval.get`, `datetime.strptime(interval.get('start'), caldav_events.UTC_FORMAT).replace`, `datetime.strptime`, `datetime.strptime(interval.get('end'), caldav_events.UTC_FORMAT).replace`, `sorted`, `items.items`, `max`, `timedelta`, `multistatus`.
 
 Явные исключения: `DavError`.
 
@@ -83,12 +83,12 @@ def report(self, handler, path):
 [caldav.py](../../../caldav.py) · `function`.
 
 ```python
-def resources(self, collection):
+def resources(self, collection, authority=None):
 ```
 
 Генерирует представления ресурсов одного календаря для текущего запроса.
 
-Сопоставляет каждое имя с телом VEVENT и временем.
+Ссылки в VEVENT используют внешний адрес текущего запроса или основной адрес.
 
 Непосредственные вызовы: `event_resources`, `caldav_events.order_resources`, `self.read_orders`.
 
@@ -96,7 +96,7 @@ def resources(self, collection):
 
 ```python
 event_resources(self.events)
-{item.name: item for item in caldav_events.order_resources(self.read_orders(), self.public_host)}
+{item.name: item for item in caldav_events.order_resources(self.read_orders(), authority or self.public_host)}
 ```
 
 <a id="symbol-CalendarDAV.serve"></a>
@@ -113,7 +113,7 @@ def serve(self, handler, path, writes_allowed):
 
 Записи блокируются при переключении рабочего сервера.
 
-Непосредственные вызовы: `handler.reply`, `self.propfind`, `self.report`, `split_resource`, `self.resources(collection).get`, `self.resources`, `DavError`, `handler.headers.get`, `writes_allowed`, `put`, `delete`, `send_error`.
+Непосредственные вызовы: `handler.reply`, `self.propfind`, `self.report`, `split_resource`, `self.resources(collection, handler.public_authority()).get`, `self.resources`, `handler.public_authority`, `DavError`, `handler.headers.get`, `writes_allowed`, `put`, `delete`, `send_error`.
 
 Явные исключения: `DavError`.
 
@@ -262,7 +262,7 @@ def manage_credentials(handler, store, gate, document):
 
 Любое новое значение немедленно заменяет старое и возвращается в браузер один раз.
 
-Непосредственные вызовы: `handler.headers.get_all`, `handler.headers.get_content_type`, `DavError`, `json.loads`, `read_body`, `isinstance`, `payload.get`, `gate.valid`, `store.connect`, `db.execute`, `secrets.token_urlsafe`, `credential_digest`, `password.encode`.
+Непосредственные вызовы: `handler.headers.get_all`, `handler.headers.get_content_type`, `DavError`, `json.loads`, `read_body`, `isinstance`, `payload.get`, `gate.valid`, `getattr`, `handler.public_authority`, `store.connect`, `db.execute`, `secrets.token_urlsafe`, `credential_digest`, `password.encode`.
 
 Явные исключения: `DavError`.
 

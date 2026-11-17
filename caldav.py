@@ -131,7 +131,8 @@ def manage_credentials(handler, store, gate, document):
     token = payload.get('csrf')
     if not isinstance(token, str) or not gate.valid(document, token, 'settings'):
         raise DavError(403)
-    result = {'server': gate.public_host, 'path': ROOT, 'username': USERNAME}
+    authority = handler.public_authority() if getattr(handler, 'remote_access_request', False) else gate.public_host
+    result = {'server': authority, 'path': ROOT, 'username': USERNAME}
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE')
         if payload['action'] == 'generate':
@@ -347,11 +348,11 @@ class CalendarDAV:
         self.public_host = public_host
 
     # Генерирует представления ресурсов одного календаря для текущего запроса.
-    # Сопоставляет каждое имя с телом VEVENT и временем.
-    def resources(self, collection):
+    # Ссылки в VEVENT используют внешний адрес текущего запроса или основной адрес.
+    def resources(self, collection, authority=None):
         if collection == EVENTS:
             return event_resources(self.events)
-        return {item.name: item for item in caldav_events.order_resources(self.read_orders(), self.public_host)}
+        return {item.name: item for item in caldav_events.order_resources(self.read_orders(), authority or self.public_host)}
 
     # Выдаёт свойства коллекций и их непосредственных членов.
     # При глубине 1 читает только ресурсы календаря или ctag запрошенных календарей.
@@ -374,7 +375,7 @@ class CalendarDAV:
             return
         if path not in COLLECTIONS:
             collection, name = split_resource(path)
-            item = self.resources(collection).get(name)
+            item = self.resources(collection, handler.public_authority()).get(name)
             if item is None:
                 raise DavError(404)
             add_response(result, path, properties(path, item, {}, names or ()), names, propname=propname)
@@ -383,7 +384,8 @@ class CalendarDAV:
             for child in paths:
                 list_members = child == path and depth == '1' and child in {EVENTS, ORDERS}
                 requested = names if names is not None else [CS + 'getctag']
-                items = self.resources(child) if child in {EVENTS, ORDERS} and (list_members or CS + 'getctag' in requested) else {}
+                items = (self.resources(child, handler.public_authority())
+                         if child in {EVENTS, ORDERS} and (list_members or CS + 'getctag' in requested) else {})
                 add_response(result, child, properties(child, None, items, requested), names, propname=propname)
                 if list_members:
                     for name, item in sorted(items.items()):
@@ -401,7 +403,7 @@ class CalendarDAV:
             raise DavError(403, DAV + 'supported-report')
         prop = request.find(DAV + 'prop')
         names = list(dict.fromkeys(child.tag for child in prop)) if prop is not None else [DAV + 'getetag', CAL + 'calendar-data']
-        items = self.resources(path)
+        items = self.resources(path, handler.public_authority())
         result = xml.Element(DAV + 'multistatus')
         if request.tag == CAL + 'calendar-multiget':
             for element in request.findall(DAV + 'href'):
@@ -452,7 +454,7 @@ class CalendarDAV:
                 self.report(handler, path)
             elif method in {'GET', 'HEAD'}:
                 collection, name = split_resource(path)
-                item = self.resources(collection).get(name)
+                item = self.resources(collection, handler.public_authority()).get(name)
                 if not item:
                     raise DavError(404)
                 if handler.headers.get('If-None-Match') == item.etag:

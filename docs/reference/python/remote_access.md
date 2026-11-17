@@ -31,16 +31,16 @@ class PasswordGate:
 [remote_access.py](../../../remote_access.py) · `function`.
 
 ```python
-def __init__(self, path, public_host, clock=time.time):
+def __init__(self, path, public_host, clock=time.time, *, alternate_public_authority=''):
 ```
 
-Сохраняет зависимости и начальные параметры экземпляра.
+Хранит профиль входа, разрешённые адреса и ограничитель попыток.
 
-Состояние и зависимости сохраняются в полях self для последующих операций.
+Оба внешних адреса используют один профиль и один лимит.
 
 Непосредственные вызовы: `Path`, `threading.Lock`, `deque`, `threading.BoundedSemaphore`.
 
-Прямые присваивания полям/свойствам: `self.path`, `self.public_host`, `self.clock`, `self.lock`, `self.attempts`, `self.verifying`.
+Прямые присваивания полям/свойствам: `self.path`, `self.public_host`, `self.alternate_public_authority`, `self.clock`, `self.lock`, `self.attempts`, `self.verifying`.
 
 <a id="symbol-PasswordGate.change_password"></a>
 
@@ -206,7 +206,7 @@ class RemoteHTTPServer(ThreadingHTTPServer):
 
 Ограничивает параллельные соединения отдельного защищённого слушателя.
 
-Основные операции: __init__, process_request, process_request_thread.
+Очередь TCP и число обслуживаемых запросов ограничены 64.
 
 <a id="symbol-RemoteHTTPServer.__init__"></a>
 
@@ -368,11 +368,11 @@ gate.valid(document, cookie(self, SESSION_COOKIE), 'session')
 def context(self):
 ```
 
-Проверяет Host и состояние профиля для текущего запроса.
+Проверяет внешний адрес и состояние профиля для текущего запроса.
 
 Возвращает `None`; либо `(gate, document)`.
 
-Непосредственные вызовы: `self.headers.get_all`, `len`, `hosts[0].lower`, `self.reply`, `'Неверный адрес сайта'.encode`, `gate.document`, `'Внешний вход ещё не настроен'.encode`.
+Непосредственные вызовы: `self.public_authority`, `self.reply`, `'Неверный адрес сайта'.encode`, `gate.document`, `'Внешний вход ещё не настроен'.encode`.
 
 Выражения возврата (ветки читаются в исходнике):
 
@@ -532,7 +532,31 @@ def login_page(self, gate, document, error='', status=200, retry=0):
 
 Общий скрипт оформления использует nonce страницы и локальный выбор браузера.
 
-Непосредственные вызовы: `urllib.parse.parse_qs`, `urllib.parse.urlsplit`, `safe_next`, `query.get`, `gate.token`, `secrets.token_urlsafe`, `f'''<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>Вход · Зигзаг</title>\n<script nonce="{nonce}">{appearance_script}</script>\n<style nonce="{nonce}">\n:root{{color-scheme:light dark;--canvas:Canvas;--panel:Field;--text:CanvasText;--muted:GrayText;--line:ButtonBorder;--input-line:ButtonBorder;--error:CanvasText}}\n:root[data-appearance="light"]{{color-scheme:light}}\n:root[data-appearance="dark"]{{color-scheme:dark}}\n@supports (color:light-dark(#000,#fff)){{\n  :root{{--canvas:light-dark(#f7f9f8,#161b19);--panel:light-dark(#fff,#222b27);--text:light-dark(#263738,#e3ebe6);\n  --muted:light-dark(#667570,#a5b3ac);--line:light-dark(#e0e7e4,#394741);--input-line:light-dark(#bdccc6,#52645b);--error:light-dark(#b13535,#ffa9a7)}}\n}}\n*{{box-sizing:border-box}}\nbody{{margin:0;min-height:100dvh;display:grid;place-items:center;padding:24px;background:var(--canvas);color:var(--text);font:15px -apple-system,BlinkMacSystemFont,sans-serif}}\nmain{{width:100%;max-width:360px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:28px}}\nh1{{font-size:24px;margin:0 0 24px}}\nlabel{{display:block}}\ninput[type=password]{{width:100%;font:16px -apple-system,BlinkMacSystemFont,sans-serif;padding:12px;border:1px solid var(--input-line);border-radius:8px;margin:8px 0 16px}}\nbutton{{width:100%;border:0;border-radius:8px;background:#167a65;color:white;padding:13px;font:16px -apple-system,BlinkMacSystemFont,sans-serif;margin-top:22px;cursor:pointer}}\n.remember{{font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:center}}\n.error{{color:var(--error);font-size:13px}}\ninput:focus-visible,button:focus-visible{{outline:3px solid #76bcaa;outline-offset:2px}}\n</style>\n<main><h1>Зигзаг · Вход</h1><form method="post" action="https://{gate.public_host}{LOGIN_PATH}"><input type="hidden" name="username" autocomplete="username" value="manager"><input type="hidden" name="csrf" value="{csrf}"><input type="hidden" name="next" value="{html.escape(destination, quote=True)}"><label for="password">Пароль<input id="password" name="password" type="password" autocomplete="current-password" required maxlength="1024" autofocus></label><label class="remember"><input type="checkbox" name="remember" value="1" checked>Запомнить на этом устройстве</label><p class="error" role="alert">{html.escape(error)}</p><button type="submit">Войти</button></form></main>\n<script nonce="{nonce}">document.querySelector('form').addEventListener('submit',()=>{{let n=document.querySelector('[name=next]');if(location.hash&&!n.value.includes('#'))n.value+=location.hash}});</script></html>'''.encode`, `html.escape`, `cookie_header`, `headers.append`, `str`, `self.reply`.
+Непосредственные вызовы: `urllib.parse.parse_qs`, `urllib.parse.urlsplit`, `safe_next`, `query.get`, `gate.token`, `secrets.token_urlsafe`, `self.public_authority`, `f'''<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>Вход · Зигзаг</title>\n<script nonce="{nonce}">{appearance_script}</script>\n<style nonce="{nonce}">\n:root{{color-scheme:light dark;--canvas:Canvas;--panel:Field;--text:CanvasText;--muted:GrayText;--line:ButtonBorder;--input-line:ButtonBorder;--error:CanvasText}}\n:root[data-appearance="light"]{{color-scheme:light}}\n:root[data-appearance="dark"]{{color-scheme:dark}}\n@supports (color:light-dark(#000,#fff)){{\n  :root{{--canvas:light-dark(#f7f9f8,#161b19);--panel:light-dark(#fff,#222b27);--text:light-dark(#263738,#e3ebe6);\n  --muted:light-dark(#667570,#a5b3ac);--line:light-dark(#e0e7e4,#394741);--input-line:light-dark(#bdccc6,#52645b);--error:light-dark(#b13535,#ffa9a7)}}\n}}\n*{{box-sizing:border-box}}\nbody{{margin:0;min-height:100dvh;display:grid;place-items:center;padding:24px;background:var(--canvas);color:var(--text);font:15px -apple-system,BlinkMacSystemFont,sans-serif}}\nmain{{width:100%;max-width:360px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:28px}}\nh1{{font-size:24px;margin:0 0 24px}}\nlabel{{display:block}}\ninput[type=password]{{width:100%;font:16px -apple-system,BlinkMacSystemFont,sans-serif;padding:12px;border:1px solid var(--input-line);border-radius:8px;margin:8px 0 16px}}\nbutton{{width:100%;border:0;border-radius:8px;background:#167a65;color:white;padding:13px;font:16px -apple-system,BlinkMacSystemFont,sans-serif;margin-top:22px;cursor:pointer}}\n.remember{{font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:center}}\n.error{{color:var(--error);font-size:13px}}\ninput:focus-visible,button:focus-visible{{outline:3px solid #76bcaa;outline-offset:2px}}\n</style>\n<main><h1>Зигзаг · Вход</h1><form method="post" action="{action}"><input type="hidden" name="username" autocomplete="username" value="manager"><input type="hidden" name="csrf" value="{csrf}"><input type="hidden" name="next" value="{html.escape(destination, quote=True)}"><label for="password">Пароль<input id="password" name="password" type="password" autocomplete="current-password" required maxlength="1024" autofocus></label><label class="remember"><input type="checkbox" name="remember" value="1" checked>Запомнить на этом устройстве</label><p class="error" role="alert">{html.escape(error)}</p><button type="submit">Войти</button></form></main>\n<script nonce="{nonce}">document.querySelector('form').addEventListener('submit',()=>{{let n=document.querySelector('[name=next]');if(location.hash&&!n.value.includes('#'))n.value+=location.hash}});</script></html>'''.encode`, `html.escape`, `cookie_header`, `headers.append`, `str`, `self.reply`.
+
+<a id="symbol-handler_class.RemoteHandler.public_authority"></a>
+
+## handler_class.RemoteHandler.public_authority
+
+[remote_access.py](../../../remote_access.py) · `function`.
+
+```python
+def public_authority(self):
+```
+
+Возвращает канонический внешний адрес для заголовка Host.
+
+Принимает ровно один из настроенных HTTPS-адресов, включая его порт.
+
+Непосредственные вызовы: `self.headers.get_all`, `len`, `hosts[0].lower`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+gate.public_host
+gate.alternate_public_authority
+None
+```
 
 <a id="symbol-handler_class.RemoteHandler.reply"></a>
 
@@ -562,16 +586,17 @@ def reply(self, status, body=b'', content_type='text/html; charset=utf-8', heade
 def same_origin(self):
 ```
 
-Проверяет строгий HTTPS Origin внешней записи.
+Проверяет HTTPS Origin для адреса текущего запроса.
 
-Возвращает `len(origins) == 1 and origins[0] in {'https://' + host, 'https://' + host + ':443'}`.
+Разрешение второго адреса не разрешает POST между двумя адресами.
 
-Непосредственные вызовы: `self.headers.get_all`, `len`.
+Непосредственные вызовы: `self.headers.get_all`, `self.public_authority`, `len`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-len(origins) == 1 and origins[0] in {'https://' + host, 'https://' + host + ':443'}
+False
+origins[0] == origin or (authority == self.server.password_gate.public_host and origins[0] == origin + ':443')
 ```
 
 <a id="symbol-handler_class.RemoteHandler.send_file"></a>
@@ -719,7 +744,7 @@ def serve_settings(handler, head=False):
 
 Не выдаёт профиль или его хеш; неверный адрес и неизвестный профиль закрывают действие.
 
-Непосредственные вызовы: `settings_request_allowed`, `handler.send_json`, `getattr`, `gate.document`, `bool`, `gate.token`.
+Непосредственные вызовы: `settings_request_allowed`, `handler.send_json`, `getattr`, `gate.document`, `bool`, `handler.public_authority`, `gate.token`.
 
 <a id="symbol-settings"></a>
 
@@ -735,7 +760,7 @@ def settings(config_file):
 
 При недопустимом состоянии возбуждает ValueError.
 
-Непосредственные вызовы: `configparser.ConfigParser`, `config.read`, `config.getboolean`, `config.get('remote_access', 'public_host', fallback='').strip().lower`, `config.get('remote_access', 'public_host', fallback='').strip`, `config.get`, `re.fullmatch`, `ValueError`, `config.getint`, `Path(config.get('remote_access', 'credentials_file', fallback=str(DEFAULT_CREDENTIALS))).expanduser`, `Path`, `str`, `credentials.is_absolute`.
+Непосредственные вызовы: `configparser.ConfigParser`, `config.read`, `config.getboolean`, `config.get('remote_access', 'public_host', fallback='').strip().lower`, `config.get('remote_access', 'public_host', fallback='').strip`, `config.get`, `re.fullmatch`, `ValueError`, `config.get('remote_access', 'alternate_public_authority', fallback='').strip().lower`, `config.get('remote_access', 'alternate_public_authority', fallback='').strip`, `int`, `config.getint`, `Path(config.get('remote_access', 'credentials_file', fallback=str(DEFAULT_CREDENTIALS))).expanduser`, `Path`, `str`, `credentials.is_absolute`.
 
 Явные исключения: `ValueError`.
 
@@ -743,7 +768,7 @@ def settings(config_file):
 
 ```python
 None
-{'public_host': host, 'port': port, 'credentials_file': credentials}
+{'public_host': host, 'alternate_public_authority': alternate, 'port': port, 'credentials_file': credentials}
 ```
 
 <a id="symbol-settings_request_allowed"></a>

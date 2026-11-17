@@ -25,6 +25,8 @@ flowchart TD
     B[Браузер: HTML / CSS / JavaScript] --> L[LAN: ManagerHandler]
     E[Внешний HTTPS] --> T[Cloudflare Tunnel]
     T --> R[Loopback: RemoteHandler]
+    P[Прямой HTTPS на codex-vps:9443] --> Q[Обратный SSH-туннель активного Mac]
+    Q --> R
     R --> L
     L --> S[Хранилища и доменные модули Python]
     S --> D[(Рабочая SQLite M4)]
@@ -36,7 +38,7 @@ flowchart TD
     W --> Z[Проверенная ZIP-копия в iCloud]
 ```
 
-Стрелка `RemoteHandler → ManagerHandler` означает наследование и вызов проверенных унаследованных методов, а не проксирование на открытый LAN-порт. Защищённый слушатель создаётся отдельно. Настроенный маршрут Tunnel должен вести исключительно на `127.0.0.1:18767`.
+Стрелка `RemoteHandler → ManagerHandler` означает наследование и вызов проверенных унаследованных методов. Оба туннеля ведут к отдельному слушателю `127.0.0.1:18767`. [RemoteHandler.public_authority](reference/python/remote_access.md#symbol-handler_class.RemoteHandler.public_authority) определяет точный HTTPS-адрес для формы, проверок Origin и ссылок CalDAV.
 
 ## Запуск и конфигурация
 

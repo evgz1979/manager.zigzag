@@ -22,6 +22,7 @@ import zipfile
 import deploy_remote as deployment
 
 TUNNEL = deployment.LABEL + ".tunnel"
+DIRECT_TUNNEL = deployment.LABEL + ".direct-tunnel"
 SUPPORT = Path(".local/share/manager-remote-access")
 STATE = ".handoff-parked.json"
 PROFILE = "password.json"
@@ -135,12 +136,15 @@ class Installation:
         config = configparser.ConfigParser(interpolation=None)
         config.read(self.root / "manager.ini", encoding="utf-8")
         release_file = self.current / ".release-id"
+        alternate = config.get("remote_access", "alternate_public_authority", fallback="").strip()
         return {"documents": str(self.documents), "directory": str(self.root),
                 "release": release_file.read_text().strip() if release_file.is_file() else "",
                 "parked": json.loads(self.parked.read_text()) if self.parked.exists() else None,
                 "manager": self.loaded(deployment.LABEL),
                 "tunnel": self.loaded(TUNNEL),
+                "direct_tunnel": bool(alternate) and self.loaded(DIRECT_TUNNEL),
                 "public_host": config.get("remote_access", "public_host", fallback=""),
+                "alternate_public_authority": alternate,
                 "remote_port": config.getint("remote_access", "port", fallback=0),
                 "configured_remote": config.getboolean("remote_access", "enabled", fallback=False),
                 "config_root": str(Path(config.get("storage", "root", fallback="/")).expanduser().resolve())}
@@ -274,6 +278,8 @@ class Installation:
             try:
                 self.stop_job(TUNNEL)
                 with self.stopped(state["remote_port"], drain=True):
+                    if state["alternate_public_authority"]:
+                        self.stop_job(DIRECT_TUNNEL)
                     snapshot = history / "snapshot.sqlite3"
                     snapshot.unlink(missing_ok=True)
                     deployment.backup_database(self.database, snapshot)
@@ -298,6 +304,8 @@ class Installation:
                     self.parked.unlink(missing_ok=True)
                     self.start_job(deployment.LABEL)
                     self.start_job(TUNNEL)
+                    if state["alternate_public_authority"]:
+                        self.start_job(DIRECT_TUNNEL)
                 raise
 
     # Устанавливает полученную базу ровно один раз и подтверждает оба входа.
@@ -340,6 +348,8 @@ class Installation:
             self.start_job(deployment.LABEL)
             self.check_service(state)
             self.start_job(TUNNEL)
+            if state["alternate_public_authority"]:
+                self.start_job(DIRECT_TUNNEL)
             self.check_public(state)
             return self.status()
 
@@ -385,13 +395,14 @@ class Installation:
                     raise RuntimeError("Сервер использует другой корень документов")
                 with urllib.request.urlopen(f"http://127.0.0.1:{self.port}/api/tree", timeout=5) as response:
                     json.load(response)
-                connection = http.client.HTTPConnection("127.0.0.1", state["remote_port"], timeout=3)
-                try:
-                    connection.request("GET", "/api/health", headers={"Host": state["public_host"]})
-                    if connection.getresponse().status != 401:
-                        raise RuntimeError("Внешний API не подтвердил защиту паролем")
-                finally:
-                    connection.close()
+                for authority in filter(None, (state["public_host"], state.get("alternate_public_authority"))):
+                    connection = http.client.HTTPConnection("127.0.0.1", state["remote_port"], timeout=3)
+                    try:
+                        connection.request("GET", "/api/health", headers={"Host": authority})
+                        if connection.getresponse().status != 401:
+                            raise RuntimeError("Внешний API не подтвердил защиту паролем")
+                    finally:
+                        connection.close()
                 return
             except (OSError, ValueError, RuntimeError, http.client.HTTPException):
                 time.sleep(0.5)
@@ -406,29 +417,38 @@ class Installation:
         config = settings(self.root / "manager.ini")
         gate = PasswordGate(config["credentials_file"], state["public_host"])
         cookie = SESSION_COOKIE + "=" + gate.token(gate.document(), "session", 120)
-        url = "https://" + state["public_host"]
-        login_url = url + "/_auth/login"
+        authority = state["public_host"]
         deadline = time.monotonic() + 60
         while time.monotonic() < deadline:
-            try:
-                with urllib.request.urlopen(login_url, timeout=5) as response:
-                    if response.status != 200 or response.geturl() != login_url:
-                        raise RuntimeError("Не открылась форма входа")
-                # HTTPSConnection не пересылает подписанную сессию на другие адреса.
-                connection = http.client.HTTPSConnection(state["public_host"], timeout=5)
-                try:
-                    connection.request("GET", "/api/handoff-health", headers={"Cookie": cookie})
-                    response = connection.getresponse()
-                    if response.status == 200:
-                        value = json.load(response)
-                        if value.get("host") == socket.gethostname() and value.get("release") == state["release"]:
-                            return
-                finally:
-                    connection.close()
-            except (OSError, ValueError, RuntimeError, http.client.HTTPException):
-                pass
+            if self.public_ready(authority, cookie, state["release"]):
+                alternate = state.get("alternate_public_authority")
+                if alternate and not self.public_ready(alternate, cookie, state["release"]):
+                    print("Прямой вход ещё не подтвердился. Вход через Cloudflare работает.", file=sys.stderr)
+                return
             time.sleep(1)
         raise RuntimeError("Внешний адрес ещё не отвечает. Проверь туннель и повтори ту же команду.")
+
+    # Проверяет форму и точный рабочий экземпляр по заданному HTTPS-адресу.
+    # Проверка TLS штатная, подписанная сессия не пересылается по перенаправлениям.
+    @staticmethod
+    def public_ready(authority, cookie, release):
+        login_url = "https://" + authority + "/_auth/login"
+        try:
+            with urllib.request.urlopen(login_url, timeout=5) as response:
+                if response.status != 200 or response.geturl() != login_url:
+                    return False
+            connection = http.client.HTTPSConnection(authority, timeout=5)
+            try:
+                connection.request("GET", "/api/handoff-health", headers={"Cookie": cookie})
+                response = connection.getresponse()
+                if response.status == 200:
+                    value = json.load(response)
+                    return value.get("host") == socket.gethostname() and value.get("release") == release
+            finally:
+                connection.close()
+        except (OSError, ValueError, RuntimeError, http.client.HTTPException):
+            pass
+        return False
 
 
 # Выполняет одну строго заданную операцию на M4 через SSH.

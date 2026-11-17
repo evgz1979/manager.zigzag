@@ -8,7 +8,7 @@
 
 ## Python
 
-67 файлов; 970 именованных объявлений.
+67 файлов; 972 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
@@ -57,13 +57,13 @@
 | [orders.py](python/orders.md) | 44 |
 | [reconciliations.py](python/reconciliations.md) | 19 |
 | [recovery_backup.py](python/recovery_backup.md) | 10 |
-| [remote_access.py](python/remote_access.md) | 41 |
+| [remote_access.py](python/remote_access.md) | 42 |
 | [scripts/archive_order_duplicate.py](python/scripts-archive_order_duplicate.md) | 8 |
 | [scripts/build_documentation.py](python/scripts-build_documentation.md) | 22 |
 | [scripts/deploy.py](python/scripts-deploy.md) | 3 |
 | [scripts/deploy_remote.py](python/scripts-deploy_remote.md) | 18 |
 | [scripts/handoff.py](python/scripts-handoff.md) | 8 |
-| [scripts/handoff_host.py](python/scripts-handoff_host.md) | 23 |
+| [scripts/handoff_host.py](python/scripts-handoff_host.md) | 24 |
 | [scripts/rebind_glass_notes.py](python/scripts-rebind_glass_notes.md) | 6 |
 | [scripts/rebind_order.py](python/scripts-rebind_order.md) | 8 |
 | [scripts/remote_access_password.py](python/scripts-remote_access_password.md) | 10 |

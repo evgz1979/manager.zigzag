@@ -24,7 +24,7 @@ def back(local, settings, state_file, state):
 
 После сбоя повторяет прежнюю передачу и сохраняет записи уже запущенного M4.
 
-Непосредственные вызовы: `remote`, `print`, `RuntimeError`, `confirm`, `uuid.uuid4`, `deployment.write_json`, `local.freeze(state['return_id'], state['trip']).open`, `local.freeze`.
+Непосредственные вызовы: `remote`, `print`, `home.get`, `RuntimeError`, `confirm`, `uuid.uuid4`, `deployment.write_json`, `local.freeze(state['return_id'], state['trip']).open`, `local.freeze`.
 
 Явные исключения: `RuntimeError`.
 
@@ -114,7 +114,7 @@ def prepare(local, settings, home_state):
 
 Рабочая база и закрытые настройки не нужны для этой стадии.
 
-Непосредственные вызовы: `RuntimeError`, `str`, `local.documents.is_dir`, `any`, `item.is_dir`, `item.name.startswith`, `local.documents.iterdir`, `RELEASE.fullmatch`, `socket.create_connection`, `local.lock`, `local.status`, `local.data.mkdir`, `local.stopped`, `local.stop_job`, `deployment.write_json`, `deployment.atomic_write`, `config.encode`, `(local.current / 'scripts/handoff_host.py').is_file`, `tempfile.TemporaryDirectory`, `Path`, `tempfile.TemporaryFile`, `remote`, `package.seek`, `zipfile.ZipFile`, `Bundle.read`, `json.loads`, `(app / '.manifest.json').read_text`, `(app / '.release-id').read_text().strip`, `(app / '.release-id').read_text`, `set`, `manifest['files'].items`, `(app / 'data').symlink_to`, `(app / 'manager.ini').symlink_to`, `target.parent.mkdir`, `target.exists`, `target.with_name`, `uuid.uuid4`, `app.rename`, `deploy_connector`, `temporary_link.unlink`, `temporary_link.symlink_to`, `target.relative_to`, `temporary_link.replace`, `deployment.prepare_renderers`, `local.current.resolve`, `deployment.prepare_launcher`, `write_agents`, `print`.
+Непосредственные вызовы: `RuntimeError`, `str`, `local.documents.is_dir`, `any`, `item.is_dir`, `item.name.startswith`, `local.documents.iterdir`, `RELEASE.fullmatch`, `socket.create_connection`, `home_state.get`, `(local.agents / (DIRECT_TUNNEL + '.plist')).is_file`, `local.lock`, `local.status`, `local.loaded`, `local.data.mkdir`, `local.stopped`, `local.stop_job`, `deployment.write_json`, `deployment.atomic_write`, `config.encode`, `(local.current / 'scripts/handoff_host.py').is_file`, `tempfile.TemporaryDirectory`, `Path`, `tempfile.TemporaryFile`, `remote`, `package.seek`, `zipfile.ZipFile`, `Bundle.read`, `json.loads`, `(app / '.manifest.json').read_text`, `(app / '.release-id').read_text().strip`, `(app / '.release-id').read_text`, `set`, `manifest['files'].items`, `(app / 'data').symlink_to`, `(app / 'manager.ini').symlink_to`, `target.parent.mkdir`, `target.exists`, `target.with_name`, `uuid.uuid4`, `app.rename`, `deploy_connector`, `temporary_link.unlink`, `temporary_link.symlink_to`, `target.relative_to`, `temporary_link.replace`, `deployment.prepare_renderers`, `local.current.resolve`, `deployment.prepare_launcher`, `write_agents`, `print`.
 
 Явные исключения: `RuntimeError`.
 

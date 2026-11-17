@@ -18,7 +18,7 @@ import uuid
 import zipfile
 
 import deploy_remote as deployment
-from handoff_host import Bundle, Installation, CONNECTOR, HELPER, RELEASE, TUNNEL
+from handoff_host import Bundle, Installation, CONNECTOR, DIRECT_TUNNEL, HELPER, RELEASE, TUNNEL
 
 APP = Path(__file__).resolve().parents[1]
 
@@ -50,10 +50,13 @@ def prepare(local, settings, home_state):
         raise RuntimeError("Неизвестный номер релиза M4")
     with socket.create_connection(("127.0.0.1", 10808), timeout=3):
         pass
+    alternate = home_state.get("alternate_public_authority", "")
+    if alternate and not (local.agents / (DIRECT_TUNNEL + ".plist")).is_file():
+        raise RuntimeError("На MacBook ещё не установлен коннектор прямого входа")
 
     with local.lock():
         state = local.status()
-        if state["manager"] or state["tunnel"]:
+        if state["manager"] or state["tunnel"] or local.loaded(DIRECT_TUNNEL):
             raise RuntimeError("На MacBook уже запущен менеджер или туннель")
         local.data.mkdir(exist_ok=True)
         with local.stopped(home_state["remote_port"]):
@@ -63,6 +66,8 @@ def prepare(local, settings, home_state):
         config = ("[storage]\nroot = " + str(local.documents) +
                   f"\n\n[server]\nhost = {local.host}\nport = {local.port}\n" +
                   "\n[remote_access]\nenabled = true\npublic_host = manager.actu.cc\nport = 18767\n")
+        if alternate:
+            config += f"alternate_public_authority = {alternate}\n"
         deployment.atomic_write(local.root / "manager.ini", config.encode())
         release = home_state["release"]
         if state["release"] != release or not (local.current / "scripts/handoff_host.py").is_file():
@@ -184,7 +189,8 @@ def back(local, settings, state_file, state):
         return
     if state["phase"] == "away":
         home = remote(settings, "status")
-        if not home["parked"] or home["parked"]["id"] != state["trip"] or home["manager"] or home["tunnel"]:
+        if (not home["parked"] or home["parked"]["id"] != state["trip"]
+                or home["manager"] or home["tunnel"] or home.get("direct_tunnel")):
             raise RuntimeError("M4 не остановлен для этой поездки")
         confirm("M4")
         state = {**state, "phase": "returning", "return_id": uuid.uuid4().hex}

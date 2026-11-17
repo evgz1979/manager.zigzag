@@ -78,6 +78,24 @@ class RemoteAccessTests(unittest.TestCase):
         self.assertEqual(status, 303)
         return next(value.split(';')[0] for name, value in headers if name == 'Set-Cookie' and value.startswith(auth.SESSION_COOKIE + '='))
 
+    def test_alternate_authority_can_log_in_and_only_accepts_its_own_origin(self):
+        authority = '203.0.113.5:9443'
+        self.gate.alternate_public_authority = authority
+        status, headers, body = self.http(auth.LOGIN_PATH, headers={'Host': authority})
+        self.assertEqual(status, 200)
+        self.assertIn(f'action="https://{authority}{auth.LOGIN_PATH}"'.encode(), body)
+        self.assertIn(f'action="https://{HOST}{auth.LOGIN_PATH}"'.encode(), self.http(auth.LOGIN_PATH)[2])
+        self.assertEqual(self.http('/api/health', headers={'Host': authority})[0], 401)
+        for invalid in ('203.0.113.5', '203.0.113.5:443', HOST + ':9443'):
+            self.assertEqual(self.http('/api/health', headers={'Host': invalid})[0], 421)
+        token = re.search(rb'name="csrf" value="([^"]+)"', body)[1].decode()
+        cookie = next(value.split(';')[0] for name, value in headers if name == 'Set-Cookie')
+        form = urllib.parse.urlencode({'csrf': token, 'password': PASSWORD})
+        request = {'Host': authority, 'Cookie': cookie, 'Content-Type': 'application/x-www-form-urlencoded'}
+        for origin in ('https://' + HOST, 'http://' + authority, 'https://203.0.113.5'):
+            self.assertEqual(self.http(auth.LOGIN_PATH, 'POST', form, {**request, 'Origin': origin})[0], 403)
+        self.assertEqual(self.http(auth.LOGIN_PATH, 'POST', form, {**request, 'Origin': 'https://' + authority})[0], 303)
+
     def test_local_address_stays_open_and_remote_is_gated(self):
         for route in ('/', '/api/health', '/api/file?path=private.txt'):
             self.assertEqual(self.http(route, server=self.local)[0], 200)

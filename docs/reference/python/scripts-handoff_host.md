@@ -216,7 +216,7 @@ def check_public(self, state):
 
 Использует короткую штатную сессию в памяти, без вывода или записи подписи.
 
-Непосредственные вызовы: `sys.path.insert`, `str`, `self.current.resolve`, `settings`, `PasswordGate`, `gate.token`, `gate.document`, `time.monotonic`, `urllib.request.urlopen`, `response.geturl`, `RuntimeError`, `http.client.HTTPSConnection`, `connection.request`, `connection.getresponse`, `json.load`, `value.get`, `socket.gethostname`, `connection.close`, `time.sleep`.
+Непосредственные вызовы: `sys.path.insert`, `str`, `self.current.resolve`, `settings`, `PasswordGate`, `gate.token`, `gate.document`, `time.monotonic`, `self.public_ready`, `state.get`, `print`, `time.sleep`, `RuntimeError`.
 
 Явные исключения: `RuntimeError`.
 
@@ -234,7 +234,7 @@ def check_service(self, state):
 
 Открывает дерево самим сервером и проверяет, что внешний API требует входа.
 
-Непосредственные вызовы: `time.monotonic`, `deployment.health`, `str`, `RuntimeError`, `urllib.request.urlopen`, `json.load`, `http.client.HTTPConnection`, `connection.request`, `connection.getresponse`, `connection.close`, `time.sleep`.
+Непосредственные вызовы: `time.monotonic`, `deployment.health`, `str`, `RuntimeError`, `urllib.request.urlopen`, `json.load`, `filter`, `state.get`, `http.client.HTTPConnection`, `connection.request`, `connection.getresponse`, `connection.close`, `time.sleep`.
 
 Явные исключения: `RuntimeError`.
 
@@ -360,6 +360,29 @@ def lock(self):
 
 Непосредственные вызовы: `os.umask`, `self.root.mkdir`, `(self.root / '.deploy.lock').open`, `fcntl.flock`.
 
+<a id="symbol-Installation.public_ready"></a>
+
+## Installation.public_ready
+
+[scripts/handoff_host.py](../../../scripts/handoff_host.py) · `function`.
+
+```python
+def public_ready(authority, cookie, release):
+```
+
+Проверяет форму и точный рабочий экземпляр по заданному HTTPS-адресу.
+
+Проверка TLS штатная, подписанная сессия не пересылается по перенаправлениям.
+
+Непосредственные вызовы: `urllib.request.urlopen`, `response.geturl`, `http.client.HTTPSConnection`, `connection.request`, `connection.getresponse`, `json.load`, `value.get`, `socket.gethostname`, `connection.close`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+False
+value.get('host') == socket.gethostname() and value.get('release') == release
+```
+
 <a id="symbol-Installation.start_job"></a>
 
 ## Installation.start_job
@@ -390,12 +413,12 @@ def status(self):
 
 Удалённый ответ содержит только проверенные эксплуатационные поля.
 
-Непосредственные вызовы: `configparser.ConfigParser`, `config.read`, `str`, `release_file.is_file`, `release_file.read_text().strip`, `release_file.read_text`, `self.parked.exists`, `json.loads`, `self.parked.read_text`, `self.loaded`, `config.get`, `config.getint`, `config.getboolean`, `Path(config.get('storage', 'root', fallback='/')).expanduser().resolve`, `Path(config.get('storage', 'root', fallback='/')).expanduser`, `Path`.
+Непосредственные вызовы: `configparser.ConfigParser`, `config.read`, `config.get('remote_access', 'alternate_public_authority', fallback='').strip`, `config.get`, `str`, `release_file.is_file`, `release_file.read_text().strip`, `release_file.read_text`, `self.parked.exists`, `json.loads`, `self.parked.read_text`, `self.loaded`, `bool`, `config.getint`, `config.getboolean`, `Path(config.get('storage', 'root', fallback='/')).expanduser().resolve`, `Path(config.get('storage', 'root', fallback='/')).expanduser`, `Path`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-{'documents': str(self.documents), 'directory': str(self.root), 'release': release_file.read_text().strip() if release_file.is_file() else '', 'parked': json.loads(self.parked.read_text()) if self.parked.exists() else None, 'manager': self.loaded(deployment.LABEL), 'tunnel': self.loaded(TUNNEL), 'public_host': config.get('remote_access', 'public_host', fallback=''), 'remote_port': config.getint('remote_access', 'port', fallback=0), 'configured_remote': config.getboolean('remote_access', 'enabled', fallback=False), 'config_root': str(Path(config.get('storage', 'root', fallback='/')).expandus...
+{'documents': str(self.documents), 'directory': str(self.root), 'release': release_file.read_text().strip() if release_file.is_file() else '', 'parked': json.loads(self.parked.read_text()) if self.parked.exists() else None, 'manager': self.loaded(deployment.LABEL), 'tunnel': self.loaded(TUNNEL), 'direct_tunnel': bool(alternate) and self.loaded(DIRECT_TUNNEL), 'public_host': config.get('remote_access', 'public_host', fallback=''), 'alternate_public_authority': alternate, 'remote_port': config.getint('remote_access', 'port', fallback=0), 'configured_remote': config.getboolean('remote_access',...
 ```
 
 <a id="symbol-Installation.stop_job"></a>

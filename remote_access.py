@@ -77,23 +77,29 @@ def settings(config_file):
     host = config.get('remote_access', 'public_host', fallback='').strip().lower()
     if not re.fullmatch(r'[a-z0-9]+(?:[a-z0-9.-]*[a-z0-9])?', host) or '.' not in host:
         raise ValueError('Укажи имя внешнего сайта без протокола и порта')
+    alternate = config.get('remote_access', 'alternate_public_authority', fallback='').strip().lower()
+    if alternate:
+        match = re.fullmatch(r'([a-z0-9][a-z0-9.-]*[a-z0-9]):([1-9][0-9]{0,4})', alternate)
+        if not match or '.' not in match[1] or not 1 <= int(match[2]) <= 65535 or match[2] == '443':
+            raise ValueError('Укажи дополнительный HTTPS-адрес с явным нестандартным портом')
     port = config.getint('remote_access', 'port', fallback=18767)
     if not 1 <= port <= 65535 or port == config.getint('server', 'port', fallback=8765):
         raise ValueError('Для внешнего входа нужен отдельный порт')
     credentials = Path(config.get('remote_access', 'credentials_file', fallback=str(DEFAULT_CREDENTIALS))).expanduser()
     if not credentials.is_absolute():
         raise ValueError('Для пароля нужен абсолютный путь вне документов')
-    return {'public_host': host, 'port': port, 'credentials_file': credentials}
+    return {'public_host': host, 'alternate_public_authority': alternate, 'port': port, 'credentials_file': credentials}
 
 
 # Проверяет профиль пароля, подписывает сессии и ограничивает попытки.
 # Основные операции: __init__, document, key, token, valid; остальные описаны у методов.
 class PasswordGate:
-    # Сохраняет зависимости и начальные параметры экземпляра.
-    # Состояние и зависимости сохраняются в полях self для последующих операций.
-    def __init__(self, path, public_host, clock=time.time):
+    # Хранит профиль входа, разрешённые адреса и ограничитель попыток.
+    # Оба внешних адреса используют один профиль и один лимит.
+    def __init__(self, path, public_host, clock=time.time, *, alternate_public_authority=''):
         self.path = Path(path)
         self.public_host = public_host
+        self.alternate_public_authority = alternate_public_authority
         self.clock = clock
         self.lock = threading.Lock()
         self.attempts = deque()
@@ -236,10 +242,11 @@ def cookie_header(name, value, lifetime=None):
 
 
 # Ограничивает параллельные соединения отдельного защищённого слушателя.
-# Основные операции: __init__, process_request, process_request_thread.
+# Очередь TCP и число обслуживаемых запросов ограничены 64.
 class RemoteHTTPServer(ThreadingHTTPServer):
     """Bound concurrent requests so anonymous clients cannot create unlimited threads."""
     daemon_threads = False
+    request_queue_size = 64
 
     # Сохраняет зависимости и начальные параметры экземпляра.
     # Состояние и зависимости сохраняются в полях self для последующих операций.
@@ -308,8 +315,9 @@ def serve_settings(handler, head=False):
     except (OSError, ValueError, UnicodeError):
         handler.send_json({'error': 'Профиль внешнего входа недоступен. Сохранение заблокировано'}, 503, head=head)
         return
-    handler.send_json({'enabled': True, 'public_host': gate.public_host,
-                       'require_current_password': bool(getattr(handler, 'remote_access_request', False)),
+    remote = bool(getattr(handler, 'remote_access_request', False))
+    handler.send_json({'enabled': True, 'public_host': handler.public_authority() if remote else gate.public_host,
+                       'require_current_password': remote,
                        'caldav_path': caldav.ROOT, 'caldav_username': caldav.USERNAME,
                        'csrf': gate.token(document, 'settings', LOGIN_SECONDS)}, head=head)
 
@@ -421,12 +429,24 @@ def handler_class(base_handler):
             if self.command != 'HEAD':
                 self.wfile.write(body)
 
-        # Проверяет Host и состояние профиля для текущего запроса.
+        # Возвращает канонический внешний адрес для заголовка Host.
+        # Принимает ровно один из настроенных HTTPS-адресов, включая его порт.
+        def public_authority(self):
+            gate = self.server.password_gate
+            hosts = self.headers.get_all('Host', [])
+            if len(hosts) == 1:
+                host = hosts[0].lower()
+                if host in {gate.public_host, gate.public_host + ':443'}:
+                    return gate.public_host
+                if gate.alternate_public_authority and host == gate.alternate_public_authority:
+                    return gate.alternate_public_authority
+            return None
+
+        # Проверяет внешний адрес и состояние профиля для текущего запроса.
         # Возвращает `None`; либо `(gate, document)`.
         def context(self):
             gate = self.server.password_gate
-            hosts = self.headers.get_all('Host', [])
-            if len(hosts) != 1 or hosts[0].lower() not in {gate.public_host, gate.public_host + ':443'}:
+            if self.public_authority() is None:
                 self.reply(421, 'Неверный адрес сайта'.encode())
                 return None
             try:
@@ -436,12 +456,16 @@ def handler_class(base_handler):
                 return None
             return gate, document
 
-        # Проверяет строгий HTTPS Origin внешней записи.
-        # Возвращает `len(origins) == 1 and origins[0] in {'https://' + host, 'https://' + host + ':443'}`.
+        # Проверяет HTTPS Origin для адреса текущего запроса.
+        # Разрешение второго адреса не разрешает POST между двумя адресами.
         def same_origin(self):
             origins = self.headers.get_all('Origin', [])
-            host = self.server.password_gate.public_host
-            return len(origins) == 1 and origins[0] in {'https://' + host, 'https://' + host + ':443'}
+            authority = self.public_authority()
+            if len(origins) != 1 or authority is None:
+                return False
+            origin = 'https://' + authority
+            return origins[0] == origin or (
+                authority == self.server.password_gate.public_host and origins[0] == origin + ':443')
 
         # Проверяет подписанную cookie сессии и её срок действия.
         # Возвращает `gate.valid(document, cookie(self, SESSION_COOKIE), 'session')`.
@@ -498,6 +522,7 @@ def handler_class(base_handler):
             destination = safe_next(query.get('next', ['/'])[0])
             csrf = gate.token(document, 'login', LOGIN_SECONDS)
             nonce = secrets.token_urlsafe(24)
+            action = 'https://' + self.public_authority() + LOGIN_PATH
             body = f'''<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>Вход · Зигзаг</title>
 <script nonce="{nonce}">{appearance_script}</script>
 <style nonce="{nonce}">
@@ -519,7 +544,7 @@ button{{width:100%;border:0;border-radius:8px;background:#167a65;color:white;pad
 .error{{color:var(--error);font-size:13px}}
 input:focus-visible,button:focus-visible{{outline:3px solid #76bcaa;outline-offset:2px}}
 </style>
-<main><h1>Зигзаг · Вход</h1><form method="post" action="https://{gate.public_host}{LOGIN_PATH}"><input type="hidden" name="username" autocomplete="username" value="manager"><input type="hidden" name="csrf" value="{csrf}"><input type="hidden" name="next" value="{html.escape(destination, quote=True)}"><label for="password">Пароль<input id="password" name="password" type="password" autocomplete="current-password" required maxlength="1024" autofocus></label><label class="remember"><input type="checkbox" name="remember" value="1" checked>Запомнить на этом устройстве</label><p class="error" role="alert">{html.escape(error)}</p><button type="submit">Войти</button></form></main>
+<main><h1>Зигзаг · Вход</h1><form method="post" action="{action}"><input type="hidden" name="username" autocomplete="username" value="manager"><input type="hidden" name="csrf" value="{csrf}"><input type="hidden" name="next" value="{html.escape(destination, quote=True)}"><label for="password">Пароль<input id="password" name="password" type="password" autocomplete="current-password" required maxlength="1024" autofocus></label><label class="remember"><input type="checkbox" name="remember" value="1" checked>Запомнить на этом устройстве</label><p class="error" role="alert">{html.escape(error)}</p><button type="submit">Войти</button></form></main>
 <script nonce="{nonce}">document.querySelector('form').addEventListener('submit',()=>{{let n=document.querySelector('[name=next]');if(location.hash&&!n.value.includes('#'))n.value+=location.hash}});</script></html>'''.encode()
             headers = [('Set-Cookie', cookie_header(LOGIN_COOKIE, csrf, LOGIN_SECONDS)),
                        ('Content-Security-Policy', f"default-src 'none'; style-src 'nonce-{nonce}'; script-src 'nonce-{nonce}'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'")]
@@ -653,7 +678,8 @@ def start(base_handler, config_file, *, caldav_orders=None):
     if value is None:
         return None
     server = RemoteHTTPServer(('127.0.0.1', value['port']), handler_class(base_handler))
-    server.password_gate = PasswordGate(value['credentials_file'], value['public_host'])
+    server.password_gate = PasswordGate(value['credentials_file'], value['public_host'],
+                                        alternate_public_authority=value['alternate_public_authority'])
     if caldav_orders is not None:
         server.caldav = caldav.CalendarDAV(base_handler.caldav_store(), caldav_orders, value['public_host'])
     thread = threading.Thread(target=server.serve_forever, daemon=True, name='remote-password-gate')
