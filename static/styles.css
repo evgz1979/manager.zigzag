@@ -393,7 +393,7 @@ h1 { font-size: clamp(22px, 2.5vw, 32px); line-height: 1.23; letter-spacing: -.8
 .status-badge[data-status="related"] { color: light-dark(#536e67, #91d1bc); background: light-dark(#e9efec, #26312e); }
 .status-badge[data-status="done"], .status-badge[data-status="awaiting_payment"], .status-badge[data-status="personal_done"] { color: var(--success); background: var(--success-soft); }
 .status-badge[data-status="measure"] { color: light-dark(#456c97, #9bc8f5); background: light-dark(#e6eef8, #253247); }
-.status-badge[data-status="waiting"], .status-badge[data-status="awaiting_client"] { color: light-dark(#876d2f, #f1ca78); background: light-dark(#f8f1d8, #3b3423); }
+.status-badge[data-status="waiting"], .status-badge[data-status="awaiting_client"], .status-badge[data-status="done_unpaid"] { color: light-dark(#876d2f, #f1ca78); background: light-dark(#f8f1d8, #3b3423); }
 .status-badge[data-status="process"], .status-badge[data-status="workshop"], .status-badge[data-status="personal_work"] { color: light-dark(#aa712f, #ffc092); background: light-dark(#fff1df, #3e3026); }
 .status-badge[data-status="install"] { color: light-dark(#71479a, #d4b3ec); background: light-dark(#eadff7, #362b42); }
 .status-form { display: grid; grid-template-columns: 160px 1fr auto; gap: 14px; align-items: end; padding: 0 13px 14px; }

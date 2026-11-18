@@ -1980,6 +1980,22 @@ function orderGroupScope()
 
 Непосредственные вызовы: `isFolderOrderList`, `isWorkOrderList`, `state.folder.path.normalize`.
 
+<a id="symbol-orderInHiddenGroup"></a>
+
+## orderInHiddenGroup
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function orderInHiddenGroup(order)
+```
+
+Определяет, относится ли заказ к отдельной группе скрытых строк объекта.
+
+Включает снятые с регистрации, отменённые и готовые оплаченные заказы.
+
+Непосредственные вызовы: `["cancelled", "done"].includes`.
+
 <a id="symbol-orderListDeadlineOptions"></a>
 
 ## orderListDeadlineOptions
@@ -2075,22 +2091,6 @@ function orderRowSaving(path)
 Использует `state.markerSaving.has`, `state.favoriteSaving.has`, `state.orderStatusSaving.has`.
 
 Непосредственные вызовы: `state.markerSaving.has`, `state.favoriteSaving.has`, `state.orderStatusSaving.has`, `state.deadlineSaving.has`, `state.calendarMoving.has`.
-
-<a id="symbol-orderShownOnMain"></a>
-
-## orderShownOnMain
-
-[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
-
-```javascript
-function orderShownOnMain(order)
-```
-
-Проверяет включение заказа в текущую главную таблицу.
-
-Использует `["cancelled", "done"].includes`.
-
-Непосредственные вызовы: `["cancelled", "done"].includes`.
 
 <a id="symbol-orderTodoSummary"></a>
 

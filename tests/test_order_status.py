@@ -63,7 +63,7 @@ class OrderStatusTests(unittest.TestCase):
     def test_http_partial_update_rejects_stale_version_and_exposes_new_status(self):
         with patch.object(manager, "schedule_order_sync") as schedule:
             saved = self.order
-            statuses = ("awaiting_client", "awaiting_payment", "waiting", "offer_later", "prepare_ahead", "small_tasks")
+            statuses = ("awaiting_client", "awaiting_payment", "done_unpaid", "waiting", "offer_later", "prepare_ahead", "small_tasks")
             for value in statuses:
                 with self.subTest(status=value):
                     payload = self.payload(revision=saved["revision"], status=value)
@@ -78,7 +78,7 @@ class OrderStatusTests(unittest.TestCase):
         self.assertEqual((listed[0]["status"], listed[0]["revision"]), ("small_tasks", saved["revision"]))
 
     def test_added_stages_are_independent_and_survive_document_round_trip(self):
-        for production in ("awaiting_client", "awaiting_payment", "related", "done", "prepare_ahead", "small_tasks"):
+        for production in ("awaiting_client", "awaiting_payment", "done_unpaid", "related", "done", "prepare_ahead", "small_tasks"):
             for financial in manager.FINANCIAL_STATUS_LABELS:
                 with self.subTest(status=production, financial_status=financial):
                     record = {**self.order, "financial_status": financial}

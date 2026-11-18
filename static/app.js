@@ -1,11 +1,11 @@
 // Находит элемент интерфейса по устойчивому DOM-идентификатору.
 // Обращается к DOM текущего документа или переданного контейнера.
 const $ = (id) => document.getElementById(id);
-const statusLabels = { new: "Новый", measure: "Замеры", process: "Расчеты", awaiting_client: "Жду от клиента", awaiting_payment: "На оплате", related: "Связанный", waiting: "Жду", offer_later: "Предложить позже", workshop: "В цех", install: "Монтаж", rework: "Переделка/доделка", finishing: "Завершение/добивка", prepare_ahead: "Подготовить заранее", small_tasks: "Мелочь/мелочи", deferred: "Отложен/возможно", done: "Готово и оплачено", done_but: "Готово, но…", cancelled: "Отменён", unspecified: "Не указан", personal_work: "Личное/в работе", personal_done: "Личное/готово" };
+const statusLabels = { new: "Новый", measure: "Замеры", process: "Расчеты", awaiting_client: "Жду от клиента", awaiting_payment: "На оплате", done_unpaid: "Готово, но не оплачено", related: "Связанный", waiting: "Жду", offer_later: "Предложить позже", workshop: "В цех", install: "Монтаж", rework: "Переделка/доделка", finishing: "Завершение/добивка", prepare_ahead: "Подготовить заранее", small_tasks: "Мелочь/мелочи", deferred: "Отложен/возможно", done: "Готово и оплачено", done_but: "Готово, но…", cancelled: "Отменён", unspecified: "Не указан", personal_work: "Личное/в работе", personal_done: "Личное/готово" };
 const supplierStatusLabels = { work: "В работе", cancelled: "Отменён", archived: "В архив" };
 const orderStatusGroups = [
   { key: "preparation", statuses: ["new", "measure", "process"] },
-  { key: "client_waiting", statuses: ["awaiting_client", "awaiting_payment"] },
+  { key: "client_waiting", statuses: ["awaiting_client", "awaiting_payment", "done_unpaid"] },
   { key: "production", statuses: ["workshop", "install"] },
   { key: "completion", statuses: ["rework", "finishing", "prepare_ahead", "small_tasks"] },
   { key: "other", statuses: [] },
@@ -3347,10 +3347,10 @@ async function toggleOrderFavorite(path) {
   }
 }
 
-// Проверяет включение заказа в текущую главную таблицу.
-// Использует `["cancelled", "done"].includes`.
-function orderShownOnMain(order) {
-  return order.registered !== false && !["cancelled", "done"].includes(order.status);
+// Определяет, относится ли заказ к отдельной группе скрытых строк объекта.
+// Включает снятые с регистрации, отменённые и готовые оплаченные заказы.
+function orderInHiddenGroup(order) {
+  return order.registered === false || ["cancelled", "done"].includes(order.status);
 }
 
 // Возвращает согласованные группы производственных статусов.
@@ -3366,9 +3366,9 @@ function productionStatusGroups() {
 // Использует `isObjectOrderList`, `productionStatusGroups().map`, `productionStatusGroups`.
 function orderListGroups() {
   const object = isObjectOrderList();
-  const groups = productionStatusGroups().map((group) => object ? { ...group, statuses: group.statuses.filter((status) => orderShownOnMain({ status })) } : group);
+  const groups = productionStatusGroups().map((group) => object ? { ...group, statuses: group.statuses.filter((status) => !orderInHiddenGroup({ status })) } : group);
   if (object) {
-    const statuses = Object.keys(statusLabels).filter((status) => !orderShownOnMain({ status }));
+    const statuses = Object.keys(statusLabels).filter((status) => orderInHiddenGroup({ status }));
     groups.push({ key: "hidden", statuses, label: [...statuses.map((status) => statusLabels[status]), "Не добавлены"].join(" · ") });
   }
   return groups;
@@ -4215,7 +4215,8 @@ function renderOrders({ force = false } = {}) {
   const pane = document.querySelector(".content-pane"), scrollTop = pane.scrollTop;
   const focusedDeadline = document.activeElement?.dataset.orderDeadline, focusedWeek = document.activeElement?.dataset.deadlineWeek;
   const focusedCompact = document.activeElement?.dataset.orderCalendarCompact;
-  const orders = orderListRows().filter((order) => state.view !== "orders" || orderShownOnMain(order)), object = isObjectOrderList(), work = isWorkOrderList();
+  const orders = orderListRows().filter((order) => state.view !== "orders" || (!orderInHiddenGroup(order) && order.status !== "related"));
+  const object = isObjectOrderList(), work = isWorkOrderList();
   const deadlineOptions = orderListDeadlineOptions(orders);
   renderWorkArchive();
   if (state.view === "orders") renderHomeCalendar();
@@ -4227,7 +4228,7 @@ function renderOrders({ force = false } = {}) {
   const groupScope = orderGroupScope();
   const groups = orderListGroups().map((group) => ({ ...group, collapsed: orderGroupCollapsed(groupScope, group.key), orders: [] }));
   filtered.forEach((order) => {
-    const hidden = object && !orderShownOnMain(order);
+    const hidden = object && orderInHiddenGroup(order);
     const group = hidden ? groups.find((group) => group.key === "hidden") : groups.find((group) => group.statuses.includes(order.status)) || groups.find((group) => group.key === "other");
     group.orders.push(order);
   });
