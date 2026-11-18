@@ -1102,6 +1102,22 @@ const formatDate = (seconds) =>
 
 Непосредственные вызовы: `new Date(seconds * 1000).toLocaleDateString`, `Date`.
 
+<a id="symbol-formatOrderListMoney"></a>
+
+## formatOrderListMoney
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function formatOrderListMoney(value)
+```
+
+Форматирует сумму из SQLite для колонки «Деньги».
+
+Переводит копейки в целые рубли, для пустого поля возвращает дефис.
+
+Непосредственные вызовы: `orderListMoneyFormat.format`.
+
 <a id="symbol-formatSize"></a>
 
 ## formatSize
@@ -1466,11 +1482,11 @@ function mountOrderList()
 
 Перемещает общий DOM списка в место текущего представления.
 
-Обращается к DOM текущего документа или переданного контейнера.
+Настраивает заголовки по типу списка, включая колонку «Деньги» на главной.
 
 Непосредственные вызовы: `isObjectOrderList`, `$`, `isWorkOrderList`, `["title", "folder_date"].includes`, `workspace.classList.toggle`, `workspace.querySelector`, `workspace.querySelector('[data-sort="status"]').closest`, `deadlineHeader.after`, `workspace.querySelectorAll("thead th").forEach`, `workspace.querySelectorAll`, `deadlineHeader.before`, `document.querySelector`, `pane.classList.toggle`, `pane.querySelector`, `heading.append`, `heading.firstElementChild.append`, `toolbarSlot.append`, `syncSlot.append`, `window.ManagerInbox?.load`, `$("objectOrdersSlot").append`, `$("workOrdersSlot").append`, `$("folderView").before`, `hasOrderList`, `renderWorkArchive`, `renderHomeCalendar`, `workspace.setAttribute`.
 
-Прямые присваивания полям/свойствам: `state.orderSort`, `state.orderDirection`, `$("orderDateSort").dataset.sort`, `$("orderDateSort").textContent`, `$("orderRelatedHeading").hidden`, `$("supplierStatusHeading").hidden`, `workspace.querySelector('[data-sort="status"]').hidden`, `workspace.querySelector("caption").textContent`, `$("orderSearch").placeholder`, `$("homeToolbarSlot").hidden`, `$("homeSyncSlot").hidden`, `$("homeCalendar").hidden`, `$("inboxPanel").hidden`, `$("objectOrdersSection").hidden`, `workspace.hidden`, `$("syncOrdersButton").hidden`, `state.orderListScope`, `state.orderQuery`, `$("orderSearch").value`.
+Прямые присваивания полям/свойствам: `state.orderSort`, `state.orderDirection`, `$("orderDateSort").dataset.sort`, `$("orderDateSort").textContent`, `$("orderRelatedHeading").hidden`, `$("supplierStatusHeading").hidden`, `workspace.querySelector('[data-sort="status"]').hidden`, `workspace.querySelector("caption").textContent`, `$("orderSearch").placeholder`, `$("orderMoneyHeading").hidden`, `$("homeToolbarSlot").hidden`, `$("homeSyncSlot").hidden`, `$("homeCalendar").hidden`, `$("inboxPanel").hidden`, `$("objectOrdersSection").hidden`, `workspace.hidden`, `$("syncOrdersButton").hidden`, `state.orderListScope`, `state.orderQuery`, `$("orderSearch").value`.
 
 <a id="symbol-moveCalendarEvent"></a>
 
@@ -3169,6 +3185,22 @@ const section = (items, linked) =>
       '<button type="button" class="secondary-button" data-related-target="' + escapeHtml(item.id) + '" aria-label="' + escapeHtml((linked ? 'Убрать связь: ' : 'Связать: ') + item.title) + '"' +
       (edit.saving || edit.loading || edit.conflict || unknown || edit.data?.group_error || edit.data?.needs_primary || !item.editable ? ' disabled' : '') + '>' + (linked ? 'Убрать связь' : 'Связать') + '</button></div></div>').join`, `visible.map`.
 
+<a id="symbol-renderOrderListMoney"></a>
+
+## renderOrderListMoney
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function renderOrderListMoney(amount, paid)
+```
+
+Собирает содержимое ячейки «Деньги» в порядке суммы заказа и оплаты.
+
+Возвращает пустую строку, если оба поля отсутствуют, и показывает сохранённый ноль числом.
+
+Непосредственные вызовы: `formatOrderListMoney`.
+
 <a id="symbol-renderOrderLocationLink"></a>
 
 ## renderOrderLocationLink
@@ -3344,14 +3376,17 @@ function renderOrders({ force = false } = {})
 
 Перестраивает строки текущего списка из локальных данных.
 
-Обращается к DOM текущего документа или переданного контейнера.
+На главной после комментария показывает сохранённую сумму заказа и оплату в целых рублях.
 
 Непосредственные вызовы: `document.activeElement?.closest`, `relatedLink.closest('tr').querySelector`, `relatedLink.closest`, `focusedLocation?.closest("tr").querySelector`, `focusedLocation?.closest`, `$("ordersWorkspace").querySelector`, `$`, `document.querySelector`, `orderListRows().filter`, `orderListRows`, `isObjectOrderList`, `isWorkOrderList`, `orderListDeadlineOptions`, `renderWorkArchive`, `renderHomeCalendar`, `normalize`, `state.orderQuery.trim`, `orders.filter`, `filtered.sort`, `orderGroupScope`, `orderListGroups().map`, `orderListGroups`, `filtered.forEach`, `renderWorkOrders`, `groups.filter((group) => group.orders.length).map((group) =>
-    '<tr class="order-group-divider"><th colspan="' + (object ? 11 : 10) + '"><button type="button" class="order-group-toggle" data-order-group-toggle="' + group.key +
+    '<tr class="order-group-divider"><th colspan="' + (object || home ? 11 : 10) + '"><button type="button" class="order-group-toggle" data-order-group-toggle="' + group.key +
     '" data-order-group-scope="' + escapeHtml(groupScope) + '" aria-expanded="' + !group.collapsed +
     '"><span class="order-group-chevron" aria-hidden="true">▸</span><span>' + escapeHtml(group.label) +
     '</span><span class="count-badge">' + group.orders.length + '</span></button></th><td class="order-deadline-column">' + renderDeadlineMonthLegend(deadlineOptions) + '</td><td colspan="2"></td></tr>' +
-    group.orders.map((order) => '<tr data-order-group-row="' + group.key + '"' + (group.collapsed ? ' hidden' : '') + '><td class="order-blue-plus-column">' + renderOrderMarkerButton(order, "bluePlus") + '</td><td class="order-dollar-column">' + renderOrderMarkerButton(order, "dollar") + '</td><td class="order-flag-column">' + renderOrderMarkerButton(order, "flag") + '</td><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td>' + (object ? '<td class="order-related-column">' + renderOrderRelatedButton(order) + '</td>' : '') + '<td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + renderOrderLocationLink(order.client, order.client_path, true) + '</td><td class="order-object-column">' + renderOrderLocationLink(order.object, order.object_path) + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен</span>' : '') + '<span class="order-row-path">' + escapeHtml(order.path) + '</span>' + (object ? renderCompactOrderLinks(order) : '') + '</td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td class="order-deadline-column">' + renderOrderDeadlines(order, { options: deadlineOptions }) + '</td><td>' + renderOrderProductionStatus(order) + '</td>' +
+    group.orders.map((order) => '<tr data-order-group-row="' + group.key + '"' + (group.collapsed ? ' hidden' : '') + '><td class="order-blue-plus-column">' + renderOrderMarkerButton(order, "bluePlus") + '</td><td class="order-dollar-column">' + renderOrderMarkerButton(order, "dollar") + '</td><td class="order-flag-column">' + renderOrderMarkerButton(order, "flag") + '</td><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td>' + (object ? '<td class="order-related-column">' + renderOrderRelatedButton(order) + '</td>' : '') + '<td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + renderOrderLocationLink(order.client, order.client_path, true) + '</td><td class="order-object-column">' + renderOrderLocationLink(order.object, order.object_path) + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен</span>' : '') + '<span class="order-row-path">' + escapeHtml(order.path) + '</span>' + (object ? renderCompactOrderLinks(order) : '') + '</td>' +
+    '<td class="order-comment-column">' + renderOrderComment(order) + '</td>' +
+    (home ? '<td class="order-money">' + renderOrderListMoney(order.amount, order.paid) + '</td>' : '') +
+    '<td class="order-deadline-column">' + renderOrderDeadlines(order, { options: deadlineOptions }) + '</td><td>' + renderOrderProductionStatus(order) + '</td>' +
     '<td class="order-updated">' + (order.updated ? formatDate(order.updated) : '—') + (order.sync_pending ? '<span class="sync-pending" title="' + escapeHtml(order.sync_error || "Ожидает выгрузки в папку") + '">' + (order.sync_error ? "В очереди · автоповтор" : "Ожидает выгрузки") + '</span>' : '<span class="sync-complete">' + (order.storage === 'database' ? 'В базе' : 'Выгружено') + '</span>') + '</td></tr>').join("")).join`, `groups.filter((group) => group.orders.length).map`, `groups.filter`, `Boolean`, `pending.filter`, `[scan?.folders ? "Поиск завершён: добавлено " + scan.added + (scan.errors.length ? ", ошибок: " + scan.errors.length : "") : "", errors.length ? "Сохранено в базе · в очереди выгрузки: " + pending.length + " · ошибок: " + errors.length + " · повторим автоматически" : pending.length ? "Ожидает выгрузки: " + pending.length : "Изменения выгружены в папки"].filter(Boolean).join`, `[scan?.folders ? "Поиск завершён: добавлено " + scan.added + (scan.errors.length ? ", ошибок: " + scan.errors.length : "") : "", errors.length ? "Сохранено в базе · в очереди выгрузки: " + pending.length + " · ошибок: " + errors.length + " · повторим автоматически" : pending.length ? "Ожидает выгрузки: " + pending.length : "Изменения выгружены в папки"].filter`, `storage.errors.slice(0, 2).map(item => item.path + ": " + item.error).join`, `storage.errors.slice(0, 2).map`, `storage.errors.slice`, `formatDate`, `Date.parse`, `scan.errors.slice(0, 3).join`, `scan.errors.slice`, `state.unregistrations.some`, `$("ordersWorkspace").querySelectorAll("th").forEach`, `$("ordersWorkspace").querySelectorAll`, `renderOrderTodoDialog`, `focusOrderMarker`, `focusOrderFavorite`, `[...$("ordersTableBody").querySelectorAll("[data-order-related]")].find(button => button.dataset.orderRelated === focusedRelated)?.focus`, `[...$("ordersTableBody").querySelectorAll("[data-order-related]")].find`, `$("ordersTableBody").querySelectorAll`, `[...$("ordersTableBody").querySelectorAll('[data-order]')].find(button => button.dataset.order === focusedRelatedLink.path)?.closest`, `[...$("ordersTableBody").querySelectorAll('[data-order]')].find`, `[...(row?.querySelectorAll('[data-related-card-id]') || [])].find(link => link.dataset.relatedCardId === focusedRelatedLink.id)?.focus`, `[...(row?.querySelectorAll('[data-related-card-id]') || [])].find`, `row?.querySelectorAll`, `focusOrderDeadline`, `[...$("ordersTableBody").querySelectorAll("[data-order-calendar-compact]")].find(el => el.dataset.orderCalendarCompact === focusedCompact)?.focus`, `[...$("ordersTableBody").querySelectorAll("[data-order-calendar-compact]")].find`, `focusOrderGroup`, `[...$("ordersTableBody").querySelectorAll("[data-order]")].find(button => button.dataset.order === focusedLocationRow)?.closest`, `[...$("ordersTableBody").querySelectorAll("[data-order]")].find`, `row?.cells[focusedLocationColumn]?.querySelector("[data-order-location]")?.focus`, `row?.cells[focusedLocationColumn]?.querySelector`, `[...$("ordersTableBody").querySelectorAll("[data-order], [data-order-todos]")].find((button) => focusedOrder ? button.dataset.order === focusedOrder : button.dataset.orderTodos === focusedTodos)?.focus`, `[...$("ordersTableBody").querySelectorAll("[data-order], [data-order-todos]")].find`.
 
 Прямые присваивания полям/свойствам: `$(work ? "workOrderDirectoryCount" : object ? "objectOrdersSummary" : "folderSummary").textContent`, `$("ordersTableBody").innerHTML`, `$("ordersEmpty").hidden`, `$("ordersEmptyTitle").textContent`, `$("ordersEmptyHint").textContent`, `$("ordersSyncState").textContent`, `listScroll.scrollLeft`, `pane.scrollTop`.

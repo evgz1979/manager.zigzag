@@ -859,8 +859,8 @@ h2 { font-size: 13px; font-weight: 600; }
 .home-view .orders-table .order-object-column .order-location-link,
 .home-view .orders-table .order-row-comment { color: var(--muted); }
 .orders-table th.order-title-column { min-width: 220px; }
-.orders-table th.order-money { text-align: right; }
-.orders-table th.order-comment-column { padding: 8px 10px; color: var(--muted); font-size: 11px; font-weight: 400; }
+.orders-table th.order-comment-column,
+.orders-table th.order-money,
 .orders-table th.order-deadline-column { padding: 8px 10px; color: var(--muted); font-size: 11px; font-weight: 400; }
 .order-deadline-line { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
 .order-deadline-buttons { position: relative; flex: none; }
@@ -1081,6 +1081,8 @@ h2 { font-size: 13px; font-weight: 600; }
 .danger-button { padding: 9px 13px; border-color: #9b5146; background: #9b5146; color: white; }
 .danger-button:hover:not(:disabled) { background: #86463c; }
 .order-money { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.order-money-amount { color: var(--success); font-weight: 700; }
+.order-money-paid { color: var(--danger); font-weight: 400; }
 .negative { color: light-dark(#a25d49, #f3a595); }
 .order-updated { font-size: 10px; white-space: nowrap; color: var(--muted); }
 .sync-pending, .sync-complete { display: block; margin-top: 2px; font-size: 9px; }

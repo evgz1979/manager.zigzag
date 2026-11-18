@@ -2419,7 +2419,7 @@ function focusOrderGroup(group) {
 }
 
 // Перемещает общий DOM списка в место текущего представления.
-// Обращается к DOM текущего документа или переданного контейнера.
+// Настраивает заголовки по типу списка, включая колонку «Деньги» на главной.
 function mountOrderList() {
   const object = isObjectOrderList(), workspace = $("ordersWorkspace");
   const work = isWorkOrderList(), scoped = object || work;
@@ -2441,6 +2441,7 @@ function mountOrderList() {
   workspace.querySelector("caption").textContent = work ? workTitle : "Заказы";
   $("orderSearch").placeholder = work ? "Найти заказ, поставщика или задачу…" : "Найти заказ, задачу или закупку…";
   const home = state.view === "orders", pane = document.querySelector(".content-pane");
+  $("orderMoneyHeading").hidden = !home;
   pane.classList.toggle("home-view", home);
   pane.classList.toggle("moneys-view", !home && state.folder?.folderKind === "moneys_root");
   const heading = pane.querySelector(".order-heading");
@@ -4194,8 +4195,24 @@ async function restoreWorkArchive(button) {
   try { await loadOrders(); } catch (_) { /* The confirmed restore is already visible locally. */ }
 }
 
+const orderListMoneyFormat = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 });
+
+// Форматирует сумму из SQLite для колонки «Деньги».
+// Переводит копейки в целые рубли, для пустого поля возвращает дефис.
+function formatOrderListMoney(value) {
+  return value == null ? "-" : orderListMoneyFormat.format(value / 100);
+}
+
+// Собирает содержимое ячейки «Деньги» в порядке суммы заказа и оплаты.
+// Возвращает пустую строку, если оба поля отсутствуют, и показывает сохранённый ноль числом.
+function renderOrderListMoney(amount, paid) {
+  if (amount == null && paid == null) return "";
+  return '<span class="order-money-amount">' + formatOrderListMoney(amount) +
+    '</span> / <span class="order-money-paid">' + formatOrderListMoney(paid) + '</span>';
+}
+
 // Перестраивает строки текущего списка из локальных данных.
-// Обращается к DOM текущего документа или переданного контейнера.
+// На главной после комментария показывает сохранённую сумму заказа и оплату в целых рублях.
 function renderOrders({ force = false } = {}) {
   // Replacing a focused native select would close its menu during background polling.
   if (!force && (state.orderStatusSaving.size || state.deadlineSaving.size || state.markerSaving.size || state.calendarMoving.size || state.calendarEvent?.saving || document.activeElement?.dataset.orderStatus)) return;
@@ -4216,11 +4233,12 @@ function renderOrders({ force = false } = {}) {
   const pane = document.querySelector(".content-pane"), scrollTop = pane.scrollTop;
   const focusedDeadline = document.activeElement?.dataset.orderDeadline, focusedWeek = document.activeElement?.dataset.deadlineWeek;
   const focusedCompact = document.activeElement?.dataset.orderCalendarCompact;
-  const orders = orderListRows().filter((order) => state.view !== "orders" || (!orderInHiddenGroup(order) && order.status !== "related"));
+  const home = state.view === "orders";
+  const orders = orderListRows().filter((order) => !home || (!orderInHiddenGroup(order) && order.status !== "related"));
   const object = isObjectOrderList(), work = isWorkOrderList();
   const deadlineOptions = orderListDeadlineOptions(orders);
   renderWorkArchive();
-  if (state.view === "orders") renderHomeCalendar();
+  if (home) renderHomeCalendar();
   const needle = normalize(state.orderQuery.trim());
   const filtered = orders.filter((order) => !needle || normalize([order.client, order.object, order.title, order.path, order.note, orderTodoText(order), work ? order.work_supplier : orderPurchaseText(order)].join(" ")).includes(needle));
   const { orderSort: key, orderDirection: direction } = state;
@@ -4234,11 +4252,14 @@ function renderOrders({ force = false } = {}) {
     group.orders.push(order);
   });
   $("ordersTableBody").innerHTML = work ? renderWorkOrders(filtered, deadlineOptions) : groups.filter((group) => group.orders.length).map((group) =>
-    '<tr class="order-group-divider"><th colspan="' + (object ? 11 : 10) + '"><button type="button" class="order-group-toggle" data-order-group-toggle="' + group.key +
+    '<tr class="order-group-divider"><th colspan="' + (object || home ? 11 : 10) + '"><button type="button" class="order-group-toggle" data-order-group-toggle="' + group.key +
     '" data-order-group-scope="' + escapeHtml(groupScope) + '" aria-expanded="' + !group.collapsed +
     '"><span class="order-group-chevron" aria-hidden="true">▸</span><span>' + escapeHtml(group.label) +
     '</span><span class="count-badge">' + group.orders.length + '</span></button></th><td class="order-deadline-column">' + renderDeadlineMonthLegend(deadlineOptions) + '</td><td colspan="2"></td></tr>' +
-    group.orders.map((order) => '<tr data-order-group-row="' + group.key + '"' + (group.collapsed ? ' hidden' : '') + '><td class="order-blue-plus-column">' + renderOrderMarkerButton(order, "bluePlus") + '</td><td class="order-dollar-column">' + renderOrderMarkerButton(order, "dollar") + '</td><td class="order-flag-column">' + renderOrderMarkerButton(order, "flag") + '</td><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td>' + (object ? '<td class="order-related-column">' + renderOrderRelatedButton(order) + '</td>' : '') + '<td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + renderOrderLocationLink(order.client, order.client_path, true) + '</td><td class="order-object-column">' + renderOrderLocationLink(order.object, order.object_path) + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен</span>' : '') + '<span class="order-row-path">' + escapeHtml(order.path) + '</span>' + (object ? renderCompactOrderLinks(order) : '') + '</td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td class="order-deadline-column">' + renderOrderDeadlines(order, { options: deadlineOptions }) + '</td><td>' + renderOrderProductionStatus(order) + '</td>' +
+    group.orders.map((order) => '<tr data-order-group-row="' + group.key + '"' + (group.collapsed ? ' hidden' : '') + '><td class="order-blue-plus-column">' + renderOrderMarkerButton(order, "bluePlus") + '</td><td class="order-dollar-column">' + renderOrderMarkerButton(order, "dollar") + '</td><td class="order-flag-column">' + renderOrderMarkerButton(order, "flag") + '</td><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td>' + (object ? '<td class="order-related-column">' + renderOrderRelatedButton(order) + '</td>' : '') + '<td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + renderOrderLocationLink(order.client, order.client_path, true) + '</td><td class="order-object-column">' + renderOrderLocationLink(order.object, order.object_path) + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен</span>' : '') + '<span class="order-row-path">' + escapeHtml(order.path) + '</span>' + (object ? renderCompactOrderLinks(order) : '') + '</td>' +
+    '<td class="order-comment-column">' + renderOrderComment(order) + '</td>' +
+    (home ? '<td class="order-money">' + renderOrderListMoney(order.amount, order.paid) + '</td>' : '') +
+    '<td class="order-deadline-column">' + renderOrderDeadlines(order, { options: deadlineOptions }) + '</td><td>' + renderOrderProductionStatus(order) + '</td>' +
     '<td class="order-updated">' + (order.updated ? formatDate(order.updated) : '—') + (order.sync_pending ? '<span class="sync-pending" title="' + escapeHtml(order.sync_error || "Ожидает выгрузки в папку") + '">' + (order.sync_error ? "В очереди · автоповтор" : "Ожидает выгрузки") + '</span>' : '<span class="sync-complete">' + (order.storage === 'database' ? 'В базе' : 'Выгружено') + '</span>') + '</td></tr>').join("")).join("");
   $("ordersEmpty").hidden = Boolean(filtered.length);
   $("ordersEmptyTitle").textContent = orders.length ? "Нет заказов по этому запросу" : "Заказов пока нет";
