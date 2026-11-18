@@ -5,7 +5,8 @@ const statusLabels = { new: "Новый", measure: "Замеры", process: "Р�
 const supplierStatusLabels = { work: "В работе", cancelled: "Отменён", archived: "В архив" };
 const orderStatusGroups = [
   { key: "preparation", statuses: ["new", "measure", "process"] },
-  { key: "client_waiting", statuses: ["awaiting_client", "awaiting_payment", "done_unpaid"] },
+  { key: "client_waiting", statuses: ["awaiting_client", "awaiting_payment"] },
+  { key: "done_unpaid", statuses: ["done_unpaid"] },
   { key: "production", statuses: ["workshop", "install"] },
   { key: "completion", statuses: ["rework", "finishing", "prepare_ahead", "small_tasks"] },
   { key: "other", statuses: [] },
