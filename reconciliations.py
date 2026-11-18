@@ -12,6 +12,8 @@ from event_folder_undo import assert_unlocked
 from folder_structure import in_reconciliations, is_moneys_root
 
 RECONCILIATIONS_VERSION = 1
+RECONCILIATION_TODO_PIN_VERSION = 1
+RECONCILIATION_STATUSES = ('active', 'paid')
 
 
 # Обозначает конфликт изменения в этом модуле.
@@ -52,7 +54,7 @@ def checked_path(path):
 
 
 # Проверяет точный версионный формат самостоятельной сверки.
-# При недопустимом состоянии возбуждает ValueError.
+# Проверяет задачи, разделы и статус без изменения дополнительных полей записи.
 def checked_data(data):
     # Неизвестные форматы не заменяются; дополнительные поля сохраняются.
     if not isinstance(data, dict) or type(data.get('version')) is not int or data['version'] != 1:
@@ -63,15 +65,18 @@ def checked_data(data):
             raise ValueError('Проверь название, клиента и заметку сверки')
     if not data['title'].strip():
         raise ValueError('Укажи название сверки')
-    order_document.validate_todos(data.get('todo_items'))
+    if data.get('status', 'active') not in RECONCILIATION_STATUSES:
+        raise ValueError('Выбери статус сверки «Активна» или «Оплачена»')
+    order_document.validate_todos(data.get('todo_items'), allow_pinned=True)
     return data
 
 
 # Преобразует строку SQLite в представление для вызывающего кода.
-# Разбирает JSON; вызывающий код должен учитывать ошибки или неизвестный формат.
+# У прежней сверки без явного статуса возвращает active без записи в SQLite.
 def record(row):
     data = checked_data(json.loads(row['data']))
-    return {**data, 'id': row['id'], 'path': row['path'], 'revision': row['revision'], 'updated': row['updated']}
+    return {**data, 'status': data.get('status', 'active'), 'id': row['id'], 'path': row['path'],
+            'revision': row['revision'], 'updated': row['updated']}
 
 
 # Добавляет проверенную запись в текущую транзакцию SQLite.
@@ -188,7 +193,7 @@ class Reconciliations:
     # Работает с таблицами reconciliations.
     def catalog(self):
         with self.connect() as db:
-            return [{key: item[key] for key in ('id', 'path', 'title', 'client', 'note', 'revision')}
+            return [{key: item[key] for key in ('id', 'path', 'title', 'client', 'note', 'status', 'revision')}
                     for item in (record(row) for row in db.execute('SELECT * FROM reconciliations ORDER BY path'))]
 
     # Дополняет данные сущности её сохранёнными назначениями счетов.
@@ -225,8 +230,8 @@ class Reconciliations:
                     'order_title': owner['title'] if owner else invoice['path'], 'trash': bool(data.get('_trash'))})
             return result
 
-    # Сохраняет клиента, заметку и To-do сверки по UUID и revision.
-    # Работает с таблицами reconciliations.
+    # Сохраняет поля редактора сверки или отдельно меняет её статус из списка.
+    # Оба действия проверяют UUID и revision карточки и записывают историю.
     def save(self, payload):
         path = checked_path(payload.get('path'))
         with self.connect() as db:
@@ -235,12 +240,17 @@ class Reconciliations:
             row = db.execute('SELECT * FROM reconciliations WHERE path=?', (path,)).fetchone()
             if not row or payload.get('id') != row['id'] or type(payload.get('revision')) is not int or payload['revision'] != row['revision']:
                 raise ReconciliationConflict('Сверка изменилась. Твой ввод сохранён; открой актуальную версию перед повтором')
-            data = checked_data(json.loads(row['data']))
-            for key in ('title', 'client', 'note', 'todo_items'):
-                data[key] = payload.get(key)
+            previous = checked_data(json.loads(row['data']))
+            status_only = payload.get('action') == 'status'
+            if status_only:
+                status = payload.get('status')
+                data = previous if status == previous.get('status', 'active') else {**previous, 'status': status}
+            else:
+                data = {**previous, **{key: payload.get(key) for key in ('title', 'client', 'note', 'todo_items')}}
             checked_data(data)
-            db.execute('UPDATE reconciliations SET data=?,revision=revision+1,updated=? WHERE id=?',
-                       (json.dumps(data, ensure_ascii=False), time.time(), row['id']))
+            if not status_only or data != previous:
+                db.execute('UPDATE reconciliations SET data=?,revision=revision+1,updated=? WHERE id=?',
+                           (json.dumps(data, ensure_ascii=False), time.time(), row['id']))
         return self.get(path)
 
     # Переназначает счёт одной сверке с проверкой актуального состояния.

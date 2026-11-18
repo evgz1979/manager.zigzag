@@ -164,8 +164,11 @@
         <div id="orderFileFolders" hidden></div>
         <section id="objectOrdersSection" class="folder-section" aria-label="Заказы объекта" hidden><div class="section-heading"><h2>Заказы объекта</h2><span id="objectOrdersSummary"></span></div><div id="objectOrdersSlot"></div></section>
         <section id="reconciliationList" class="folder-section" aria-label="Список сверок" hidden>
-          <div class="section-heading"><h2>Сверки</h2><span id="reconciliationListCount"></span></div>
-          <table class="reconciliation-table reconciliation-list-table"><thead><tr><th scope="col">Название</th><th scope="col">Клиент</th><th scope="col">Заметка</th></tr></thead><tbody id="reconciliationListRows"></tbody></table>
+          <div class="section-heading"><h2 id="reconciliationListTitle">Сверки</h2><span id="reconciliationListCount" class="count-badge"></span></div>
+          <table id="reconciliationListTable" class="reconciliation-table reconciliation-list-table" role="table" aria-labelledby="reconciliationListTitle">
+            <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Название</th><th scope="col" role="columnheader">Клиент</th><th scope="col" role="columnheader">Заметка</th><th scope="col" role="columnheader">Статус</th></tr></thead>
+            <tbody id="reconciliationListRows" role="rowgroup"></tbody>
+          </table>
           <p id="reconciliationListState" class="todo-empty" role="status"></p>
         </section>
         <section id="folderSection" class="folder-section" aria-label="Подпапки"><div class="section-heading"><h2 id="foldersTitle">Папки</h2><span id="directoryCount"></span></div><label id="frezaTaskSearchLabel" class="search-field freza-task-search" hidden><svg><use href="#icon-search"/></svg><input id="frezaTaskSearch" type="search" placeholder="Найти задание…" aria-label="Поиск заданий на фрезеровку"></label><div id="subfolders" class="subfolders"></div></section>

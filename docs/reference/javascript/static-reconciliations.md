@@ -72,6 +72,22 @@ const date = value =>
 
 Непосредственные вызовы: `/^\d{4}-\d{2}-\d{2}$/.test`, `value.split('-').reverse().join`, `value.split('-').reverse`, `value.split`.
 
+<a id="symbol-listStatusEditing"></a>
+
+## listStatusEditing
+
+[static/reconciliations.js](../../../static/reconciliations.js) · `FunctionDeclaration`.
+
+```javascript
+function listStatusEditing()
+```
+
+Проверяет, можно ли заменить DOM списка при фоновом обновлении.
+
+Сохраняет открытый выбор статуса и ожидает завершения записи.
+
+Непосредственные вызовы: `Boolean`, `document.activeElement?.matches`.
+
 <a id="symbol-loadAssignment"></a>
 
 ## loadAssignment
@@ -131,14 +147,14 @@ async function open(invoice)
 [static/reconciliations.js](../../../static/reconciliations.js) · `FunctionDeclaration`.
 
 ```javascript
-async function refresh()
+async function refresh(forceList = false)
 ```
 
 Перечитывает данные открытого компонента по установленным правилам в модуле самостоятельных сверок.
 
-Использует `/api/reconciliations`, `/api/reconciliation`.
+Принудительно перечитывает список после ошибки записи статуса через `/api/reconciliations`.
 
-Непосредственные вызовы: `$`, `renderList`, `request`, `renderTable`, `apiUrl`, `document.activeElement?.closest`, `JSON.stringify`, `renderTodos`, `resizeOrderNote`, `renderOrderHeading`, `renderStatus`.
+Непосредственные вызовы: `$`, `renderList`, `listStatusEditing`, `request`, `renderTable`, `apiUrl`, `document.activeElement?.closest`, `JSON.stringify`, `renderTodos`, `resizeOrderNote`, `renderOrderHeading`, `renderStatus`.
 
 Прямые присваивания полям/свойствам: `$('reconciliationList').hidden`, `$('reconciliationInvoices').hidden`, `$('reconciliationListState').textContent`, `folder.reconciliation`, `folder.note`, `folder.todo_items`, `$('orderTitleInput').value`, `$('reconciliationClient').value`, `$('orderNote').value`, `$('reconciliationInvoiceState').textContent`.
 
@@ -152,20 +168,32 @@ async function refresh()
 function renderList(folder, records)
 ```
 
-Строит строки текущего списка компонента.
+Строит список сверок с активными строками перед оплаченными.
 
-Связывает свободную подпись клиента с цветом только при однозначном совпадении с каталогом.
+Сохраняет фокус и прокрутку; связывает цвет клиента только при однозначном совпадении.
 
-Непосредственные вызовы: `Map`, `records.map`, `[...state.tree, ...state.groups.flatMap(group => group.children)].filter`, `state.groups.flatMap`, `folder.directories.filter`, `rows.map(item => {
-      const record = byPath.get(item.path.normalize('NFC'));
+Непосредственные вызовы: `Map`, `records.map`, `[...state.tree, ...state.groups.flatMap(group => group.children)].filter`, `state.groups.flatMap`, `folder.directories.filter(item => !item.name.startsWith('#'))
+      .map(item => ({ item, record: byPath.get(item.path.normalize('NFC')) }))
+      .sort`, `folder.directories.filter(item => !item.name.startsWith('#'))
+      .map`, `folder.directories.filter`, `rows.map(({ item, record }) => {
+      const title = record?.title || item.name;
       const client = (record?.client || '').normalize('NFC');
       const matches = clients.filter(node => node.name.normalize('NFC') === client || node.path.normalize('NFC') === client);
-      return '<tr><td><a href="?path=' + encodeURIComponent(item.path) + '" data-reconciliation-path="' + escapeHtml(item.path) + '">' +
-        escapeHtml(record?.title || item.name) + '</a></td><td>' + ClientBadge.markup(record?.client || '—', matches.length === 1 ? matches[0].path : '') +
-        '</td><td><span class="reconciliation-list-note">' + escapeHtml(record?.note || '—') + '</span></td></tr>';
-    }).join`, `rows.map`, `document.querySelector`, `$`, `[...$('reconciliationListRows').querySelectorAll('[data-reconciliation-path]')].find(el => el.dataset.reconciliationPath === focused)?.focus`, `[...$('reconciliationListRows').querySelectorAll('[data-reconciliation-path]')].find`, `$('reconciliationListRows').querySelectorAll`.
+      const options = Object.entries(listStatuses).map(([value, label]) => '<option value="' + value + '"' +
+        (value === record?.status ? ' selected' : '') + '>' + label + '</option>').join('');
+      const status = record ? '<select class="status-badge order-status-select reconciliation-status-select" data-status="' + escapeHtml(record.status) +
+        '" data-reconciliation-status="' + escapeHtml(record.id) + '" aria-label="' + escapeHtml('Статус сверки «' + title + '»') +
+        '"' + (statusSaves.has(record.id) ? ' disabled' : '') + '>' + options + '</select>' : '—';
+      return '<tr role="row"><td role="cell" class="reconciliation-list-title"><a href="?path=' + encodeURIComponent(item.path) +
+        '" data-reconciliation-path="' + escapeHtml(item.path) + '">' + escapeHtml(title) + '</a></td>' +
+        '<td role="cell" class="reconciliation-list-client" data-empty="' + !client + '">' + ClientBadge.markup(record?.client || '—', matches.length === 1 ? matches[0].path : '') + '</td>' +
+        '<td role="cell" class="reconciliation-list-note-cell" data-empty="' + !record?.note + '"><span class="reconciliation-list-note">' + escapeHtml(record?.note || '—') + '</span></td>' +
+        '<td role="cell" class="reconciliation-list-status">' + status + '</td></tr>';
+    }).join`, `rows.map`, `document.querySelector`, `$`, `[...body.querySelectorAll('[data-reconciliation-path], [data-reconciliation-status]')]
+          .find(el => el.dataset[focusKey] === focused[focusKey])?.focus`, `[...body.querySelectorAll('[data-reconciliation-path], [data-reconciliation-status]')]
+          .find`, `body.querySelectorAll`.
 
-Прямые присваивания полям/свойствам: `$('reconciliationListRows').innerHTML`, `pane.scrollTop`, `$('reconciliationListCount').textContent`, `$('reconciliationListState').textContent`.
+Прямые присваивания полям/свойствам: `body.innerHTML`, `pane.scrollTop`, `$('reconciliationListTable').hidden`, `$('reconciliationListCount').textContent`, `$('reconciliationListState').textContent`.
 
 <a id="symbol-renderTable"></a>
 
@@ -196,3 +224,23 @@ function renderTable(record)
     }).join`, `rows.map`, `document.querySelector`, `[...$('reconciliationInvoiceRows').querySelectorAll('[data-reconciliation-unlink]')].find(el => el.dataset.reconciliationUnlink === focused)?.focus`, `[...$('reconciliationInvoiceRows').querySelectorAll('[data-reconciliation-unlink]')].find`, `$('reconciliationInvoiceRows').querySelectorAll`.
 
 Прямые присваивания полям/свойствам: `$('reconciliationInvoiceCount').textContent`, `$('reconciliationInvoiceRows').innerHTML`, `pane.scrollTop`, `$('reconciliationInvoiceState').textContent`, `$('reconciliationInvoiceRows').invoiceRecords`.
+
+<a id="symbol-saveListStatus"></a>
+
+## saveListStatus
+
+[static/reconciliations.js](../../../static/reconciliations.js) · `FunctionDeclaration`.
+
+```javascript
+async function saveListStatus(control)
+```
+
+Сохраняет выбранный статус по версии строки и переставляет её после ответа.
+
+При ошибке возвращает сохранённое значение и перечитывает список без повтора записи.
+
+Непосредственные вызовы: `listRecords.find`, `statusSaves.has`, `Object.hasOwn`, `statusSaves.add`, `request`, `notify`, `statusSaves.delete`, `renderList`, `listRecords.map`, `refresh`, `[...$('reconciliationListRows').querySelectorAll('[data-reconciliation-status]')]
+        .find(el => el.dataset.reconciliationStatus === current.id)?.focus`, `[...$('reconciliationListRows').querySelectorAll('[data-reconciliation-status]')]
+        .find`, `$('reconciliationListRows').querySelectorAll`, `$`.
+
+Прямые присваивания полям/свойствам: `control.value`, `control.disabled`.

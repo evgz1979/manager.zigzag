@@ -1167,12 +1167,12 @@ def order_sync_worker():
 def folder_status(path, directories):
     relative = relative_path(path)
     role = folder_role(DATA_ROOT, relative)
-    role['todoComposition'] = can_compose_order(DATA_ROOT, relative, role)
     if role['folderKind'] == 'reconciliation':
         item = reconciliations.Reconciliations(order_store()).open(relative)
-        return {**role, 'reconciliation': item, 'service': False, 'noteOnly': True, 'eventFolder': False,
+        return {**role, 'reconciliation': item, 'todoComposition': True, 'service': False, 'noteOnly': True, 'eventFolder': False,
                 'note': item['note'], 'todo_items': item['todo_items'], 'purchase_items': [], 'extra_blocks': {},
                 'status': 'unspecified', 'financial_status': 'unspecified', 'statusSource': 'database'}
+    role['todoComposition'] = can_compose_order(DATA_ROOT, relative, role)
     reconciliation_warnings = []
     if role['folderKind'] == 'reconciliations_root':
         for child in directories:

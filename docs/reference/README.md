@@ -8,7 +8,7 @@
 
 ## Python
 
-67 файлов; 976 именованных объявлений.
+67 файлов; 977 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
@@ -61,7 +61,7 @@
 | [scripts/archive_order_duplicate.py](python/scripts-archive_order_duplicate.md) | 8 |
 | [scripts/build_documentation.py](python/scripts-build_documentation.md) | 22 |
 | [scripts/deploy.py](python/scripts-deploy.md) | 3 |
-| [scripts/deploy_remote.py](python/scripts-deploy_remote.md) | 19 |
+| [scripts/deploy_remote.py](python/scripts-deploy_remote.md) | 20 |
 | [scripts/handoff.py](python/scripts-handoff.md) | 8 |
 | [scripts/handoff_host.py](python/scripts-handoff_host.md) | 24 |
 | [scripts/rebind_glass_notes.py](python/scripts-rebind_glass_notes.md) | 6 |
@@ -82,7 +82,7 @@
 
 ## JavaScript
 
-26 файлов; 499 именованных объявлений.
+26 файлов; 501 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
@@ -103,7 +103,7 @@
 | [static/navigation.js](javascript/static-navigation.md) | 1 |
 | [static/object-move.js](javascript/static-object-move.md) | 7 |
 | [static/order-sorting.js](javascript/static-order-sorting.md) | 2 |
-| [static/reconciliations.js](javascript/static-reconciliations.md) | 10 |
+| [static/reconciliations.js](javascript/static-reconciliations.md) | 12 |
 | [static/remote-access.js](javascript/static-remote-access.md) | 2 |
 | [static/row-reorder.js](javascript/static-row-reorder.md) | 5 |
 | [static/settings.js](javascript/static-settings.md) | 6 |

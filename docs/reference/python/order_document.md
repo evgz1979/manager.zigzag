@@ -612,7 +612,7 @@ def validate_todos(items, *, allow_pinned=False):
 
 Проверяет структуру, текст и свойства строк.
 
-Закрепление допустимо в карточке заказа только у невыполненной строки.
+Закрепление допустимо только в списках с разделами и у невыполненной строки.
 
 Непосредственные вызовы: `isinstance`, `len`, `ValueError`, `item.get`, `type`, `item['text'].strip`, `text.splitlines`, `validate_todo_color`, `result.append`.
 

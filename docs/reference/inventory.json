@@ -935,6 +935,7 @@
           {"name": "backup_database", "type": "function", "anchor": "symbol-backup_database"},
           {"name": "check_event_rename_compatibility", "type": "function", "anchor": "symbol-check_event_rename_compatibility"},
           {"name": "check_order_todo_pin_compatibility", "type": "function", "anchor": "symbol-check_order_todo_pin_compatibility"},
+          {"name": "check_reconciliation_todo_pin_compatibility", "type": "function", "anchor": "symbol-check_reconciliation_todo_pin_compatibility"},
           {"name": "check_remote_access_compatibility", "type": "function", "anchor": "symbol-check_remote_access_compatibility"},
           {"name": "check_todo_color_compatibility", "type": "function", "anchor": "symbol-check_todo_color_compatibility"},
           {"name": "database_name", "type": "function", "anchor": "symbol-database_name"},
@@ -1856,12 +1857,14 @@
           {"name": "close", "type": "FunctionDeclaration", "anchor": "symbol-close"},
           {"name": "controls", "type": "FunctionDeclaration", "anchor": "symbol-controls"},
           {"name": "date", "type": "ArrowFunctionExpression", "anchor": "symbol-date"},
+          {"name": "listStatusEditing", "type": "FunctionDeclaration", "anchor": "symbol-listStatusEditing"},
           {"name": "loadAssignment", "type": "FunctionDeclaration", "anchor": "symbol-loadAssignment"},
           {"name": "money", "type": "ArrowFunctionExpression", "anchor": "symbol-money"},
           {"name": "open", "type": "FunctionDeclaration", "anchor": "symbol-open"},
           {"name": "refresh", "type": "FunctionDeclaration", "anchor": "symbol-refresh"},
           {"name": "renderList", "type": "FunctionDeclaration", "anchor": "symbol-renderList"},
-          {"name": "renderTable", "type": "FunctionDeclaration", "anchor": "symbol-renderTable"}
+          {"name": "renderTable", "type": "FunctionDeclaration", "anchor": "symbol-renderTable"},
+          {"name": "saveListStatus", "type": "FunctionDeclaration", "anchor": "symbol-saveListStatus"}
         ]
       },
       {

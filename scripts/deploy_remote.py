@@ -263,6 +263,18 @@ def check_order_todo_pin_compatibility(db, release_dir):
             raise RuntimeError('В базе есть закреплённые разделы заказа. Старый код не поддерживает их; откат заблокирован')
 
 
+# Проверяет поддержку разделов сверки в целевом релизе.
+# Требует отдельный маркер для SQLite-сверок с хотя бы одной закреплённой строкой.
+def check_reconciliation_todo_pin_compatibility(db, release_dir):
+    source = release_dir / 'reconciliations.py'
+    if source.is_file() and 'RECONCILIATION_TODO_PIN_VERSION = 1' in source.read_text(encoding='utf-8'):
+        return
+    if (db.execute("SELECT 1 FROM pragma_table_info('reconciliations') WHERE name='data'").fetchone()
+            and db.execute("SELECT 1 FROM reconciliations, json_each(reconciliations.data, '$.todo_items') "
+                           "WHERE json_each.type='object' AND json_type(json_each.value, '$.pinned')='true' LIMIT 1").fetchone()):
+        raise RuntimeError('В базе есть закреплённые разделы сверки. Старый код не поддерживает их; откат заблокирован')
+
+
 # Проверяет поддержку рабочих форматов и незавершённых операций целевым релизом.
 # Работает с таблицами sqlite_master, metadata_settings, invoices, event_renames, folder_renames.
 def check_event_rename_compatibility(database, release_dir):
@@ -271,6 +283,7 @@ def check_event_rename_compatibility(database, release_dir):
     with closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)) as db:
         check_todo_color_compatibility(db, release_dir)
         check_order_todo_pin_compatibility(db, release_dir)
+        check_reconciliation_todo_pin_compatibility(db, release_dir)
         if (db.execute("SELECT 1 FROM sqlite_master WHERE name='metadata_settings'").fetchone()
                 and db.execute("SELECT 1 FROM metadata_settings WHERE key='telegram_calendar_commands' AND value='1'").fetchone()):
             source = release_dir / 'telegram_calendar_commands.py'

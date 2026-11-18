@@ -97,7 +97,7 @@ def catalog(self):
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-[{key: item[key] for key in ('id', 'path', 'title', 'client', 'note', 'revision')} for item in (record(row) for row in db.execute('SELECT * FROM reconciliations ORDER BY path'))]
+[{key: item[key] for key in ('id', 'path', 'title', 'client', 'note', 'status', 'revision')} for item in (record(row) for row in db.execute('SELECT * FROM reconciliations ORDER BY path'))]
 ```
 
 <a id="symbol-Reconciliations.connect"></a>
@@ -174,11 +174,11 @@ self.get(path)
 def save(self, payload):
 ```
 
-Сохраняет клиента, заметку и To-do сверки по UUID и revision.
+Сохраняет поля редактора сверки или отдельно меняет её статус из списка.
 
-Работает с таблицами reconciliations.
+Оба действия проверяют UUID и revision карточки и записывают историю.
 
-Непосредственные вызовы: `checked_path`, `payload.get`, `self.connect`, `db.execute`, `assert_unlocked`, `db.execute('SELECT * FROM reconciliations WHERE path=?', (path,)).fetchone`, `type`, `ReconciliationConflict`, `checked_data`, `json.loads`, `json.dumps`, `time.time`, `self.get`.
+Непосредственные вызовы: `checked_path`, `payload.get`, `self.connect`, `db.execute`, `assert_unlocked`, `db.execute('SELECT * FROM reconciliations WHERE path=?', (path,)).fetchone`, `type`, `ReconciliationConflict`, `checked_data`, `json.loads`, `previous.get`, `json.dumps`, `time.time`, `self.get`.
 
 Явные исключения: `ReconciliationConflict`.
 
@@ -246,7 +246,7 @@ def checked_data(data):
 
 Проверяет точный версионный формат самостоятельной сверки.
 
-При недопустимом состоянии возбуждает ValueError.
+Проверяет задачи, разделы и статус без изменения дополнительных полей записи.
 
 Непосредственные вызовы: `isinstance`, `type`, `data.get`, `ValueError`, `len`, `data['title'].strip`, `order_document.validate_todos`.
 
@@ -348,14 +348,14 @@ def record(row):
 
 Преобразует строку SQLite в представление для вызывающего кода.
 
-Разбирает JSON; вызывающий код должен учитывать ошибки или неизвестный формат.
+У прежней сверки без явного статуса возвращает active без записи в SQLite.
 
-Непосредственные вызовы: `checked_data`, `json.loads`.
+Непосредственные вызовы: `checked_data`, `json.loads`, `data.get`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-{**data, 'id': row['id'], 'path': row['path'], 'revision': row['revision'], 'updated': row['updated']}
+{**data, 'status': data.get('status', 'active'), 'id': row['id'], 'path': row['path'], 'revision': row['revision'], 'updated': row['updated']}
 ```
 
 <a id="symbol-schema"></a>

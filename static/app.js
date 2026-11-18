@@ -1376,20 +1376,21 @@ function applyRemotePurchaseUpdate(folder, order) {
 }
 
 // Показывает собственные задачи текущей карточки.
-// На странице заказа добавляет булавки и ручки перестановки к общему списку.
+// В заказе и сверке добавляет булавки и ручки перестановки к общему списку.
 function renderTodos() {
   const folder = state.folder, items = folder.todo_items, list = $("todoList");
   const composition = Boolean(folder.todoComposition);
+  const card = folder.reconciliation ? "сверки" : "заказа";
   if (list.contains(state.todoColorMenu?.trigger)) closeTodoColorMenu();
   clearTodoDrag();
   const editable = Array.isArray(items);
-  $("todoTitle").textContent = composition ? "Состав заказа и туду" : "To-do";
+  $("todoTitle").textContent = composition ? "Состав " + card + " и туду" : "To-do";
   list.classList.toggle("order-composition", composition);
   $("todoLegacy").hidden = editable;
   $("todoLegacyText").textContent = editable ? "" : (folder.order?.extra_blocks || folder.extra_blocks || {})["Задачи"] || "";
   $("todoAddForm").hidden = !editable;
   $("todoEmpty").hidden = !editable || Boolean(items.length);
-  $("todoEmpty").textContent = composition ? "Добавь задачу или раздел заказа." : folder.reconciliation ? 'Добавь задачи по сверке.' : folder.folderNote ? "Добавьте, что нужно сделать в этой папке." : "Добавьте, что нужно сделать по заказу.";
+  $("todoEmpty").textContent = composition ? "Добавь задачу или раздел " + card + "." : folder.folderNote ? "Добавьте, что нужно сделать в этой папке." : "Добавьте, что нужно сделать по заказу.";
   renderTodoCount(items);
   const handle = !composition ? '' : '<button class="icon-button row-drag-handle todo-drag-handle" type="button" ' +
     'aria-label="Переместить строку" aria-keyshortcuts="ArrowUp ArrowDown" title="Перетащить строку" ' +

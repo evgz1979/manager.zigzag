@@ -2,6 +2,9 @@
 const ReconciliationUI = (() => {
   let assignment = null, refreshVersion = 0, tableMarkup = null, tablePath = null, listMarkup = null, listPath = null;
   const links = new Map();
+  const listStatuses = { active: 'Активна', paid: 'Оплачена' };
+  const statusSaves = new Set();
+  let listRecords = [];
   // Форматирует денежное значение для соответствующего компонента.
   // Использует `Number.isSafeInteger`, `rubles`.
   const money = value => Number.isSafeInteger(value) ? rubles(value) : '—';
@@ -9,30 +12,84 @@ const ReconciliationUI = (() => {
   // Использует `/^\d{4}-\d{2}-\d{2}$/.test`, `value.split('-').reverse().join`, `value.split('-').reverse`.
   const date = value => /^\d{4}-\d{2}-\d{2}$/.test(value || '') ? value.split('-').reverse().join('.') : '—';
 
-  // Строит строки текущего списка компонента.
-  // Связывает свободную подпись клиента с цветом только при однозначном совпадении с каталогом.
+  // Строит список сверок с активными строками перед оплаченными.
+  // Сохраняет фокус и прокрутку; связывает цвет клиента только при однозначном совпадении.
   function renderList(folder, records) {
     const byPath = new Map(records.map(item => [item.path.normalize('NFC'), item]));
     const clients = [...state.tree, ...state.groups.flatMap(group => group.children)].filter(node => node.isClient);
-    const rows = folder.directories.filter(item => !item.name.startsWith('#'));
-    const markup = rows.map(item => {
-      const record = byPath.get(item.path.normalize('NFC'));
+    const rows = folder.directories.filter(item => !item.name.startsWith('#'))
+      .map(item => ({ item, record: byPath.get(item.path.normalize('NFC')) }))
+      .sort((a, b) => Number(a.record?.status === 'paid') - Number(b.record?.status === 'paid'));
+    const markup = rows.map(({ item, record }) => {
+      const title = record?.title || item.name;
       const client = (record?.client || '').normalize('NFC');
       const matches = clients.filter(node => node.name.normalize('NFC') === client || node.path.normalize('NFC') === client);
-      return '<tr><td><a href="?path=' + encodeURIComponent(item.path) + '" data-reconciliation-path="' + escapeHtml(item.path) + '">' +
-        escapeHtml(record?.title || item.name) + '</a></td><td>' + ClientBadge.markup(record?.client || '—', matches.length === 1 ? matches[0].path : '') +
-        '</td><td><span class="reconciliation-list-note">' + escapeHtml(record?.note || '—') + '</span></td></tr>';
+      const options = Object.entries(listStatuses).map(([value, label]) => '<option value="' + value + '"' +
+        (value === record?.status ? ' selected' : '') + '>' + label + '</option>').join('');
+      const status = record ? '<select class="status-badge order-status-select reconciliation-status-select" data-status="' + escapeHtml(record.status) +
+        '" data-reconciliation-status="' + escapeHtml(record.id) + '" aria-label="' + escapeHtml('Статус сверки «' + title + '»') +
+        '"' + (statusSaves.has(record.id) ? ' disabled' : '') + '>' + options + '</select>' : '—';
+      return '<tr role="row"><td role="cell" class="reconciliation-list-title"><a href="?path=' + encodeURIComponent(item.path) +
+        '" data-reconciliation-path="' + escapeHtml(item.path) + '">' + escapeHtml(title) + '</a></td>' +
+        '<td role="cell" class="reconciliation-list-client" data-empty="' + !client + '">' + ClientBadge.markup(record?.client || '—', matches.length === 1 ? matches[0].path : '') + '</td>' +
+        '<td role="cell" class="reconciliation-list-note-cell" data-empty="' + !record?.note + '"><span class="reconciliation-list-note">' + escapeHtml(record?.note || '—') + '</span></td>' +
+        '<td role="cell" class="reconciliation-list-status">' + status + '</td></tr>';
     }).join('');
+    listRecords = records;
     if (markup !== listMarkup || listPath !== folder.path) {
-      const focused = document.activeElement?.dataset.reconciliationPath;
+      const focused = document.activeElement?.dataset;
+      const focusKey = focused?.reconciliationStatus ? 'reconciliationStatus' : 'reconciliationPath';
       const pane = document.querySelector('.content-pane'), scroll = pane.scrollTop;
-      $('reconciliationListRows').innerHTML = markup;
+      const body = $('reconciliationListRows');
+      body.innerHTML = markup;
       listMarkup = markup; listPath = folder.path;
-      if (focused && document.activeElement === document.body) [...$('reconciliationListRows').querySelectorAll('[data-reconciliation-path]')].find(el => el.dataset.reconciliationPath === focused)?.focus({ preventScroll: true });
+      if (focused?.[focusKey] && document.activeElement === document.body) {
+        [...body.querySelectorAll('[data-reconciliation-path], [data-reconciliation-status]')]
+          .find(el => el.dataset[focusKey] === focused[focusKey])?.focus({ preventScroll: true });
+      }
       pane.scrollTop = scroll;
     }
+    $('reconciliationListTable').hidden = !rows.length;
     $('reconciliationListCount').textContent = rows.length;
     $('reconciliationListState').textContent = rows.length ? '' : 'Создай первую сверку кнопкой «Создать сверку».';
+  }
+
+  // Проверяет, можно ли заменить DOM списка при фоновом обновлении.
+  // Сохраняет открытый выбор статуса и ожидает завершения записи.
+  function listStatusEditing() {
+    return statusSaves.size > 0 || Boolean(document.activeElement?.matches('#reconciliationListRows [data-reconciliation-status]'));
+  }
+
+  // Сохраняет выбранный статус по версии строки и переставляет её после ответа.
+  // При ошибке возвращает сохранённое значение и перечитывает список без повтора записи.
+  async function saveListStatus(control) {
+    const folder = state.folder, current = listRecords.find(item => item.id === control.dataset.reconciliationStatus);
+    if (!current || statusSaves.has(current.id) || !Object.hasOwn(listStatuses, control.value) || control.value === current.status) return;
+    const status = control.value, wasFocused = document.activeElement === control;
+    control.value = current.status;
+    control.disabled = true;
+    statusSaves.add(current.id);
+    ++refreshVersion;
+    let saved;
+    try {
+      saved = await request('/api/reconciliation-save', { action: 'status', path: current.path, id: current.id, revision: current.revision, status });
+    } catch (error) {
+      notify(error.status === 409 ? 'Сверка изменилась. Проверь текущий статус и выбери заново.' : error.message, true);
+    } finally {
+      control.disabled = false;
+      statusSaves.delete(current.id);
+    }
+    if (state.folder !== folder || state.view !== 'folder') return;
+    if (saved) {
+      ++refreshVersion;
+      renderList(folder, listRecords.map(item => item.id === current.id ? saved : item));
+    } else {
+      await refresh(true);
+    }
+    if (wasFocused && state.folder === folder && (document.activeElement === document.body || document.activeElement === control)) {
+      [...$('reconciliationListRows').querySelectorAll('[data-reconciliation-status]')]
+        .find(el => el.dataset.reconciliationStatus === current.id)?.focus({ preventScroll: true });
+    }
   }
 
   // Строит кнопку сверки в строке счёта.
@@ -76,8 +133,8 @@ const ReconciliationUI = (() => {
   }
 
   // Перечитывает данные открытого компонента по установленным правилам в модуле самостоятельных сверок.
-  // Использует `/api/reconciliations`, `/api/reconciliation`.
-  async function refresh() {
+  // Принудительно перечитывает список после ошибки записи статуса через `/api/reconciliations`.
+  async function refresh(forceList = false) {
     const folder = state.view === 'folder' ? state.folder : null;
     const list = folder?.folderKind === 'reconciliations_root';
     $('reconciliationList').hidden = !list;
@@ -85,10 +142,11 @@ const ReconciliationUI = (() => {
     if (list) {
       tablePath = null;
       if (listPath !== folder.path) renderList(folder, []);
+      if (forceList !== true && listStatusEditing()) return;
       const version = ++refreshVersion;
       try {
         const catalog = await request('/api/reconciliations');
-        if (version !== refreshVersion || state.folder !== folder || state.view !== 'folder') return;
+        if (version !== refreshVersion || state.folder !== folder || state.view !== 'folder' || (forceList !== true && listStatusEditing())) return;
         renderList(folder, catalog.items);
       } catch (error) {
         if (version === refreshVersion && state.folder === folder) $('reconciliationListState').textContent = error.message;
@@ -190,6 +248,9 @@ const ReconciliationUI = (() => {
   $('cancelInvoiceReconciliation').addEventListener('click', close);
   $('invoiceReconciliationDialog').addEventListener('cancel', event => { event.preventDefault(); close(); });
   $('refreshReconciliation').addEventListener('click', refresh);
+  $('reconciliationListRows').addEventListener('change', event => {
+    if (event.target.matches('[data-reconciliation-status]')) run(() => saveListStatus(event.target));
+  });
   $('reconciliationListRows').addEventListener('click', event => {
     const link = event.target.closest('[data-reconciliation-path]');
     if (link && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {

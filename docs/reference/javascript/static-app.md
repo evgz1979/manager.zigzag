@@ -3614,7 +3614,7 @@ function renderTodos()
 
 Показывает собственные задачи текущей карточки.
 
-На странице заказа добавляет булавки и ручки перестановки к общему списку.
+В заказе и сверке добавляет булавки и ручки перестановки к общему списку.
 
 Непосредственные вызовы: `$`, `Boolean`, `list.contains`, `closeTodoColorMenu`, `clearTodoDrag`, `Array.isArray`, `list.classList.toggle`, `renderTodoCount`, `items.map((item, index) => '<div class="todo-row' + (item.done ? ' done' : '') + (item.pinned ? ' todo-pinned' : '') +
     '" data-todo-index="' + index + '"' + todoColorAttribute(item) + '>' + handle +

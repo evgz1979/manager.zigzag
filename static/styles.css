@@ -1101,15 +1101,33 @@ h2 { font-size: 13px; font-weight: 600; }
 .reconciliation-invoices td { overflow-wrap: anywhere; }
 .reconciliation-invoice-comment { min-width: 160px; max-width: 420px; white-space: pre-wrap; }
 .reconciliation-table .reconciliation-amount { text-align: right; white-space: nowrap; }
-.reconciliation-list-table { table-layout: fixed; }
-.reconciliation-list-table th:first-child { width: 40%; }
-.reconciliation-list-table th:nth-child(2) { width: 24%; }
-.reconciliation-list-table td { overflow-wrap: anywhere; }
+.reconciliation-list-table { table-layout: fixed; border-collapse: separate; border-spacing: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.reconciliation-list-table th, .reconciliation-list-table td { padding: 11px 14px; vertical-align: middle; }
+.reconciliation-list-table th { background: var(--surface-subtle); }
+.reconciliation-list-table th:first-child { width: 32%; border-top-left-radius: 7px; }
+.reconciliation-list-table th:nth-child(2) { width: 22%; }
+.reconciliation-list-table th:last-child { width: 130px; border-top-right-radius: 7px; }
+.reconciliation-list-table td { min-width: 0; overflow-wrap: anywhere; }
 .reconciliation-list-table td:first-child { min-width: 0; max-width: none; }
-.reconciliation-list-table td:not(:first-child) { color: var(--muted); }
-.reconciliation-list-table tbody tr:hover { background: light-dark(#f3f6f2, #1d2421); }
-.reconciliation-list-table a { display: inline-block; padding: 3px 0; }
+.reconciliation-list-table tbody tr:last-child td { border-bottom: 0; }
+.reconciliation-list-table tbody tr:hover { background: var(--surface-subtle); }
+.reconciliation-list-title a { display: inline-block; padding: 3px 0; font-size: 13px; font-weight: 600; }
+.reconciliation-list-client, .reconciliation-list-note-cell { color: var(--muted); }
 .reconciliation-list-note { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; white-space: pre-line; }
+.reconciliation-status-select { width: 100%; max-width: 114px; min-height: 28px; padding-inline: 8px; font-size: 11px; border-radius: 6px; }
+.reconciliation-status-select[data-status="active"] { color: light-dark(#456c97, #9bc8f5); background: light-dark(#e6eef8, #253247); }
+.reconciliation-status-select[data-status="paid"] { color: var(--success); background: var(--success-soft); }
+@media (max-width: 640px) {
+  .reconciliation-list-table, .reconciliation-list-table tbody { display: block; }
+  .reconciliation-list-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .reconciliation-list-table tbody tr { display: grid; grid-template-columns: minmax(0, 1fr) 114px; align-items: center; gap: 4px 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .reconciliation-list-table tbody tr:last-child { border-bottom: 0; }
+  .reconciliation-list-table td { padding: 0; border: 0; }
+  .reconciliation-list-title { grid-column: 1; grid-row: 1; }
+  .reconciliation-list-status { grid-column: 2; grid-row: 1; }
+  .reconciliation-list-client, .reconciliation-list-note-cell { grid-column: 1 / -1; }
+  .reconciliation-list-table [data-empty="true"] { display: none; }
+}
 .bills-section { min-width: 0; }
 .bills-search { max-width: 460px; margin-bottom: 8px; }
 .bills-search input { width: 100%; min-width: 0; padding: 6px 0; }

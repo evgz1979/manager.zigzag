@@ -118,7 +118,7 @@ def validate_todo_color(color):
 
 
 # Проверяет структуру, текст и свойства строк.
-# Закрепление допустимо в карточке заказа только у невыполненной строки.
+# Закрепление допустимо только в списках с разделами и у невыполненной строки.
 def validate_todos(items, *, allow_pinned=False):
     if not isinstance(items, list) or len(items) > 200:
         raise ValueError("В списке может быть не более 200 задач")
@@ -131,9 +131,11 @@ def validate_todos(items, *, allow_pinned=False):
             raise ValueError("Укажите задачу одной строкой, до 1000 символов")
         row = {"text": text, "done": item["done"]}
         pinned = item.get("pinned", False)
-        if type(pinned) is not bool or (pinned and (not allow_pinned or row["done"])):
-            raise ValueError("Раздел заказа можно закрепить только как невыполненную строку в самом заказе")
+        if type(pinned) is not bool or (pinned and not allow_pinned):
+            raise ValueError("Некорректная отметка закрепления строки")
         if pinned:
+            if row["done"]:
+                raise ValueError("Закрепить как раздел можно только невыполненную строку")
             row["pinned"] = True
         color = validate_todo_color(item.get("color"))
         if color is not None:

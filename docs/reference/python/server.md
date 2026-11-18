@@ -778,12 +778,12 @@ def folder_status(path, directories):
 
 Возвращает `{**role, 'service': True, 'note': read_status_document(path).get('note', ''), 'statusSource': 'manual'}`.
 
-Непосредственные вызовы: `relative_path`, `folder_role`, `can_compose_order`, `reconciliations.Reconciliations(order_store()).open`, `reconciliations.Reconciliations`, `order_store`, `child.name.startswith`, `child.is_symlink`, `reconciliation_warnings.append`, `str`, `is_service_folder`, `parent_order`, `order_store().get`, `folder_note_store().read`, `folder_note_store`, `bool`, `body.get`, `order_document.read_purchases`, `read_status_document(path).get`, `read_status_document`, `normalized`, `' '.join`, `next`, `any`, `record.get`.
+Непосредственные вызовы: `relative_path`, `folder_role`, `reconciliations.Reconciliations(order_store()).open`, `reconciliations.Reconciliations`, `order_store`, `can_compose_order`, `child.name.startswith`, `child.is_symlink`, `reconciliation_warnings.append`, `str`, `is_service_folder`, `parent_order`, `order_store().get`, `folder_note_store().read`, `folder_note_store`, `bool`, `body.get`, `order_document.read_purchases`, `read_status_document(path).get`, `read_status_document`, `normalized`, `' '.join`, `next`, `any`, `record.get`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-{**role, 'reconciliation': item, 'service': False, 'noteOnly': True, 'eventFolder': False, 'note': item['note'], 'todo_items': item['todo_items'], 'purchase_items': [], 'extra_blocks': {}, 'status': 'unspecified', 'financial_status': 'unspecified', 'statusSource': 'database'}
+{**role, 'reconciliation': item, 'todoComposition': True, 'service': False, 'noteOnly': True, 'eventFolder': False, 'note': item['note'], 'todo_items': item['todo_items'], 'purchase_items': [], 'extra_blocks': {}, 'status': 'unspecified', 'financial_status': 'unspecified', 'statusSource': 'database'}
 {**role, 'service': False, 'status': order['status'], 'financial_status': order['financial_status'], 'note': order['note'], 'todo_items': order['todo_items'], 'purchase_items': order['purchase_items'], 'extra_blocks': order['extra_blocks'], 'statusSource': 'database', 'order': order}
 {**role, 'reconciliationWarnings': reconciliation_warnings, 'service': service, 'noteOnly': note_only, 'eventFolder': bool(owner), 'folderNote': record, 'draftCard': body, 'note': record['note'], 'todo_items': record['todo_items'], 'purchase_items': order_document.read_purchases(body.get('extra_blocks', {})), 'extra_blocks': record['extra_blocks'], 'status': body.get('status', 'new'), 'financial_status': body.get('financial_status', 'unspecified'), 'statusSource': 'database'}
 {**role, 'service': True, 'note': read_status_document(path).get('note', ''), 'statusSource': 'manual'}

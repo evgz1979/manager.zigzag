@@ -300,6 +300,73 @@ class ReconciliationTests(unittest.TestCase):
         with self.store.connect() as db:
             self.assertEqual(json.loads(db.execute('SELECT data FROM reconciliations WHERE id=?', (target['id'],)).fetchone()[0]), {'version': 99, 'unknown': 'Не менять'})
 
+    def test_pinned_sections_use_the_reconciliation_card_and_preserve_order(self):
+        target = self.reconciliation()
+        self.assertTrue(manager.read_folder(target['path'])['todoComposition'])
+        nested = target['path'] + '/# docs'
+        self.folder(nested)
+        self.assertFalse(manager.read_folder(nested)['todoComposition'])
+        task = {'text': 'Проверить', 'done': False}
+        pinned = {'text': 'Оплата', 'done': False, 'pinned': True, 'color': 'blue'}
+        status, _, body = self.post('/api/reconciliation-save', {**target, 'todo_items': [task, pinned]})
+        self.assertEqual(status, 200, body)
+        saved = json.loads(body)
+        self.assertEqual(saved['todo_items'], [task, pinned])
+        self.assertEqual(self.post('/api/reconciliation-save', {**saved, 'todo_items': [{**pinned, 'done': True}, task]})[0], 400)
+        status, _, body = self.post('/api/reconciliation-save', {**saved, 'todo_items': [pinned, task]})
+        self.assertEqual(status, 200, body)
+        self.assertEqual(self.post('/api/reconciliation-save', saved)[0], 409)
+        self.assertEqual(self.service.get(target['path'])['todo_items'], [pinned, task])
+        with self.store.connect() as db:
+            self.assertEqual(db.execute("SELECT count(*) FROM metadata_history WHERE entity='reconciliations' AND identity=?",
+                                        (target['id'],)).fetchone()[0], 2)
+
+    def test_list_status_uses_the_reconciliation_revision_and_preserves_card_fields(self):
+        invoice, target = self.invoice(), self.reconciliation()
+        invoice_link = self.assign(invoice, target)
+        original = self.service.save({**target, 'client': 'Поставщик', 'note': 'Заметка',
+                                      'todo_items': [{'text': 'Раздел', 'done': False, 'pinned': True}]})
+        self.assertEqual(original['status'], 'active')
+        self.assertEqual(self.service.catalog()[0]['status'], 'active')
+        with self.store.connect() as db:
+            self.assertIsNone(db.execute("SELECT json_type(data,'$.status') FROM reconciliations").fetchone()[0])
+        payload = {key: original[key] for key in ('path', 'id', 'revision')}
+        payload.update(action='status', status='paid')
+        self.assertEqual(self.post('/api/reconciliation-save', {**payload, 'status': 'cancelled'})[0], 400)
+        status, _, body = self.post('/api/reconciliation-save', payload)
+        self.assertEqual(status, 200, body)
+        saved = json.loads(body)
+        self.assertEqual(saved['status'], 'paid')
+        self.assertEqual(saved['revision'], original['revision'] + 1)
+        for key in ('client', 'note', 'todo_items', 'invoices'):
+            self.assertEqual(saved[key], original[key])
+        self.assertEqual(self.service.catalog()[0]['status'], 'paid')
+        self.assertEqual(self.post('/api/reconciliation-save', original)[0], 409)
+        self.assertEqual(self.post('/api/reconciliation-save', {**payload, 'status': 'active'})[0], 409)
+        edited = self.service.save({**saved, 'note': 'Уточнение', 'status': 'active'})
+        self.assertEqual(edited['status'], 'paid')
+        self.assertEqual(edited['invoices'][0]['link_revision'], invoice_link['revision'])
+        restored = self.service.save({**payload, 'revision': edited['revision'], 'status': 'active'})
+        self.assertEqual(restored['status'], 'active')
+        with self.store.connect() as db:
+            self.assertEqual(db.execute("SELECT count(*) FROM metadata_history WHERE entity='reconciliations' AND identity=?",
+                                        (target['id'],)).fetchone()[0], 4)
+
+    def test_rollback_requires_support_for_pinned_reconciliation_sections(self):
+        target = self.reconciliation()
+        release = self.base / 'orders-only-release'
+        release.mkdir()
+        (release / 'local_metadata.py').write_text('')
+        (release / 'order_document.py').write_text('ORDER_TODO_PIN_VERSION = 1')
+        source = release / 'reconciliations.py'
+        source.write_text('RECONCILIATIONS_VERSION = 1')
+        remote.check_event_rename_compatibility(self.store.database, release)
+        self.service.save({**target, 'todo_items': [{'text': 'Раздел', 'done': False, 'pinned': True}]})
+        with self.assertRaisesRegex(RuntimeError, 'закреплённые разделы сверки'):
+            remote.check_event_rename_compatibility(self.store.database, release)
+        source.write_text('RECONCILIATIONS_VERSION = 1\nRECONCILIATION_TODO_PIN_VERSION = 1')
+        remote.check_event_rename_compatibility(self.store.database, release)
+
     def test_polling_works_offline_and_rename_undo_keeps_assignment(self):
         invoice, target = self.invoice(), self.reconciliation()
         self.assign(invoice, target)
