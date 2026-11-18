@@ -69,6 +69,9 @@ h1, h2, h3, p { margin: 0; }
 .manager-settings-dialog fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 16px; min-width: 0; }
 .manager-settings-dialog input { font-size: 16px; }
 .manager-settings-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.deadline-highlight-scroll { overflow-x: auto; padding: 2px 2px 4px; }
+.deadline-highlight-scroll .order-deadline-weeks { width: max-content; margin-top: 8px; }
+#deadlineHighlightState:empty { display: none; }
 .confirm-dialog.manager-settings-dialog .confirm-actions { margin-top: 0; padding-top: 10px; border-top: 1px solid var(--line); }
 .manager-settings-dialog #invoiceSellerSettingsFields { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 #invoiceSellerSettingsFields label:first-child, #invoiceSellerSettingsFields label:nth-child(4), #invoiceSellerSettingsFields label:nth-child(5) { grid-column: 1 / -1; }
@@ -97,7 +100,7 @@ h1, h2, h3, p { margin: 0; }
 .appearance-option input:focus-visible + .appearance-preview { outline: 2px solid var(--accent); outline-offset: 4px; }
 #managerAppearanceState:empty { display: none; }
 @media (max-width: 480px) {
-  .manager-settings-tabs:has(#managerCalDAVTab:not([hidden])) { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .manager-settings-tabs { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .manager-settings-tabs button { padding-inline: 2px; }
   #invoiceSellerSettingsFields label:has([data-seller-field="account"]), #invoiceSellerSettingsFields label:has([data-seller-field="correspondent"]) { grid-column: 1 / -1; }
 }
@@ -901,9 +904,9 @@ h2 { font-size: 13px; font-weight: 600; }
 .calendar-carryover-plans .calendar-payment-columns { margin: 0; grid-template-columns: minmax(0, 1fr); }
 .calendar-carryover-plans .calendar-plan-amount { font-size: 11px; }
 .calendar-carryover-plans .calendar-plan-caption { font-size: 9px; }
-.deadline-week.travel { position: relative; }
-.deadline-week.travel::before { content: ""; position: absolute; top: -6px; left: -1px; right: -1px; height: 2px; background: #e5be36; pointer-events: none; }
-.deadline-week.travel-continues::before { right: -4px; }
+.deadline-week.deadline-highlighted { position: relative; }
+.deadline-week.deadline-highlighted::before { content: ""; position: absolute; top: -6px; left: -1px; right: -1px; height: 2px; background: #e5be36; pointer-events: none; }
+.deadline-week.deadline-highlight-continues::before { right: -4px; }
 .deadline-week.current { outline: 1px solid light-dark(hsl(var(--deadline-month-hue) 45% 56%), hsl(var(--deadline-month-hue) 50% 66%)); outline-offset: 1px; font-weight: 650; }
 .deadline-week:hover:not(:disabled) { background: light-dark(hsl(var(--deadline-month-hue) 45% 90%), hsl(var(--deadline-month-hue) 26% 24%)); }
 .deadline-week[aria-pressed="true"], .deadline-comment-row .deadline-comment-week { background: hsl(var(--deadline-month-hue) 57% 32%); color: #fff; border-color: hsl(var(--deadline-month-hue) 57% 32%); }

@@ -104,6 +104,24 @@ function applyCalendarOrderEvent(saved, revision)
 
 Непосредственные вызовы: `applyOrderRecord`, `renderCardDeadlines`.
 
+<a id="symbol-applyDeadlineHighlights"></a>
+
+## applyDeadlineHighlights
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function applyDeadlineHighlights(value, redraw = false)
+```
+
+Обновляет общую настройку полосы из опроса или редактора.
+
+Устаревший ответ опроса не перекрывает сохранение из настроек.
+
+Непосредственные вызовы: `Set`, `hasOrderList`, `renderOrders`, `renderCardDeadlines`.
+
+Прямые присваивания полям/свойствам: `state.deadlineHighlightRevision`, `state.deadlineHighlights`.
+
 <a id="symbol-applyFreeCalendarEvent"></a>
 
 ## applyFreeCalendarEvent
@@ -673,6 +691,22 @@ function deadlineCommentInput(event)
 Непосредственные вызовы: `event.target.closest`, `folder?.deadlineCommentDrafts?.get`, `clearTimeout`, `renderDeadlineComments`, `setTimeout`.
 
 Прямые присваивания полям/свойствам: `draft.value`, `draft.dirty`, `draft.error`, `folder.deadlineCommentTimer`.
+
+<a id="symbol-deadlineHighlightClass"></a>
+
+## deadlineHighlightClass
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function deadlineHighlightClass(weeks, start, next)
+```
+
+Возвращает классы жёлтой полосы для списка заказов и редактора.
+
+Соединяет только фактически соседние отмеченные недели.
+
+Непосредственные вызовы: `weeks.has`, `shiftDeadlineWeek`.
 
 <a id="symbol-deadlineWeekDates"></a>
 
@@ -1448,7 +1482,7 @@ async function loadOrders()
 
 Использует `/api/orders`, `/api/work-orders`, `/api/object-orders`.
 
-Непосредственные вызовы: `isFolderOrderList`, `isWorkOrderList`, `request`, `renderMoneyOverview`, `apiUrl`, `(object.archived_paths || []).map`, `ClientBadge.replace`, `result.orders.filter`, `renderSupplierSchedule`, `renderFavoriteOrders`, `hasOrderList`, `renderOrders`, `renderCardDeadlines`, `[...(result.orders || []), ...(result.favorites || [])].find`, `renderOrderCardLinks`.
+Непосредственные вызовы: `isFolderOrderList`, `isWorkOrderList`, `request`, `renderMoneyOverview`, `apiUrl`, `(object.archived_paths || []).map`, `ClientBadge.replace`, `applyDeadlineHighlights`, `result.orders.filter`, `renderSupplierSchedule`, `renderFavoriteOrders`, `hasOrderList`, `renderOrders`, `renderCardDeadlines`, `[...(result.orders || []), ...(result.favorites || [])].find`, `renderOrderCardLinks`.
 
 Прямые присваивания полям/свойствам: `state.ordersRequest`, `state.calendarPlansError`, `state.objectOrders`, `state.objectOrdersError`, `state.workOrderGroups`, `state.workArchivedOrders`, `state.workArchivedPaths`, `state.orders`, `state.calendarSupplierOrders`, `state.calendarEvents`, `state.calendarInvoicePlans`, `state.calendarPlansLoaded`, `state.deadlineWeekOptions`, `state.favoriteOrders`, `state.unregistrations`, `state.scan`, `state.storage`.
 
@@ -3065,13 +3099,12 @@ function renderOrderDeadlines(order, { options = state.deadlineWeekOptions, card
       const week = deadlineWeekInfo(option.start);
       const past = currentWeek && week.start < currentWeek;
       const overdue = selected.has(week.start) && past;
-      const travel = week.start >= deadlineTravelPeriod.start && week.start <= deadlineTravelPeriod.end;
-      const travelContinues = travel && options[index + 1]?.start === shiftDeadlineWeek(week.start, 1) && options[index + 1].start <= deadlineTravelPeriod.end;
+      const highlight = deadlineHighlightClass(state.deadlineHighlights, week.start, options[index + 1]?.start);
       const comment = order.calendar_week_events?.[week.start] || "";
-      const help = (overdue ? "Просрочено · " : "") + week.label + (travel ? "\n" + deadlineTravelPeriod.label : "") + (comment ? "\n" + comment : "");
+      const help = (overdue ? "Просрочено · " : "") + week.label + (highlight ? "\nЖёлтая полоса" : "") + (comment ? "\n" + comment : "");
       const gap = card && previous && shiftDeadlineWeek(previous, 1) !== week.start ? '<span class="deadline-week-gap" title="Между этими неделями есть пропуск">…</span>' : '';
       previous = week.start;
-      return gap + '<button type="button" class="deadline-week' + (week.current ? ' current' : '') + (past ? ' past' : '') + (overdue ? ' overdue' : '') + (travel ? ' travel' : '') + (travelContinues ? ' travel-continues' : '') +
+      return gap + '<button type="button" class="deadline-week' + (week.current ? ' current' : '') + (past ? ' past' : '') + (overdue ? ' overdue' : '') + highlight +
       '" style="--deadline-month-hue:' + week.hue +
       '" data-order-deadline="' + escapeHtml(order.path) + '" data-deadline-week="' + week.start +
       '" data-order-id="' + escapeHtml(order.id) + '" data-revision="' + order.revision + '" aria-pressed="' + selected.has(week.start) +

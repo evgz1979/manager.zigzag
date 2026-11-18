@@ -1041,6 +1041,7 @@ def listed_orders():
             "calendar_invoice_plans": invoice_store().calendar_plans([order for order in visible if not work_orders.in_work(order['path'])]),
             "favorites": [order for order in visible if order["is_favorite"] is True and not work_orders.archived(order)],
             "deadline_week_options": order_deadlines.week_options(),
+            "deadline_highlights": order_deadlines.highlight_settings(store),
             "unregistrations": objects.visible_orders(activity.visible_orders([
                 order for order in store.pending_unregistrations() if not work_orders.in_work(order["path"])])), "scan": dict(SCAN_STATE),
             "storage":metadata_store().status() if DATABASE_ONLY else {"database_only":False}}
@@ -1784,6 +1785,9 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json({'items': invoice_store().catalog()}, head=head)
             elif parsed.path in {'/api/invoice-seller', '/api/invoice-products'}:
                 self.send_json(invoice_preferences.resource(invoice_store(), parsed.path.rsplit('-', 1)[1]), head=head)
+            elif parsed.path == '/api/deadline-highlights':
+                self.send_json({**order_deadlines.highlight_settings(order_store()),
+                                "week_options": order_deadlines.week_options()}, head=head)
             elif parsed.path == '/api/reconciliations':
                 self.send_json({'items': reconciliations.Reconciliations(order_store()).catalog()}, head=head)
             elif parsed.path == '/api/reconciliation':
@@ -2118,6 +2122,14 @@ class ManagerHandler(BaseHTTPRequestHandler):
                     self.send_json({'error': 'Изменяй товары и реквизиты через страницу менеджера'}, 403)
                     return
                 self.send_json(invoice_preferences.resource(invoice_store(), route.rsplit('-', 1)[1], payload))
+                return
+            if route == '/api/deadline-highlights':
+                origin = self.headers.get('Origin')
+                if (self.headers.get('X-Manager-Deadline-Highlights') != '1' or self.headers.get_content_type() != 'application/json'
+                        or (origin and urllib.parse.urlsplit(origin).netloc != self.headers.get('Host'))):
+                    self.send_json({'error': 'Изменяй жёлтую полосу через настройки менеджера'}, 403)
+                    return
+                self.send_json(order_deadlines.highlight_settings(order_store(), payload))
                 return
             if route in {'/api/reconciliation-save', '/api/invoice-reconciliation'}:
                 origin = self.headers.get('Origin')
@@ -2590,6 +2602,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": True})
         except FileNotFoundError as error:
             self.send_json({"error": str(error)}, 404)
+        except order_deadlines.WeekHighlightConflict as error:
+            self.send_json({"error": str(error)}, 409)
         except (reconciliations.ReconciliationConflict, invoices.InvoiceConflict, PrintConflict, OrderConflict, work_orders.SupplierFavoriteConflict, ClientActivityConflict, client_colors.ClientColorConflict, FileCommentConflict, file_trash.TrashConflict, order_folders.OrderFolderConflict, object_years.YearGroupConflict, folder_rename.FolderRenameConflict, FolderNoteConflict, event_folders.EventFolderConflict, EventRenamePending) as error:
             self.send_json({"error": str(error)}, 409)
         except (ValueError, UnicodeDecodeError) as error:

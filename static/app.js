@@ -28,6 +28,7 @@ const state = {
   objectOrders: [], objectOrdersError: "", workOrderGroups: [], workArchivedOrders: [], workArchivedPaths: [], orderListScope: "",
   collapsedOrderGroups: new Map(),
   markerSaving: new Set(), favoriteSaving: new Set(), orderStatusSaving: new Set(), deadlineSaving: new Set(), deadlineWeekOptions: [], favoriteOrders: [], favoriteOrdersMarkup: null,
+  deadlineHighlights: new Set(), deadlineHighlightRevision: -1,
   supplierFavoriteSaving: new Set(), supplierFavoriteFocus: null,
   fileComment: null, fileCommentSaving: null,
   selectedFiles: new Set(), imageReport: null,
@@ -2514,6 +2515,7 @@ async function loadOrders() {
   state.calendarPlansError = "";
   renderMoneyOverview();
   state.deadlineWeekOptions = result.deadline_week_options || [];
+  applyDeadlineHighlights(result.deadline_highlights);
   state.favoriteOrders = result.favorites || result.orders.filter((order) => order.is_favorite === true);
   state.unregistrations = result.unregistrations || [];
   state.scan = result.scan;
@@ -2660,8 +2662,24 @@ function orderDeadlineRange(weeks) {
 
 const deadlineMonthNames = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
 const deadlineMonthHues = [335, 270, 15, 185, 135, 90, 55, 30, 10, 160, 280, 215];
-// Manual Travel calendar: ISO weeks 51/2026 through 4/2027, inclusive.
-const deadlineTravelPeriod = { start: "2026-12-14", end: "2027-01-25", label: "Travel · Таиланд" };
+
+// Обновляет общую настройку полосы из опроса или редактора.
+// Устаревший ответ опроса не перекрывает сохранение из настроек.
+function applyDeadlineHighlights(value, redraw = false) {
+  if (!value || value.revision <= state.deadlineHighlightRevision) return;
+  state.deadlineHighlightRevision = value.revision;
+  state.deadlineHighlights = new Set(value.weeks);
+  if (!redraw) return;
+  if (hasOrderList()) renderOrders();
+  else if (state.folder?.order) renderCardDeadlines();
+}
+
+// Возвращает классы жёлтой полосы для списка заказов и редактора.
+// Соединяет только фактически соседние отмеченные недели.
+function deadlineHighlightClass(weeks, start, next) {
+  if (!weeks.has(start)) return "";
+  return " deadline-highlighted" + (weeks.has(next) && next === shiftDeadlineWeek(start, 1) ? " deadline-highlight-continues" : "");
+}
 
 // Сдвигает ключ понедельника на заданное число недель.
 // Использует `Date`, `date.setUTCDate`, `date.getUTCDate`.
@@ -2752,13 +2770,12 @@ function renderOrderDeadlines(order, { options = state.deadlineWeekOptions, card
       const week = deadlineWeekInfo(option.start);
       const past = currentWeek && week.start < currentWeek;
       const overdue = selected.has(week.start) && past;
-      const travel = week.start >= deadlineTravelPeriod.start && week.start <= deadlineTravelPeriod.end;
-      const travelContinues = travel && options[index + 1]?.start === shiftDeadlineWeek(week.start, 1) && options[index + 1].start <= deadlineTravelPeriod.end;
+      const highlight = deadlineHighlightClass(state.deadlineHighlights, week.start, options[index + 1]?.start);
       const comment = order.calendar_week_events?.[week.start] || "";
-      const help = (overdue ? "Просрочено · " : "") + week.label + (travel ? "\n" + deadlineTravelPeriod.label : "") + (comment ? "\n" + comment : "");
+      const help = (overdue ? "Просрочено · " : "") + week.label + (highlight ? "\nЖёлтая полоса" : "") + (comment ? "\n" + comment : "");
       const gap = card && previous && shiftDeadlineWeek(previous, 1) !== week.start ? '<span class="deadline-week-gap" title="Между этими неделями есть пропуск">…</span>' : '';
       previous = week.start;
-      return gap + '<button type="button" class="deadline-week' + (week.current ? ' current' : '') + (past ? ' past' : '') + (overdue ? ' overdue' : '') + (travel ? ' travel' : '') + (travelContinues ? ' travel-continues' : '') +
+      return gap + '<button type="button" class="deadline-week' + (week.current ? ' current' : '') + (past ? ' past' : '') + (overdue ? ' overdue' : '') + highlight +
       '" style="--deadline-month-hue:' + week.hue +
       '" data-order-deadline="' + escapeHtml(order.path) + '" data-deadline-week="' + week.start +
       '" data-order-id="' + escapeHtml(order.id) + '" data-revision="' + order.revision + '" aria-pressed="' + selected.has(week.start) +

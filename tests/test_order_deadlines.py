@@ -130,6 +130,50 @@ class OrderDeadlineTests(unittest.TestCase):
         self.assertEqual(len(listed["deadline_week_options"]), 16)
         self.assertEqual(saved["deadline_weeks"], ["2026-10-19"])
 
+    def test_shared_highlights_retain_previous_band_then_persist_clear_and_history(self):
+        route = "/api/deadline-highlights"
+        initial = json.loads(self.http(route)[2])
+        self.assertEqual(initial["revision"], 0)
+        self.assertEqual(initial["weeks"], ["2026-12-14", "2026-12-21", "2026-12-28",
+                                          "2027-01-04", "2027-01-11", "2027-01-18", "2027-01-25"])
+        self.assertEqual(len(initial["week_options"]), 16)
+        headers = {"Content-Type": "application/json", "X-Manager-Deadline-Highlights": "1"}
+        weeks = ["2027-01-04", "2026-12-07"]
+        payload = json.dumps({"revision": 0, "weeks": weeks})
+        self.assertEqual(self.http(route, "POST", payload)[0], 403)
+        self.assertEqual(self.http(route, "POST", payload, {**headers, "Origin": "https://other.test"})[0], 403)
+        status, _, body = self.http(route, "POST", payload, headers)
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body), {"revision": 1, "weeks": sorted(weeks)})
+        self.assertEqual(self.http(route, "POST", payload, headers)[0], 409)
+        for invalid in (None, [weeks[0], weeks[0]], ["2027-01-05"]):
+            self.assertEqual(self.http(route, "POST", json.dumps({"revision": 1, "weeks": invalid}), headers)[0], 400)
+        cleared = {"revision": 2, "weeks": []}
+        self.assertEqual(json.loads(self.http(route, "POST",
+                            json.dumps({**cleared, "revision": 1}), headers)[2]), cleared)
+        self.assertEqual(json.loads(self.http("/api/orders")[2])["deadline_highlights"], cleared)
+        restarted = OrderStore(self.root, manager.DATA_DIR, manager.STATUS_LABELS)
+        self.assertEqual(order_deadlines.highlight_settings(restarted), cleared)
+        self.assertEqual(restarted.get(self.path), self.order)
+        with restarted.connect() as db:
+            row = db.execute("""SELECT history.data FROM metadata_history AS history
+                JOIN metadata_records AS record ON record.id=history.identity
+                WHERE record.kind='deadline_highlights'""").fetchone()
+        self.assertEqual(json.loads(json.loads(row["data"])["data"])["weeks"], sorted(weeks))
+
+    def test_unknown_highlight_format_does_not_break_orders_or_allow_overwrite(self):
+        saved = order_deadlines.highlight_settings(self.store, {"revision": 0, "weeks": []})
+        future = '{"version":2,"weeks":[]}'
+        with self.store.connect() as db:
+            with db:
+                db.execute("UPDATE metadata_records SET data=? WHERE kind='deadline_highlights'", (future,))
+        self.assertEqual(json.loads(self.http("/api/orders")[2])["deadline_highlights"],
+                         {"revision": saved["revision"], "weeks": None})
+        with self.assertRaises(ValueError):
+            order_deadlines.highlight_settings(self.store, saved)
+        with self.store.connect() as db:
+            self.assertEqual(db.execute("SELECT data FROM metadata_records WHERE kind='deadline_highlights'").fetchone()[0], future)
+
     def test_week_edits_keep_list_order_and_sort_date_after_reload(self):
         other_path = "Клиент/2026-00-00 - Другой"
         self.folder(other_path)

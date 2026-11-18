@@ -6,9 +6,49 @@
 
 Versioned Moscow deadline weeks; weekly comments share the order-calendar event field.
 
-Импорты Python, включая локальные: `datetime`, `json`, `order_calendar`, `re`, `zoneinfo`.
+Импорты Python, включая локальные: `datetime`, `json`, `local_metadata`, `order_calendar`, `re`, `time`, `uuid`, `zoneinfo`.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
+
+<a id="symbol-WeekHighlightConflict"></a>
+
+## WeekHighlightConflict
+
+[order_deadlines.py](../../../order_deadlines.py) · `class`.
+
+```python
+class WeekHighlightConflict(ValueError):
+```
+
+Обозначает устаревшую версию общей настройки полосы.
+
+HTTP-обработчик возвращает 409, запись остаётся прежней.
+
+<a id="symbol-highlight_settings"></a>
+
+## highlight_settings
+
+[order_deadlines.py](../../../order_deadlines.py) · `function`.
+
+```python
+def highlight_settings(store, payload=None):
+```
+
+Читает или сохраняет общие отмеченные недели по ожидаемой версии.
+
+Полный набор, в том числе пустой, и история сохраняются одной транзакцией.
+
+Непосредственные вызовы: `store.connect`, `read_highlights`, `payload.get`, `type`, `ValueError`, `validate_highlights`, `db.execute`, `WeekHighlightConflict`, `schema`, `audit`, `json.dumps`, `str`, `uuid.uuid4`, `time.time`.
+
+Явные исключения: `ValueError`, `WeekHighlightConflict`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+read_highlights(db)
+current
+{'revision': revision + 1, 'weeks': weeks}
+```
 
 <a id="symbol-read"></a>
 
@@ -54,6 +94,29 @@ def read_comments(blocks):
 
 ```python
 order_calendar.read(blocks, 'week')
+```
+
+<a id="symbol-read_highlights"></a>
+
+## read_highlights
+
+[order_deadlines.py](../../../order_deadlines.py) · `function`.
+
+```python
+def read_highlights(db):
+```
+
+Читает общую настройку полосы из SQLite без доступа к папкам заказов.
+
+Отсутствующая запись даёт прежние семь недель, неизвестный формат даёт weeks=null.
+
+Непосредственные вызовы: `db.execute("SELECT 1 FROM sqlite_master WHERE name='metadata_records'").fetchone`, `db.execute`, `list`, `db.execute("SELECT data,revision FROM metadata_records WHERE kind=? AND path=''", (HIGHLIGHT_KIND,)).fetchone`, `json.loads`, `isinstance`, `set`, `type`, `validate_highlights`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+{'revision': 0, 'weeks': list(DEFAULT_HIGHLIGHTS)}
+{'revision': row['revision'], 'weeks': weeks}
 ```
 
 <a id="symbol-read_legacy_comments"></a>
@@ -102,6 +165,30 @@ def validate_comment(comment):
 
 ```python
 comment
+```
+
+<a id="symbol-validate_highlights"></a>
+
+## validate_highlights
+
+[order_deadlines.py](../../../order_deadlines.py) · `function`.
+
+```python
+def validate_highlights(weeks):
+```
+
+Проверяет набор недель жёлтой полосы и возвращает отсортированные понедельники.
+
+Повтор, несуществующая дата или слишком длинный список вызывают ValueError.
+
+Непосредственные вызовы: `isinstance`, `len`, `ValueError`, `sorted`, `validate_week`, `set`.
+
+Явные исключения: `ValueError`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+parsed
 ```
 
 <a id="symbol-validate_week"></a>

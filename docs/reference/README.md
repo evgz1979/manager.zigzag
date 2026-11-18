@@ -8,7 +8,7 @@
 
 ## Python
 
-67 файлов; 977 именованных объявлений.
+67 файлов; 981 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
@@ -49,7 +49,7 @@
 | [object_years.py](python/object_years.md) | 4 |
 | [order_calendar.py](python/order_calendar.md) | 31 |
 | [order_creation.py](python/order_creation.md) | 6 |
-| [order_deadlines.py](python/order_deadlines.md) | 8 |
+| [order_deadlines.py](python/order_deadlines.md) | 12 |
 | [order_document.py](python/order_document.md) | 35 |
 | [order_folders.py](python/order_folders.md) | 6 |
 | [order_links.py](python/order_links.md) | 18 |
@@ -82,11 +82,11 @@
 
 ## JavaScript
 
-26 файлов; 503 именованных объявлений.
+26 файлов; 509 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
-| [static/app.js](javascript/static-app.md) | 261 |
+| [static/app.js](javascript/static-app.md) | 263 |
 | [static/appearance.js](javascript/static-appearance.md) | 1 |
 | [static/bills.js](javascript/static-bills.md) | 11 |
 | [static/calendar-snapshot.js](javascript/static-calendar-snapshot.md) | 4 |
@@ -106,7 +106,7 @@
 | [static/reconciliations.js](javascript/static-reconciliations.md) | 12 |
 | [static/remote-access.js](javascript/static-remote-access.md) | 2 |
 | [static/row-reorder.js](javascript/static-row-reorder.md) | 5 |
-| [static/settings.js](javascript/static-settings.md) | 6 |
+| [static/settings.js](javascript/static-settings.md) | 10 |
 | [static/spreadsheet-preview.js](javascript/static-spreadsheet-preview.md) | 7 |
 | [static/spreadsheet-worker.js](javascript/static-spreadsheet-worker.md) | 2 |
 | [static/supplier-purchases.js](javascript/static-supplier-purchases.md) | 9 |

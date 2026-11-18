@@ -14,6 +14,14 @@
   const content = document.getElementById('managerSettingsContent');
   const sellerTab = document.getElementById('managerSellerTab');
   const caldavTab = document.getElementById('managerCalDAVTab');
+  const highlightTab = document.getElementById('managerDeadlineHighlightsTab');
+  const highlightWeeks = document.getElementById('deadlineHighlightWeeks');
+  const highlightEarlier = document.getElementById('deadlineHighlightEarlier');
+  const highlightLater = document.getElementById('deadlineHighlightLater');
+  const highlightStatus = document.getElementById('deadlineHighlightState');
+  const highlightSave = document.getElementById('saveDeadlineHighlights');
+  const highlightReload = document.getElementById('reloadDeadlineHighlights');
+  let highlightEdit = null;
   let csrf = '', busy = false, request = 0;
   let sellerRevision = null, sellerBusy = false, sellerLoading = 0;
   let caldavBusy = false;
@@ -44,6 +52,107 @@
       document.getElementById(tab.getAttribute('aria-controls')).hidden = !active;
     }
     content.scrollTop = 0;
+    if (selected === highlightTab && !highlightEdit) {
+      highlightEdit = { currentWeek: null, firstWeek: null, pageSize: 0, weeks: new Set(), saved: [], revision: null };
+      loadWeekHighlights();
+    }
+  }
+
+  // Обновляет выбор недель и доступность действий, сохраняя фокус внутри сетки.
+  // Полоса отражает черновик, запись разрешена только после чтения версии.
+  function updateWeekHighlights(edit) {
+    const editable = !edit.loading && !edit.saving && !edit.blocked && edit.revision !== null;
+    for (const week of highlightWeeks.children) {
+      const start = week.dataset.highlightWeek;
+      week.className = week.dataset.baseClass + deadlineHighlightClass(edit.weeks, start, week.nextElementSibling?.dataset.highlightWeek);
+      week.setAttribute('aria-pressed', String(edit.weeks.has(start)));
+      week.disabled = !editable;
+    }
+    highlightEarlier.disabled = !edit.firstWeek || edit.loading || edit.saving || !shiftDeadlineWeek(edit.firstWeek, -edit.pageSize);
+    highlightLater.disabled = !edit.firstWeek || edit.loading || edit.saving || !shiftDeadlineWeek(edit.firstWeek, edit.pageSize);
+    highlightSave.disabled = !editable || (edit.weeks.size === edit.saved.length && edit.saved.every(week => edit.weeks.has(week)));
+    highlightReload.hidden = !edit.blocked;
+    highlightReload.disabled = Boolean(edit.loading);
+  }
+
+  // Строит страницу из недель того же размера и с той же легендой, что в списке заказов.
+  // Перелистывание меняет видимые недели и сохраняет весь черновик.
+  function renderWeekHighlights(edit) {
+    const options = edit.firstWeek ? Array.from({ length: edit.pageSize }, (_, index) => ({
+      start: shiftDeadlineWeek(edit.firstWeek, index),
+    })).filter(week => week.start) : [];
+    document.getElementById('deadlineHighlightMonths').innerHTML = renderDeadlineMonthLegend(options);
+    highlightWeeks.innerHTML = options.map(({ start }) => {
+      const week = deadlineWeekInfo(start);
+      const classes = 'deadline-week' + (start === edit.currentWeek ? ' current' : start < edit.currentWeek ? ' past' : '');
+      return '<button type="button" data-highlight-week="' + start + '" data-base-class="' + classes +
+        '" style="--deadline-month-hue:' + week.hue + '" title="' + week.label +
+        '" aria-label="Неделя ' + week.number + ' · ' + week.label + '">' + week.number + '</button>';
+    }).join('');
+    highlightWeeks.parentElement.scrollLeft = 0;
+    updateWeekHighlights(edit);
+  }
+
+  // Читает актуальную версию при открытии вкладки или явной загрузке сохранённых недель.
+  // Переключение разделов настроек сохраняет редактор и черновик в том же сеансе.
+  async function loadWeekHighlights() {
+    const edit = highlightEdit;
+    edit.loading = true;
+    highlightStatus.textContent = 'Загрузка недель…';
+    if (edit.firstWeek) updateWeekHighlights(edit);
+    else renderWeekHighlights(edit);
+    try {
+      const response = await fetch('/api/deadline-highlights', { cache: 'no-store' });
+      const data = await response.json();
+      if (!dialog.open || edit !== highlightEdit) return;
+      if (!response.ok) throw new Error(data.error || 'Не удалось загрузить недели.');
+      edit.pageSize = data.week_options.length;
+      edit.currentWeek = data.week_options[0].start;
+      edit.firstWeek ||= edit.currentWeek;
+      edit.saved = data.weeks || [];
+      edit.weeks = new Set(edit.saved);
+      edit.revision = data.weeks === null ? null : data.revision;
+      edit.blocked = false;
+      highlightStatus.textContent = data.weeks === null ? 'Неизвестный формат сохранённых недель.' : '';
+      applyDeadlineHighlights(data, true);
+    } catch (error) {
+      if (!dialog.open || edit !== highlightEdit) return;
+      edit.blocked = true;
+      highlightStatus.textContent = error.message;
+    } finally {
+      edit.loading = false;
+      if (dialog.open && edit === highlightEdit) renderWeekHighlights(edit);
+    }
+  }
+
+  // Сохраняет сразу все отмеченные недели по прочитанной версии.
+  // При конфликте и потере ответа оставляет черновик видимым до загрузки текущих отметок.
+  async function saveWeekHighlights() {
+    const edit = highlightEdit;
+    if (busy || sellerBusy || caldavBusy || highlightSave.disabled) return;
+    edit.saving = true;
+    close.disabled = true;
+    updateWeekHighlights(edit);
+    highlightStatus.textContent = 'Сохранение…';
+    try {
+      const response = await fetch('/api/deadline-highlights', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Manager-Deadline-Highlights': '1' },
+        body: JSON.stringify({ revision: edit.revision, weeks: [...edit.weeks].sort() }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Не удалось сохранить недели.');
+      edit.revision = data.revision;
+      edit.saved = data.weeks;
+      highlightStatus.textContent = 'Отметки сохранены.';
+      applyDeadlineHighlights(data, true);
+    } catch (error) {
+      edit.blocked = true;
+      highlightStatus.textContent = error.message + ' Нажми «Загрузить сохранённые», чтобы проверить текущие отметки и выбрать недели заново.';
+    } finally {
+      edit.saving = false;
+      close.disabled = false;
+      updateWeekHighlights(edit);
+    }
   }
 
   // Загружает общие реквизиты отдельно от настроек пароля и открытого счёта.
@@ -66,7 +175,7 @@
   // Ошибка оставляет поля; ни конфликт, ни потеря ответа не вызывают автоматического повтора.
   async function saveSeller(event) {
     event.preventDefault();
-    if (sellerBusy || busy || caldavBusy || sellerRevision === null) return;
+    if (sellerBusy || busy || caldavBusy || highlightEdit?.saving || sellerRevision === null) return;
     const seller = Object.fromEntries([...sellerFields.querySelectorAll('input')].map(input => [input.dataset.sellerField, input.value]));
     sellerBusy = true; sellerFields.disabled = true; sellerSave.disabled = true; close.disabled = true;
     sellerStatus.textContent = 'Сохранение…';
@@ -113,7 +222,7 @@
   // При ошибке соединения не повторяет запрос, поскольку пароль мог уже измениться.
   async function saveSettings(event) {
     event.preventDefault();
-    if (busy || sellerBusy || caldavBusy || !csrf) return;
+    if (busy || sellerBusy || caldavBusy || highlightEdit?.saving || !csrf) return;
     if (password.value !== confirmation.value) {
       status.textContent = 'Новые пароли должны совпадать.'; confirmation.focus(); return;
     }
@@ -140,7 +249,7 @@
   // Меняет отдельный пароль приложения через текущую сессию настроек.
   // Показывает пароль один раз и сохраняет его только до закрытия окна.
   async function changeCalendarPassword(action) {
-    if (busy || sellerBusy || caldavBusy || !csrf) return;
+    if (busy || sellerBusy || caldavBusy || highlightEdit?.saving || !csrf) return;
     if (action === 'revoke' && !window.confirm('Отключить синхронизацию CalDAV на всех устройствах?')) return;
     caldavBusy = true; caldavGenerate.disabled = true; caldavRevoke.disabled = true; close.disabled = true;
     caldavStatus.textContent = 'Сохранение…';
@@ -187,10 +296,28 @@
   form.addEventListener('submit', saveSettings);
   caldavGenerate.addEventListener('click', () => changeCalendarPassword('generate'));
   caldavRevoke.addEventListener('click', () => changeCalendarPassword('revoke'));
+  highlightWeeks.addEventListener('click', event => {
+    const week = event.target.closest('[data-highlight-week]')?.dataset.highlightWeek;
+    if (!week) return;
+    const edit = highlightEdit;
+    if (!edit.weeks.delete(week)) edit.weeks.add(week);
+    highlightStatus.textContent = '';
+    updateWeekHighlights(edit);
+  });
+  for (const [control, direction] of [[highlightEarlier, -1], [highlightLater, 1]]) {
+    control.addEventListener('click', () => {
+      const edit = highlightEdit;
+      edit.firstWeek = shiftDeadlineWeek(edit.firstWeek, direction * edit.pageSize);
+      renderWeekHighlights(edit);
+    });
+  }
+  highlightSave.addEventListener('click', saveWeekHighlights);
+  highlightReload.addEventListener('click', loadWeekHighlights);
   close.addEventListener('click', () => dialog.close());
-  dialog.addEventListener('cancel', event => { if (busy || sellerBusy || caldavBusy) event.preventDefault(); });
+  dialog.addEventListener('cancel', event => { if (busy || sellerBusy || caldavBusy || highlightEdit?.saving) event.preventDefault(); });
   dialog.addEventListener('close', () => {
     ++request; ++sellerLoading; form.reset(); sellerForm.reset(); csrf = ''; status.textContent = ''; sellerStatus.textContent = '';
+    highlightEdit = null;
     caldavPassword.value = ''; caldavPassword.parentElement.hidden = true; caldavStatus.textContent = '';
   });
 })();

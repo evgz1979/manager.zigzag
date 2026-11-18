@@ -304,6 +304,20 @@ self.send_json(invoice_preferences.resource(invoice_store(), parsed.path.rsplit(
 
 Вызовы ветки: `invoice_preferences.resource`, `invoice_store`, `parsed.path.rsplit`.
 
+## GET / HEAD /api/deadline-highlights
+
+[ManagerHandler.handle_get](python/server.md#symbol-ManagerHandler.handle_get).
+
+Условие: `parsed.path == '/api/deadline-highlights'`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json({**order_deadlines.highlight_settings(order_store()), 'week_options': order_deadlines.week_options()}, head=head)
+```
+
+Вызовы ветки: `order_deadlines.highlight_settings`, `order_deadlines.week_options`, `order_store`.
+
 ## GET / HEAD /api/reconciliations
 
 [ManagerHandler.handle_get](python/server.md#symbol-ManagerHandler.handle_get).
@@ -937,6 +951,21 @@ self.send_json(invoice_preferences.resource(invoice_store(), route.rsplit('-', 1
 ```
 
 Вызовы ветки: `self.headers.get`, `self.headers.get_content_type`, `urllib.parse.urlsplit`, `invoice_preferences.resource`, `invoice_store`, `route.rsplit`.
+
+## POST /api/deadline-highlights
+
+[ManagerHandler.do_POST](python/server.md#symbol-ManagerHandler.do_POST).
+
+Условие: `route == '/api/deadline-highlights'`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json({'error': 'Изменяй жёлтую полосу через настройки менеджера'}, 403)
+self.send_json(order_deadlines.highlight_settings(order_store(), payload))
+```
+
+Вызовы ветки: `self.headers.get`, `self.headers.get_content_type`, `urllib.parse.urlsplit`, `order_deadlines.highlight_settings`, `order_store`.
 
 ## POST /api/invoice-reconciliation
 

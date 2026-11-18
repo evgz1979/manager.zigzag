@@ -647,10 +647,14 @@
       {
         "path": "order_deadlines.py",
         "symbols": [
+          {"name": "WeekHighlightConflict", "type": "class", "anchor": "symbol-WeekHighlightConflict"},
+          {"name": "highlight_settings", "type": "function", "anchor": "symbol-highlight_settings"},
           {"name": "read", "type": "function", "anchor": "symbol-read"},
           {"name": "read_comments", "type": "function", "anchor": "symbol-read_comments"},
+          {"name": "read_highlights", "type": "function", "anchor": "symbol-read_highlights"},
           {"name": "read_legacy_comments", "type": "function", "anchor": "symbol-read_legacy_comments"},
           {"name": "validate_comment", "type": "function", "anchor": "symbol-validate_comment"},
+          {"name": "validate_highlights", "type": "function", "anchor": "symbol-validate_highlights"},
           {"name": "validate_week", "type": "function", "anchor": "symbol-validate_week"},
           {"name": "week_options", "type": "function", "anchor": "symbol-week_options"},
           {"name": "write", "type": "function", "anchor": "symbol-write"},
@@ -1325,6 +1329,7 @@
           {"name": "applyCalendarDeletion", "type": "FunctionDeclaration", "anchor": "symbol-applyCalendarDeletion"},
           {"name": "applyCalendarInvoicePlan", "type": "FunctionDeclaration", "anchor": "symbol-applyCalendarInvoicePlan"},
           {"name": "applyCalendarOrderEvent", "type": "FunctionDeclaration", "anchor": "symbol-applyCalendarOrderEvent"},
+          {"name": "applyDeadlineHighlights", "type": "FunctionDeclaration", "anchor": "symbol-applyDeadlineHighlights"},
           {"name": "applyFreeCalendarEvent", "type": "FunctionDeclaration", "anchor": "symbol-applyFreeCalendarEvent"},
           {"name": "applyOrderGroupVisibility", "type": "FunctionDeclaration", "anchor": "symbol-applyOrderGroupVisibility"},
           {"name": "applyOrderRecord", "type": "FunctionDeclaration", "anchor": "symbol-applyOrderRecord"},
@@ -1358,6 +1363,7 @@
           {"name": "createOrderFolder", "type": "FunctionDeclaration", "anchor": "symbol-createOrderFolder"},
           {"name": "currentOrderValues", "type": "FunctionDeclaration", "anchor": "symbol-currentOrderValues"},
           {"name": "deadlineCommentInput", "type": "FunctionDeclaration", "anchor": "symbol-deadlineCommentInput"},
+          {"name": "deadlineHighlightClass", "type": "FunctionDeclaration", "anchor": "symbol-deadlineHighlightClass"},
           {"name": "deadlineWeekDates", "type": "FunctionDeclaration", "anchor": "symbol-deadlineWeekDates"},
           {"name": "deadlineWeekDates.dateLabel", "type": "ArrowFunctionExpression", "anchor": "symbol-deadlineWeekDates.dateLabel"},
           {"name": "deadlineWeekInfo", "type": "FunctionDeclaration", "anchor": "symbol-deadlineWeekInfo"},
@@ -1891,10 +1897,14 @@
         "symbols": [
           {"name": "changeCalendarPassword", "type": "FunctionDeclaration", "anchor": "symbol-changeCalendarPassword"},
           {"name": "loadSeller", "type": "FunctionDeclaration", "anchor": "symbol-loadSeller"},
+          {"name": "loadWeekHighlights", "type": "FunctionDeclaration", "anchor": "symbol-loadWeekHighlights"},
           {"name": "openSettings", "type": "FunctionDeclaration", "anchor": "symbol-openSettings"},
+          {"name": "renderWeekHighlights", "type": "FunctionDeclaration", "anchor": "symbol-renderWeekHighlights"},
           {"name": "saveSeller", "type": "FunctionDeclaration", "anchor": "symbol-saveSeller"},
           {"name": "saveSettings", "type": "FunctionDeclaration", "anchor": "symbol-saveSettings"},
-          {"name": "selectSettingsTab", "type": "FunctionDeclaration", "anchor": "symbol-selectSettingsTab"}
+          {"name": "saveWeekHighlights", "type": "FunctionDeclaration", "anchor": "symbol-saveWeekHighlights"},
+          {"name": "selectSettingsTab", "type": "FunctionDeclaration", "anchor": "symbol-selectSettingsTab"},
+          {"name": "updateWeekHighlights", "type": "FunctionDeclaration", "anchor": "symbol-updateWeekHighlights"}
         ]
       },
       {

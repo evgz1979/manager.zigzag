@@ -508,6 +508,7 @@
         <button id="managerPasswordTab" type="button" role="tab" aria-selected="false" aria-controls="managerPasswordSettings" tabindex="-1">Пароль внешнего входа</button>
         <button id="managerCalDAVTab" type="button" role="tab" aria-selected="false" aria-controls="managerCalDAVSettings" tabindex="-1" hidden>Apple Calendar · CalDAV</button>
         <button id="managerAppearanceTab" type="button" role="tab" aria-selected="false" aria-controls="managerAppearanceSettings" tabindex="-1">Оформление</button>
+        <button id="managerDeadlineHighlightsTab" type="button" role="tab" aria-selected="false" aria-controls="managerDeadlineHighlightsSettings" tabindex="-1">Жёлтая полоса</button>
       </div>
       <div id="managerSettingsContent" class="manager-settings-content">
         <section id="managerSellerSettings" role="tabpanel" aria-labelledby="managerSellerTab" tabindex="0">
@@ -569,6 +570,22 @@
             </label>
           </fieldset>
           <p id="managerAppearanceState" class="todo-save-state" role="status"></p>
+        </section>
+        <section id="managerDeadlineHighlightsSettings" role="tabpanel" aria-labelledby="managerDeadlineHighlightsTab" tabindex="0" hidden>
+          <p class="new-order-preview">Нажми на неделю, чтобы поставить или снять жёлтую полосу над ней в списках заказов.</p>
+          <div class="deadline-highlight-scroll">
+            <div id="deadlineHighlightMonths"></div>
+            <div id="deadlineHighlightWeeks" class="order-deadline-weeks" role="group" aria-label="Недели жёлтой полосы"></div>
+          </div>
+          <div class="manager-settings-actions">
+            <button id="deadlineHighlightEarlier" class="secondary-button" type="button" disabled>← Раньше</button>
+            <button id="deadlineHighlightLater" class="secondary-button" type="button" disabled>Позже →</button>
+          </div>
+          <p id="deadlineHighlightState" class="todo-save-state" role="status"></p>
+          <div class="manager-settings-actions">
+            <button id="saveDeadlineHighlights" class="primary-button" type="button" disabled>Сохранить</button>
+            <button id="reloadDeadlineHighlights" class="secondary-button" type="button" hidden>Загрузить сохранённые</button>
+          </div>
         </section>
       </div>
       <div class="confirm-actions"><button id="managerSettingsClose" class="secondary-button" type="button">Закрыть</button></div>
