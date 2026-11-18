@@ -145,6 +145,8 @@ Apple Calendar читает изменения через свойства ко�
 
 ## Счёт, выпуск, копия
 
+В общей таблице редактора счёта и счёта-договора [стили](../static/styles.css) задают компактные колонки для количества, единицы, цены, суммы и кнопки удаления. Оставшаяся ширина достаётся названию позиции. Обёртка таблицы отвечает за горизонтальную прокрутку на узком экране.
+
 [scheduleInvoiceComment](reference/javascript/static-invoices.md#symbol-scheduleInvoiceComment) откладывает запись рабочего комментария до 700 мс паузы в наборе. [saveInvoiceComment](reference/javascript/static-invoices.md#symbol-saveInvoiceComment) отправляет снимок текста через [InvoiceStore.save_comment](reference/python/invoices.md#symbol-InvoiceStore.save_comment). Более поздний ввод сохраняется отдельным запросом по подтверждённой версии. [paintInvoiceComment](reference/javascript/static-invoices.md#symbol-paintInvoiceComment) сохраняет локальный текст при опросе. Ошибка оставляет текст в поле. Если другое окно изменило комментарий, для замены нужно нажать Enter после показа текущего текста. Событие `manager-invoice-saved` обновляет общую сводку.
 
 Кнопка «+ Разделитель» вызывает [addItem](reference/javascript/static-invoices.md#symbol-addItem) и сразу ставит фокус в комментарий. Текст сохраняется с черновиком через [InvoiceStore.save](reference/python/invoices.md#symbol-InvoiceStore.save). Предпросмотр и выпуск размещают его между товарными строками в порядке таблицы. «На основе» копирует весь упорядоченный список в новый черновик.

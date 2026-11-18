@@ -1332,12 +1332,12 @@ h2 { font-size: 13px; font-weight: 600; }
 .invoice-items { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 630px; }
 .invoice-items th { text-align: left; font-size: 10px; color: light-dark(#7a8390, #a5b3ac); font-weight: 500; padding: 5px 4px; }
 .invoice-items td { padding: 4px; border-bottom: 1px solid light-dark(#eef0f3, #394741); }
-.invoice-items th:first-child { width: 42%; }
-.invoice-items th:nth-child(2) { width: 10%; }
-.invoice-items th:nth-child(3) { width: 8%; }
-.invoice-items th:nth-child(4) { width: 17%; }
-.invoice-items th:nth-child(5) { width: 18%; }
-.invoice-items th:last-child { width: 5%; }
+/* Колонка названия занимает всё место, оставшееся после коротких полей и кнопки удаления. */
+.invoice-items th:nth-child(2) { width: clamp(56px, 8cqw, 68px); }
+.invoice-items th:nth-child(3) { width: 48px; }
+.invoice-items th:nth-child(4) { width: 100px; }
+.invoice-items th:nth-child(5) { width: clamp(100px, 13cqw, 112px); }
+.invoice-items th:last-child { width: 32px; }
 .invoice-items td:last-child { white-space: nowrap; }
 .invoice-items td input { padding: 7px 5px; font-size: 12px; }
 .invoice-items td:nth-child(2) input, .invoice-items td:nth-child(4) input { text-align: right; }
@@ -1347,7 +1347,7 @@ h2 { font-size: 13px; font-weight: 600; }
 .invoice-separator-fields { position: sticky; left: 4px; max-width: calc(100cqw - 8px); }
 .invoice-separator-fields input { font-weight: 600; }
 .invoice-separator-fields .icon-button { flex: 0 0 24px; }
-.invoice-item-total { text-align: right; font-size: 11px; white-space: nowrap; }
+.invoice-item-total { text-align: right; font-size: 11px; overflow-wrap: anywhere; }
 .invoice-items .icon-button { width: 24px; height: 28px; color: light-dark(#929ba8, #a5b3ac); }
 .invoice-items .invoice-drag-handle { flex: 0 0 24px; color: light-dark(#526579, #b8c5bf); cursor: grab; }
 .row-drag-handle::before {
