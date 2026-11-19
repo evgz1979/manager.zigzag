@@ -338,18 +338,22 @@ h1 { font-size: clamp(22px, 2.5vw, 32px); line-height: 1.23; letter-spacing: -.8
 .todo-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
 .todo-heading h2 { color: var(--text); font-size: 13px; }
 .todo-heading > span { font-size: 11px; color: var(--muted); }
+#copyTodoRows { margin-inline-start: auto; min-height: 28px; padding: 4px 8px; font-size: 11px; }
+#todoCount { flex-shrink: 0; }
 .todo-list { display: grid; gap: 3px; }
 .todo-row { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 6px; border-bottom: 1px solid var(--line); }
 .todo-check { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
 .todo-text { width: 100%; min-width: 0; padding: 9px 0; border: 0; border-radius: 0; background: transparent; font-size: 12px; }
 .todo-row.done .todo-text { color: var(--muted); text-decoration: line-through; }
-.order-composition .todo-row { position: relative; grid-template-columns: 24px 18px minmax(0, 1fr) 28px auto; border-radius: 4px; }
+.order-composition .todo-row { position: relative; grid-template-columns: 24px 18px minmax(0, 1fr) auto auto; border-radius: 4px; }
 .order-composition .todo-text:not(:focus) { text-overflow: ellipsis; }
 .todo-drag-handle { width: 24px; height: 29px; cursor: grab; }
 .todo-drag-handle:active { cursor: grabbing; }
 .todo-drag-handle:disabled { opacity: .38; cursor: default; }
-.todo-pin { width: 28px; height: 29px; }
-.todo-pin svg { width: 16px; height: 16px; }
+.todo-composition-actions { display: flex; }
+.todo-copy, .todo-pin { width: 28px; height: 29px; }
+.todo-copy svg, .todo-pin svg { width: 16px; height: 16px; }
+.todo-pin[aria-pressed="false"]:not(:hover):not(:focus-visible) svg { opacity: .75; }
 .todo-pin[aria-pressed="true"] { color: var(--accent); }
 .todo-pin[aria-pressed="true"] svg { fill: currentColor; }
 .todo-row.todo-pinned { background-color: var(--event-fill, var(--surface)); }

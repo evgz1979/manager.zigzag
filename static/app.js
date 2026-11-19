@@ -1378,10 +1378,11 @@ function applyRemotePurchaseUpdate(folder, order) {
 }
 
 // Показывает собственные задачи текущей карточки.
-// В заказе и сверке добавляет булавки и ручки перестановки к общему списку.
+// В заказе и сверке добавляет булавки и ручки перестановки, в заказе также показывает кнопки копирования.
 function renderTodos() {
   const folder = state.folder, items = folder.todo_items, list = $("todoList");
   const composition = Boolean(folder.todoComposition);
+  const canCopy = composition && !folder.reconciliation;
   const card = folder.reconciliation ? "сверки" : "заказа";
   if (list.contains(state.todoColorMenu?.trigger)) closeTodoColorMenu();
   clearTodoDrag();
@@ -1390,6 +1391,8 @@ function renderTodos() {
   list.classList.toggle("order-composition", composition);
   $("todoLegacy").hidden = editable;
   $("todoLegacyText").textContent = editable ? "" : (folder.order?.extra_blocks || folder.extra_blocks || {})["Задачи"] || "";
+  $("copyTodoRows").hidden = !canCopy;
+  $("copyTodoRows").disabled = editable ? !items.length : !$("todoLegacyText").textContent;
   $("todoAddForm").hidden = !editable;
   $("todoEmpty").hidden = !editable || Boolean(items.length);
   $("todoEmpty").textContent = composition ? "Добавь задачу или раздел " + card + "." : folder.folderNote ? "Добавьте, что нужно сделать в этой папке." : "Добавьте, что нужно сделать по заказу.";
@@ -1402,8 +1405,11 @@ function renderTodos() {
     '<input class="todo-check" type="checkbox" aria-label="Выполнено: ' + escapeHtml(item.text) + '"' + (item.done ? ' checked' : '') + (item.pinned ? ' disabled' : '') + '>' +
     '<input class="todo-text" type="text" maxlength="1000" aria-label="Текст задачи" value="' + escapeHtml(item.text) + '"' +
       (composition ? ' title="' + escapeHtml(item.text) + '"' : '') + '>' +
-    (composition ? '<button class="icon-button todo-pin" type="button" aria-pressed="' + Boolean(item.pinned) +
-      '" aria-label="Закрепить как раздел" title="' + (item.pinned ? 'Открепить раздел' : 'Закрепить как раздел') + '">' + icon("pin") + '</button>' : '') +
+    (composition ? '<span class="todo-composition-actions">' +
+      (canCopy ? '<button class="icon-button todo-copy" type="button" title="Скопировать строку" aria-label="Скопировать: ' +
+        escapeHtml(item.text) + '">' + icon("copy") + '</button>' : '') +
+      '<button class="icon-button todo-pin" type="button" aria-pressed="' + Boolean(item.pinned) +
+      '" aria-label="Закрепить как раздел" title="' + (item.pinned ? 'Открепить раздел' : 'Закрепить как раздел') + '">' + icon("pin") + '</button></span>' : '') +
     renderTodoRowActions(item, "Удалить задачу: ") + '</div>').join("") : "";
 }
 
@@ -5524,6 +5530,10 @@ const clearTodoDrag = bindRowReorder($("todoList"), "[data-todo-index]", "applic
   });
   saveTodosSoon();
 });
+$("copyTodoRows").addEventListener("click", () => {
+  const text = state.folder.todo_items?.map(item => item.text).join("\n") ?? $("todoLegacyText").textContent;
+  copyText(text).then(() => notify("Строки скопированы"), error => notify(error.message, true));
+});
 $("todoAddForm").addEventListener("submit", (event) => {
   event.preventDefault();
   const text = $("todoNewText").value.trim();
@@ -5538,6 +5548,7 @@ $("todoList").addEventListener("input", (event) => {
   const item = state.folder.todo_items[Number(row.dataset.todoIndex)];
   item.text = event.target.value;
   if (state.folder.todoComposition) event.target.title = item.text;
+  row.querySelector(".todo-copy")?.setAttribute("aria-label", "Скопировать: " + item.text);
   row.querySelector(".todo-check").setAttribute("aria-label", "Выполнено: " + item.text);
   row.querySelector(".todo-color-trigger").setAttribute("aria-label", "Цвет строки: " + item.text);
   row.querySelector(".todo-delete").setAttribute("aria-label", "Удалить задачу: " + item.text);
@@ -5558,6 +5569,10 @@ $("todoList").addEventListener("click", (event) => {
   const row = event.target.closest("[data-todo-index]");
   if (!row) return;
   const items = state.folder.todo_items, index = Number(row.dataset.todoIndex), item = items[index];
+  if (event.target.closest(".todo-copy")) {
+    copyText(item.text).then(() => notify("Строка скопирована"), error => notify(error.message, true));
+    return;
+  }
   const pin = event.target.closest(".todo-pin");
   if (pin && state.folder.todoComposition) {
     if (item.pinned) delete item.pinned;

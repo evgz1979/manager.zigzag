@@ -3682,18 +3682,21 @@ function renderTodos()
 
 Показывает собственные задачи текущей карточки.
 
-В заказе и сверке добавляет булавки и ручки перестановки к общему списку.
+В заказе и сверке добавляет булавки и ручки перестановки, в заказе также показывает кнопки копирования.
 
 Непосредственные вызовы: `$`, `Boolean`, `list.contains`, `closeTodoColorMenu`, `clearTodoDrag`, `Array.isArray`, `list.classList.toggle`, `renderTodoCount`, `items.map((item, index) => '<div class="todo-row' + (item.done ? ' done' : '') + (item.pinned ? ' todo-pinned' : '') +
     '" data-todo-index="' + index + '"' + todoColorAttribute(item) + '>' + handle +
     '<input class="todo-check" type="checkbox" aria-label="Выполнено: ' + escapeHtml(item.text) + '"' + (item.done ? ' checked' : '') + (item.pinned ? ' disabled' : '') + '>' +
     '<input class="todo-text" type="text" maxlength="1000" aria-label="Текст задачи" value="' + escapeHtml(item.text) + '"' +
       (composition ? ' title="' + escapeHtml(item.text) + '"' : '') + '>' +
-    (composition ? '<button class="icon-button todo-pin" type="button" aria-pressed="' + Boolean(item.pinned) +
-      '" aria-label="Закрепить как раздел" title="' + (item.pinned ? 'Открепить раздел' : 'Закрепить как раздел') + '">' + icon("pin") + '</button>' : '') +
+    (composition ? '<span class="todo-composition-actions">' +
+      (canCopy ? '<button class="icon-button todo-copy" type="button" title="Скопировать строку" aria-label="Скопировать: ' +
+        escapeHtml(item.text) + '">' + icon("copy") + '</button>' : '') +
+      '<button class="icon-button todo-pin" type="button" aria-pressed="' + Boolean(item.pinned) +
+      '" aria-label="Закрепить как раздел" title="' + (item.pinned ? 'Открепить раздел' : 'Закрепить как раздел') + '">' + icon("pin") + '</button></span>' : '') +
     renderTodoRowActions(item, "Удалить задачу: ") + '</div>').join`, `items.map`.
 
-Прямые присваивания полям/свойствам: `$("todoTitle").textContent`, `$("todoLegacy").hidden`, `$("todoLegacyText").textContent`, `$("todoAddForm").hidden`, `$("todoEmpty").hidden`, `$("todoEmpty").textContent`, `list.innerHTML`.
+Прямые присваивания полям/свойствам: `$("todoTitle").textContent`, `$("todoLegacy").hidden`, `$("todoLegacyText").textContent`, `$("copyTodoRows").hidden`, `$("copyTodoRows").disabled`, `$("todoAddForm").hidden`, `$("todoEmpty").hidden`, `$("todoEmpty").textContent`, `list.innerHTML`.
 
 <a id="symbol-renderTree"></a>
 

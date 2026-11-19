@@ -122,7 +122,11 @@
           <div id="supplierPurchasesList"></div><p id="supplierPurchasesState" class="todo-save-state" role="status"></p>
         </section>
         <section id="todoPanel" class="todo-panel" aria-labelledby="todoTitle" hidden>
-          <header class="todo-heading"><h2 id="todoTitle">To-do</h2><span id="todoCount"></span></header>
+          <header class="todo-heading">
+            <h2 id="todoTitle">To-do</h2>
+            <button id="copyTodoRows" class="secondary-button" type="button" hidden>Скопировать всё</button>
+            <span id="todoCount"></span>
+          </header>
           <div id="todoList" class="todo-list"></div>
           <p id="todoEmpty" class="todo-empty">Добавьте, что нужно сделать по заказу.</p>
           <div id="todoLegacy" class="todo-legacy" hidden><p>В разделе «Задачи» уже есть записи:</p><pre id="todoLegacyText"></pre></div>
