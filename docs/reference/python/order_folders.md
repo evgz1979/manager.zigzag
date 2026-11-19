@@ -4,9 +4,9 @@
 
 Исходник: [order_folders.py](../../../order_folders.py).
 
-Создание папки заказа с журналом и самостоятельным откатом.
+Создание заказа и управление его непосредственными служебными папками.
 
-Импорты Python, включая локальные: `datetime`, `folder_layout`, `folder_structure`, `order_creation`, `os`, `pathlib`, `re`, `threading`, `unicodedata`.
+Импорты Python, включая локальные: `datetime`, `errno`, `event_folder_undo`, `folder_layout`, `folder_structure`, `order_creation`, `os`, `pathlib`, `re`, `stat`, `threading`, `unicodedata`.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
@@ -23,6 +23,28 @@ class OrderFolderConflict(ValueError):
 Обозначает конфликт изменения в этом модуле.
 
 Вызывающий обработчик использует тип исключения для отказа без подмены данных.
+
+<a id="symbol-can_manage_service_folders"></a>
+
+## can_manage_service_folders
+
+[order_folders.py](../../../order_folders.py) · `function`.
+
+```python
+def can_manage_service_folders(relative, role):
+```
+
+Проверяет доступность переключателей для непосредственного заказа клиента.
+
+Учитывает клиентов в числовых группах и готовую роль папки.
+
+Непосредственные вызовы: `bool`, `client_path`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+bool(client_path(relative)) and role['canRegisterOrder']
+```
 
 <a id="symbol-create"></a>
 
@@ -92,6 +114,75 @@ def layout_scope(relative):
 
 ```python
 {'service_roots': [Path(*prefix).as_posix()]} if prefix else {}
+```
+
+<a id="symbol-service_folder_state"></a>
+
+## service_folder_state
+
+[order_folders.py](../../../order_folders.py) · `function`.
+
+```python
+def service_folder_state(directory):
+```
+
+Читает семь переключателей из непосредственных записей открытой папки заказа.
+
+Проверяет пустоту по первой записи, включая скрытые файлы, ссылки и подпапки.
+
+Непосредственные вызовы: `os.scandir`, `entry.name.startswith`, `entry.name[1:].strip().casefold`, `entry.name[1:].strip`, `matches[kind].append`, `entry.stat`, `matches.items`, `any`, `stat.S_ISDIR`, `len`, `service_parent_key`, `os.open`, `next`, `os.close`, `folders.append`, `os.fstat`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+{'parent': service_parent_key(os.fstat(directory)), 'folders': folders}
+```
+
+<a id="symbol-service_folders"></a>
+
+## service_folders
+
+[order_folders.py](../../../order_folders.py) · `function`.
+
+```python
+def service_folders(store, relative, change=None, *, role=None):
+```
+
+Читает или меняет одну служебную папку клиентского заказа.
+
+Сверяет снимок и использует mkdir/rmdir относительно открытой папки без рекурсивного удаления.
+
+Непосредственные вызовы: `store.path`, `store.target`, `can_manage_service_folders`, `folder_role`, `ValueError`, `guard_database`, `change.get`, `type`, `os.open`, `service_folder_state`, `next`, `OrderFolderConflict`, `os.mkdir`, `os.rmdir`, `os.close`.
+
+Явные исключения: `ValueError`, `OrderFolderConflict`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+snapshot
+service_folder_state(directory)
+```
+
+<a id="symbol-service_parent_key"></a>
+
+## service_parent_key
+
+[order_folders.py](../../../order_folders.py) · `function`.
+
+```python
+def service_parent_key(info):
+```
+
+Формирует идентификатор открытого заказа для проверки перед записью.
+
+Изменение содержимого папки сохраняет идентификатор, замена папки меняет его.
+
+Непосредственные вызовы: `getattr`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+f"{info.st_dev}:{info.st_ino}:{getattr(info, 'st_birthtime', '')}"
 ```
 
 <a id="symbol-year_container"></a>

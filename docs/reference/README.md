@@ -8,7 +8,7 @@
 
 ## Python
 
-68 файлов; 989 именованных объявлений.
+68 файлов; 993 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
@@ -51,7 +51,7 @@
 | [order_creation.py](python/order_creation.md) | 6 |
 | [order_deadlines.py](python/order_deadlines.md) | 12 |
 | [order_document.py](python/order_document.md) | 35 |
-| [order_folders.py](python/order_folders.md) | 6 |
+| [order_folders.py](python/order_folders.md) | 10 |
 | [order_links.py](python/order_links.md) | 18 |
 | [order_todos.py](python/order_todos.md) | 9 |
 | [orders.py](python/orders.md) | 44 |
@@ -83,11 +83,11 @@
 
 ## JavaScript
 
-26 файлов; 512 именованных объявлений.
+26 файлов; 517 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
-| [static/app.js](javascript/static-app.md) | 264 |
+| [static/app.js](javascript/static-app.md) | 269 |
 | [static/appearance.js](javascript/static-appearance.md) | 1 |
 | [static/bills.js](javascript/static-bills.md) | 11 |
 | [static/calendar-snapshot.js](javascript/static-calendar-snapshot.md) | 4 |

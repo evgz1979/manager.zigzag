@@ -12,7 +12,7 @@
 | [calendar_todos.py](python/calendar_todos.md) | `server.py`, `telegram_calendar.py` | 3 | Нет |
 | [client_activity.py](python/client_activity.md) | `hidden_orders.py`, `object_activity.py`, `server.py`, `supplier_purchases.py` | 2 | Нет |
 | [client_colors.py](python/client_colors.md) | `server.py` | 0 | Нет |
-| [event_folder_undo.py](python/event_folder_undo.md) | `client_activity.py`, `client_colors.py`, `event_folders.py`, `file_uploads.py`, `folder_notes.py`, `folder_rename.py`, `invoices.py`, `local_metadata.py`, `mobile_sync.py`, `object_orders.py`, `object_years.py`, `order_creation.py`, `order_links.py`, `orders.py`, `plotter.py`, `reconciliations.py`, `server.py`, `supplier_purchases.py`, `weekly_events_migration.py`, `work_order_list.py`, `work_orders.py` | 6 | Да |
+| [event_folder_undo.py](python/event_folder_undo.md) | `client_activity.py`, `client_colors.py`, `event_folders.py`, `file_uploads.py`, `folder_notes.py`, `folder_rename.py`, `invoices.py`, `local_metadata.py`, `mobile_sync.py`, `object_orders.py`, `object_years.py`, `order_creation.py`, `order_folders.py`, `order_links.py`, `orders.py`, `plotter.py`, `reconciliations.py`, `server.py`, `supplier_purchases.py`, `weekly_events_migration.py`, `work_order_list.py`, `work_orders.py` | 6 | Да |
 | [event_folders.py](python/event_folders.md) | `server.py` | 6 | Нет |
 | [event_relevance.py](python/event_relevance.md) | `folder_notes.py`, `server.py`, `sketches.py` | 1 | Нет |
 | [event_trash.py](python/event_trash.md) | `server.py` | 1 | Нет |

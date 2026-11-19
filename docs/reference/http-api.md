@@ -598,6 +598,20 @@ self.send_json(event_folders.preview(DATA_ROOT, relative, folder_note_store()), 
 
 Вызовы ветки: `event_folders.preview`, `folder_note_store`.
 
+## GET / HEAD /api/order-service-folders
+
+[ManagerHandler.handle_get](python/server.md#symbol-ManagerHandler.handle_get).
+
+Условие: `parsed.path == '/api/order-service-folders'`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json(order_folders.service_folders(order_store(), relative), head=head)
+```
+
+Вызовы ветки: `order_folders.service_folders`, `order_store`.
+
 ## GET / HEAD /api/folder-rename
 
 [ManagerHandler.handle_get](python/server.md#symbol-ManagerHandler.handle_get).
@@ -1355,6 +1369,23 @@ self.send_json(record)
 ```
 
 Вызовы ветки: `invoice_store().issue`, `invoice_store`, `schedule_order_sync`.
+
+## POST /api/order-service-folders
+
+[ManagerHandler.do_POST](python/server.md#symbol-ManagerHandler.do_POST).
+
+Условие: `route == '/api/order-service-folders'`.
+
+Ключи payload, читаемые в ветке: `path`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json({'error': 'Изменяй служебные папки в карточке заказа'}, 403)
+self.send_json(order_folders.service_folders(order_store(), payload.get('path'), payload))
+```
+
+Вызовы ветки: `self.headers.get`, `self.headers.get_content_type`, `urllib.parse.urlsplit`, `order_folders.service_folders`, `order_store`, `schedule_todo_refresh`.
 
 ## POST /api/object-folder-create
 

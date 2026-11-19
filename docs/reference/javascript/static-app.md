@@ -2425,6 +2425,42 @@ async function refreshPurchaseSuppliers()
 
 Прямые присваивания полям/свойствам: `state.purchaseSupplierRequest`, `state.purchaseSuppliers`, `item.supplierPurchaseCount`, `badge.textContent`, `button.title`.
 
+<a id="symbol-refreshServiceFolderBlocks"></a>
+
+## refreshServiceFolderBlocks
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+async function refreshServiceFolderBlocks(folder)
+```
+
+Обновляет зависимые блоки файлов и кэш дерева без перерисовки карточки заказа.
+
+Применяет список только для той же страницы и того же состояния переключателей.
+
+Непосредственные вызовы: `request`, `folderUrl`, `JSON.stringify`, `folder.directories.map`, `data.directories.map`, `$`, `renderSketches`, `renderOrderFileFolders`, `state.nodes.get`, `Boolean`, `registerNodes`, `state.children.set`, `renderTree`.
+
+Прямые присваивания полям/свойствам: `folder[key]`, `folder.serviceFolderBlocksStale`, `$("folderSummary").textContent`, `node.hasChildren`.
+
+<a id="symbol-refreshServiceFolderControls"></a>
+
+## refreshServiceFolderControls
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+async function refreshServiceFolderControls(folder)
+```
+
+Перечитывает присутствие и пустоту папок открытого клиентского заказа.
+
+Опрос читает короткий снимок, а файловые блоки обновляет при изменении состояния.
+
+Непосредственные вызовы: `request`, `apiUrl`, `JSON.stringify`, `renderServiceFolderControls`, `refreshServiceFolderBlocks(folder).catch`, `refreshServiceFolderBlocks`.
+
+Прямые присваивания полям/свойствам: `folder.serviceFolderPolling`, `folder.serviceFolders`, `folder.serviceFolderBlocksStale`, `folder.serviceFoldersUnavailable`.
+
 <a id="symbol-refreshSketchRelevance"></a>
 
 ## refreshSketchRelevance
@@ -2940,7 +2976,7 @@ function renderFolder(preserveForm = false)
 Непосредственные вызовы: `renderMoneyOverview`, `document.dispatchEvent`, `CustomEvent`, `renderClientActivity`, `Boolean`, `Object.hasOwn`, `isWorkOrderPath`, `hasDescendantTodos`, `$`, `$("orderOverview").classList.toggle`, `folder.breadcrumbs.map((part, index) =>
     (index ? '<span class="breadcrumb-divider">/</span>' : "") +
     '<button data-path="' + escapeHtml(part.path) + '"' + (index === folder.breadcrumbs.length - 1 ? ' aria-current="page"' : "") + ">" +
-    ClientBadge.markup(part.name, part.path && part.path.normalize("NFC") === folder.client_path?.normalize("NFC") ? part.path : "") + "</button>").join`, `folder.breadcrumbs.map`, `renderOrderHeading`, `renderOrderCardLinks`, `ClientBadge.markup`, `printCountLabel`, `folder.directories.filter`, `formatSize`, `foldersAnchor.before`, `renderSubfolders`, `renderSketches`, `renderOrderFileFolders`, `renderDescendantTodos`, `$("statusForm").classList.toggle`, `["supplier_root", "work_section"].includes`, `renderPurchases`, `(card[key] / 100).toFixed`, `renderOrderCalculated`, `renderExportState`, `Object.entries(supplierStatusLabels).map(([key, label]) => '<option value="' + key + '">' + label + '</option>').join`, `Object.entries(supplierStatusLabels).map`, `Object.entries`, `resizeOrderNote`, `renderStatus`, `$("todoList").classList.contains`, `renderTodos`, `warnings.push`, `warnings.join`, `["events", "subfolders"].includes`, `renderUpload`, `renderPrintList`, `new URLSearchParams(location.search).get`, `URLSearchParams`, `printFiles().find`, `printFiles`, `run`, `renderFiles`, `$("files").replaceChildren`, `renderCardDeadlines`, `mountOrderList`, `isFolderOrderList`, `renderOrders`.
+    ClientBadge.markup(part.name, part.path && part.path.normalize("NFC") === folder.client_path?.normalize("NFC") ? part.path : "") + "</button>").join`, `folder.breadcrumbs.map`, `renderOrderHeading`, `renderServiceFolderControls`, `renderOrderCardLinks`, `ClientBadge.markup`, `printCountLabel`, `folder.directories.filter`, `formatSize`, `foldersAnchor.before`, `renderSubfolders`, `renderSketches`, `renderOrderFileFolders`, `renderDescendantTodos`, `$("statusForm").classList.toggle`, `["supplier_root", "work_section"].includes`, `renderPurchases`, `(card[key] / 100).toFixed`, `renderOrderCalculated`, `renderExportState`, `Object.entries(supplierStatusLabels).map(([key, label]) => '<option value="' + key + '">' + label + '</option>').join`, `Object.entries(supplierStatusLabels).map`, `Object.entries`, `resizeOrderNote`, `renderStatus`, `$("todoList").classList.contains`, `renderTodos`, `warnings.push`, `warnings.join`, `["events", "subfolders"].includes`, `renderUpload`, `renderPrintList`, `new URLSearchParams(location.search).get`, `URLSearchParams`, `printFiles().find`, `printFiles`, `run`, `renderFiles`, `$("files").replaceChildren`, `renderCardDeadlines`, `mountOrderList`, `isFolderOrderList`, `renderOrders`.
 
 Прямые присваивания полям/свойствам: `$("orderFinanceOverview").hidden`, `$("purchasePanel").hidden`, `$("orderOverview").hidden`, `$("todoPanel").hidden`, `$("orderTasksColumn").hidden`, `$("breadcrumbs").innerHTML`, `$("clientLabel").innerHTML`, `$("editClientColor").hidden`, `$("folderSummary").textContent`, `$("orderDetails").hidden`, `$("folderDetailsTitle").textContent`, `$("statusLabel").hidden`, `$("orderStatusFields").hidden`, `$("supplierStatusLabel").hidden`, `$("supplierStatusLabel").firstChild.textContent`, `$("orderTitleLabel").hidden`, `$("orderTitleLabel").firstChild.textContent`, `$("reconciliationClientLabel").hidden`, `$("financialFields").hidden`, `$("orderNote").placeholder`, `$("removeOrderButton").hidden`, `$("addOrderButton").textContent`, `$("removeOrderButton").textContent`, `$("createObjectFolderButton").hidden`, `$("groupObjectYearsButton").hidden`, `$("createOrderFolderButton").hidden`, `$("createOrderFolderButton").textContent`, `$("createEventFolderButton").hidden`, `$("renameFolderButton").hidden`, `$("moveObjectButton").hidden`, `$("deleteEventButton").hidden`, `$("openEventTrash").hidden`, `folder.todo_items`, `folder.purchase_items`, `$("todoNewText").value`, `$("purchaseNewText").value`, `$("orderDetails").open`, `$("orderTitleInput").value`, `$("reconciliationClient").value`, `$(field).value`, `$("addOrderButton").hidden`, `$("statusSelect").value`, `$("supplierStatusSelect").innerHTML`, `$("supplierStatusSelect").value`, `$("supplierStatusSelect").disabled`, `$("supplierStatusSelect").title`, `$("financialStatusSelect").value`, `$("orderNote").value`, `$("loadOrderFilesButton").hidden`, `$("notice").hidden`, `$("notice").textContent`, `$("fileSearch").value`, `$("filesSection").hidden`, `$("uploadDropZone").hidden`, `$("printWorkspace").hidden`, `state.printQuery`, `$("printTaskSearch").value`, `$("printEditorForm").hidden`, `$("printEditorEmpty").hidden`, `$("printEditorEmpty").textContent`.
 
@@ -3161,7 +3197,7 @@ function renderOrderFileFolders()
 
 Использует общий просмотрщик и группирует вложенные файлы по относительной папке.
 
-Непосредственные вызовы: `$`, `folders.map((item) => {
+Непосредственные вызовы: `$`, `serviceFolderLinks`, `folders.map((item) => {
     const files = folder.files.filter((file) => file.path.startsWith(item.path + "/"));
     const groups = new Map();
     for (const file of files) {
@@ -3178,7 +3214,7 @@ function renderOrderFileFolders()
       (!files.length ? '<p class="todo-empty">В этой папке пока нет файлов</p>' : '') + '</section>';
   }).join`, `folders.map`.
 
-Прямые присваивания полям/свойствам: `container.hidden`, `container.innerHTML`.
+Прямые присваивания полям/свойствам: `$("orderBillFolders").innerHTML`, `container.hidden`, `container.innerHTML`.
 
 <a id="symbol-renderOrderHeading"></a>
 
@@ -3543,6 +3579,24 @@ function renderPurchases()
 
 Прямые присваивания полям/свойствам: `$("purchaseLegacy").hidden`, `$("purchaseLegacyText").textContent`, `$("purchaseAddForm").hidden`, `$("purchaseEmpty").hidden`, `$("purchaseCount").textContent`, `$("purchaseList").innerHTML`.
 
+<a id="symbol-renderServiceFolderControls"></a>
+
+## renderServiceFolderControls
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function renderServiceFolderControls()
+```
+
+Показывает переключатели служебных папок в шапке клиентского заказа.
+
+При опросе обновляет существующие кнопки, сохраняя их фокус и текущий порядок.
+
+Непосредственные вызовы: `$`, `items.map(({ kind }) => '<button type="button" class="service-folder-switch" role="switch" data-service-kind="' + escapeHtml(kind) + '"><span class="service-folder-track" aria-hidden="true"></span><span># ' + escapeHtml(kind) + '</span></button>').join`, `items.map`, `[...group.children].entries`, `button.setAttribute`, `String`, `Boolean`.
+
+Прямые присваивания полям/свойствам: `group.hidden`, `group.innerHTML`, `button.disabled`, `button.title`.
+
 <a id="symbol-renderSketches"></a>
 
 ## renderSketches
@@ -3557,7 +3611,7 @@ function renderSketches()
 
 Использует `/api/thumbnail` и `/api/file`; сохраняет фокус статуса или скачивания.
 
-Непосредственные вызовы: `document.activeElement?.closest`, `$`, `files.map((item) => {
+Непосредственные вызовы: `document.activeElement?.closest`, `serviceFolderLinks`, `$`, `Boolean`, `files.map((item) => {
     const relevance = item.relevance, saving = folder.sketchSavingFolders?.has(item.folder);
     const message = saving ? "Сохраняю…" : relevance.error || (relevance.sync_pending
       ? relevance.sync_error ? "В базе сохранено · не выгружено: " + relevance.sync_error : "В базе сохранено · ожидает выгрузки" : "");
@@ -3571,7 +3625,7 @@ function renderSketches()
       (message ? '<p class="event-export' + (relevance.error || relevance.sync_error ? ' error' : '') + '" role="status">' + escapeHtml(message) + '</p>' : '') + '</div>';
   }).join`, `files.map`, `[...$("sketchTiles").querySelectorAll(focusSelector)].find((button) => (button.dataset.sketchFile || button.dataset.downloadFile) === focusPath && button.dataset.sketchStatus === focusValue)?.focus`, `[...$("sketchTiles").querySelectorAll(focusSelector)].find`, `$("sketchTiles").querySelectorAll`.
 
-Прямые присваивания полям/свойствам: `$("sketchSection").hidden`, `$("sketchCount").textContent`, `$("sketchTiles").innerHTML`.
+Прямые присваивания полям/свойствам: `$("orderSketchFolders").innerHTML`, `$("sketchSection").hidden`, `$("sketchEmpty").hidden`, `$("sketchCount").textContent`, `$("sketchTiles").innerHTML`.
 
 <a id="symbol-renderStatus"></a>
 
@@ -4158,6 +4212,24 @@ async function saveOrderLinksChange(payload)
 
 Прямые присваивания полям/свойствам: `edit.saving`, `edit.error`, `edit.data`, `edit.conflict`.
 
+<a id="symbol-saveServiceFolder"></a>
+
+## saveServiceFolder
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+async function saveServiceFolder(kind)
+```
+
+Отправляет изменение одного переключателя с проверенным снимком состояния.
+
+При конфликте перечитывает папки, сохраняя открытый заказ и введённые поля.
+
+Непосредственные вызовы: `snapshot?.folders.find`, `renderServiceFolderControls`, `request`, `refreshServiceFolderBlocks`, `refreshServiceFolderControls`.
+
+Прямые присваивания полям/свойствам: `folder.serviceFolderSaving`, `folder.serviceFolders`, `folder.serviceFolderBlocksStale`.
+
 <a id="symbol-saveSketchRelevance"></a>
 
 ## saveSketchRelevance
@@ -4227,6 +4299,24 @@ function sendUpload(file, job)
 Использует `/api/file-upload`.
 
 Непосредственные вызовы: `Promise`.
+
+<a id="symbol-serviceFolderLinks"></a>
+
+## serviceFolderLinks
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function serviceFolderLinks(kind)
+```
+
+Строит переход к реальной непосредственной папке счетов или эскизов.
+
+Учитывает варианты написания и сохраняет исходное имя для кнопки.
+
+Непосредственные вызовы: `folder.directories.filter(item => /^#\s*/.test(item.name) && item.name.slice(1).trim().toLowerCase() === kind)
+    .map(item => '<button type="button" class="secondary-button" data-path="' + escapeHtml(item.path) + '">' + escapeHtml("Открыть " + item.name) + '</button>').join`, `folder.directories.filter(item => /^#\s*/.test(item.name) && item.name.slice(1).trim().toLowerCase() === kind)
+    .map`, `folder.directories.filter`.
 
 <a id="symbol-setPreviewExpanded"></a>
 

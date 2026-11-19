@@ -677,6 +677,109 @@ function fileDownloadButton(file) {
     '" title="' + escapeHtml("Скачать на это устройство: " + file.name) + '" aria-label="' + escapeHtml("Скачать файл: " + file.name) + '">Скачать</a>';
 }
 
+// Показывает переключатели служебных папок в шапке клиентского заказа.
+// При опросе обновляет существующие кнопки, сохраняя их фокус и текущий порядок.
+function renderServiceFolderControls() {
+  const folder = state.folder, group = $("serviceFolderControls");
+  group.hidden = !folder.canManageServiceFolders || !folder.serviceFolders;
+  if (group.hidden) return;
+  const items = folder.serviceFolders.folders;
+  if (!group.firstElementChild) {
+    group.innerHTML = items.map(({ kind }) => '<button type="button" class="service-folder-switch" role="switch" data-service-kind="' + escapeHtml(kind) + '"><span class="service-folder-track" aria-hidden="true"></span><span># ' + escapeHtml(kind) + '</span></button>').join("");
+  }
+  for (const [index, button] of [...group.children].entries()) {
+    const item = items[index];
+    const reason = folder.serviceFoldersUnavailable ? "Не удалось обновить состояние папок" : item.reason;
+    button.setAttribute("aria-checked", String(item.enabled));
+    button.disabled = Boolean(reason);
+    button.setAttribute("aria-disabled", String(Boolean(reason || folder.serviceFolderSaving)));
+    button.title = reason || (item.enabled ? "Удалить пустую папку " : "Создать папку ") + item.name;
+    button.setAttribute("aria-description", reason);
+  }
+}
+
+// Обновляет зависимые блоки файлов и кэш дерева без перерисовки карточки заказа.
+// Применяет список только для той же страницы и того же состояния переключателей.
+async function refreshServiceFolderBlocks(folder) {
+  const snapshot = folder.serviceFolders;
+  const data = await request(folderUrl(folder.path));
+  if (state.folder !== folder || folder.serviceFolders !== snapshot) return;
+  const directoriesChanged = JSON.stringify(folder.directories.map(item => item.path)) !== JSON.stringify(data.directories.map(item => item.path));
+  for (const key of ["directories", "files", "sketches", "orderFileFolders", "counts", "fileCount", "folderCount", "totalSize"]) folder[key] = data[key];
+  folder.serviceFolderBlocksStale = false;
+  $("folderSummary").textContent = folder.folderCount + " папок · файлы доступны в событиях";
+  renderSketches();
+  renderOrderFileFolders();
+  if (directoriesChanged) {
+    const children = data.directories.map(({ name, path, hasChildren, isClient, inactive }) => ({ name, path, hasChildren, isClient, inactive }));
+    const node = state.nodes.get(folder.path);
+    if (node) node.hasChildren = Boolean(children.length);
+    registerNodes(children);
+    state.children.set(folder.path, children);
+    renderTree();
+  }
+}
+
+// Перечитывает присутствие и пустоту папок открытого клиентского заказа.
+// Опрос читает короткий снимок, а файловые блоки обновляет при изменении состояния.
+async function refreshServiceFolderControls(folder) {
+  if (!folder?.canManageServiceFolders || folder.serviceFolderSaving || folder.serviceFolderPolling) return;
+  const previous = folder.serviceFolders;
+  folder.serviceFolderPolling = true;
+  try {
+    const current = await request(apiUrl("/api/order-service-folders", folder.path));
+    if (state.folder !== folder || folder.serviceFolderSaving || folder.serviceFolders !== previous) return;
+    if (JSON.stringify(previous) !== JSON.stringify(current)) {
+      folder.serviceFolders = current;
+      folder.serviceFolderBlocksStale = true;
+    }
+    folder.serviceFoldersUnavailable = false;
+    renderServiceFolderControls();
+    if (folder.serviceFolderBlocksStale) await refreshServiceFolderBlocks(folder).catch(() => {});
+  } catch {
+    if (state.folder === folder && !folder.serviceFolderSaving && folder.serviceFolders === previous) {
+      folder.serviceFoldersUnavailable = true;
+      renderServiceFolderControls();
+    }
+  } finally {
+    folder.serviceFolderPolling = false;
+  }
+}
+
+// Отправляет изменение одного переключателя с проверенным снимком состояния.
+// При конфликте перечитывает папки, сохраняя открытый заказ и введённые поля.
+async function saveServiceFolder(kind) {
+  const folder = state.folder, snapshot = folder.serviceFolders;
+  const item = snapshot?.folders.find(entry => entry.kind === kind);
+  if (!item || item.reason || folder.serviceFolderSaving || folder.serviceFoldersUnavailable) return;
+  folder.serviceFolderSaving = true;
+  renderServiceFolderControls();
+  try {
+    folder.serviceFolders = await request("/api/order-service-folders", {
+      path: folder.path, kind, enabled: !item.enabled, parent: snapshot.parent, revision: item.revision,
+    });
+    folder.serviceFolderBlocksStale = true;
+    if (state.folder !== folder) return;
+    renderServiceFolderControls();
+    await refreshServiceFolderBlocks(folder);
+  } finally {
+    folder.serviceFolderSaving = false;
+    if (state.folder === folder) {
+      renderServiceFolderControls();
+      if (folder.serviceFolders === snapshot) await refreshServiceFolderControls(folder);
+    }
+  }
+}
+
+// Строит переход к реальной непосредственной папке счетов или эскизов.
+// Учитывает варианты написания и сохраняет исходное имя для кнопки.
+function serviceFolderLinks(kind) {
+  const folder = state.folder;
+  if (!folder.canManageServiceFolders) return "";
+  return folder.directories.filter(item => /^#\s*/.test(item.name) && item.name.slice(1).trim().toLowerCase() === kind)
+    .map(item => '<button type="button" class="secondary-button" data-path="' + escapeHtml(item.path) + '">' + escapeHtml("Открыть " + item.name) + '</button>').join("");
+}
+
 // Показывает непосредственные CDR, скачивание и актуальность в карточке заказа.
 // Использует `/api/thumbnail` и `/api/file`; сохраняет фокус статуса или скачивания.
 function renderSketches() {
@@ -684,7 +787,10 @@ function renderSketches() {
   const focusSelector = "[data-sketch-status], [data-download-file]";
   const focused = document.activeElement?.closest(focusSelector);
   const focusPath = focused?.dataset.sketchFile || focused?.dataset.downloadFile, focusValue = focused?.dataset.sketchStatus;
-  $("sketchSection").hidden = !files.length;
+  const links = serviceFolderLinks("cdr");
+  if ($("orderSketchFolders").innerHTML !== links) $("orderSketchFolders").innerHTML = links;
+  $("sketchSection").hidden = !files.length && !links;
+  $("sketchEmpty").hidden = Boolean(files.length) || !links;
   $("sketchCount").textContent = files.length;
   $("sketchTiles").innerHTML = files.map((item) => {
     const relevance = item.relevance, saving = folder.sketchSavingFolders?.has(item.folder);
@@ -707,8 +813,12 @@ function renderSketches() {
 function renderOrderFileFolders() {
   const folder = state.folder, folders = folder.orderFileFolders || [];
   const container = $("orderFileFolders");
-  container.hidden = !folders.length;
-  container.innerHTML = folders.map((item) => {
+  const billLinks = serviceFolderLinks("bills");
+  const displayedBillLinks = folder.order ? billLinks : "";
+  if ($("orderBillFolders").innerHTML !== displayedBillLinks) $("orderBillFolders").innerHTML = displayedBillLinks;
+  const standaloneBills = !folder.order && billLinks ? '<section class="folder-section"><div class="section-heading"><h2>Счета</h2>' + billLinks + '</div></section>' : "";
+  container.hidden = !folders.length && !standaloneBills;
+  container.innerHTML = standaloneBills + folders.map((item) => {
     const files = folder.files.filter((file) => file.path.startsWith(item.path + "/"));
     const groups = new Map();
     for (const file of files) {
@@ -1022,6 +1132,7 @@ function renderFolder(preserveForm = false) {
     '<button data-path="' + escapeHtml(part.path) + '"' + (index === folder.breadcrumbs.length - 1 ? ' aria-current="page"' : "") + ">" +
     ClientBadge.markup(part.name, part.path && part.path.normalize("NFC") === folder.client_path?.normalize("NFC") ? part.path : "") + "</button>").join("");
   renderOrderHeading();
+  renderServiceFolderControls();
   renderOrderCardLinks();
   const clientLabel = folder.frezaSection || folder.frezaTask ? "ФРЕЗЕРОВКА" : printView ? "ШИРОКОФОРМАТНАЯ ПРОДУКЦИЯ" : service ? "СЛУЖЕБНАЯ ПАПКА" : folder.folderKindLabel && folder.folderKind !== "order" ? folder.folderKindLabel : folder.client || folder.name;
   $("clientLabel").innerHTML = ClientBadge.markup(clientLabel, clientLabel === folder.client ? folder.client_path : "");
@@ -4915,7 +5026,7 @@ $("folderTree").addEventListener("keydown", (event) => {
     else focusTree(folderParent(path));
   }
 });
-for (const id of ["auxiliaryButtons", "favoriteOrders", "breadcrumbs", "subfolders", "workOrderFolders", "printLegacyFolderList", "frezaLegacyList"]) {
+for (const id of ["auxiliaryButtons", "favoriteOrders", "breadcrumbs", "subfolders", "workOrderFolders", "printLegacyFolderList", "frezaLegacyList", "orderBillFolders", "orderSketchFolders"]) {
   $(id).addEventListener("click", (event) => {
     const button = event.target.closest("[data-path]");
     if (button) run(() => navigate(button.dataset.path));
@@ -5412,6 +5523,7 @@ setInterval(() => {
     }).catch(() => {});
   }
   if (state.view !== "orders" && state.folder?.canCreateEventFolder) refreshEventRelevance(state.folder).catch(() => {});
+  if (state.view === "folder") refreshServiceFolderControls(state.folder);
   if (state.view !== "orders" && state.folder?.sketches?.length) refreshSketchRelevance(state.folder).catch(() => {});
   if (state.view !== "orders" && state.folder?.folderKind === "work_root") refreshSupplierFavorites(state.folder).catch(() => {});
   if (state.view !== "orders") refreshPurchaseSuppliers().catch(() => {});
@@ -5474,6 +5586,10 @@ $("submitObjectYears").addEventListener("click",()=>run(groupObjectYears));
 $("cancelObjectYears").addEventListener("click",()=>$("objectYearsDialog").close());
 $("objectYearsDialog").addEventListener("cancel",event=>{if(state.groupingYears)event.preventDefault();});
 $("createEventFolderButton").addEventListener("click", () => run(openCreateEventFolder));
+$("serviceFolderControls").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-service-kind]");
+  if (button) run(() => saveServiceFolder(button.dataset.serviceKind));
+});
 $("renameFolderButton").addEventListener("click", () => run(openFolderRename));
 $("renameFolderName").addEventListener("input", renderFolderRename);
 $("renameFolderForm").addEventListener("submit", (event) => { event.preventDefault(); run(submitFolderRename); });

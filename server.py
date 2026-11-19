@@ -1246,7 +1246,7 @@ def freza_preview_target(relative):
 
 
 # Собирает представление папки и разрешённые файлы её роли.
-# Год «02 - etc» показывает подпапки без общего обхода файлов; у заказа обходит # cutter, # freza и # docs.
+# Год «02 - etc» показывает подпапки без обхода файлов; в заказе клиента добавляет переключатели и блоки материалов.
 def read_folder(relative="", show_inactive=False):
     target = safe_path(relative)
     if not target.is_dir():
@@ -1274,11 +1274,20 @@ def read_folder(relative="", show_inactive=False):
         files_scope = "plotter"
     hide_files = files_scope != "folder"
     folder_count = len(directories) if hide_files or print_view or status['folderKind'] == 'bills_inbox' else 0
+    can_manage_service_folders = order_folders.can_manage_service_folders(relative, status)
+    service_folders = None
+    if can_manage_service_folders:
+        try:
+            service_folders = order_folders.service_folders(order_store(), relative, role=status)
+        except (OSError, ValueError, sqlite3.Error) as error:
+            warnings.append("Не удалось проверить служебные папки: " + str(error))
     order_file_folder_kinds = ()
     if status["folderKind"] == "reconciliation" or (status["folderKind"] == "order" and in_payroll(relative)):
         order_file_folder_kinds = ("docs",)
     elif status["folderKind"] == "order" and not freza_task:
         order_file_folder_kinds = ("cutter", "freza", "docs")
+        if can_manage_service_folders:
+            order_file_folder_kinds += ("pvc", "alum")
     order_file_folders = [folder for folder in directories
                           if folder.name.startswith("#") and folder.name[1:].strip().casefold() in order_file_folder_kinds
                           and not folder.is_symlink()]
@@ -1437,6 +1446,7 @@ def read_folder(relative="", show_inactive=False):
             "purchaseSupplierPath": supplier_purchases.section_path(relative_path(target)),
             "root": str(DATA_ROOT), "breadcrumbs": breadcrumbs,
             "directories": nodes, "files": files, "sketches": sketch_files,
+            "canManageServiceFolders": can_manage_service_folders, "serviceFolders": service_folders,
             "orderFileFolders": [{"name": folder.name, "path": relative_path(folder)} for folder in order_file_folders],
             "objectOrders": object_list,
             "workOrderList": work_list,
@@ -1857,6 +1867,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_file(preview, head=head, private=True)
             elif parsed.path == "/api/event-folders":
                 self.send_json(event_folders.preview(DATA_ROOT, relative, folder_note_store()), head=head)
+            elif parsed.path == "/api/order-service-folders":
+                self.send_json(order_folders.service_folders(order_store(), relative), head=head)
             elif parsed.path == "/api/folder-rename":
                 self.send_json(folder_rename.preview(order_store(), relative), head=head)
             elif parsed.path == "/api/object-years":
@@ -2249,6 +2261,15 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 record = invoice_store().issue(payload)
                 self.send_json(record)
                 schedule_order_sync()
+                return
+            elif route == "/api/order-service-folders":
+                origin = self.headers.get('Origin')
+                if (self.headers.get_content_type() != 'application/json'
+                        or (origin and urllib.parse.urlsplit(origin).netloc != self.headers.get('Host'))):
+                    self.send_json({"error": "Изменяй служебные папки в карточке заказа"}, 403)
+                    return
+                self.send_json(order_folders.service_folders(order_store(), payload.get("path"), payload))
+                schedule_todo_refresh(payload["path"])
                 return
             elif route == "/api/order-folder-create":
                 store = order_store()

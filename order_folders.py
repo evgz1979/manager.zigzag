@@ -1,21 +1,114 @@
-"""Создание папки заказа с журналом и самостоятельным откатом."""
+"""Создание заказа и управление его непосредственными служебными папками."""
+import errno
 import os
 import re
+import stat
 import threading
 import unicodedata
 from datetime import date
 from pathlib import Path
 
 import folder_layout as layout
-from folder_structure import folder_role, section_prefix, is_etc_year, is_print_section, in_freza, in_payroll, YEAR, DATE, DATE_LIKE, NUMBER
+from event_folder_undo import guard_database
+from folder_structure import client_path, folder_role, section_prefix, is_etc_year, is_print_section, in_freza, in_payroll, YEAR, DATE, DATE_LIKE, NUMBER
 
 LOCK = threading.RLock()
+SERVICE_FOLDERS = ("bills", "cdr", "docs", "freza", "cutter", "pvc", "alum")
+DIRECTORY_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
 
 
 # Обозначает конфликт изменения в этом модуле.
 # Вызывающий обработчик использует тип исключения для отказа без подмены данных.
 class OrderFolderConflict(ValueError):
     pass
+
+
+# Проверяет доступность переключателей для непосредственного заказа клиента.
+# Учитывает клиентов в числовых группах и готовую роль папки.
+def can_manage_service_folders(relative, role):
+    return bool(client_path(relative)) and role["canRegisterOrder"]
+
+
+# Формирует идентификатор открытого заказа для проверки перед записью.
+# Изменение содержимого папки сохраняет идентификатор, замена папки меняет его.
+def service_parent_key(info):
+    return f"{info.st_dev}:{info.st_ino}:{getattr(info, 'st_birthtime', '')}"
+
+
+# Читает семь переключателей из непосредственных записей открытой папки заказа.
+# Проверяет пустоту по первой записи, включая скрытые файлы, ссылки и подпапки.
+def service_folder_state(directory):
+    matches = {kind: [] for kind in SERVICE_FOLDERS}
+    with os.scandir(directory) as entries:
+        for entry in entries:
+            if entry.name.startswith("#"):
+                kind = entry.name[1:].strip().casefold()
+                if kind in matches:
+                    try:
+                        matches[kind].append((entry.name, entry.stat(follow_symlinks=False)))
+                    except FileNotFoundError:
+                        continue
+    folders = []
+    for kind, entries in matches.items():
+        enabled = any(stat.S_ISDIR(info.st_mode) for _, info in entries)
+        name, revision, reason = f"# {kind}", "", ""
+        if len(entries) > 1:
+            reason = "Есть несколько записей с таким именем"
+        elif entries:
+            name, info = entries[0]
+            revision = f"{service_parent_key(info)}:{info.st_ctime_ns}"
+            if enabled:
+                try:
+                    child = os.open(name, DIRECTORY_FLAGS, dir_fd=directory)
+                    try:
+                        with os.scandir(child) as children:
+                            if next(children, None) is not None:
+                                reason = "Папка не пуста"
+                    finally:
+                        os.close(child)
+                except OSError:
+                    reason = "Не удалось проверить содержимое папки"
+            else:
+                reason = "Имя занято файлом или ссылкой"
+        folders.append({"kind": kind, "name": name, "enabled": enabled, "revision": revision, "reason": reason})
+    return {"parent": service_parent_key(os.fstat(directory)), "folders": folders}
+
+
+# Читает или меняет одну служебную папку клиентского заказа.
+# Сверяет снимок и использует mkdir/rmdir относительно открытой папки без рекурсивного удаления.
+def service_folders(store, relative, change=None, *, role=None):
+    with LOCK:
+        relative = store.path(relative)
+        target = store.target(relative)
+        if not can_manage_service_folders(relative, role or folder_role(store.root, relative)):
+            raise ValueError("Служебные папки настраиваются только в заказе клиента")
+        if change is not None:
+            guard_database(store.database, relative, include_children=True)
+            if change.get("kind") not in SERVICE_FOLDERS or type(change.get("enabled")) is not bool:
+                raise ValueError("Выбери служебную папку и состояние переключателя")
+        directory = os.open(target, DIRECTORY_FLAGS)
+        try:
+            snapshot = service_folder_state(directory)
+            if change is None:
+                return snapshot
+            item = next(item for item in snapshot["folders"] if item["kind"] == change["kind"])
+            if change.get("parent") != snapshot["parent"] or change.get("revision") != item["revision"]:
+                raise OrderFolderConflict("Служебная папка изменилась. Проверь текущее состояние и повтори выбор")
+            if item["reason"]:
+                raise OrderFolderConflict(item["reason"])
+            if change["enabled"] != item["enabled"]:
+                try:
+                    if change["enabled"]:
+                        os.mkdir(item["name"], dir_fd=directory)
+                    else:
+                        os.rmdir(item["name"], dir_fd=directory)
+                except OSError as error:
+                    if error.errno in (errno.EEXIST, errno.ENOENT, errno.ENOTDIR, errno.ENOTEMPTY):
+                        raise OrderFolderConflict("Служебная папка изменилась. Проверь текущее состояние и повтори выбор") from error
+                    raise
+            return service_folder_state(directory)
+        finally:
+            os.close(directory)
 
 
 # Проверяет допустимую клиентскую область для создания папок.

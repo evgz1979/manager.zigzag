@@ -16,6 +16,76 @@ class OrderFileFolderTests(unittest.TestCase):
     url = fixtures.ManagerTests.url
     order = 'Клиент/2026-00-00 - Заказ'
 
+    def test_service_switches_follow_disk_and_require_a_fresh_empty_folder(self):
+        route = '/api/order-service-folders'
+        order = self.root / self.order
+        self.folder(self.order + '/#  DoCs')
+        self.folder(self.order + '/# alUm/Пустая подпапка')
+        self.file(self.order + '/# pvc/.hidden', b'original')
+        (order / '# cdr').symlink_to(self.root / 'missing', target_is_directory=True)
+        self.folder(self.order + '/Фото/# freza')
+        self.folder(self.order + '/# other')
+
+        def post(snapshot, kind, enabled):
+            item = next(item for item in snapshot['folders'] if item['kind'] == kind)
+            return self.http(route, 'POST', json.dumps({'path': self.order, 'parent': snapshot['parent'],
+                             'kind': kind, 'enabled': enabled, 'revision': item['revision']}),
+                             {'Content-Type': 'application/json'})
+
+        listing = manager.read_folder(self.order)
+        snapshot = listing['serviceFolders']
+        self.assertEqual(snapshot, json.loads(self.http(self.url(route, self.order))[2]))
+        switches = {item['kind']: (item['enabled'], bool(item['reason'])) for item in snapshot['folders']}
+        self.assertEqual(switches, {'bills': (False, False), 'cdr': (False, True), 'docs': (True, False),
+                                    'freza': (False, False), 'cutter': (False, False), 'pvc': (True, True), 'alum': (True, True)})
+        for kind, enabled in [('pvc', False), ('alum', False), ('cdr', True)]:
+            self.assertEqual(post(snapshot, kind, enabled)[0], 409)
+        self.file(self.order + '/#  DoCs/Новый.txt', b'new')
+        self.assertEqual(post(snapshot, 'docs', False)[0], 409)
+        self.assertEqual((order / '#  DoCs/Новый.txt').read_bytes(), b'new')
+        (order / '#  DoCs/Новый.txt').unlink()
+
+        # Inject an external write after the last scan and before the atomic rmdir.
+        original_rmdir = manager.os.rmdir
+
+        def fill_before_remove(name, *, dir_fd=None):
+            (order / name / 'Внезапный файл.txt').write_bytes(b'keep')
+            return original_rmdir(name, dir_fd=dir_fd)
+
+        snapshot = json.loads(self.http(self.url(route, self.order))[2])
+        with patch.object(manager.os, 'rmdir', side_effect=fill_before_remove):
+            self.assertEqual(post(snapshot, 'docs', False)[0], 409)
+        self.assertEqual((order / '#  DoCs/Внезапный файл.txt').read_bytes(), b'keep')
+        (order / '#  DoCs/Внезапный файл.txt').unlink()
+
+        snapshot = json.loads(self.http(self.url(route, self.order))[2])
+        status, _, body = post(snapshot, 'docs', False)
+        self.assertEqual(status, 200, body)
+        self.assertFalse((order / '#  DoCs').exists())
+        status, _, body = post(json.loads(body), 'freza', True)
+        self.assertEqual(status, 200, body)
+        listing = manager.read_folder(self.order)
+        self.assertEqual([item['name'] for item in listing['orderFileFolders']], ['# freza', '# pvc', '# alUm'])
+        self.assertTrue((order / 'Фото/# freza').is_dir())
+        self.assertTrue((order / '# other').is_dir())
+
+    def test_service_switches_only_apply_to_customer_orders(self):
+        route = '/api/order-service-folders'
+        grouped = '03 - Группа/Клиент/2026-11-19 - Работа'
+        self.folder(grouped)
+        self.assertTrue(manager.read_folder(grouped)['canManageServiceFolders'])
+        self.assertEqual(self.http(self.url(route, grouped))[0], 200)
+        for path in ('Клиент', self.order + '/Фото', '# glass/2026-11-19 - Заказ',
+                     '# work/2026-11-19 - Заказ', '# work/# glass/2026-11-19 - Заказ',
+                     '02 - etc/2026/Заказ', '# moneys/# Зп/2026-11-19 - Запись'):
+            with self.subTest(path=path):
+                self.folder(path)
+                self.assertFalse(manager.read_folder(path)['canManageServiceFolders'])
+                self.assertEqual(self.http(self.url(route, path))[0], 400)
+                self.assertEqual(self.http(route, 'POST', json.dumps({'path': path, 'kind': 'docs', 'enabled': True}),
+                                           {'Content-Type': 'application/json'})[0], 400)
+                self.assertFalse((self.root / path / '# docs').exists())
+
     def test_only_three_direct_service_branches_are_scanned_with_nested_files(self):
         for name in ('# cutter/01.dxf', '#FREZA/Глубже/02.txt', '#  DoCs/Глубже/Письмо.txt', '# cutter/!.txt',
                      '# cutter/.hidden', '# cutter/.private/secret.txt',
