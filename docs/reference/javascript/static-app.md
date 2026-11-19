@@ -570,6 +570,25 @@ async function confirmFileRemoval()
 
 Прямые присваивания полям/свойствам: `state.fileRemoval`, `$("deleteFilesCount").textContent`, `$("deleteFilesList").innerHTML`, `$("confirmDeleteFiles").disabled`, `$("cancelDeleteFiles").disabled`.
 
+<a id="symbol-convertPlotterSelection"></a>
+
+## convertPlotterSelection
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+async function convertPlotterSelection()
+```
+
+Конвертирует один отмеченный исходник и перечитывает список файлов.
+
+Повторный клик во время запроса защищён; исходник и текущая страница сохраняются.
+
+Непосредственные вызовы: `folder.files.filter`, `renderFileActions`, `request`, `notify`, `refreshUploadedFiles({ path: folder.path, token: folder.upload?.token, results: [saved] })
+        .catch`, `refreshUploadedFiles`.
+
+Прямые присваивания полям/свойствам: `state.plotterJob`.
+
 <a id="symbol-copyText"></a>
 
 ## copyText
@@ -2851,9 +2870,9 @@ function renderFileActions()
 
 Использует `state.folder.files.filter`, `selected.filter`, `filteredFiles`.
 
-Непосредственные вызовы: `state.folder.files.filter`, `selected.filter`, `filteredFiles`, `visible.filter`, `$`, `Boolean`, `$("fileReportState").classList.toggle`, `state.folder.files.some`.
+Непосредственные вызовы: `state.folder.files.filter`, `selected.filter`, `filteredFiles`, `visible.filter`, `$`, `Boolean`, `state.folder.files.some`, `$("fileReportState").classList.toggle`.
 
-Прямые присваивания полям/свойствам: `$("selectAllFiles").checked`, `$("selectAllFiles").indeterminate`, `$("selectAllFiles").disabled`, `$("fileSelectionCount").textContent`, `$("clearFileSelection").hidden`, `$("createImageReport").disabled`, `$("deleteSelectedFiles").disabled`, `$("createImageReport").textContent`, `$("fileReportState").textContent`, `$("openImageReport").hidden`.
+Прямые присваивания полям/свойствам: `$("selectAllFiles").checked`, `$("selectAllFiles").indeterminate`, `$("selectAllFiles").disabled`, `$("fileSelectionCount").textContent`, `$("clearFileSelection").hidden`, `$("createImageReport").disabled`, `$("deleteSelectedFiles").disabled`, `$("createImageReport").textContent`, `convert.hidden`, `convert.disabled`, `convert.textContent`, `$("fileReportState").textContent`, `$("openImageReport").hidden`.
 
 <a id="symbol-renderFileComment"></a>
 
@@ -2902,7 +2921,7 @@ function renderFiles()
       '<div class="file-grid">' + group.map((file) => fileCard(file)).join("") + "</div></section>";
   }).join`, `[...groups.entries()].map`, `groups.entries`, `$("files").querySelectorAll("img").forEach`, `$("files").querySelectorAll`, `refreshThumbnails().catch`, `refreshThumbnails`.
 
-Прямые присваивания полям/свойствам: `$("fileCount").textContent`, `$("fileFilters").innerHTML`, `$("files").innerHTML`.
+Прямые присваивания полям/свойствам: `$("fileCount").textContent`, `$("fileScopeLabel").textContent`, `$("fileFilters").innerHTML`, `$("files").innerHTML`.
 
 <a id="symbol-renderFolder"></a>
 

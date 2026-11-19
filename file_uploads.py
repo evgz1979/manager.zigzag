@@ -121,20 +121,22 @@ def reserved_names(db, relative):
 
 
 # Принимает ограниченный поток файла и публикует его без перезаписи.
-# При недопустимом состоянии возбуждает ValueError, UploadTooLarge, UploadBusy.
-def receive(store, relative, expected, name, source, size):
+# Конвертер может передать проверку папки и закрепить суффикс после номера копии.
+def receive(store, relative, expected, name, source, size, *, destination=target, numbered_suffix=""):
     if not isinstance(size, int) or size < 0:
         raise ValueError('Не указан размер файла')
     if size > MAX_BYTES:
         raise UploadTooLarge('Один файл может занимать до 8 ГБ')
     name = filename(name)
+    if numbered_suffix and not name.endswith(numbered_suffix):
+        raise ValueError("Имя файла должно заканчиваться заданным суффиксом")
     if not SLOTS.acquire(blocking=False):
         raise UploadBusy('На M4 уже идут загрузки. Повтори через несколько секунд')
     directory = None
     temporary = '.upload-' + uuid.uuid4().hex + '.part'
     try:
         with LOCK:
-            folder = target(store.root, relative)
+            folder = destination(store.root, relative)
             guard_database(store.database, relative)
             if store.get(relative) and not is_freza_task(relative):
                 raise ValueError('Открой событие внутри заказа')
@@ -158,7 +160,7 @@ def receive(store, relative, expected, name, source, size):
             os.fchmod(output.fileno(), 0o644)
             written = os.fstat(output.fileno())
             with LOCK, store.connect() as db:
-                current = target(store.root, relative)
+                current = destination(store.root, relative)
                 guard_database(store.database, relative)
                 if token(store.root, relative, current) != expected:
                     raise UploadConflict('Папка перемещена во время передачи. Открой её заново и повтори загрузку')
@@ -168,7 +170,12 @@ def receive(store, relative, expected, name, source, size):
                 db.execute('BEGIN IMMEDIATE')
                 reserved = reserved_names(db, relative)
                 for index in range(1, 10001):
-                    candidate = name if index==1 else f'{Path(name).stem} ({index}){Path(name).suffix}'
+                    if index == 1:
+                        candidate = name
+                    elif numbered_suffix:
+                        candidate = f'{name.removesuffix(numbered_suffix)}-{index}{numbered_suffix}'
+                    else:
+                        candidate = f'{Path(name).stem} ({index}){Path(name).suffix}'
                     if len(os.fsencode(candidate))>255:
                         raise UploadConflict('Для копии с номером нужно более короткое имя файла')
                     if candidate.casefold() in reserved:

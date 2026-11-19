@@ -318,6 +318,20 @@ self.send_json({**order_deadlines.highlight_settings(order_store()), 'week_optio
 
 Вызовы ветки: `order_deadlines.highlight_settings`, `order_deadlines.week_options`, `order_store`.
 
+## GET / HEAD /api/plotter-settings
+
+[ManagerHandler.handle_get](python/server.md#symbol-ManagerHandler.handle_get).
+
+Условие: `parsed.path == '/api/plotter-settings'`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json(plotter.settings(order_store()), head=head)
+```
+
+Вызовы ветки: `plotter.settings`, `order_store`.
+
 ## GET / HEAD /api/reconciliations
 
 [ManagerHandler.handle_get](python/server.md#symbol-ManagerHandler.handle_get).
@@ -966,6 +980,38 @@ self.send_json(order_deadlines.highlight_settings(order_store(), payload))
 ```
 
 Вызовы ветки: `self.headers.get`, `self.headers.get_content_type`, `urllib.parse.urlsplit`, `order_deadlines.highlight_settings`, `order_store`.
+
+## POST /api/plotter-convert
+
+[ManagerHandler.do_POST](python/server.md#symbol-ManagerHandler.do_POST).
+
+Условие: `route in {'/api/plotter-settings', '/api/plotter-convert'}`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json({'error': 'Открой настройки плоттера или папку # cutter в Менеджере'}, 403)
+self.send_json(plotter.save_conversion(order_store(), payload), 201)
+self.send_json(plotter.settings(order_store(), payload))
+```
+
+Вызовы ветки: `self.headers.get`, `self.headers.get_content_type`, `urllib.parse.urlsplit`, `plotter.save_conversion`, `plotter.settings`, `order_store`.
+
+## POST /api/plotter-settings
+
+[ManagerHandler.do_POST](python/server.md#symbol-ManagerHandler.do_POST).
+
+Условие: `route in {'/api/plotter-settings', '/api/plotter-convert'}`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json({'error': 'Открой настройки плоттера или папку # cutter в Менеджере'}, 403)
+self.send_json(plotter.save_conversion(order_store(), payload), 201)
+self.send_json(plotter.settings(order_store(), payload))
+```
+
+Вызовы ветки: `self.headers.get`, `self.headers.get_content_type`, `urllib.parse.urlsplit`, `plotter.save_conversion`, `plotter.settings`, `order_store`.
 
 ## POST /api/invoice-reconciliation
 

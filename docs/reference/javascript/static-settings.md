@@ -24,6 +24,24 @@ async function changeCalendarPassword(action)
 
 Прямые присваивания полям/свойствам: `caldavGenerate.disabled`, `caldavRevoke.disabled`, `close.disabled`, `caldavStatus.textContent`, `caldavPassword.value`, `caldavPassword.parentElement.hidden`.
 
+<a id="symbol-loadPlotterSettings"></a>
+
+## loadPlotterSettings
+
+[static/settings.js](../../../static/settings.js) · `FunctionDeclaration`.
+
+```javascript
+async function loadPlotterSettings()
+```
+
+Загружает общий масштаб плоттера для двух выходных осей.
+
+Устаревший ответ после закрытия окна не затирает открытую форму.
+
+Непосредственные вызовы: `window.fetch`, `data.json`, `Error`, `String(values[axis]).replace`, `String`.
+
+Прямые присваивания полям/свойствам: `plotterReload.disabled`, `plotterSave.disabled`, `plotterFields.disabled`, `plotterStatus.textContent`, `plotterForm.elements[axis].value`.
+
 <a id="symbol-loadSeller"></a>
 
 ## loadSeller
@@ -104,6 +122,24 @@ function renderWeekHighlights(edit)
 
 Прямые присваивания полям/свойствам: `document.getElementById('deadlineHighlightMonths').innerHTML`, `highlightWeeks.innerHTML`, `highlightWeeks.parentElement.scrollLeft`.
 
+<a id="symbol-savePlotterSettings"></a>
+
+## savePlotterSettings
+
+[static/settings.js](../../../static/settings.js) · `FunctionDeclaration`.
+
+```javascript
+async function savePlotterSettings(event)
+```
+
+Сохраняет обе поправки плоттера одним запросом по прочитанной версии.
+
+При конфликте оставляет введённые значения и просит загрузить сохранённые.
+
+Непосредственные вызовы: `event.preventDefault`, `Object.fromEntries`, `FormData`, `fetch`, `JSON.stringify`, `response.json`, `Error`.
+
+Прямые присваивания полям/свойствам: `plotterFields.disabled`, `plotterSave.disabled`, `plotterReload.disabled`, `close.disabled`, `plotterStatus.textContent`.
+
 <a id="symbol-saveSeller"></a>
 
 ## saveSeller
@@ -172,7 +208,7 @@ function selectSettingsTab(selected)
 
 Скрытые формы остаются в окне вместе с введёнными значениями и состоянием запросов.
 
-Непосредственные вызовы: `tab.setAttribute`, `String`, `document.getElementById`, `tab.getAttribute`, `Set`, `loadWeekHighlights`.
+Непосредственные вызовы: `tab.setAttribute`, `String`, `document.getElementById`, `tab.getAttribute`, `Set`, `loadWeekHighlights`, `loadPlotterSettings`.
 
 Прямые присваивания полям/свойствам: `tab.tabIndex`, `document.getElementById(tab.getAttribute('aria-controls')).hidden`, `content.scrollTop`.
 

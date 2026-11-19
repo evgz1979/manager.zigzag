@@ -63,6 +63,7 @@ import object_years
 import object_move
 import object_orders
 import file_uploads
+import plotter
 import work_orders
 from work_order_list import WorkOrderList
 import supplier_purchases
@@ -1269,6 +1270,8 @@ def read_folder(relative="", show_inactive=False):
     etc_year = is_etc_year(relative)
     files_scope = "folder" if freza_task else "events" if status["folderKind"] == "order" or status.get("order") else (
         "subfolders" if not print_view and (etc_year or status["folderKind"] in {"client", "object", "catalog_group", "supplier_root", "work_root", "moneys_root", "work_section", "moneys_section", "reconciliations_root", "reconciliation", "bills_root"}) else "folder")
+    if files_scope == "subfolders" and plotter.is_cutter(target.name):
+        files_scope = "plotter"
     hide_files = files_scope != "folder"
     folder_count = len(directories) if hide_files or print_view or status['folderKind'] == 'bills_inbox' else 0
     order_file_folder_kinds = ()
@@ -1280,7 +1283,7 @@ def read_folder(relative="", show_inactive=False):
                           if folder.name.startswith("#") and folder.name[1:].strip().casefold() in order_file_folder_kinds
                           and not folder.is_symlink()]
     order_file_folders.sort(key=lambda folder: (order_file_folder_kinds.index(folder.name[1:].strip().casefold()), sort_key(folder)))
-    file_roots = [target] if not hide_files else order_file_folders
+    file_roots = [target] if not hide_files or files_scope == "plotter" else order_file_folders
 
     # Сохраняет ошибку обхода, не выдавая неполный результат за полный.
     # Передаёт работу `warnings.append`.
@@ -1293,7 +1296,7 @@ def read_folder(relative="", show_inactive=False):
         current_path = Path(current)
         docs_view = DATABASE_ONLY and not print_view and in_docs(current_path.relative_to(DATA_ROOT))
         dirs[:] = [name for name in dirs if visible(current_path / name)]
-        if print_view or status['folderKind'] == 'bills_inbox':
+        if print_view or status['folderKind'] == 'bills_inbox' or files_scope == "plotter":
             dirs[:] = []  # Print sources and incoming bills list only immediate files.
         if not hide_files:
             folder_count += len(dirs)
@@ -1303,6 +1306,9 @@ def read_folder(relative="", show_inactive=False):
             if name in (STATUS_DOCUMENT_NAME, "!order.txt", *LEGACY_STATUS_DOCUMENT_NAMES):
                 continue
             file = current_path / name
+            action = plotter.file_action(relative_path(file)) if not print_view else None
+            if files_scope == "plotter" and not action:
+                continue
             if print_view and (file.suffix.lower() not in PRINT_TEXT_EXTENSIONS or (DATABASE_ONLY and metadata_store().is_publication(relative_path(file)))):
                 continue
             if not visible(file) or not file.is_file():
@@ -1323,6 +1329,10 @@ def read_folder(relative="", show_inactive=False):
                           "type": file_group(file), "preview": "cdr" if in_freza(relative) and sketches.sketch_name(file.name) else preview_kind(file),
                           "extension": file.suffix.lstrip(".").upper() or "ФАЙЛ", "comment": comment,
                           "comment_key": file_comments.binding(file)})
+            if action:
+                files[-1]["plotterAction"] = action
+                if action == "convert":
+                    files[-1]["plotterSourceKey"] = thumbnail_cache.signature(stat)
             if docs_view:
                 files[-1]["document_relevance"] = {"file_key": thumbnail_cache.signature(stat), "value": "none", "revision": "missing"}
                 documents.append(files[-1])
@@ -1435,6 +1445,7 @@ def read_folder(relative="", show_inactive=False):
             "warnings": warnings, "storage":"database" if DATABASE_ONLY else "legacy", "view": "print" if print_view else "files",
             "frezaSection": freza_section, "frezaTask": freza_task,
             "filesScope": files_scope,
+            "plotterFolder": any(plotter.is_cutter(part) for part in parts),
             "upload": file_uploads.options(DATA_ROOT,relative) if files_scope=="folder" and file_uploads.available(DATA_ROOT,relative) else None,
             "newFileName": next_print_name(target) if print_view else "",
             "canCreateObjectFolder": status["folderKind"]=="client",
@@ -1788,6 +1799,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
             elif parsed.path == '/api/deadline-highlights':
                 self.send_json({**order_deadlines.highlight_settings(order_store()),
                                 "week_options": order_deadlines.week_options()}, head=head)
+            elif parsed.path == "/api/plotter-settings":
+                self.send_json(plotter.settings(order_store()), head=head)
             elif parsed.path == '/api/reconciliations':
                 self.send_json({'items': reconciliations.Reconciliations(order_store()).catalog()}, head=head)
             elif parsed.path == '/api/reconciliation':
@@ -2130,6 +2143,17 @@ class ManagerHandler(BaseHTTPRequestHandler):
                     self.send_json({'error': 'Изменяй жёлтую полосу через настройки менеджера'}, 403)
                     return
                 self.send_json(order_deadlines.highlight_settings(order_store(), payload))
+                return
+            if route in {"/api/plotter-settings", "/api/plotter-convert"}:
+                origin = self.headers.get("Origin")
+                if (self.headers.get("X-Manager-Plotter") != "1" or self.headers.get_content_type() != "application/json"
+                        or (origin and urllib.parse.urlsplit(origin).netloc != self.headers.get("Host"))):
+                    self.send_json({"error": "Открой настройки плоттера или папку # cutter в Менеджере"}, 403)
+                    return
+                if route == "/api/plotter-convert":
+                    self.send_json(plotter.save_conversion(order_store(), payload), 201)
+                else:
+                    self.send_json(plotter.settings(order_store(), payload))
                 return
             if route in {'/api/reconciliation-save', '/api/invoice-reconciliation'}:
                 origin = self.headers.get('Origin')
@@ -2602,8 +2626,10 @@ class ManagerHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": True})
         except FileNotFoundError as error:
             self.send_json({"error": str(error)}, 404)
-        except order_deadlines.WeekHighlightConflict as error:
+        except (order_deadlines.WeekHighlightConflict, file_uploads.UploadConflict) as error:
             self.send_json({"error": str(error)}, 409)
+        except file_uploads.UploadBusy as error:
+            self.send_json({"error": str(error)}, 429)
         except (reconciliations.ReconciliationConflict, invoices.InvoiceConflict, PrintConflict, OrderConflict, work_orders.SupplierFavoriteConflict, ClientActivityConflict, client_colors.ClientColorConflict, FileCommentConflict, file_trash.TrashConflict, order_folders.OrderFolderConflict, object_years.YearGroupConflict, folder_rename.FolderRenameConflict, FolderNoteConflict, event_folders.EventFolderConflict, EventRenamePending) as error:
             self.send_json({"error": str(error)}, 409)
         except (ValueError, UnicodeDecodeError) as error:

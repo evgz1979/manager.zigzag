@@ -799,6 +799,19 @@
         ]
       },
       {
+        "path": "plotter.py",
+        "symbols": [
+          {"name": "convert", "type": "function", "anchor": "symbol-convert"},
+          {"name": "file_action", "type": "function", "anchor": "symbol-file_action"},
+          {"name": "is_cutter", "type": "function", "anchor": "symbol-is_cutter"},
+          {"name": "percent", "type": "function", "anchor": "symbol-percent"},
+          {"name": "read_strokes", "type": "function", "anchor": "symbol-read_strokes"},
+          {"name": "save_conversion", "type": "function", "anchor": "symbol-save_conversion"},
+          {"name": "save_conversion.destination", "type": "function", "anchor": "symbol-save_conversion.destination"},
+          {"name": "settings", "type": "function", "anchor": "symbol-settings"}
+        ]
+      },
+      {
         "path": "reconciliations.py",
         "symbols": [
           {"name": "ReconciliationConflict", "type": "class", "anchor": "symbol-ReconciliationConflict"},
@@ -1356,6 +1369,7 @@
           {"name": "compareOrders", "type": "FunctionDeclaration", "anchor": "symbol-compareOrders"},
           {"name": "confirmEventRemoval", "type": "FunctionDeclaration", "anchor": "symbol-confirmEventRemoval"},
           {"name": "confirmFileRemoval", "type": "FunctionDeclaration", "anchor": "symbol-confirmFileRemoval"},
+          {"name": "convertPlotterSelection", "type": "FunctionDeclaration", "anchor": "symbol-convertPlotterSelection"},
           {"name": "copyText", "type": "FunctionDeclaration", "anchor": "symbol-copyText"},
           {"name": "copyText.onCopy", "type": "ArrowFunctionExpression", "anchor": "symbol-copyText.onCopy"},
           {"name": "createImageReport", "type": "FunctionDeclaration", "anchor": "symbol-createImageReport"},
@@ -1896,10 +1910,12 @@
         "path": "static/settings.js",
         "symbols": [
           {"name": "changeCalendarPassword", "type": "FunctionDeclaration", "anchor": "symbol-changeCalendarPassword"},
+          {"name": "loadPlotterSettings", "type": "FunctionDeclaration", "anchor": "symbol-loadPlotterSettings"},
           {"name": "loadSeller", "type": "FunctionDeclaration", "anchor": "symbol-loadSeller"},
           {"name": "loadWeekHighlights", "type": "FunctionDeclaration", "anchor": "symbol-loadWeekHighlights"},
           {"name": "openSettings", "type": "FunctionDeclaration", "anchor": "symbol-openSettings"},
           {"name": "renderWeekHighlights", "type": "FunctionDeclaration", "anchor": "symbol-renderWeekHighlights"},
+          {"name": "savePlotterSettings", "type": "FunctionDeclaration", "anchor": "symbol-savePlotterSettings"},
           {"name": "saveSeller", "type": "FunctionDeclaration", "anchor": "symbol-saveSeller"},
           {"name": "saveSettings", "type": "FunctionDeclaration", "anchor": "symbol-saveSettings"},
           {"name": "saveWeekHighlights", "type": "FunctionDeclaration", "anchor": "symbol-saveWeekHighlights"},

@@ -230,7 +230,7 @@ async function uploadFiles(files) {
 async function request(url, payload, options = {}) {
   const response = await fetch(url, payload === undefined ? options : {
     ...options,
-    method: "POST", headers: { "Content-Type": "application/json", ...(['/api/reconciliation-save', '/api/invoice-reconciliation'].includes(url) ? { 'X-Manager-Reconciliations': '1' } : {}) }, body: JSON.stringify(payload),
+    method: "POST", headers: { "Content-Type": "application/json", ...options.headers, ...(['/api/reconciliation-save', '/api/invoice-reconciliation'].includes(url) ? { 'X-Manager-Reconciliations': '1' } : {}) }, body: JSON.stringify(payload),
   });
   const result = await response.json();
   if (!response.ok) {
@@ -1511,7 +1511,7 @@ function fileCard(file, selectable = true) {
     '<button class="file-main" data-file="' + escapeHtml(file.path) + '" data-comment-key="' + escapeHtml(file.comment_key || "") + '" title="' +
     escapeHtml(file.name + (file.folder ? "\n" + file.folder : "")) + '" aria-label="' + escapeHtml(file.name) + '"><div class="file-thumbnail">' + media +
     '</div><span class="file-name">' + escapeHtml(file.name) + '</span>' + (file.comment?.trim() ? '<span class="file-comment-caption">' + escapeHtml(file.comment) + '</span>' : '') + '</button>' +
-    (file.extension === "CDR" ? fileDownloadButton(file) : '') + relevanceControls + '</article>';
+    (file.extension === "CDR" || file.plotterAction === "download" ? fileDownloadButton(file) : '') + relevanceControls + '</article>';
 }
 
 // Обновляет только цвет плитки и состояние её кнопок.
@@ -1584,6 +1584,7 @@ function renderFiles() {
   for (const path of state.selectedFiles) if (!available.has(path)) state.selectedFiles.delete(path);
   renderFileActions();
   $("fileCount").textContent = files.length;
+  $("fileScopeLabel").textContent = state.folder.filesScope === "plotter" ? "PLT в выбранной папке" : "Из выбранной папки и всех подпапок";
   $("fileFilters").innerHTML = Object.entries(typeLabels)
     .filter(([type]) => type === "all" || state.folder.counts[type] > 0)
     .map(([type, label]) => '<button class="file-filter' + (state.fileType === type ? " active" : "") +
@@ -1668,10 +1669,37 @@ function renderFileActions() {
   $("createImageReport").disabled = !images.length || Boolean(report?.busy);
   $("deleteSelectedFiles").disabled = !selected.length || Boolean(report?.busy) || state.fileRemoving;
   $("createImageReport").textContent = report?.busy ? "Формирую PDF…" : "PDF-отчёт";
+  const convert = $("convertPlotter");
+  convert.hidden = !state.folder.plotterFolder || !state.folder.files.some(file => file.plotterAction === "convert");
+  convert.disabled = Boolean(state.plotterJob) || selected.length !== 1 || selected[0]?.plotterAction !== "convert";
+  convert.textContent = state.plotterJob?.folder === state.folder ? "Конвертирую…" : "Конвертировать PLT";
   $("fileReportState").classList.toggle("error", Boolean(report?.error));
   $("fileReportState").textContent = report?.error || (report?.result ? "Сохранён: " + report.result.name + (report.result.skippedCount ? " · пропущено файлов других типов: " + report.result.skippedCount : "") : "");
   $("openImageReport").hidden = !report?.result;
   if (report?.result && !state.folder.files.some((file) => file.path === report.result.path)) $("openImageReport").hidden = true;
+}
+
+// Конвертирует один отмеченный исходник и перечитывает список файлов.
+// Повторный клик во время запроса защищён; исходник и текущая страница сохраняются.
+async function convertPlotterSelection() {
+  const folder = state.folder;
+  const selected = folder.files.filter(file => state.selectedFiles.has(file.path));
+  if (state.plotterJob || !folder.plotterFolder || selected.length !== 1 || selected[0].plotterAction !== "convert") return;
+  const [source] = selected;
+  state.plotterJob = { folder };
+  renderFileActions();
+  try {
+    const saved = await request("/api/plotter-convert", { path: source.path, source_key: source.plotterSourceKey },
+      { headers: { "X-Manager-Plotter": "1" } });
+    notify("Сохранён: " + saved.name);
+    if (state.folder === folder) {
+      await refreshUploadedFiles({ path: folder.path, token: folder.upload?.token, results: [saved] })
+        .catch(() => notify("Сохранён: " + saved.name + ". Обнови список файлов."));
+    }
+  } finally {
+    state.plotterJob = null;
+    if (state.view === "folder" && state.folder) renderFileActions();
+  }
 }
 
 // Запрашивает предусмотренное подтверждение удаления выбранной цели.
@@ -5005,6 +5033,7 @@ $("selectAllFiles").addEventListener("change", (event) => {
 });
 $("clearFileSelection").addEventListener("click", () => { state.selectedFiles.clear(); renderFiles(); });
 $("createImageReport").addEventListener("click", () => run(createImageReport));
+$("convertPlotter").addEventListener("click", () => run(convertPlotterSelection));
 $("deleteSelectedFiles").addEventListener("click", () => run(confirmFileRemoval));
 $("deleteFilesForm").addEventListener("submit", (event) => { event.preventDefault(); run(removeSelectedFiles); });
 $("cancelDeleteFiles").addEventListener("click", () => $("deleteFilesDialog").close());

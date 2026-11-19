@@ -129,14 +129,14 @@ def options(root, relative):
 [file_uploads.py](../../../file_uploads.py) · `function`.
 
 ```python
-def receive(store, relative, expected, name, source, size):
+def receive(store, relative, expected, name, source, size, *, destination=target, numbered_suffix=''):
 ```
 
 Принимает ограниченный поток файла и публикует его без перезаписи.
 
-При недопустимом состоянии возбуждает ValueError, UploadTooLarge, UploadBusy.
+Конвертер может передать проверку папки и закрепить суффикс после номера копии.
 
-Непосредственные вызовы: `isinstance`, `ValueError`, `UploadTooLarge`, `filename`, `SLOTS.acquire`, `UploadBusy`, `uuid.uuid4`, `target`, `guard_database`, `store.get`, `is_freza_task`, `token`, `UploadConflict`, `os.open`, `os.fstat`, `folder.stat`, `os.fdopen`, `source.read`, `min`, `output.write`, `len`, `output.flush`, `os.fsync`, `output.fileno`, `os.fchmod`, `store.connect`, `os.stat`, `db.execute`, `reserved_names`, `range`, `Path`, `os.fsencode`, `candidate.casefold`, `folder_layout.rename_exclusive`, `(Path(relative) / candidate).as_posix`, `os.unlink`, `os.close`, `SLOTS.release`.
+Непосредственные вызовы: `isinstance`, `ValueError`, `UploadTooLarge`, `filename`, `name.endswith`, `SLOTS.acquire`, `UploadBusy`, `uuid.uuid4`, `destination`, `guard_database`, `store.get`, `is_freza_task`, `token`, `UploadConflict`, `os.open`, `os.fstat`, `folder.stat`, `os.fdopen`, `source.read`, `min`, `output.write`, `len`, `output.flush`, `os.fsync`, `output.fileno`, `os.fchmod`, `store.connect`, `os.stat`, `db.execute`, `reserved_names`, `range`, `name.removesuffix`, `Path`, `os.fsencode`, `candidate.casefold`, `folder_layout.rename_exclusive`, `(Path(relative) / candidate).as_posix`, `os.unlink`, `os.close`, `SLOTS.release`.
 
 Явные исключения: `ValueError`, `UploadTooLarge`, `UploadBusy`, `UploadConflict`.
 

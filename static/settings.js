@@ -15,6 +15,13 @@
   const sellerTab = document.getElementById('managerSellerTab');
   const caldavTab = document.getElementById('managerCalDAVTab');
   const highlightTab = document.getElementById('managerDeadlineHighlightsTab');
+  const plotterTab = document.getElementById('managerPlotterTab');
+  const plotterForm = document.getElementById('plotterSettingsForm');
+  const plotterFields = document.getElementById('plotterSettingsFields');
+  const plotterStatus = document.getElementById('plotterSettingsState');
+  const plotterSave = document.getElementById('savePlotterSettings');
+  const plotterReload = document.getElementById('reloadPlotterSettings');
+  let plotterRevision = null, plotterBusy = false;
   const highlightWeeks = document.getElementById('deadlineHighlightWeeks');
   const highlightEarlier = document.getElementById('deadlineHighlightEarlier');
   const highlightLater = document.getElementById('deadlineHighlightLater');
@@ -55,6 +62,58 @@
     if (selected === highlightTab && !highlightEdit) {
       highlightEdit = { currentWeek: null, firstWeek: null, pageSize: 0, weeks: new Set(), saved: [], revision: null };
       loadWeekHighlights();
+    }
+    if (selected === plotterTab && plotterRevision === null && !plotterReload.disabled) loadPlotterSettings();
+  }
+
+  // Загружает общий масштаб плоттера для двух выходных осей.
+  // Устаревший ответ после закрытия окна не затирает открытую форму.
+  async function loadPlotterSettings() {
+    const version = request;
+    plotterReload.disabled = plotterSave.disabled = plotterFields.disabled = true;
+    plotterStatus.textContent = 'Загрузка…';
+    try {
+      const data = await window.fetch('/api/plotter-settings', { cache: 'no-store' });
+      const values = await data.json();
+      if (!dialog.open || version !== request) return;
+      if (!data.ok) throw new Error(values.error || 'Не удалось загрузить масштаб');
+      plotterRevision = values.revision;
+      for (const axis of ['x_percent', 'y_percent']) plotterForm.elements[axis].value = String(values[axis]).replace('.', ',');
+      plotterSave.disabled = plotterFields.disabled = false;
+      plotterStatus.textContent = '';
+    } catch (error) {
+      if (dialog.open && version === request) plotterStatus.textContent = error.message;
+    } finally {
+      if (version === request) plotterReload.disabled = false;
+    }
+  }
+
+  // Сохраняет обе поправки плоттера одним запросом по прочитанной версии.
+  // При конфликте оставляет введённые значения и просит загрузить сохранённые.
+  async function savePlotterSettings(event) {
+    event.preventDefault();
+    if (busy || sellerBusy || caldavBusy || highlightEdit?.saving || plotterBusy || plotterSave.disabled) return;
+    const payload = { revision: plotterRevision, ...Object.fromEntries(new FormData(plotterForm)) };
+    plotterBusy = true;
+    plotterFields.disabled = plotterSave.disabled = plotterReload.disabled = close.disabled = true;
+    plotterStatus.textContent = 'Сохранение…';
+    let conflict = false;
+    try {
+      const response = await fetch('/api/plotter-settings', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Manager-Plotter': '1' },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      conflict = response.status === 409;
+      if (!response.ok) throw new Error(data.error || 'Не удалось сохранить масштаб');
+      plotterRevision = data.revision;
+      plotterStatus.textContent = 'Масштаб сохранён для следующих конвертаций.';
+    } catch (error) {
+      plotterStatus.textContent = error.message + (conflict ? ' Нажми «Обновить», чтобы загрузить сохранённые значения.' : '');
+    } finally {
+      plotterBusy = false;
+      plotterFields.disabled = plotterReload.disabled = close.disabled = false;
+      plotterSave.disabled = conflict;
     }
   }
 
@@ -129,7 +188,7 @@
   // При конфликте и потере ответа оставляет черновик видимым до загрузки текущих отметок.
   async function saveWeekHighlights() {
     const edit = highlightEdit;
-    if (busy || sellerBusy || caldavBusy || highlightSave.disabled) return;
+    if (busy || sellerBusy || caldavBusy || plotterBusy || highlightSave.disabled) return;
     edit.saving = true;
     close.disabled = true;
     updateWeekHighlights(edit);
@@ -175,7 +234,7 @@
   // Ошибка оставляет поля; ни конфликт, ни потеря ответа не вызывают автоматического повтора.
   async function saveSeller(event) {
     event.preventDefault();
-    if (sellerBusy || busy || caldavBusy || highlightEdit?.saving || sellerRevision === null) return;
+    if (sellerBusy || busy || caldavBusy || plotterBusy || highlightEdit?.saving || sellerRevision === null) return;
     const seller = Object.fromEntries([...sellerFields.querySelectorAll('input')].map(input => [input.dataset.sellerField, input.value]));
     sellerBusy = true; sellerFields.disabled = true; sellerSave.disabled = true; close.disabled = true;
     sellerStatus.textContent = 'Сохранение…';
@@ -222,7 +281,7 @@
   // При ошибке соединения не повторяет запрос, поскольку пароль мог уже измениться.
   async function saveSettings(event) {
     event.preventDefault();
-    if (busy || sellerBusy || caldavBusy || highlightEdit?.saving || !csrf) return;
+    if (busy || sellerBusy || caldavBusy || plotterBusy || highlightEdit?.saving || !csrf) return;
     if (password.value !== confirmation.value) {
       status.textContent = 'Новые пароли должны совпадать.'; confirmation.focus(); return;
     }
@@ -249,7 +308,7 @@
   // Меняет отдельный пароль приложения через текущую сессию настроек.
   // Показывает пароль один раз и сохраняет его только до закрытия окна.
   async function changeCalendarPassword(action) {
-    if (busy || sellerBusy || caldavBusy || highlightEdit?.saving || !csrf) return;
+    if (busy || sellerBusy || caldavBusy || plotterBusy || highlightEdit?.saving || !csrf) return;
     if (action === 'revoke' && !window.confirm('Отключить синхронизацию CalDAV на всех устройствах?')) return;
     caldavBusy = true; caldavGenerate.disabled = true; caldavRevoke.disabled = true; close.disabled = true;
     caldavStatus.textContent = 'Сохранение…';
@@ -313,11 +372,18 @@
   }
   highlightSave.addEventListener('click', saveWeekHighlights);
   highlightReload.addEventListener('click', loadWeekHighlights);
+  plotterForm.addEventListener('submit', savePlotterSettings);
+  plotterReload.addEventListener('click', loadPlotterSettings);
   close.addEventListener('click', () => dialog.close());
-  dialog.addEventListener('cancel', event => { if (busy || sellerBusy || caldavBusy || highlightEdit?.saving) event.preventDefault(); });
+  dialog.addEventListener('cancel', event => { if (busy || sellerBusy || caldavBusy || plotterBusy || highlightEdit?.saving) event.preventDefault(); });
   dialog.addEventListener('close', () => {
     ++request; ++sellerLoading; form.reset(); sellerForm.reset(); csrf = ''; status.textContent = ''; sellerStatus.textContent = '';
     highlightEdit = null;
+    plotterRevision = null;
+    plotterForm.reset();
+    plotterFields.disabled = plotterSave.disabled = true;
+    plotterReload.disabled = false;
+    plotterStatus.textContent = '';
     caldavPassword.value = ''; caldavPassword.parentElement.hidden = true; caldavStatus.textContent = '';
   });
 })();

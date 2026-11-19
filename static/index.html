@@ -211,7 +211,7 @@
           </div>
         </section>
         <details id="printLegacyFolders" class="print-legacy-folders" hidden><summary>Прежние папки <span id="printLegacyFolderCount" class="count-badge"></span></summary><p>Сохранены для доступа к документам и прежним карточкам. Новые задания создавай в редакторе печати.</p><div id="printLegacyFolderList" class="subfolders"></div></details>
-        <section id="filesSection" class="files-section" aria-label="Файлы"><div class="files-toolbar"><div><h2>Файлы <span id="fileCount" class="count-badge">0</span></h2><span class="files-scope">Из выбранной папки и всех подпапок</span></div><label class="search-field file-search"><svg><use href="#icon-search"/></svg><input id="fileSearch" type="search" placeholder="Найти файл…" aria-label="Поиск файлов заказа"></label><select id="fileSort" aria-label="Сортировка файлов"><option value="folders">По папкам</option><option value="modified">Сначала новые</option><option value="name">По имени</option></select></div>
+        <section id="filesSection" class="files-section" aria-label="Файлы"><div class="files-toolbar"><div><h2>Файлы <span id="fileCount" class="count-badge">0</span></h2><span id="fileScopeLabel" class="files-scope">Из выбранной папки и всех подпапок</span></div><label class="search-field file-search"><svg><use href="#icon-search"/></svg><input id="fileSearch" type="search" placeholder="Найти файл…" aria-label="Поиск файлов заказа"></label><select id="fileSort" aria-label="Сортировка файлов"><option value="folders">По папкам</option><option value="modified">Сначала новые</option><option value="name">По имени</option></select></div>
           <div id="uploadDropZone" class="upload-drop-zone" hidden><button id="chooseUploadFiles" class="secondary-button" type="button">+ Добавить файлы</button><span id="uploadDropHint">Или перетащи файлы в открытое событие</span><input id="uploadFileInput" type="file" multiple hidden></div>
           <div id="fileFilters" class="file-filters" aria-label="Тип файла"></div>
           <div id="fileActions" class="file-actions" aria-label="Групповые действия с файлами">
@@ -219,6 +219,7 @@
             <span id="fileSelectionCount" class="file-selection-count">Выбрано: 0</span>
             <button id="clearFileSelection" class="secondary-button" type="button" hidden>Снять выбор</button>
             <button id="createImageReport" class="primary-button" type="button" title="Изображения и комментарии к ним; сохранить PDF в открытой папке" disabled>PDF-отчёт</button>
+            <button id="convertPlotter" class="primary-button" type="button" title="Отметь один исходный PLT галочкой" disabled hidden>Конвертировать PLT</button>
             <button id="deleteSelectedFiles" class="danger-button" type="button" disabled>Удалить</button>
             <button id="openFileTrash" class="secondary-button" type="button">Корзина</button>
             <span id="fileReportState" class="file-report-state" role="status"></span>
@@ -513,6 +514,7 @@
         <button id="managerCalDAVTab" type="button" role="tab" aria-selected="false" aria-controls="managerCalDAVSettings" tabindex="-1" hidden>Apple Calendar · CalDAV</button>
         <button id="managerAppearanceTab" type="button" role="tab" aria-selected="false" aria-controls="managerAppearanceSettings" tabindex="-1">Оформление</button>
         <button id="managerDeadlineHighlightsTab" type="button" role="tab" aria-selected="false" aria-controls="managerDeadlineHighlightsSettings" tabindex="-1">Жёлтая полоса</button>
+        <button id="managerPlotterTab" type="button" role="tab" aria-selected="false" aria-controls="managerPlotterSettings" tabindex="-1">Плоттер</button>
       </div>
       <div id="managerSettingsContent" class="manager-settings-content">
         <section id="managerSellerSettings" role="tabpanel" aria-labelledby="managerSellerTab" tabindex="0">
@@ -590,6 +592,20 @@
             <button id="saveDeadlineHighlights" class="primary-button" type="button" disabled>Сохранить</button>
             <button id="reloadDeadlineHighlights" class="secondary-button" type="button" hidden>Загрузить сохранённые</button>
           </div>
+        </section>
+        <section id="managerPlotterSettings" role="tabpanel" aria-labelledby="managerPlotterTab" tabindex="0" hidden>
+          <p class="new-order-preview">Масштаб по осям плоттера после поворота. Значение 100% сохраняет исходный размер.</p>
+          <form id="plotterSettingsForm">
+            <fieldset id="plotterSettingsFields" disabled>
+              <label>Масштаб X, % <input name="x_percent" inputmode="decimal" maxlength="24" required></label>
+              <label>Масштаб Y, % <input name="y_percent" inputmode="decimal" maxlength="24" required></label>
+            </fieldset>
+            <p id="plotterSettingsState" class="invoice-state" role="status"></p>
+            <div class="manager-settings-actions">
+              <button id="savePlotterSettings" class="primary-button" type="submit" disabled>Сохранить</button>
+              <button id="reloadPlotterSettings" class="secondary-button" type="button">Обновить</button>
+            </div>
+          </form>
         </section>
       </div>
       <div class="confirm-actions"><button id="managerSettingsClose" class="secondary-button" type="button">Закрыть</button></div>
