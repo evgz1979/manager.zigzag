@@ -1240,7 +1240,6 @@ h2 { font-size: 13px; font-weight: 600; }
 .invoice-dialog .external-invoice-drop { padding: 18px; border: 1px dashed var(--line); border-radius: 8px; gap: 10px; }
 .external-invoice-dialog.invoice-dragging .external-invoice-drop { border-color: var(--accent); background: var(--accent-soft); }
 .external-invoice-drop small { overflow-wrap: anywhere; }
-.invoice-row-label.invoice-row-comment { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; overflow-wrap: anywhere; font-size: 14px; line-height: 19px; font-weight: 650; color: light-dark(#263d36, #e3ebe6); }
 .invoice-row-label.invoice-issuance-plan-label { display: inline-block; max-width: 100%; padding: 2px 7px; border-radius: 4px; background: var(--success-soft); color: var(--success); }
 .invoice-row-label.invoice-completed-plan-label { display: inline-block; max-width: 100%; padding: 2px 7px; border-radius: 4px; background: light-dark(#eef0ef, #2a3136); color: var(--muted); }
 .invoice-row-name.invoice-plan-completed, .invoice-row-name.invoice-plan-completed .invoice-row-meta { color: var(--muted); }

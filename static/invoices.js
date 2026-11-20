@@ -41,7 +41,7 @@
     $("invoiceEditorState").classList.toggle("error", error);
   };
 
-  // Строит форму рабочего комментария в строке выпущенного счёта или черновика.
+  // Строит форму рабочего комментария в строке черновика, выпуска или внешнего счёта.
   // Значение поля и состояние сохранения обновляются отдельно от разметки списка.
   function invoiceCommentMarkup(record, label) {
     return '<form class="invoice-inline-comment" data-invoice-comment="' + record.id + '">' +
@@ -172,8 +172,8 @@
     return edit.saving;
   }
 
-  // Открывает редактор из строки, дождавшись записи её комментария.
-  // Передаёт редактору актуальную версию счёта, контекст заказа и ключ кнопки возврата фокуса.
+  // Открывает редактор счёта или просмотр внешнего PDF после записи комментария строки.
+  // Берёт актуальную версию счёта в том же заказе и передаёт редактору ключ возврата фокуса.
   async function openInvoiceRow(record, returnFocus = null) {
     const context = state.folder, opening = ++invoiceOpening;
     let edit = commentEdits.get(record.id);
@@ -183,7 +183,9 @@
     }
     if (opening !== invoiceOpening || state.folder !== context || state.view !== 'folder') return;
     const latest = $("invoiceList").invoiceRecords?.find(item => item.id === record.id && item.path === record.path);
-    if (latest) show(latest, returnFocus);
+    if (!latest) return;
+    if (latest.state === 'external') await showInvoicePreview(latest);
+    else show(latest, returnFocus);
   }
 
   // Строит пиктограмму действия в строке счёта.
@@ -242,9 +244,6 @@
         return '<div class="invoice-row"><button type="button" class="invoice-row-name' + (completed ? ' invoice-plan-completed' : '') + '" data-invoice-plan="' + record.id + '" title="' + escapeHtml(planLabel + ' · ' + details) + '"' + (record.plan_editable ? '' : ' disabled') + '><span class="invoice-row-label' + planLabelClass + '">' + escapeHtml(planLabel) + '</span><small class="invoice-row-meta" title="' + escapeHtml(details) + '">' + escapeHtml(details) + (record.plan_editable ? '' : ' · Неизвестный формат плана') + '</small></button><div class="invoice-row-actions"><button class="secondary-button invoice-remove" type="button" data-invoice-remove="' + record.id + '" aria-label="В корзину · ' + escapeHtml(planLabel + ' · ' + date) + '">×</button></div></div>';
       }
       const details = (external ? 'Внешний · ' : '') + date;
-      const comment = external ? record.data.comment?.trim() : '';
-      const heading = comment || label;
-      const secondary = (comment ? label + ' · ' : '') + details;
       const sync = record.state === "draft" ? "Черновик" : record.sync_error ? "PDF в базе · " + record.sync_error + " · автоповтор" : record.sync_pending ? "PDF в базе · копия в # bills ожидает выгрузки" : "PDF в # bills";
       const busy = statusSaving.has(record.id) || InvoiceDocuments.isBusy(record.id);
       const status = invoiceStatusSelect(record, label, busy);
@@ -257,8 +256,8 @@
         const description = [completed ? 'Выполнено' : '', inactive ? 'Неактуально' : '', invoiceLabel(plan), label, displayPlanDate(plan), planAmount(plan), plan.data.text].filter(Boolean).join(' · ');
         return '<div class="invoice-linked-entry"><button type="button" class="invoice-linked-plan' + (inactive ? ' invoice-linked-inactive' : '') + (completed ? ' invoice-plan-completed' : '') + '" data-invoice-plan="' + plan.id + '" data-operation="' + escapeHtml(plan.data.operation || 'invoice') + '" aria-label="' + escapeHtml(description) + '" title="' + escapeHtml(description) + '"' + (plan.plan_editable ? '' : ' disabled') + '>' + escapeHtml(summary) + (plan.plan_editable ? '' : ' · Неизвестный формат плана') + '</button><button class="secondary-button invoice-remove" type="button" data-invoice-remove="' + plan.id + '" aria-label="' + escapeHtml('В корзину · ' + description) + '">×</button></div>';
       }).join('');
-      const name = '<button type="button" class="invoice-row-name" data-invoice-' + (external ? 'view' : 'edit') + '="' + record.id + '"' + (external ? '' : ' aria-label="' + escapeHtml('Открыть · ' + label) + '"') + '><span class="invoice-row-label' + (comment ? ' invoice-row-comment' : '') + '" title="' + escapeHtml(external ? heading : 'Открыть редактор · ' + heading) + '">' + escapeHtml(heading) + '</span><small class="invoice-row-meta" title="' + escapeHtml(secondary + ' · ' + sync) + '">' + escapeHtml(secondary) + '<span class="invoice-row-state' + (record.sync_error ? ' error' : '') + '"> · ' + escapeHtml(sync) + '</span></small></button>';
-      const top = external ? name : '<div class="invoice-row-top">' + name + invoiceCommentMarkup(record, label) + '</div>';
+      const name = '<button type="button" class="invoice-row-name" data-invoice-' + (external ? 'view' : 'edit') + '="' + record.id + '"' + (external ? '' : ' aria-label="' + escapeHtml('Открыть · ' + label) + '"') + '><span class="invoice-row-label" title="' + escapeHtml(external ? label : 'Открыть редактор · ' + label) + '">' + escapeHtml(label) + '</span><small class="invoice-row-meta" title="' + escapeHtml(details + ' · ' + sync) + '">' + escapeHtml(details) + '<span class="invoice-row-state' + (record.sync_error ? ' error' : '') + '"> · ' + escapeHtml(sync) + '</span></small></button>';
+      const top = '<div class="invoice-row-top">' + name + invoiceCommentMarkup(record, label) + '</div>';
       const issued = record.state === 'issued';
       const edit = issued && state.folder?.order?.registered === true ? invoiceAction(record, 'edit-button', 'Редактировать', 'edit') : '';
       const pdf = external ? invoiceAction(record, 'view', 'Открыть PDF', 'file') : issued ?
@@ -267,7 +266,7 @@
       const actions = '<div class="invoice-row-tools">' + schedule + InvoiceDocuments.button(record) +
         (typeof ReconciliationUI === 'undefined' ? '' : ReconciliationUI.button(record)) + edit + pdf + copy +
         invoiceAction(record, 'remove', 'В корзину', 'trash') + '</div>';
-      return '<div class="invoice-row" data-invoice-row="' + record.id + '"><div class="invoice-row-content' + (external ? '' : ' invoice-row-with-comment') + '">' + top + (plans ? '<div class="invoice-linked-plans">' + plans + '</div>' : '') + InvoiceDocuments.markup(record) + '</div><div class="invoice-row-actions">' + (external ? '' : '<strong>' + cash(record.data.total) + '</strong>') + status + actions + '</div></div>';
+      return '<div class="invoice-row" data-invoice-row="' + record.id + '"><div class="invoice-row-content invoice-row-with-comment">' + top + (plans ? '<div class="invoice-linked-plans">' + plans + '</div>' : '') + InvoiceDocuments.markup(record) + '</div><div class="invoice-row-actions">' + (external ? '' : '<strong>' + cash(record.data.total) + '</strong>') + status + actions + '</div></div>';
     }).join("");
     if (markup !== listMarkup) {
       $("invoiceList").innerHTML = markup;
@@ -1024,7 +1023,7 @@
     const view = event.target.closest("[data-invoice-view]");
     if (view) {
       const record = $("invoiceList").invoiceRecords?.find((item) => item.id === view.dataset.invoiceView && item.path === state.folder?.path);
-      if (record) action(() => showInvoicePreview(record));
+      if (record) action(() => openInvoiceRow(record));
       return;
     }
     if (copy) action(() => create(copy.dataset.invoiceCopy));

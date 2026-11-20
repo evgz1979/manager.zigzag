@@ -175,6 +175,8 @@ Apple Calendar читает изменения через свойства ко�
 
 [InvoiceStore.publish_copy](reference/python/invoices.md#symbol-InvoiceStore.publish_copy) публикует PDF в `# bills`. Для обновления копии сравнивает SHA-256 файла с прежними версиями того же счёта и перед атомарной заменой сверяет отпечаток. Чужие файлы сохраняются. Внешний PDF может загружаться как BLOB либо явно прикрепляться из `# bills` через [attach](reference/python/invoice_discovery.md#symbol-attach) с проверкой отпечатка, размера и отсутствия дубликата.
 
+[saveInvoiceComment](reference/javascript/static-invoices.md#symbol-saveInvoiceComment) автоматически сохраняет комментарий черновика, выпуска и внешнего счёта через [InvoiceStore.save_comment](reference/python/invoices.md#symbol-InvoiceStore.save_comment). При открытии внешнего PDF [openInvoiceRow](reference/javascript/static-invoices.md#symbol-openInvoiceRow) дожидается записи из строки, чтобы просмотрщик прочитал актуальный комментарий.
+
 [upload](reference/python/invoice_documents.md#symbol-upload) обслуживает вложения счёта; это отдельные документы с собственной историей/публикацией, а не замена выпущенного PDF. План платежа в календаре не означает фактическое изменение `paid` заказа.
 
 ## Сверки
