@@ -22,6 +22,13 @@
   const plotterSave = document.getElementById('savePlotterSettings');
   const plotterReload = document.getElementById('reloadPlotterSettings');
   let plotterRevision = null, plotterBusy = false;
+  const nasTab = document.getElementById('managerNasTab');
+  const nasForm = document.getElementById('nasSettingsForm');
+  const nasRoot = nasForm.elements.root;
+  const nasStatus = document.getElementById('nasSettingsState');
+  const nasSave = document.getElementById('saveNasSettings');
+  const nasReload = document.getElementById('reloadNasSettings');
+  let nasRevision = null, nasSaving = false;
   const highlightWeeks = document.getElementById('deadlineHighlightWeeks');
   const highlightEarlier = document.getElementById('deadlineHighlightEarlier');
   const highlightLater = document.getElementById('deadlineHighlightLater');
@@ -64,6 +71,44 @@
       loadWeekHighlights();
     }
     if (selected === plotterTab && plotterRevision === null && !plotterReload.disabled) loadPlotterSettings();
+    if (selected === nasTab && nasRevision === null && !nasReload.disabled) editNasSettings();
+  }
+
+  // Читает или сохраняет настроенный путь архивного тома.
+  // При конфликте сохраняет ввод до явного обновления и не повторяет запись.
+  async function editNasSettings(event) {
+    const saving = event?.type === 'submit';
+    if (saving) event.preventDefault();
+    if (nasReload.disabled || (saving && (nasSave.disabled || busy || sellerBusy || caldavBusy || plotterBusy || highlightEdit?.saving))) return;
+    const version = request, payload = { root: nasRoot.value, revision: nasRevision };
+    nasSaving = saving;
+    nasRoot.disabled = nasSave.disabled = nasReload.disabled = true;
+    if (saving) close.disabled = true;
+    nasStatus.textContent = saving ? 'Сохранение…' : 'Загрузка…';
+    try {
+      const response = await fetch('/api/nas-settings', saving ? {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Manager-Nas': '1' }, body: JSON.stringify(payload),
+      } : { cache: 'no-store' });
+      const data = await response.json();
+      if (!dialog.open || version !== request) return;
+      if (!response.ok) {
+        if (response.status === 409) nasRevision = '';
+        throw new Error((data.error || 'Не удалось загрузить путь NAS') + (response.status === 409 ? ' Нажми «Обновить».' : ''));
+      }
+      nasRoot.value = data.root;
+      nasRevision = data.revision;
+      nasStatus.textContent = saving ? 'Путь NAS сохранён.' : '';
+      if (saving) document.dispatchEvent(new Event('manager-nas-settings-saved'));
+    } catch (error) {
+      if (dialog.open && version === request) nasStatus.textContent = error.message;
+    } finally {
+      if (version === request) {
+        nasSaving = false;
+        nasRoot.disabled = nasSave.disabled = !nasRevision;
+        nasReload.disabled = false;
+        if (saving) close.disabled = false;
+      }
+    }
   }
 
   // Загружает общий масштаб плоттера для двух выходных осей.
@@ -92,7 +137,7 @@
   // При конфликте оставляет введённые значения и просит загрузить сохранённые.
   async function savePlotterSettings(event) {
     event.preventDefault();
-    if (busy || sellerBusy || caldavBusy || highlightEdit?.saving || plotterBusy || plotterSave.disabled) return;
+    if (busy || sellerBusy || caldavBusy || highlightEdit?.saving || plotterBusy || nasSaving || plotterSave.disabled) return;
     const payload = { revision: plotterRevision, ...Object.fromEntries(new FormData(plotterForm)) };
     plotterBusy = true;
     plotterFields.disabled = plotterSave.disabled = plotterReload.disabled = close.disabled = true;
@@ -188,7 +233,7 @@
   // При конфликте и потере ответа оставляет черновик видимым до загрузки текущих отметок.
   async function saveWeekHighlights() {
     const edit = highlightEdit;
-    if (busy || sellerBusy || caldavBusy || plotterBusy || highlightSave.disabled) return;
+    if (busy || sellerBusy || caldavBusy || plotterBusy || nasSaving || highlightSave.disabled) return;
     edit.saving = true;
     close.disabled = true;
     updateWeekHighlights(edit);
@@ -234,7 +279,7 @@
   // Ошибка оставляет поля; ни конфликт, ни потеря ответа не вызывают автоматического повтора.
   async function saveSeller(event) {
     event.preventDefault();
-    if (sellerBusy || busy || caldavBusy || plotterBusy || highlightEdit?.saving || sellerRevision === null) return;
+    if (sellerBusy || busy || caldavBusy || plotterBusy || nasSaving || highlightEdit?.saving || sellerRevision === null) return;
     const seller = Object.fromEntries([...sellerFields.querySelectorAll('input')].map(input => [input.dataset.sellerField, input.value]));
     sellerBusy = true; sellerFields.disabled = true; sellerSave.disabled = true; close.disabled = true;
     sellerStatus.textContent = 'Сохранение…';
@@ -281,7 +326,7 @@
   // При ошибке соединения не повторяет запрос, поскольку пароль мог уже измениться.
   async function saveSettings(event) {
     event.preventDefault();
-    if (busy || sellerBusy || caldavBusy || plotterBusy || highlightEdit?.saving || !csrf) return;
+    if (busy || sellerBusy || caldavBusy || plotterBusy || nasSaving || highlightEdit?.saving || !csrf) return;
     if (password.value !== confirmation.value) {
       status.textContent = 'Новые пароли должны совпадать.'; confirmation.focus(); return;
     }
@@ -308,7 +353,7 @@
   // Меняет отдельный пароль приложения через текущую сессию настроек.
   // Показывает пароль один раз и сохраняет его только до закрытия окна.
   async function changeCalendarPassword(action) {
-    if (busy || sellerBusy || caldavBusy || plotterBusy || highlightEdit?.saving || !csrf) return;
+    if (busy || sellerBusy || caldavBusy || plotterBusy || nasSaving || highlightEdit?.saving || !csrf) return;
     if (action === 'revoke' && !window.confirm('Отключить синхронизацию CalDAV на всех устройствах?')) return;
     caldavBusy = true; caldavGenerate.disabled = true; caldavRevoke.disabled = true; close.disabled = true;
     caldavStatus.textContent = 'Сохранение…';
@@ -374,8 +419,10 @@
   highlightReload.addEventListener('click', loadWeekHighlights);
   plotterForm.addEventListener('submit', savePlotterSettings);
   plotterReload.addEventListener('click', loadPlotterSettings);
+  nasForm.addEventListener('submit', editNasSettings);
+  nasReload.addEventListener('click', editNasSettings);
   close.addEventListener('click', () => dialog.close());
-  dialog.addEventListener('cancel', event => { if (busy || sellerBusy || caldavBusy || plotterBusy || highlightEdit?.saving) event.preventDefault(); });
+  dialog.addEventListener('cancel', event => { if (busy || sellerBusy || caldavBusy || plotterBusy || nasSaving || highlightEdit?.saving) event.preventDefault(); });
   dialog.addEventListener('close', () => {
     ++request; ++sellerLoading; form.reset(); sellerForm.reset(); csrf = ''; status.textContent = ''; sellerStatus.textContent = '';
     highlightEdit = null;
@@ -384,6 +431,11 @@
     plotterFields.disabled = plotterSave.disabled = true;
     plotterReload.disabled = false;
     plotterStatus.textContent = '';
+    nasRevision = null;
+    nasForm.reset();
+    nasRoot.disabled = nasSave.disabled = true;
+    nasReload.disabled = false;
+    nasStatus.textContent = '';
     caldavPassword.value = ''; caldavPassword.parentElement.hidden = true; caldavStatus.textContent = '';
   });
 })();

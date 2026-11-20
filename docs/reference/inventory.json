@@ -527,6 +527,18 @@
         ]
       },
       {
+        "path": "nas_archive.py",
+        "symbols": [
+          {"name": "archive", "type": "function", "anchor": "symbol-archive"},
+          {"name": "archive_state", "type": "function", "anchor": "symbol-archive_state"},
+          {"name": "descend", "type": "function", "anchor": "symbol-descend"},
+          {"name": "mounted_root", "type": "function", "anchor": "symbol-mounted_root"},
+          {"name": "mounted_volume", "type": "function", "anchor": "symbol-mounted_volume"},
+          {"name": "root_path", "type": "function", "anchor": "symbol-root_path"},
+          {"name": "settings", "type": "function", "anchor": "symbol-settings"}
+        ]
+      },
+      {
         "path": "native_renderers.py",
         "symbols": [
           {"name": "build", "type": "function", "anchor": "symbol-build"}
@@ -1512,6 +1524,7 @@
           {"name": "renderFolderRename", "type": "FunctionDeclaration", "anchor": "symbol-renderFolderRename"},
           {"name": "renderHomeCalendar", "type": "FunctionDeclaration", "anchor": "symbol-renderHomeCalendar"},
           {"name": "renderMoneyOverview", "type": "FunctionDeclaration", "anchor": "symbol-renderMoneyOverview"},
+          {"name": "renderNasArchive", "type": "FunctionDeclaration", "anchor": "symbol-renderNasArchive"},
           {"name": "renderNewEventName", "type": "FunctionDeclaration", "anchor": "symbol-renderNewEventName"},
           {"name": "renderNewOrderName", "type": "FunctionDeclaration", "anchor": "symbol-renderNewOrderName"},
           {"name": "renderOrderCalculated", "type": "FunctionDeclaration", "anchor": "symbol-renderOrderCalculated"},
@@ -1607,6 +1620,7 @@
           {"name": "updateDocumentRelevance", "type": "FunctionDeclaration", "anchor": "symbol-updateDocumentRelevance"},
           {"name": "updateFileCommentCaption", "type": "FunctionDeclaration", "anchor": "symbol-updateFileCommentCaption"},
           {"name": "updateFolderActivity", "type": "FunctionDeclaration", "anchor": "symbol-updateFolderActivity"},
+          {"name": "updateNasArchive", "type": "FunctionDeclaration", "anchor": "symbol-updateNasArchive"},
           {"name": "updatePurchaseSupplierButtons", "type": "FunctionDeclaration", "anchor": "symbol-updatePurchaseSupplierButtons"},
           {"name": "uploadFiles", "type": "FunctionDeclaration", "anchor": "symbol-uploadFiles"}
         ]
@@ -1919,6 +1933,7 @@
         "path": "static/settings.js",
         "symbols": [
           {"name": "changeCalendarPassword", "type": "FunctionDeclaration", "anchor": "symbol-changeCalendarPassword"},
+          {"name": "editNasSettings", "type": "FunctionDeclaration", "anchor": "symbol-editNasSettings"},
           {"name": "loadPlotterSettings", "type": "FunctionDeclaration", "anchor": "symbol-loadPlotterSettings"},
           {"name": "loadSeller", "type": "FunctionDeclaration", "anchor": "symbol-loadSeller"},
           {"name": "loadWeekHighlights", "type": "FunctionDeclaration", "anchor": "symbol-loadWeekHighlights"},

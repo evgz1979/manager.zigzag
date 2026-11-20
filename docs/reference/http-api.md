@@ -612,6 +612,34 @@ self.send_json(order_folders.service_folders(order_store(), relative), head=head
 
 Вызовы ветки: `order_folders.service_folders`, `order_store`.
 
+## GET / HEAD /api/nas-settings
+
+[ManagerHandler.handle_get](python/server.md#symbol-ManagerHandler.handle_get).
+
+Условие: `parsed.path == '/api/nas-settings'`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json(nas_archive.settings(order_store()), head=head)
+```
+
+Вызовы ветки: `nas_archive.settings`, `order_store`.
+
+## GET / HEAD /api/order-nas
+
+[ManagerHandler.handle_get](python/server.md#symbol-ManagerHandler.handle_get).
+
+Условие: `parsed.path == '/api/order-nas'`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json(nas_archive.archive(order_store(), relative), head=head)
+```
+
+Вызовы ветки: `nas_archive.archive`, `order_store`.
+
 ## GET / HEAD /api/folder-rename
 
 [ManagerHandler.handle_get](python/server.md#symbol-ManagerHandler.handle_get).
@@ -1026,6 +1054,63 @@ self.send_json(plotter.settings(order_store(), payload))
 ```
 
 Вызовы ветки: `self.headers.get`, `self.headers.get_content_type`, `urllib.parse.urlsplit`, `plotter.save_conversion`, `plotter.settings`, `order_store`.
+
+## POST /api/nas-settings
+
+[ManagerHandler.do_POST](python/server.md#symbol-ManagerHandler.do_POST).
+
+Условие: `route in {'/api/nas-settings', '/api/order-nas', '/api/order-nas-open'}`.
+
+Ключи payload, читаемые в ветке: `path`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json({'error': 'Открой настройки NAS или заказ в Менеджере'}, 403)
+self.send_json(nas_archive.settings(store, payload))
+self.send_json({'ok': True})
+self.send_json(nas_archive.archive(store, payload.get('path'), payload))
+```
+
+Вызовы ветки: `self.headers.get`, `self.headers.get_content_type`, `urllib.parse.urlsplit`, `order_store`, `nas_archive.settings`, `nas_archive.archive`.
+
+## POST /api/order-nas
+
+[ManagerHandler.do_POST](python/server.md#symbol-ManagerHandler.do_POST).
+
+Условие: `route in {'/api/nas-settings', '/api/order-nas', '/api/order-nas-open'}`.
+
+Ключи payload, читаемые в ветке: `path`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json({'error': 'Открой настройки NAS или заказ в Менеджере'}, 403)
+self.send_json(nas_archive.settings(store, payload))
+self.send_json({'ok': True})
+self.send_json(nas_archive.archive(store, payload.get('path'), payload))
+```
+
+Вызовы ветки: `self.headers.get`, `self.headers.get_content_type`, `urllib.parse.urlsplit`, `order_store`, `nas_archive.settings`, `nas_archive.archive`.
+
+## POST /api/order-nas-open
+
+[ManagerHandler.do_POST](python/server.md#symbol-ManagerHandler.do_POST).
+
+Условие: `route in {'/api/nas-settings', '/api/order-nas', '/api/order-nas-open'}`.
+
+Ключи payload, читаемые в ветке: `path`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json({'error': 'Открой настройки NAS или заказ в Менеджере'}, 403)
+self.send_json(nas_archive.settings(store, payload))
+self.send_json({'ok': True})
+self.send_json(nas_archive.archive(store, payload.get('path'), payload))
+```
+
+Вызовы ветки: `self.headers.get`, `self.headers.get_content_type`, `urllib.parse.urlsplit`, `order_store`, `nas_archive.settings`, `nas_archive.archive`.
 
 ## POST /api/invoice-reconciliation
 

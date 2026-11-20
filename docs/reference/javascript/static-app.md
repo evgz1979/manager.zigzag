@@ -2976,7 +2976,7 @@ function renderFolder(preserveForm = false)
 Непосредственные вызовы: `renderMoneyOverview`, `document.dispatchEvent`, `CustomEvent`, `renderClientActivity`, `Boolean`, `Object.hasOwn`, `isWorkOrderPath`, `hasDescendantTodos`, `$`, `$("orderOverview").classList.toggle`, `folder.breadcrumbs.map((part, index) =>
     (index ? '<span class="breadcrumb-divider">/</span>' : "") +
     '<button data-path="' + escapeHtml(part.path) + '"' + (index === folder.breadcrumbs.length - 1 ? ' aria-current="page"' : "") + ">" +
-    ClientBadge.markup(part.name, part.path && part.path.normalize("NFC") === folder.client_path?.normalize("NFC") ? part.path : "") + "</button>").join`, `folder.breadcrumbs.map`, `renderOrderHeading`, `renderServiceFolderControls`, `renderOrderCardLinks`, `ClientBadge.markup`, `printCountLabel`, `folder.directories.filter`, `formatSize`, `foldersAnchor.before`, `renderSubfolders`, `renderSketches`, `renderOrderFileFolders`, `renderDescendantTodos`, `$("statusForm").classList.toggle`, `["supplier_root", "work_section"].includes`, `renderPurchases`, `(card[key] / 100).toFixed`, `renderOrderCalculated`, `renderExportState`, `Object.entries(supplierStatusLabels).map(([key, label]) => '<option value="' + key + '">' + label + '</option>').join`, `Object.entries(supplierStatusLabels).map`, `Object.entries`, `resizeOrderNote`, `renderStatus`, `$("todoList").classList.contains`, `renderTodos`, `warnings.push`, `warnings.join`, `["events", "subfolders"].includes`, `renderUpload`, `renderPrintList`, `new URLSearchParams(location.search).get`, `URLSearchParams`, `printFiles().find`, `printFiles`, `run`, `renderFiles`, `$("files").replaceChildren`, `renderCardDeadlines`, `mountOrderList`, `isFolderOrderList`, `renderOrders`.
+    ClientBadge.markup(part.name, part.path && part.path.normalize("NFC") === folder.client_path?.normalize("NFC") ? part.path : "") + "</button>").join`, `folder.breadcrumbs.map`, `renderOrderHeading`, `renderServiceFolderControls`, `updateNasArchive`, `renderOrderCardLinks`, `ClientBadge.markup`, `printCountLabel`, `folder.directories.filter`, `formatSize`, `foldersAnchor.before`, `renderSubfolders`, `renderSketches`, `renderOrderFileFolders`, `renderDescendantTodos`, `$("statusForm").classList.toggle`, `["supplier_root", "work_section"].includes`, `renderPurchases`, `(card[key] / 100).toFixed`, `renderOrderCalculated`, `renderExportState`, `Object.entries(supplierStatusLabels).map(([key, label]) => '<option value="' + key + '">' + label + '</option>').join`, `Object.entries(supplierStatusLabels).map`, `Object.entries`, `resizeOrderNote`, `renderStatus`, `$("todoList").classList.contains`, `renderTodos`, `warnings.push`, `warnings.join`, `["events", "subfolders"].includes`, `renderUpload`, `renderPrintList`, `new URLSearchParams(location.search).get`, `URLSearchParams`, `printFiles().find`, `printFiles`, `run`, `renderFiles`, `$("files").replaceChildren`, `renderCardDeadlines`, `mountOrderList`, `isFolderOrderList`, `renderOrders`.
 
 Прямые присваивания полям/свойствам: `$("orderFinanceOverview").hidden`, `$("purchasePanel").hidden`, `$("orderOverview").hidden`, `$("todoPanel").hidden`, `$("orderTasksColumn").hidden`, `$("breadcrumbs").innerHTML`, `$("clientLabel").innerHTML`, `$("editClientColor").hidden`, `$("folderSummary").textContent`, `$("orderDetails").hidden`, `$("folderDetailsTitle").textContent`, `$("statusLabel").hidden`, `$("orderStatusFields").hidden`, `$("supplierStatusLabel").hidden`, `$("supplierStatusLabel").firstChild.textContent`, `$("orderTitleLabel").hidden`, `$("orderTitleLabel").firstChild.textContent`, `$("reconciliationClientLabel").hidden`, `$("financialFields").hidden`, `$("orderNote").placeholder`, `$("removeOrderButton").hidden`, `$("addOrderButton").textContent`, `$("removeOrderButton").textContent`, `$("createObjectFolderButton").hidden`, `$("groupObjectYearsButton").hidden`, `$("createOrderFolderButton").hidden`, `$("createOrderFolderButton").textContent`, `$("createEventFolderButton").hidden`, `$("renameFolderButton").hidden`, `$("moveObjectButton").hidden`, `$("deleteEventButton").hidden`, `$("openEventTrash").hidden`, `folder.todo_items`, `folder.purchase_items`, `$("todoNewText").value`, `$("purchaseNewText").value`, `$("orderDetails").open`, `$("orderTitleInput").value`, `$("reconciliationClient").value`, `$(field).value`, `$("addOrderButton").hidden`, `$("statusSelect").value`, `$("supplierStatusSelect").innerHTML`, `$("supplierStatusSelect").value`, `$("supplierStatusSelect").disabled`, `$("supplierStatusSelect").title`, `$("financialStatusSelect").value`, `$("orderNote").value`, `$("loadOrderFilesButton").hidden`, `$("notice").hidden`, `$("notice").textContent`, `$("fileSearch").value`, `$("filesSection").hidden`, `$("uploadDropZone").hidden`, `$("printWorkspace").hidden`, `state.printQuery`, `$("printTaskSearch").value`, `$("printEditorForm").hidden`, `$("printEditorEmpty").hidden`, `$("printEditorEmpty").textContent`.
 
@@ -3029,6 +3029,24 @@ function renderMoneyOverview()
 Использует `MoneyOverview.show`.
 
 Непосредственные вызовы: `MoneyOverview.show`.
+
+<a id="symbol-renderNasArchive"></a>
+
+## renderNasArchive
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function renderNasArchive()
+```
+
+Показывает переключатель, открытие и копирование пути SMB-архива заказа.
+
+Непустой архив можно открыть в Finder сервера даже при заблокированном выключении.
+
+Непосредственные вызовы: `$`, `Boolean`, `button.setAttribute`, `String`.
+
+Прямые присваивания полям/свойствам: `$("nasArchiveControls").hidden`, `button.disabled`, `button.title`, `$("openNasArchive").hidden`, `$("copyNasArchivePath").hidden`, `status.textContent`, `status.hidden`.
 
 <a id="symbol-renderNewEventName"></a>
 
@@ -3593,9 +3611,9 @@ function renderServiceFolderControls()
 
 При опросе обновляет существующие кнопки, сохраняя их фокус и текущий порядок.
 
-Непосредственные вызовы: `$`, `items.map(({ kind }) => '<button type="button" class="service-folder-switch" role="switch" data-service-kind="' + escapeHtml(kind) + '"><span class="service-folder-track" aria-hidden="true"></span><span># ' + escapeHtml(kind) + '</span></button>').join`, `items.map`, `[...group.children].entries`, `button.setAttribute`, `String`, `Boolean`.
+Непосредственные вызовы: `$`, `group.querySelector`, `group.insertAdjacentHTML`, `items.map(({ kind }) => '<button type="button" class="service-folder-switch" role="switch" data-service-kind="' + escapeHtml(kind) + '"><span class="service-folder-track" aria-hidden="true"></span><span># ' + escapeHtml(kind) + '</span></button>').join`, `items.map`, `[...group.querySelectorAll("[data-service-kind]")].entries`, `group.querySelectorAll`, `button.setAttribute`, `String`, `Boolean`, `renderNasArchive`.
 
-Прямые присваивания полям/свойствам: `group.hidden`, `group.innerHTML`, `button.disabled`, `button.title`.
+Прямые присваивания полям/свойствам: `group.hidden`, `button.disabled`, `button.title`.
 
 <a id="symbol-renderSketches"></a>
 
@@ -4815,6 +4833,24 @@ function updateFolderActivity(folder, activity)
 Результат вычисляется из переданных аргументов и текущего состояния компонента.
 
 Прямые присваивания полям/свойствам: `folder[folder.objectActivity ? "objectActivity" : "clientActivity"]`.
+
+<a id="symbol-updateNasArchive"></a>
+
+## updateNasArchive
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+async function updateNasArchive(folder, change)
+```
+
+Читает или меняет архив отдельным запросом к сетевому тому.
+
+Поздний опрос не заменяет ответ записи или состояние другого заказа.
+
+Непосредственные вызовы: `Boolean`, `renderNasArchive`, `request`, `apiUrl`, `AbortSignal.timeout`.
+
+Прямые присваивания полям/свойствам: `folder.nasRequest`, `folder.nasSaving`, `folder.nasArchive`.
 
 <a id="symbol-updatePurchaseSupplierButtons"></a>
 

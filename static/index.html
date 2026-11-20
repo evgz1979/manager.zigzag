@@ -239,7 +239,14 @@
             <p id="clientActivityState" role="status"></p>
             <button id="clientActivityAcceptFile" class="secondary-button" type="button" hidden>Принять отметку из файла</button>
           </section>
-          <div id="serviceFolderControls" class="service-folder-controls" role="group" aria-label="Служебные папки заказа" hidden></div>
+          <div id="serviceFolderControls" class="service-folder-controls" role="group" aria-label="Служебные папки заказа" hidden>
+            <div id="nasArchiveControls" class="nas-archive-controls" hidden>
+              <button id="nasArchiveToggle" type="button" class="service-folder-switch" role="switch" aria-checked="false" disabled><span class="service-folder-track" aria-hidden="true"></span><span># nas</span></button>
+              <button id="openNasArchive" type="button" class="secondary-button" title="Открыть папку в Finder на Mac, где запущен Менеджер" hidden>Открыть на NAS</button>
+              <button id="copyNasArchivePath" type="button" class="secondary-button" title="Скопировать путь для Finder" aria-label="Скопировать путь для Finder" hidden><svg aria-hidden="true"><use href="#icon-copy"/></svg></button>
+              <span id="nasArchiveStatus" class="folder-summary" role="status" hidden></span>
+            </div>
+          </div>
         </footer>
         </div>
       </section>
@@ -516,6 +523,7 @@
         <button id="managerAppearanceTab" type="button" role="tab" aria-selected="false" aria-controls="managerAppearanceSettings" tabindex="-1">Оформление</button>
         <button id="managerDeadlineHighlightsTab" type="button" role="tab" aria-selected="false" aria-controls="managerDeadlineHighlightsSettings" tabindex="-1">Жёлтая полоса</button>
         <button id="managerPlotterTab" type="button" role="tab" aria-selected="false" aria-controls="managerPlotterSettings" tabindex="-1">Плоттер</button>
+        <button id="managerNasTab" type="button" role="tab" aria-selected="false" aria-controls="managerNasSettings" tabindex="-1">NAS</button>
       </div>
       <div id="managerSettingsContent" class="manager-settings-content">
         <section id="managerSellerSettings" role="tabpanel" aria-labelledby="managerSellerTab" tabindex="0">
@@ -605,6 +613,16 @@
             <div class="manager-settings-actions">
               <button id="savePlotterSettings" class="primary-button" type="submit" disabled>Сохранить</button>
               <button id="reloadPlotterSettings" class="secondary-button" type="button">Обновить</button>
+            </div>
+          </form>
+        </section>
+        <section id="managerNasSettings" role="tabpanel" aria-labelledby="managerNasTab" tabindex="0" hidden>
+          <form id="nasSettingsForm">
+            <label>Папка архивов на NAS <input name="root" placeholder="/Safe/Zigzag-archive" maxlength="1024" spellcheck="false" autocomplete="off" required disabled></label>
+            <p id="nasSettingsState" class="invoice-state" role="status"></p>
+            <div class="manager-settings-actions">
+              <button id="saveNasSettings" class="primary-button" type="submit" disabled>Сохранить</button>
+              <button id="reloadNasSettings" class="secondary-button" type="button">Обновить</button>
             </div>
           </form>
         </section>

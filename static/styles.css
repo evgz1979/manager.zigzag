@@ -307,6 +307,8 @@ h1, h2, h3, p { margin: 0; }
 .work-link-option strong { font-size: 13px; overflow-wrap: anywhere; }
 .folder-heading-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .service-folder-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.nas-archive-controls { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
+.nas-archive-controls .folder-summary { margin: 0; overflow-wrap: anywhere; }
 .service-folder-switch { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--text); font-size: 12px; font-weight: 650; white-space: nowrap; }
 .service-folder-track { display: inline-flex; align-items: center; width: 22px; height: 12px; padding: 2px; border-radius: 12px; background: var(--muted); }
 .service-folder-track::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: white; }

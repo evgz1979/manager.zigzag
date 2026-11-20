@@ -683,10 +683,10 @@ function renderServiceFolderControls() {
   group.hidden = !folder.canManageServiceFolders || !folder.serviceFolders;
   if (group.hidden) return;
   const items = folder.serviceFolders.folders;
-  if (!group.firstElementChild) {
-    group.innerHTML = items.map(({ kind }) => '<button type="button" class="service-folder-switch" role="switch" data-service-kind="' + escapeHtml(kind) + '"><span class="service-folder-track" aria-hidden="true"></span><span># ' + escapeHtml(kind) + '</span></button>').join("");
+  if (!group.querySelector("[data-service-kind]")) {
+    group.insertAdjacentHTML("afterbegin", items.map(({ kind }) => '<button type="button" class="service-folder-switch" role="switch" data-service-kind="' + escapeHtml(kind) + '"><span class="service-folder-track" aria-hidden="true"></span><span># ' + escapeHtml(kind) + '</span></button>').join(""));
   }
-  for (const [index, button] of [...group.children].entries()) {
+  for (const [index, button] of [...group.querySelectorAll("[data-service-kind]")].entries()) {
     const item = items[index];
     const reason = folder.serviceFoldersUnavailable ? "Не удалось обновить состояние папок" : item.reason;
     button.setAttribute("aria-checked", String(item.enabled));
@@ -694,6 +694,48 @@ function renderServiceFolderControls() {
     button.setAttribute("aria-disabled", String(Boolean(reason || folder.serviceFolderSaving)));
     button.title = reason || (item.enabled ? "Удалить пустую папку " : "Создать папку ") + item.name;
     button.setAttribute("aria-description", reason);
+  }
+  renderNasArchive();
+}
+
+// Показывает переключатель, открытие и копирование пути SMB-архива заказа.
+// Непустой архив можно открыть в Finder сервера даже при заблокированном выключении.
+function renderNasArchive() {
+  const folder = state.folder, item = folder.nasArchive;
+  $("nasArchiveControls").hidden = !folder.canManageServiceFolders;
+  const button = $("nasArchiveToggle"), status = $("nasArchiveStatus");
+  button.disabled = !item || Boolean(item.reason);
+  button.setAttribute("aria-checked", String(Boolean(item?.enabled)));
+  button.setAttribute("aria-disabled", String(button.disabled || Boolean(folder.nasSaving)));
+  button.title = item?.reason || (item?.enabled ? "Удалить пустую папку # nas" : "Создать # nas на сетевом томе");
+  button.setAttribute("aria-description", item?.reason || "");
+  $("openNasArchive").hidden = $("copyNasArchivePath").hidden = !item?.enabled || !item.finder_path;
+  const message = item?.revision ? "" : item?.reason || "Проверяю NAS…";
+  if (status.textContent !== message) status.textContent = message;
+  status.hidden = !message;
+}
+
+// Читает или меняет архив отдельным запросом к сетевому тому.
+// Поздний опрос не заменяет ответ записи или состояние другого заказа.
+async function updateNasArchive(folder, change) {
+  if (!folder?.canManageServiceFolders || folder.nasSaving || (!change && folder.nasRequest)) return;
+  const token = {};
+  folder.nasRequest = token;
+  folder.nasSaving = Boolean(change);
+  if (state.folder === folder) renderNasArchive();
+  try {
+    const data = change ? await request("/api/order-nas", { path: folder.path, ...change }, { headers: { "X-Manager-Nas": "1" } }) :
+      await request(apiUrl("/api/order-nas", folder.path), undefined, { signal: AbortSignal.timeout(12000) });
+    if (folder.nasRequest === token) folder.nasArchive = data;
+  } catch (error) {
+    if (folder.nasRequest === token) folder.nasArchive = { reason: change ? error.message : "Не удалось проверить NAS" };
+    if (change) throw error;
+  } finally {
+    if (folder.nasRequest === token) {
+      folder.nasSaving = false;
+      folder.nasRequest = null;
+      if (state.folder === folder) renderNasArchive();
+    }
   }
 }
 
@@ -1132,6 +1174,7 @@ function renderFolder(preserveForm = false) {
     ClientBadge.markup(part.name, part.path && part.path.normalize("NFC") === folder.client_path?.normalize("NFC") ? part.path : "") + "</button>").join("");
   renderOrderHeading();
   renderServiceFolderControls();
+  if (!folder.nasArchive) updateNasArchive(folder);
   renderOrderCardLinks();
   const clientLabel = folder.frezaSection || folder.frezaTask ? "ФРЕЗЕРОВКА" : printView ? "ШИРОКОФОРМАТНАЯ ПРОДУКЦИЯ" : service ? "СЛУЖЕБНАЯ ПАПКА" : folder.folderKindLabel && folder.folderKind !== "order" ? folder.folderKindLabel : folder.client || folder.name;
   $("clientLabel").innerHTML = ClientBadge.markup(clientLabel, clientLabel === folder.client ? folder.client_path : "");
@@ -5522,7 +5565,10 @@ setInterval(() => {
     }).catch(() => {});
   }
   if (state.view !== "orders" && state.folder?.canCreateEventFolder) refreshEventRelevance(state.folder).catch(() => {});
-  if (state.view === "folder") refreshServiceFolderControls(state.folder);
+  if (state.view === "folder") {
+    refreshServiceFolderControls(state.folder);
+    updateNasArchive(state.folder);
+  }
   if (state.view !== "orders" && state.folder?.sketches?.length) refreshSketchRelevance(state.folder).catch(() => {});
   if (state.view !== "orders" && state.folder?.folderKind === "work_root") refreshSupplierFavorites(state.folder).catch(() => {});
   if (state.view !== "orders") refreshPurchaseSuppliers().catch(() => {});
@@ -5589,6 +5635,19 @@ $("serviceFolderControls").addEventListener("click", (event) => {
   const button = event.target.closest("[data-service-kind]");
   if (button) run(() => saveServiceFolder(button.dataset.serviceKind));
 });
+$("nasArchiveToggle").addEventListener("click", () => {
+  const folder = state.folder, item = folder?.nasArchive;
+  if (item?.revision && !item.reason) run(() => updateNasArchive(folder, { enabled: !item.enabled, revision: item.revision }));
+});
+$("openNasArchive").addEventListener("click", () => {
+  const folder = state.folder;
+  if (folder?.nasArchive?.enabled) run(() => request("/api/order-nas-open", { path: folder.path }, { headers: { "X-Manager-Nas": "1" } }));
+});
+$("copyNasArchivePath").addEventListener("click", () => {
+  const path = state.folder?.nasArchive?.finder_path;
+  if (path) run(async () => { await copyText(path); notify("Путь для Finder скопирован"); });
+});
+document.addEventListener("manager-nas-settings-saved", () => updateNasArchive(state.folder));
 $("renameFolderButton").addEventListener("click", () => run(openFolderRename));
 $("renameFolderName").addEventListener("input", renderFolderRename);
 $("renameFolderForm").addEventListener("submit", (event) => { event.preventDefault(); run(submitFolderRename); });

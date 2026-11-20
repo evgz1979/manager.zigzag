@@ -24,6 +24,24 @@ async function changeCalendarPassword(action)
 
 Прямые присваивания полям/свойствам: `caldavGenerate.disabled`, `caldavRevoke.disabled`, `close.disabled`, `caldavStatus.textContent`, `caldavPassword.value`, `caldavPassword.parentElement.hidden`.
 
+<a id="symbol-editNasSettings"></a>
+
+## editNasSettings
+
+[static/settings.js](../../../static/settings.js) · `FunctionDeclaration`.
+
+```javascript
+async function editNasSettings(event)
+```
+
+Читает или сохраняет настроенный путь архивного тома.
+
+При конфликте сохраняет ввод до явного обновления и не повторяет запись.
+
+Непосредственные вызовы: `event.preventDefault`, `fetch`, `JSON.stringify`, `response.json`, `Error`, `document.dispatchEvent`, `Event`.
+
+Прямые присваивания полям/свойствам: `nasRoot.disabled`, `nasSave.disabled`, `nasReload.disabled`, `close.disabled`, `nasStatus.textContent`, `nasRoot.value`.
+
 <a id="symbol-loadPlotterSettings"></a>
 
 ## loadPlotterSettings
@@ -208,7 +226,7 @@ function selectSettingsTab(selected)
 
 Скрытые формы остаются в окне вместе с введёнными значениями и состоянием запросов.
 
-Непосредственные вызовы: `tab.setAttribute`, `String`, `document.getElementById`, `tab.getAttribute`, `Set`, `loadWeekHighlights`, `loadPlotterSettings`.
+Непосредственные вызовы: `tab.setAttribute`, `String`, `document.getElementById`, `tab.getAttribute`, `Set`, `loadWeekHighlights`, `loadPlotterSettings`, `editNasSettings`.
 
 Прямые присваивания полям/свойствам: `tab.tabIndex`, `document.getElementById(tab.getAttribute('aria-controls')).hidden`, `content.scrollTop`.
 

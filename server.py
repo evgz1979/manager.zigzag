@@ -64,6 +64,7 @@ import object_move
 import object_orders
 import file_uploads
 import plotter
+import nas_archive
 import work_orders
 from work_order_list import WorkOrderList
 import supplier_purchases
@@ -1869,6 +1870,10 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(event_folders.preview(DATA_ROOT, relative, folder_note_store()), head=head)
             elif parsed.path == "/api/order-service-folders":
                 self.send_json(order_folders.service_folders(order_store(), relative), head=head)
+            elif parsed.path == "/api/nas-settings":
+                self.send_json(nas_archive.settings(order_store()), head=head)
+            elif parsed.path == "/api/order-nas":
+                self.send_json(nas_archive.archive(order_store(), relative), head=head)
             elif parsed.path == "/api/folder-rename":
                 self.send_json(folder_rename.preview(order_store(), relative), head=head)
             elif parsed.path == "/api/object-years":
@@ -2166,6 +2171,21 @@ class ManagerHandler(BaseHTTPRequestHandler):
                     self.send_json(plotter.save_conversion(order_store(), payload), 201)
                 else:
                     self.send_json(plotter.settings(order_store(), payload))
+                return
+            if route in {"/api/nas-settings", "/api/order-nas", "/api/order-nas-open"}:
+                origin = self.headers.get("Origin")
+                if (self.headers.get("X-Manager-Nas") != "1" or self.headers.get_content_type() != "application/json"
+                        or (origin and urllib.parse.urlsplit(origin).netloc != self.headers.get("Host"))):
+                    self.send_json({"error": "Открой настройки NAS или заказ в Менеджере"}, 403)
+                    return
+                store = order_store()
+                if route == "/api/nas-settings":
+                    self.send_json(nas_archive.settings(store, payload))
+                elif route == "/api/order-nas-open":
+                    nas_archive.archive(store, payload.get("path"), open_finder=True)
+                    self.send_json({"ok": True})
+                else:
+                    self.send_json(nas_archive.archive(store, payload.get("path"), payload))
                 return
             if route in {'/api/reconciliation-save', '/api/invoice-reconciliation'}:
                 origin = self.headers.get('Origin')
