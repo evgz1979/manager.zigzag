@@ -228,6 +228,7 @@ h1, h2, h3, p { margin: 0; }
 .tree-row.inactive:focus-visible, .subfolder.inactive:focus-visible { opacity: .8; }
 .inactive-clients-toggle[aria-pressed="true"] { color: var(--accent); background: light-dark(#e9eeea, #242c2a); }
 .folder-footer { margin-top: 8px; padding-top: 16px; border-top: 1px solid var(--line); }
+.folder-footer:not(:has(> :not([hidden]))) { display: none; }
 .client-activity-card { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
 .client-activity-card label { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; }
 .client-activity-card input { width: 16px; height: 16px; accent-color: var(--accent); }
@@ -305,7 +306,7 @@ h1, h2, h3, p { margin: 0; }
 .work-link-option span { min-width: 0; }
 .work-link-option strong { font-size: 13px; overflow-wrap: anywhere; }
 .folder-heading-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
-.service-folder-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; align-self: center; margin-right: auto; }
+.service-folder-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .service-folder-switch { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--text); font-size: 12px; font-weight: 650; white-space: nowrap; }
 .service-folder-track { display: inline-flex; align-items: center; width: 22px; height: 12px; padding: 2px; border-radius: 12px; background: var(--muted); }
 .service-folder-track::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: white; }

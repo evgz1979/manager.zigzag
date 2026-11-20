@@ -541,7 +541,6 @@ function updateFolderActivity(folder, activity) {
 // Использует `folderActivity`, `$`, `Boolean`.
 function renderClientActivity() {
   const folder = state.folder, activity = folderActivity(folder);
-  $("folderFooter").hidden = !activity;
   $("clientActivityCard").hidden = !activity;
   if (!activity) return;
   const object = Boolean(folder.objectActivity), entity = object ? "объекта" : "клиента";
@@ -677,7 +676,7 @@ function fileDownloadButton(file) {
     '" title="' + escapeHtml("Скачать на это устройство: " + file.name) + '" aria-label="' + escapeHtml("Скачать файл: " + file.name) + '">Скачать</a>';
 }
 
-// Показывает переключатели служебных папок в шапке клиентского заказа.
+// Показывает переключатели служебных папок в подвале клиентского заказа.
 // При опросе обновляет существующие кнопки, сохраняя их фокус и текущий порядок.
 function renderServiceFolderControls() {
   const folder = state.folder, group = $("serviceFolderControls");

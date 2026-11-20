@@ -2723,7 +2723,7 @@ function renderClientActivity()
 
 Непосредственные вызовы: `folderActivity`, `$`, `Boolean`, `$("clientActivityCard").setAttribute`, `$("clientActivityState").classList.toggle`.
 
-Прямые присваивания полям/свойствам: `$("folderFooter").hidden`, `$("clientActivityCard").hidden`, `$("activityLabel").textContent`, `$("activityHint").textContent`, `$("clientInactive").checked`, `$("clientInactive").disabled`, `$("clientActivityState").textContent`, `$("clientActivityAcceptFile").hidden`, `$("clientActivityAcceptFile").disabled`.
+Прямые присваивания полям/свойствам: `$("clientActivityCard").hidden`, `$("activityLabel").textContent`, `$("activityHint").textContent`, `$("clientInactive").checked`, `$("clientInactive").disabled`, `$("clientActivityState").textContent`, `$("clientActivityAcceptFile").hidden`, `$("clientActivityAcceptFile").disabled`.
 
 <a id="symbol-renderClientColorEditor"></a>
 
@@ -3589,7 +3589,7 @@ function renderPurchases()
 function renderServiceFolderControls()
 ```
 
-Показывает переключатели служебных папок в шапке клиентского заказа.
+Показывает переключатели служебных папок в подвале клиентского заказа.
 
 При опросе обновляет существующие кнопки, сохраняя их фокус и текущий порядок.
 
