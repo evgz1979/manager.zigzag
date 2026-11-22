@@ -8,6 +8,8 @@ import sqlite3
 import unicodedata
 
 FILE_TRASH_PATHS_VERSION = 1
+ORDER_NAS_ARCHIVE = "order-nas-archive"
+ORDER_NAS_STAGING_PREFIX = ".order-nas-"
 
 
 # Проверяет принадлежность пути указанной области по границам компонентов.

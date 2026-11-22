@@ -128,7 +128,7 @@ class ObjectOrders:
         return allowed
 
     # Собирает список заказов объекта по каталогу и текущим данным SQLite.
-    # Работает с таблицами metadata_records, sqlite_master, folder_notes.
+    # Возвращает пути снятых с учёта заказов отдельно, чтобы скрыть и их плитки.
     def read(self, relative, *, inactive=(), show_inactive=False):
         relative = self.path(relative)
         try:
@@ -143,7 +143,9 @@ class ObjectOrders:
         records = {}
         for row in self.store.list(include_unregistered=True):
             if allowed(row["path"]):
-                records.setdefault(canonical(row["path"]), []).append(row)
+                rows = records.setdefault(canonical(row["path"]), [])
+                if row["registered"]:
+                    rows.append(row)
         with self.meta.connect() as db:
             catalog = set()
             for row in db.execute("SELECT path,data FROM metadata_records WHERE kind=?", (self.folder_kind,)):
@@ -154,7 +156,8 @@ class ObjectOrders:
                     catalog.add(canonical(row["path"]))
             has_notes = db.execute("SELECT 1 FROM sqlite_master WHERE name='folder_notes'").fetchone()
             notes = {canonical(row["path"]): row for row in db.execute("SELECT * FROM folder_notes") if allowed(row["path"])} if has_notes else {}
-        paths = catalog | {path for path, rows in records.items() if any(row["registered"] for row in rows)}
+        paths = catalog | {path for path, rows in records.items() if rows}
+        removed_paths = sorted(path for path in catalog if path in records and not records[path])
         result = []
         for path in sorted(paths):
             if any(inside(path, parent) for parent in catalog if parent != path):
@@ -181,5 +184,5 @@ class ObjectOrders:
                 row["profit"] = values["amount"] - values["costs"] if values["amount"] is not None and values["costs"] is not None else None
                 row["debt"] = values["amount"] - values["paid"] if values["amount"] is not None and values["paid"] is not None else None
             result.append(row)
-        return {"path": relative, "orders": OrderTodos(self.store).attach(result), "checked": scope.get("checked"),
+        return {"path": relative, "orders": OrderTodos(self.store).attach(result), "removed_paths": removed_paths, "checked": scope.get("checked"),
                 "error": scope.get("error", ""), "deadline_week_options": order_deadlines.week_options()}

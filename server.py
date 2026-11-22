@@ -65,6 +65,7 @@ import object_orders
 import file_uploads
 import plotter
 import nas_archive
+import order_nas_archive
 import work_orders
 from work_order_list import WorkOrderList
 import supplier_purchases
@@ -1189,6 +1190,7 @@ def folder_status(path, directories):
     owner = parent_order(DATA_ROOT, relative) if relative else None
     if DATABASE_ONLY:
         order = order_store().get(relative,include_unregistered=True) if relative else None
+        role["orderWasRegistered"] = bool(order)
         if order and order["registered"]:
             return {**role,"service":False,"status":order["status"],"financial_status":order["financial_status"],"note":order["note"],
                     "todo_items":order["todo_items"],"purchase_items":order["purchase_items"],"extra_blocks":order["extra_blocks"],"statusSource":"database","order":order}
@@ -1882,6 +1884,10 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(object_move.preview(order_store(), relative), head=head)
             elif parsed.path == "/api/object-move-status":
                 self.send_json(object_move.status(order_store(), query.get("id", [""])[0]), head=head)
+            elif parsed.path == "/api/order-archive":
+                self.send_json(order_nas_archive.preview(order_store(), relative), head=head)
+            elif parsed.path == "/api/order-archive-status":
+                self.send_json(order_nas_archive.status(order_store(), query.get("id", [""])[0]), head=head)
             elif parsed.path == "/api/order":
                 record = order_store().get(relative)
                 if not record:
@@ -2321,6 +2327,14 @@ class ManagerHandler(BaseHTTPRequestHandler):
                     return
                 self.send_json(object_move.start(order_store(), payload, object_move_locks, refresh_after_object_move), 202)
                 return
+            elif route == "/api/order-archive":
+                origin = self.headers.get("Origin")
+                if (self.headers.get("X-Manager-Order-Archive") != "1" or self.headers.get_content_type() != "application/json"
+                        or (origin and urllib.parse.urlsplit(origin).netloc != self.headers.get("Host"))):
+                    self.send_json({"error": "Подтверди архивацию из карточки заказа"}, 403)
+                    return
+                self.send_json(order_nas_archive.start(order_store(), payload, object_move_locks, refresh_after_object_move), 202)
+                return
             elif route == "/api/event-folder-create":
                 guard_database(order_store().database, payload.get("path", ""), include_children=True)
                 self.send_json(event_folders.create(DATA_ROOT, payload, folder_note_store()), 201)
@@ -2752,6 +2766,7 @@ def serve():
         thumbnail_worker.join(timeout=7)
         server.server_close()
         object_move.wait_for_jobs()
+        order_nas_archive.wait_for_jobs()
 
 
 # Удерживает блокировку рабочей установки на весь срок жизни сервера.

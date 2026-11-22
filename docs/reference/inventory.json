@@ -752,6 +752,22 @@
         ]
       },
       {
+        "path": "order_nas_archive.py",
+        "symbols": [
+          {"name": "archive_order", "type": "function", "anchor": "symbol-archive_order"},
+          {"name": "archive_order.confirm_copy", "type": "function", "anchor": "symbol-archive_order.confirm_copy"},
+          {"name": "available", "type": "function", "anchor": "symbol-available"},
+          {"name": "check_mount", "type": "function", "anchor": "symbol-check_mount"},
+          {"name": "preview", "type": "function", "anchor": "symbol-preview"},
+          {"name": "start", "type": "function", "anchor": "symbol-start"},
+          {"name": "start.progress", "type": "function", "anchor": "symbol-start.progress"},
+          {"name": "start.work", "type": "function", "anchor": "symbol-start.work"},
+          {"name": "status", "type": "function", "anchor": "symbol-status"},
+          {"name": "verify_zip", "type": "function", "anchor": "symbol-verify_zip"},
+          {"name": "wait_for_jobs", "type": "function", "anchor": "symbol-wait_for_jobs"}
+        ]
+      },
+      {
         "path": "order_todos.py",
         "symbols": [
           {"name": "OrderTodos", "type": "class", "anchor": "symbol-OrderTodos"},
@@ -1886,6 +1902,17 @@
           {"name": "showDestination", "type": "FunctionDeclaration", "anchor": "symbol-showDestination"},
           {"name": "storedJob", "type": "FunctionDeclaration", "anchor": "symbol-storedJob"},
           {"name": "submit", "type": "FunctionDeclaration", "anchor": "symbol-submit"}
+        ]
+      },
+      {
+        "path": "static/order-archive.js",
+        "symbols": [
+          {"name": "confirm", "type": "FunctionDeclaration", "anchor": "symbol-confirm"},
+          {"name": "monitor", "type": "FunctionDeclaration", "anchor": "symbol-monitor"},
+          {"name": "openConfirmation", "type": "FunctionDeclaration", "anchor": "symbol-openConfirmation"},
+          {"name": "remember", "type": "FunctionDeclaration", "anchor": "symbol-remember"},
+          {"name": "showFailure", "type": "FunctionDeclaration", "anchor": "symbol-showFailure"},
+          {"name": "showProgress", "type": "FunctionDeclaration", "anchor": "symbol-showProgress"}
         ]
       },
       {

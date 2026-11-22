@@ -90,7 +90,10 @@ def rename(store, payload):
 # Вызывается под блокировками и BEGIN IMMEDIATE; дополнительная сверка проходит до перепривязки.
 def relocate(store, db, view, destination, *, details=None, verify=None, progress=None):
     root, source = store.root.resolve(), view["path"]
-    action = "Перенос" if verify else "Переименование"
+    archive = (details or {}).get("kind") == restore.ORDER_NAS_ARCHIVE
+    action = "Архивирование" if archive else "Перенос" if verify else "Переименование"
+    if archive and (verify is None or not Path(destination).name.startswith(restore.ORDER_NAS_STAGING_PREFIX)):
+        raise ValueError("Архивация требует проверенную копию на NAS и служебную папку")
     report = progress or (lambda phase: None)
     options = {"file_trash_paths": True} if (details or {}).get("file_trash_paths") else {}
     restore.check(db, source, destination, **options)
@@ -127,10 +130,10 @@ def relocate(store, db, view, destination, *, details=None, verify=None, progres
         report("metadata")
         db.execute("BEGIN IMMEDIATE")
         restore.check(db, source, destination, str(session), **options)
-        if folder_role(root, destination)["folderKind"] != kind:
+        if not archive and folder_role(root, destination)["folderKind"] != kind:
             raise ValueError("Сохрани тип папки: дату/номер заказа, числовой префикс группы или # служебной папки")
         for path, old_kind in registered:
-            if folder_role(root, restore.remap(path, source, destination))["folderKind"] != old_kind:
+            if not archive and folder_role(root, restore.remap(path, source, destination))["folderKind"] != old_kind:
                 raise ValueError("Перенос меняет структуру вложенных заказов")
         restore.rewrite(db, source, destination, **options)
         db.execute("UPDATE folder_renames SET state='complete',paths_applied=1 WHERE session=?", (str(session),))
@@ -143,7 +146,8 @@ def relocate(store, db, view, destination, *, details=None, verify=None, progres
         except (OSError, ValueError, sqlite3.Error) as undo_error:
             layout.append(session, {"phase": "rollback_failed", "error": str(undo_error)})
             raise FolderRenameConflict(action + " требует восстановления из журнала: " + str(session)) from error
-        raise FolderRenameConflict(action + " отменён. Прежний путь сохранён. " + str(error)) from error
+        cancellation = "Архивирование отменено" if archive else action + " отменён"
+        raise FolderRenameConflict(cancellation + ". Прежний путь сохранён. " + str(error)) from error
     result = {"path": destination, "source": source, "name": Path(destination).name, "journal": session.relative_to(root).as_posix()}
     try:
         layout.save_json(session / ".result.json", {"status": "moved" if verify else "renamed", **result})

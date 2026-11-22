@@ -97,14 +97,39 @@ class ObjectOrderTests(unittest.TestCase):
         self.listing.refresh(self.scope)
         self.assertEqual([row["path"] for row in self.listing.read(self.scope)["orders"]], [registered["path"]])
 
-    def test_unregistered_working_record_wins_over_old_draft_without_registration(self):
+    def test_removed_order_stays_out_of_object_list_until_added_again(self):
         record = self.add("2026-10-20 - Снят")
-        removed = self.store.remove({"path": record["path"], "revision": record["revision"], "confirmed": True})
+        path = record["path"]
+        draft = self.scope + "/2026-10-21 - Новая папка"
+        self.folder(draft)
+        self.file(path + "/original.txt", b"keep this file")
         self.listing.refresh(self.scope)
-        row = self.listing.read(self.scope)["orders"][0]
-        self.assertEqual((row["id"], row["revision"], row["note"]), (removed["id"], removed["revision"], removed["note"]))
-        self.assertFalse(row["registered"])
-        self.assertIsNone(self.store.get(record["path"]))
+        self.assertEqual({row["path"] for row in self.listing.read(self.scope)["orders"]}, {path, draft})
+
+        removed = self.store.remove({"path": path, "revision": record["revision"], "confirmed": True})
+        listed = self.listing.read(self.scope)
+        self.assertEqual([row["path"] for row in listed["orders"]], [draft])
+        self.assertEqual(listed["removed_paths"], [path])
+        poll_url = self.url("/api/object-orders", self.scope)
+        status, _, body = self.http(poll_url)
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["removed_paths"], [path])
+        reopened = manager.read_folder(self.scope)["objectOrders"]
+        self.assertEqual([row["path"] for row in reopened["orders"]], [draft])
+        self.assertEqual(reopened["removed_paths"], [path])
+        self.assertNotIn(path, {row["path"] for row in json.loads(self.http("/api/orders")[2])["orders"]})
+        self.assertIn(path, {row["path"] for row in json.loads(self.http("/api/hidden-orders")[2])["orders"]})
+        self.assertEqual(self.store.get(path, include_unregistered=True), removed)
+        self.assertEqual((self.root / path / "original.txt").read_bytes(), b"keep this file")
+
+        with patch.object(manager, "schedule_order_sync"), patch.object(manager, "schedule_todo_refresh"):
+            status, _, body = self.http("/api/order-add", "POST", json.dumps({"path": path}))
+        self.assertEqual(status, 201)
+        restored = json.loads(body)
+        self.assertEqual((restored["id"], restored["note"]), (record["id"], record["note"]))
+        listed = json.loads(self.http(poll_url)[2])
+        self.assertEqual({row["path"] for row in listed["orders"]}, {path, draft})
+        self.assertEqual(listed["removed_paths"], [])
 
     def test_object_open_keeps_note_and_does_not_register_order_folders(self):
         draft = self.scope + "/2026-10-20 - Папка"

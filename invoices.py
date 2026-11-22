@@ -20,6 +20,7 @@ from zoneinfo import ZoneInfo
 
 from event_folder_undo import assert_unlocked
 from folder_layout import rename_exclusive
+from folder_rename_undo import ORDER_NAS_STAGING_PREFIX
 from folder_structure import client_name, client_path, in_payroll, in_reconciliations
 import icloud_access
 import native_renderers
@@ -391,7 +392,7 @@ class InvoiceStore:
             return [invoice_documents.with_copy_status(db, self.record(row)) for row in rows]
 
     # Собирает общий список созданных и прикреплённых счетов всех клиентов.
-    # Без PDF/обхода файлов; client_path различает клиентов, edit_action учитывает регистрацию владельца, планы и корзина исключены.
+    # Читает метаданные без PDF и исключает архивные заказы, планы и корзину.
     def catalog(self):
         with self.connect() as db:
             rows = db.execute('''SELECT i.id,i.path,i.number,i.state,i.data,o.title AS order_title,o.registered AS owner_registered
@@ -400,6 +401,8 @@ class InvoiceStore:
                 ORDER BY json_extract(i.data,'$.date') DESC,i.created DESC,i.id''')
             result = []
             for row in rows:
+                if any(part.startswith(ORDER_NAS_STAGING_PREFIX) for part in Path(row["path"]).parts):
+                    continue
                 data = json.loads(row['data'])
                 status = data.get('_list_status', 'none')
                 result.append({'id': row['id'], 'path': row['path'], 'state': row['state'],

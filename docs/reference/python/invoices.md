@@ -6,7 +6,7 @@
 
 Invoice drafts, versioned issued PDFs and a durable folder-copy outbox.
 
-Импорты Python, включая локальные: `base64`, `binascii`, `contextlib`, `datetime`, `decimal`, `event_folder_undo`, `file_comments`, `file_trash`, `folder_layout`, `folder_structure`, `hashlib`, `icloud_access`, `invoice_documents`, `invoice_preferences`, `json`, `local_metadata`, `native_renderers`, `order_calendar`, `order_folders`, `orders`, `os`, `pathlib`, `re`, `stat`, `subprocess`, `tempfile`, `threading`, `time`, `unicodedata`, `uuid`, `zoneinfo`.
+Импорты Python, включая локальные: `base64`, `binascii`, `contextlib`, `datetime`, `decimal`, `event_folder_undo`, `file_comments`, `file_trash`, `folder_layout`, `folder_rename_undo`, `folder_structure`, `hashlib`, `icloud_access`, `invoice_documents`, `invoice_preferences`, `json`, `local_metadata`, `native_renderers`, `order_calendar`, `order_folders`, `orders`, `os`, `pathlib`, `re`, `stat`, `subprocess`, `tempfile`, `threading`, `time`, `unicodedata`, `uuid`, `zoneinfo`.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
@@ -112,9 +112,9 @@ def catalog(self):
 
 Собирает общий список созданных и прикреплённых счетов всех клиентов.
 
-Без PDF/обхода файлов; client_path различает клиентов, edit_action учитывает регистрацию владельца, планы и корзина исключены.
+Читает метаданные без PDF и исключает архивные заказы, планы и корзину.
 
-Непосредственные вызовы: `self.connect`, `db.execute`, `json.loads`, `data.get`, `result.append`, `self.source_label`, `client_name`, `client_path`, `row['path'].split`, `Path`, `isinstance`.
+Непосредственные вызовы: `self.connect`, `db.execute`, `any`, `part.startswith`, `Path`, `json.loads`, `data.get`, `result.append`, `self.source_label`, `client_name`, `client_path`, `row['path'].split`, `isinstance`.
 
 Выражения возврата (ветки читаются в исходнике):
 

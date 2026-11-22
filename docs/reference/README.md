@@ -8,7 +8,7 @@
 
 ## Python
 
-69 файлов; 1000 именованных объявлений.
+70 файлов; 1011 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
@@ -54,6 +54,7 @@
 | [order_document.py](python/order_document.md) | 35 |
 | [order_folders.py](python/order_folders.md) | 10 |
 | [order_links.py](python/order_links.md) | 18 |
+| [order_nas_archive.py](python/order_nas_archive.md) | 11 |
 | [order_todos.py](python/order_todos.md) | 9 |
 | [orders.py](python/orders.md) | 44 |
 | [plotter.py](python/plotter.md) | 8 |
@@ -84,7 +85,7 @@
 
 ## JavaScript
 
-26 файлов; 520 именованных объявлений.
+27 файлов; 526 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
@@ -104,6 +105,7 @@
 | [static/money-overview.js](javascript/static-money-overview.md) | 8 |
 | [static/navigation.js](javascript/static-navigation.md) | 1 |
 | [static/object-move.js](javascript/static-object-move.md) | 7 |
+| [static/order-archive.js](javascript/static-order-archive.md) | 6 |
 | [static/order-sorting.js](javascript/static-order-sorting.md) | 2 |
 | [static/reconciliations.js](javascript/static-reconciliations.md) | 12 |
 | [static/remote-access.js](javascript/static-remote-access.md) | 2 |

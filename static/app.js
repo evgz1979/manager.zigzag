@@ -26,7 +26,7 @@ const state = {
   printTask: null, printSaving: null, printQuery: "",
   view: "orders", orders: [], orderQuery: "", orderSort: "updated", orderDirection: -1, scan: null, ordersRequest: 0,
   unregistrations: [], removeOrder: null, removingOrder: false,
-  objectOrders: [], objectOrdersError: "", workOrderGroups: [], workArchivedOrders: [], workArchivedPaths: [], orderListScope: "",
+  objectOrders: [], objectOrdersError: "", objectRemovedPaths: [], workOrderGroups: [], workArchivedOrders: [], workArchivedPaths: [], orderListScope: "",
   collapsedOrderGroups: new Map(),
   markerSaving: new Set(), favoriteSaving: new Set(), orderStatusSaving: new Set(), deadlineSaving: new Set(), deadlineWeekOptions: [], favoriteOrders: [], favoriteOrdersMarkup: null,
   deadlineHighlights: new Set(), deadlineHighlightRevision: -1,
@@ -966,7 +966,7 @@ function subfolderButton(item) {
 }
 
 // Показывает подпапки текущей папки согласно их ролям.
-// Использует `/api/thumbnail-cover`.
+// Скрывает плитки заказов из таблицы и снятые с учёта заказы объекта.
 function renderSubfolders() {
   const folder = state.folder;
   $("subfolders").classList.toggle("work-section-buttons", folder.folderKind === "work_root");
@@ -978,6 +978,7 @@ function renderSubfolders() {
   const visibleDirectories = folder.directories.filter((item) => (["work_root", "moneys_root", "bills_root"].includes(folder.folderKind) || !item.name.startsWith("#")) &&
     !(isWorkOrderList() && folder.folderKind !== "work_root") &&
     !(isWorkOrderList() && state.workArchivedPaths.includes(item.path.normalize("NFC"))) &&
+    !(isObjectOrderList() && state.objectRemovedPaths.includes(item.path.normalize("NFC"))) &&
     !(isFolderOrderList() && state.objectOrders.some((order) => order.path.normalize("NFC") === item.path.normalize("NFC"))));
   $("frezaTaskSearchLabel").hidden = !folder.frezaSection;
   $("subfolders").classList.toggle("freza-task-grid", Boolean(folder.frezaSection));
@@ -1202,6 +1203,7 @@ function renderFolder(preserveForm = false) {
   $("statusForm").classList.toggle("note-only", noteOnly);
   $("orderNote").placeholder = reconciliation ? "Заметка к сверке" : folder.frezaTask ? "Материал, толщина, размеры, количество и другие детали задания…" : noteOnly ? "Заметка к этой папке" : "Что важно по этому заказу";
   $("removeOrderButton").hidden = !folder.order;
+  $("archiveOrderButton").hidden = Boolean(folder.order) || !folder.orderWasRegistered || !folder.canManageServiceFolders;
   $("addOrderButton").textContent = isWorkOrderPath(folder.path) ? "+ Добавить в производство" : "+ Добавить в список заказов";
   $("removeOrderButton").textContent = isWorkOrderPath(folder.path) ? "Убрать из производства" : "Убрать из списка заказов";
   $("createObjectFolderButton").hidden = folder.canCreateObjectFolder !== true;
@@ -2683,11 +2685,15 @@ async function loadOrders() {
       const object = await request(apiUrl(work ? "/api/work-orders" : "/api/object-orders", objectPath, { show_inactive: state.showInactive ? "1" : "0" }));
       if (version !== state.ordersRequest) return;
       if (isFolderOrderList() && state.folder.path === objectPath) {
+        const removedPaths = object.removed_paths || [];
+        const removedPathsChanged = JSON.stringify(state.objectRemovedPaths) !== JSON.stringify(removedPaths);
         state.objectOrders = object.orders;
         state.objectOrdersError = object.error || "";
+        state.objectRemovedPaths = removedPaths;
         state.workOrderGroups = object.groups || [];
         state.workArchivedOrders = object.archived_orders || [];
         state.workArchivedPaths = (object.archived_paths || []).map(path => path.normalize("NFC"));
+        if (removedPathsChanged) renderSubfolders();
       }
     } catch (error) {
       if (version !== state.ordersRequest) return;
@@ -4538,6 +4544,7 @@ async function showOrders({ history = true } = {}) {
   $("openFolderButton").hidden = true;
   $("addOrderButton").hidden = true;
   $("removeOrderButton").hidden = true;
+  $("archiveOrderButton").hidden = true;
   $("createObjectFolderButton").hidden = true;
   $("groupObjectYearsButton").hidden = true;
   $("createOrderFolderButton").hidden = true;
@@ -4620,6 +4627,7 @@ async function navigate(path, { history = true } = {}) {
     if (data.folderKind === "object" || data.workOrderList) {
       state.objectOrders = data.objectOrders?.orders || [];
       state.objectOrdersError = data.objectOrders?.error || "";
+      state.objectRemovedPaths = data.objectOrders?.removed_paths || [];
       state.workOrderGroups = data.objectOrders?.groups || [];
       state.workArchivedOrders = data.objectOrders?.archived_orders || [];
       state.workArchivedPaths = (data.objectOrders?.archived_paths || []).map(path => path.normalize("NFC"));
@@ -5529,7 +5537,7 @@ $("removeOrderForm").addEventListener("submit", (event) => {
       const removed = await request("/api/order-remove", { path: order.path, revision: order.revision, confirmed: true });
       if (state.folder?.path === order.path) {
         delete state.folder.order;
-        Object.assign(state.folder, { note: removed.note, noteOnly: true, registrationPending: removed.sync_pending, registrationError: removed.sync_error });
+        Object.assign(state.folder, { note: removed.note, noteOnly: true, orderWasRegistered: removed.storage === "database", registrationPending: removed.sync_pending, registrationError: removed.sync_error });
         if (removed.folderNote) Object.assign(state.folder,{folderNote:removed.folderNote,draftCard:removed.folderNote.card});
         state.dirty = false;
         renderFolder();

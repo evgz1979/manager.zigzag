@@ -140,16 +140,16 @@ def read(self, relative, *, inactive=(), show_inactive=False):
 
 Собирает список заказов объекта по каталогу и текущим данным SQLite.
 
-Работает с таблицами metadata_records, sqlite_master, folder_notes.
+Возвращает пути снятых с учёта заказов отдельно, чтобы скрыть и их плитки.
 
-Непосредственные вызовы: `self.path`, `self.meta.get`, `ValueError`, `type`, `scope.get`, `set`, `self.allowed_paths`, `self.store.list`, `allowed`, `records.setdefault(canonical(row['path']), []).append`, `records.setdefault`, `canonical`, `self.meta.connect`, `db.execute`, `json.loads`, `isinstance`, `data.get`, `catalog.add`, `db.execute("SELECT 1 FROM sqlite_master WHERE name='folder_notes'").fetchone`, `records.items`, `any`, `sorted`, `inside`, `result.extend`, `notes.get`, `body.get`, `Path`, `client_name`, `order_location`, `document.read_todos`, `document.read_purchases`, `document.read_favorite`, `order_deadlines.read`, `document.read_flag`, `document.read_blue_plus`, `document.read_dollar`, `order_deadlines.read_comments`, `result.append`, `OrderTodos(self.store).attach`, `OrderTodos`, `order_deadlines.week_options`.
+Непосредственные вызовы: `self.path`, `self.meta.get`, `ValueError`, `type`, `scope.get`, `set`, `self.allowed_paths`, `self.store.list`, `allowed`, `records.setdefault`, `canonical`, `rows.append`, `self.meta.connect`, `db.execute`, `json.loads`, `isinstance`, `data.get`, `catalog.add`, `db.execute("SELECT 1 FROM sqlite_master WHERE name='folder_notes'").fetchone`, `records.items`, `sorted`, `any`, `inside`, `result.extend`, `notes.get`, `body.get`, `Path`, `client_name`, `order_location`, `document.read_todos`, `document.read_purchases`, `document.read_favorite`, `order_deadlines.read`, `document.read_flag`, `document.read_blue_plus`, `document.read_dollar`, `order_deadlines.read_comments`, `result.append`, `OrderTodos(self.store).attach`, `OrderTodos`, `order_deadlines.week_options`.
 
 Явные исключения: `ValueError`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-{'path': relative, 'orders': OrderTodos(self.store).attach(result), 'checked': scope.get('checked'), 'error': scope.get('error', ''), 'deadline_week_options': order_deadlines.week_options()}
+{'path': relative, 'orders': OrderTodos(self.store).attach(result), 'removed_paths': removed_paths, 'checked': scope.get('checked'), 'error': scope.get('error', ''), 'deadline_week_options': order_deadlines.week_options()}
 ```
 
 <a id="symbol-ObjectOrders.refresh"></a>
