@@ -179,6 +179,7 @@ class ObjectOrders:
                     "is_flagged": document.read_flag(blocks),
                     "is_blue_plus": document.read_blue_plus(blocks),
                     "is_dollar": document.read_dollar(blocks),
+                    "is_out_of_focus": False,
                     "deadline_comments": order_deadlines.read_comments(blocks),
                     "sync_pending": False, "sync_error": "", "storage": "database", **values}
                 row["profit"] = values["amount"] - values["costs"] if values["amount"] is not None and values["costs"] is not None else None

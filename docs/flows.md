@@ -67,6 +67,8 @@ sequenceDiagram
 
 Проверка revision — оптимистическая блокировка, а не автоматическое объединение текстов. После 409 форма остаётся у пользователя; серверные данные и черновик нужно сравнить. Фоновая перезагрузка не даёт права автоматически повторить запрос с новой revision.
 
+[toggleOrderMarker](reference/javascript/static-app.md#symbol-toggleOrderMarker) передаёт отметку «Вне фокуса внимания» в `POST /api/order-focus`. [OrderStore.save_out_of_focus](reference/python/orders.md#symbol-OrderStore.save_out_of_focus) использует общую транзакцию частичной записи по UUID и revision. [renderOrders](reference/javascript/static-app.md#symbol-renderOrders) приглушает все ячейки строки после глаза и задаёт им `inert`. Если при обновлении фокус клавиатуры был внутри такой строки, он переходит на глаз.
+
 ## Создание заказа
 
 [createOrderFolder](reference/javascript/static-app.md#symbol-createOrderFolder) отправляет заполненную форму. [create](reference/python/order_folders.md#symbol-create) проверяет клиентскую область, контейнер года и предлагаемое имя. [prepare](reference/python/order_creation.md#symbol-prepare) фиксирует намерение с UUID до завершения набора файловых действий.

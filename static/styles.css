@@ -861,7 +861,8 @@ h2 { font-size: 13px; font-weight: 600; }
 .orders-table th[aria-sort="ascending"] button, .orders-table th[aria-sort="descending"] button { color: var(--accent); }
 .orders-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
 .orders-table tr:last-child td { border-bottom: 0; }
-.orders-table tbody tr:hover { background: light-dark(#fafcf9, #1b211f); }
+.orders-table tbody tr:not([data-order-out-of-focus]):hover { background: light-dark(#fafcf9, #1b211f); }
+.orders-table tr[data-order-out-of-focus] > [inert] { opacity: .18; }
 .orders-table .order-group-divider > * { padding: 10px; border-top: 2px solid light-dark(#cad8ce, #39443f); background: light-dark(#edf3ed, #25302b); color: var(--muted); font-size: 11px; font-weight: 550; white-space: normal; }
 .orders-table .order-group-divider:first-child > * { border-top: 0; }
 .orders-table .order-group-toggle { display: flex; align-items: center; gap: 7px; width: 100%; padding: 0; border: 0; border-radius: 0; background: transparent; color: inherit; font: inherit; text-align: left; }
@@ -941,10 +942,16 @@ h2 { font-size: 13px; font-weight: 600; }
 .order-deadline-outside { display: block; margin-top: 3px; color: var(--muted); font-size: 9px; }
 .order-row-comment { display: block; width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .order-row-comment.empty { color: var(--muted); }
-.orders-table .order-favorite-column { width: 38px; padding: 6px 3px; text-align: center; }
-.orders-table .order-flag-column { width: 30px; padding: 6px 2px; text-align: center; }
-.orders-table .order-blue-plus-column { width: 30px; padding: 6px 2px; text-align: center; }
+.orders-table .order-focus-column,
+.orders-table .order-flag-column,
+.orders-table .order-blue-plus-column,
 .orders-table .order-dollar-column { width: 30px; padding: 6px 2px; text-align: center; }
+.orders-table th.order-focus-column { color: light-dark(#989f9a, #87938c); }
+.order-focus-column > svg { width: 14px; height: 14px; }
+.order-focus-button { display: inline-grid; place-items: center; width: 26px; height: 28px; padding: 0; border: 0; background: transparent; color: light-dark(#7e8881, #a3b2a9); }
+.order-focus-button svg { width: 16px; height: 16px; }
+.order-focus-button:is(:hover, :focus-visible, [aria-pressed="true"]) { color: light-dark(#425149, #d6e2da); background: light-dark(#edf1ee, #2a3530); }
+.orders-table .order-favorite-column { width: 38px; padding: 6px 3px; text-align: center; }
 .orders-table th.order-dollar-column { color: light-dark(#72a881, #82a590); font-size: 14px; }
 .order-dollar-button { display: inline-grid; place-items: center; width: 26px; height: 28px; padding: 0; border: 0; background: transparent; color: light-dark(#adcdb6, #637c6b); font-size: 18px; font-weight: 400; }
 .order-dollar-button:hover { color: light-dark(#2f8551, #82d8a2); background: light-dark(#f0f7f1, #26312e); }

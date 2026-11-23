@@ -1797,6 +1797,20 @@ self.send_json(record)
 
 Вызовы ветки: `order_store().save_dollar`, `order_store`, `schedule_order_sync`.
 
+## POST /api/order-focus
+
+[ManagerHandler.do_POST](python/server.md#symbol-ManagerHandler.do_POST).
+
+Условие: `route == '/api/order-focus'`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json(order_store().save_out_of_focus(payload))
+```
+
+Вызовы ветки: `order_store().save_out_of_focus`, `order_store`.
+
 ## POST /api/order-status
 
 [ManagerHandler.do_POST](python/server.md#symbol-ManagerHandler.do_POST).

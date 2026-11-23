@@ -130,6 +130,7 @@ class OrderStore:
         result["is_flagged"] = document.read_flag(result["extra_blocks"])
         result["is_blue_plus"] = document.read_blue_plus(result["extra_blocks"])
         result["is_dollar"] = document.read_dollar(result["extra_blocks"])
+        result["is_out_of_focus"] = document.read_out_of_focus(result["extra_blocks"])
         result["related_order_ids"] = order_links.read(result["extra_blocks"])
         result["primary_related_order_ids"] = order_links.read_primary(result["extra_blocks"])
         result["primary_related_orders"] = order_links.primary_items(db, result["path"], result["primary_related_order_ids"])
@@ -328,6 +329,11 @@ class OrderStore:
     # Возвращает `self._save_extra_block(payload, lambda blocks: document.write_dollar(blocks, payload.get('is_dollar')), update_time=False)`.
     def save_dollar(self, payload):
         return self._save_extra_block(payload, lambda blocks: document.write_dollar(blocks, payload.get("is_dollar")), update_time=False)
+
+    # Меняет только отметку фокуса внимания зарегистрированного заказа.
+    # Проверяет UUID и версию, сохраняет историю и прежнюю дату обновления.
+    def save_out_of_focus(self, payload):
+        return self._save_extra_block(payload, lambda blocks: document.write_out_of_focus(blocks, payload.get("is_out_of_focus")), update_time=False)
 
     # Меняет самостоятельный статус заказа поставщика.
     # При недопустимом состоянии возбуждает ValueError.

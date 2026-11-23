@@ -349,7 +349,7 @@ def record(self, row, db):
 
 Разбирает JSON; вызывающий код должен учитывать ошибки или неизвестный формат.
 
-Непосредственные вызовы: `dict`, `bool`, `client_name`, `result.update`, `order_location`, `work_orders.supplier_name`, `work_orders.supplier_color`, `json.loads`, `work_orders.status_order`, `work_orders.read_status`, `work_orders.archive_time`, `document.read_todos`, `document.read_purchases`, `document.read_favorite`, `document.read_flag`, `document.read_blue_plus`, `document.read_dollar`, `order_links.read`, `order_links.read_primary`, `order_links.primary_items`, `order_links.scope`, `order_deadlines.read`, `calendar_layout.read_compact`, `order_calendar.read`, `order_calendar.read_inactive`, `order_calendar.read_completed`, `order_calendar.read_trip`, `order_calendar.read_watch_todos`, `order_calendar.read_colors`, `work_orders.direct_order`, `result.pop`.
+Непосредственные вызовы: `dict`, `bool`, `client_name`, `result.update`, `order_location`, `work_orders.supplier_name`, `work_orders.supplier_color`, `json.loads`, `work_orders.status_order`, `work_orders.read_status`, `work_orders.archive_time`, `document.read_todos`, `document.read_purchases`, `document.read_favorite`, `document.read_flag`, `document.read_blue_plus`, `document.read_dollar`, `document.read_out_of_focus`, `order_links.read`, `order_links.read_primary`, `order_links.primary_items`, `order_links.scope`, `order_deadlines.read`, `calendar_layout.read_compact`, `order_calendar.read`, `order_calendar.read_inactive`, `order_calendar.read_completed`, `order_calendar.read_trip`, `order_calendar.read_watch_todos`, `order_calendar.read_colors`, `work_orders.direct_order`, `result.pop`.
 
 Выражения возврата (ветки читаются в исходнике):
 
@@ -780,6 +780,28 @@ def save_flag(self, payload):
 
 ```python
 self._save_extra_block(payload, lambda blocks: document.write_flag(blocks, payload.get('is_flagged')), update_time=False)
+```
+
+<a id="symbol-OrderStore.save_out_of_focus"></a>
+
+## OrderStore.save_out_of_focus
+
+[orders.py](../../../orders.py) · `function`.
+
+```python
+def save_out_of_focus(self, payload):
+```
+
+Меняет только отметку фокуса внимания зарегистрированного заказа.
+
+Проверяет UUID и версию, сохраняет историю и прежнюю дату обновления.
+
+Непосредственные вызовы: `self._save_extra_block`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+self._save_extra_block(payload, lambda blocks: document.write_out_of_focus(blocks, payload.get('is_out_of_focus')), update_time=False)
 ```
 
 <a id="symbol-OrderStore.save_purchase_done"></a>

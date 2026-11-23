@@ -29,6 +29,7 @@ FAVORITE_BLOCK = "Избранное"
 FLAG_BLOCK = "Флажок"
 BLUE_PLUS_BLOCK = "Синий плюс"
 DOLLAR_BLOCK = "Зелёный доллар"
+OUT_OF_FOCUS_BLOCK = "Вне фокуса внимания"
 PURCHASE_SUPPLIERS = ("newtek", "glass", "antares", "tbm", "remex")
 PURCHASE_SUPPLIERS_VERSION = 1
 UNSET_TODOS = object()
@@ -88,6 +89,25 @@ def write_blue_plus(blocks, value):
     if read_blue_plus(blocks) is None:
         raise ValueError("Неизвестная отметка синего плюса сохранена без изменений")
     return {**blocks, BLUE_PLUS_BLOCK: "Да" if value else "Нет"}
+
+
+# Читает отметку «Вне фокуса внимания».
+# Отсутствие означает обычную строку, неизвестный формат возвращает None.
+def read_out_of_focus(blocks):
+    if OUT_OF_FOCUS_BLOCK not in blocks:
+        return False
+    value = blocks[OUT_OF_FOCUS_BLOCK]
+    return {"да": True, "нет": False}.get(value.strip().casefold()) if isinstance(value, str) else None
+
+
+# Записывает состояние фокуса внимания, сохраняя остальные блоки заказа.
+# Принимает строгое логическое значение и сохраняет блок неизвестного формата.
+def write_out_of_focus(blocks, value):
+    if type(value) is not bool:
+        raise ValueError("Укажи состояние отметки «Вне фокуса внимания»: вкл или выкл")
+    if read_out_of_focus(blocks) is None:
+        raise ValueError("Неизвестная отметка фокуса внимания сохранена без изменений")
+    return {**blocks, OUT_OF_FOCUS_BLOCK: "Да" if value else "Нет"}
 
 
 # Читает независимую отметку заказа без замены неизвестного значения.

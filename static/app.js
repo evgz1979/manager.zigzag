@@ -3231,8 +3231,8 @@ async function changeOrderDeadline({ path, id, revision, week, selected }, butto
   state.deadlineSaving.add(path);
   ++state.ordersRequest;
   if (folder) { folder.deadlineError = ""; renderOrderHeading(); renderCardDeadlines(); }
-  $("ordersTableBody").querySelectorAll("[data-order-deadline], [data-order-status], [data-order-favorite], [data-order-flag], [data-order-blue-plus], [data-order-dollar]").forEach((control) => {
-    if ((control.dataset.orderDeadline || control.dataset.orderStatus || control.dataset.orderFavorite || control.dataset.orderFlag || control.dataset.orderBluePlus || control.dataset.orderDollar) === path) control.disabled = true;
+  $("ordersTableBody").querySelectorAll("[data-order-deadline], [data-order-status], [data-order-favorite], [data-order-flag], [data-order-blue-plus], [data-order-dollar], [data-order-focus]").forEach((control) => {
+    if ((control.dataset.orderDeadline || control.dataset.orderStatus || control.dataset.orderFavorite || control.dataset.orderFlag || control.dataset.orderBluePlus || control.dataset.orderDollar || control.dataset.orderFocus) === path) control.disabled = true;
   });
   let saving;
   try {
@@ -3272,20 +3272,23 @@ async function changeOrderDeadline({ path, id, revision, week, selected }, butto
 }
 
 const orderMarkers = {
+  focus: { field: "is_out_of_focus", data: "orderFocus", suffix: "focus", label: "Убрать из фокуса внимания", offLabel: "Вернуть в фокус внимания", unknown: "фокуса внимания", icon: "eye", pressedIcon: "eye-off" },
   flag: { field: "is_flagged", data: "orderFlag", suffix: "flag", label: "флажок", unknown: "флажка", icon: "flag" },
   bluePlus: { field: "is_blue_plus", data: "orderBluePlus", suffix: "blue-plus", label: "синий плюс", unknown: "синего плюса", icon: "plus" },
   dollar: { field: "is_dollar", data: "orderDollar", suffix: "dollar", label: "зелёный доллар", unknown: "зелёного доллара", symbol: "$" },
 };
 
 // Строит кнопку независимой отметки заказа.
-// Использует `escapeHtml`, `Boolean`, `orderRowSaving`.
+// У переключателя фокуса доступное имя постоянно, а подсказка и значок меняются по состоянию.
 function renderOrderMarkerButton(order, kind) {
   const marker = orderMarkers[kind], value = order[marker.field], unknown = value === null;
-  const label = (value ? "Снять " : "Поставить ") + marker.label + " · " + order.title;
+  const label = (marker.offLabel ? marker.label : (value ? "Снять " : "Поставить ") + marker.label) + " · " + order.title;
+  const title = unknown ? "Неизвестная отметка " + marker.unknown + " сохранена без изменений" :
+    value && marker.offLabel ? marker.offLabel + " · " + order.title : label;
   return '<button type="button" class="order-' + marker.suffix + '-button" data-order-' + marker.suffix + '="' + escapeHtml(order.path) +
     '" data-order-id="' + escapeHtml(order.id) + '" data-revision="' + order.revision + '" aria-pressed="' + Boolean(value) +
-    '" aria-label="' + escapeHtml(label) + '" title="' + escapeHtml(unknown ? "Неизвестная отметка " + marker.unknown + " сохранена без изменений" : label) +
-    '"' + (unknown || order.registered === false || orderRowSaving(order.path) ? ' disabled' : '') + '>' + (marker.symbol ? '<span aria-hidden="true">' + marker.symbol + '</span>' : icon(marker.icon)) + '</button>';
+    '" aria-label="' + escapeHtml(label) + '" title="' + escapeHtml(title) +
+    '"' + (unknown || order.registered === false || orderRowSaving(order.path) ? ' disabled' : '') + '>' + (marker.symbol ? '<span aria-hidden="true">' + marker.symbol + '</span>' : icon(value && marker.pressedIcon || marker.icon)) + '</button>';
 }
 
 // Возвращает фокус на выбранную отметку после обновления строки.
@@ -3305,8 +3308,8 @@ async function toggleOrderMarker(button, kind) {
   state.markerSaving.add(path);
   ++state.ordersRequest;
   button.setAttribute("aria-busy", "true");
-  $("ordersTableBody").querySelectorAll("[data-order-flag], [data-order-favorite], [data-order-status], [data-order-deadline], [data-order-blue-plus], [data-order-dollar]").forEach((control) => {
-    if ((control.dataset.orderFlag || control.dataset.orderFavorite || control.dataset.orderStatus || control.dataset.orderDeadline || control.dataset.orderBluePlus || control.dataset.orderDollar) === path) control.disabled = true;
+  $("ordersTableBody").querySelectorAll("[data-order-flag], [data-order-favorite], [data-order-status], [data-order-deadline], [data-order-blue-plus], [data-order-dollar], [data-order-focus]").forEach((control) => {
+    if ((control.dataset.orderFlag || control.dataset.orderFavorite || control.dataset.orderStatus || control.dataset.orderDeadline || control.dataset.orderBluePlus || control.dataset.orderDollar || control.dataset.orderFocus) === path) control.disabled = true;
   });
   try {
     applyOrderRecord(null, await request("/api/order-" + marker.suffix, payload));
@@ -3633,8 +3636,8 @@ async function changeOrderProductionStatus(select) {
   ++state.ordersRequest;
   select.disabled = true;
   select.setAttribute("aria-busy", "true");
-  $("ordersTableBody").querySelectorAll("[data-order-favorite], [data-order-deadline], [data-order-flag], [data-order-blue-plus], [data-order-dollar]").forEach((button) => {
-    if ((button.dataset.orderFavorite || button.dataset.orderDeadline || button.dataset.orderFlag || button.dataset.orderBluePlus || button.dataset.orderDollar) === path) button.disabled = true;
+  $("ordersTableBody").querySelectorAll("[data-order-favorite], [data-order-deadline], [data-order-flag], [data-order-blue-plus], [data-order-dollar], [data-order-focus]").forEach((button) => {
+    if ((button.dataset.orderFavorite || button.dataset.orderDeadline || button.dataset.orderFlag || button.dataset.orderBluePlus || button.dataset.orderDollar || button.dataset.orderFocus) === path) button.disabled = true;
   });
   try {
     const saved = await request(supplier ? "/api/order-supplier-status" : "/api/order-status", supplier ? { path, id: select.dataset.orderId, revision, supplier_status: status } : { path, revision, status });
@@ -4347,11 +4350,12 @@ function renderWorkOrders(orders, options) {
     if (!rows.length) return "";
     const collapsed = orderGroupCollapsed(scope, group.key);
     const style = group.color ? ' style="--supplier-hue:' + Number(group.color.hue) + '"' : '';
-    return '<tr class="order-group-divider"' + style + '><th colspan="7"><button type="button" class="order-group-toggle" data-order-group-toggle="' + escapeHtml(group.key) +
+    return '<tr class="order-group-divider"' + style + '><th colspan="8"><button type="button" class="order-group-toggle" data-order-group-toggle="' + escapeHtml(group.key) +
       '" data-order-group-scope="' + escapeHtml(scope) + '" aria-expanded="' + !collapsed + '"><span class="order-group-chevron" aria-hidden="true">▸</span><span>' + escapeHtml(group.label) +
       '</span><span class="count-badge">' + rows.length + '</span></button></th><td></td><td class="order-deadline-column">' + renderDeadlineMonthLegend(options) + '</td><td></td></tr>' +
-      rows.map((order) => '<tr data-order-group-row="' + escapeHtml(group.key) + '"' + style + (group.color?.neutral ? ' class="supplier-neutral"' : '') + (collapsed ? ' hidden' : '') + '>' +
-        '<td class="order-blue-plus-column">' + renderOrderMarkerButton(order, "bluePlus") + '</td><td class="order-dollar-column">' + renderOrderMarkerButton(order, "dollar") + '</td><td class="order-flag-column">' + renderOrderMarkerButton(order, "flag") + '</td>' +
+      rows.map((order) => '<tr data-order-group-row="' + escapeHtml(group.key) + '"' + style + (group.color?.neutral ? ' class="supplier-neutral"' : '') + (collapsed ? ' hidden' : '') +
+        (order.is_out_of_focus === true && order.registered !== false ? ' data-order-out-of-focus' : '') + '>' +
+        '<td class="order-focus-column">' + renderOrderMarkerButton(order, "focus") + '</td><td class="order-blue-plus-column">' + renderOrderMarkerButton(order, "bluePlus") + '</td><td class="order-dollar-column">' + renderOrderMarkerButton(order, "dollar") + '</td><td class="order-flag-column">' + renderOrderMarkerButton(order, "flag") + '</td>' +
         '<td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td><td class="order-todo-column">' + renderOrderTodoButton(order) + '</td>' +
         '<td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен в производство</span>' : '') +
         '<span class="order-row-path">' + escapeHtml(order.path) + '</span></td><td class="order-comment-column">' + renderOrderComment(order) + '</td><td>' + renderSupplierOrderStatus(order) + '</td>' +
@@ -4423,10 +4427,12 @@ function renderOrderListMoney(amount, paid) {
 }
 
 // Перестраивает строки текущего списка из локальных данных.
-// На главной после комментария показывает сохранённую сумму заказа и оплату в целых рублях.
+// Приглушает строки вне фокуса и оставляет в них доступной только кнопку восстановления.
 function renderOrders({ force = false } = {}) {
   // Replacing a focused native select would close its menu during background polling.
   if (!force && (state.orderStatusSaving.size || state.deadlineSaving.size || state.markerSaving.size || state.calendarMoving.size || state.calendarEvent?.saving || document.activeElement?.dataset.orderStatus)) return;
+  const focusedEye = document.activeElement?.dataset.orderFocus;
+  const focusedRowPath = document.activeElement?.closest("#ordersTableBody tr")?.querySelector("[data-order-focus]")?.dataset.orderFocus;
   const focusedFlag = document.activeElement?.dataset.orderFlag;
   const focusedBluePlus = document.activeElement?.dataset.orderBluePlus;
   const focusedDollar = document.activeElement?.dataset.orderDollar;
@@ -4463,15 +4469,22 @@ function renderOrders({ force = false } = {}) {
     group.orders.push(order);
   });
   $("ordersTableBody").innerHTML = work ? renderWorkOrders(filtered, deadlineOptions) : groups.filter((group) => group.orders.length).map((group) =>
-    '<tr class="order-group-divider"><th colspan="' + (object || home ? 11 : 10) + '"><button type="button" class="order-group-toggle" data-order-group-toggle="' + group.key +
+    '<tr class="order-group-divider"><th colspan="' + (object || home ? 12 : 11) + '"><button type="button" class="order-group-toggle" data-order-group-toggle="' + group.key +
     '" data-order-group-scope="' + escapeHtml(groupScope) + '" aria-expanded="' + !group.collapsed +
     '"><span class="order-group-chevron" aria-hidden="true">▸</span><span>' + escapeHtml(group.label) +
     '</span><span class="count-badge">' + group.orders.length + '</span></button></th><td class="order-deadline-column">' + renderDeadlineMonthLegend(deadlineOptions) + '</td><td colspan="2"></td></tr>' +
-    group.orders.map((order) => '<tr data-order-group-row="' + group.key + '"' + (group.collapsed ? ' hidden' : '') + '><td class="order-blue-plus-column">' + renderOrderMarkerButton(order, "bluePlus") + '</td><td class="order-dollar-column">' + renderOrderMarkerButton(order, "dollar") + '</td><td class="order-flag-column">' + renderOrderMarkerButton(order, "flag") + '</td><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td>' + (object ? '<td class="order-related-column">' + renderOrderRelatedButton(order) + '</td>' : '') + '<td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + renderOrderLocationLink(order.client, order.client_path, true) + '</td><td class="order-object-column">' + renderOrderLocationLink(order.object, order.object_path) + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен</span>' : '') + '<span class="order-row-path">' + escapeHtml(order.path) + '</span>' + (object ? renderCompactOrderLinks(order) : '') + '</td>' +
+    group.orders.map((order) => '<tr data-order-group-row="' + group.key + '"' + (group.collapsed ? ' hidden' : '') +
+    (order.is_out_of_focus === true && order.registered !== false ? ' data-order-out-of-focus' : '') + '><td class="order-focus-column">' + renderOrderMarkerButton(order, "focus") + '</td>' +
+    '<td class="order-blue-plus-column">' + renderOrderMarkerButton(order, "bluePlus") + '</td><td class="order-dollar-column">' + renderOrderMarkerButton(order, "dollar") + '</td><td class="order-flag-column">' + renderOrderMarkerButton(order, "flag") + '</td><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td>' + (object ? '<td class="order-related-column">' + renderOrderRelatedButton(order) + '</td>' : '') + '<td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + renderOrderLocationLink(order.client, order.client_path, true) + '</td><td class="order-object-column">' + renderOrderLocationLink(order.object, order.object_path) + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен</span>' : '') + '<span class="order-row-path">' + escapeHtml(order.path) + '</span>' + (object ? renderCompactOrderLinks(order) : '') + '</td>' +
     '<td class="order-comment-column">' + renderOrderComment(order) + '</td>' +
     (home ? '<td class="order-money">' + renderOrderListMoney(order.amount, order.paid) + '</td>' : '') +
     '<td class="order-deadline-column">' + renderOrderDeadlines(order, { options: deadlineOptions }) + '</td><td>' + renderOrderProductionStatus(order) + '</td>' +
     '<td class="order-updated">' + (order.updated ? formatDate(order.updated) : '—') + (order.sync_pending ? '<span class="sync-pending" title="' + escapeHtml(order.sync_error || "Ожидает выгрузки в папку") + '">' + (order.sync_error ? "В очереди · автоповтор" : "Ожидает выгрузки") + '</span>' : '<span class="sync-complete">' + (order.storage === 'database' ? 'В базе' : 'Выгружено') + '</span>') + '</td></tr>').join("")).join("");
+  for (const row of $("ordersTableBody").querySelectorAll("[data-order-out-of-focus]")) {
+    for (const cell of row.querySelectorAll("td:not(.order-focus-column)")) cell.inert = true;
+    const eye = row.querySelector("[data-order-focus]");
+    if (eye.dataset.orderFocus === focusedRowPath) eye.focus({ preventScroll: true });
+  }
   $("ordersEmpty").hidden = Boolean(filtered.length);
   $("ordersEmptyTitle").textContent = orders.length ? "Нет заказов по этому запросу" : "Заказов пока нет";
   $("ordersEmptyHint").textContent = orders.length ? "Измени поисковый запрос." : work ? state.folder.folderKind === "work_root" ? "Создай заказ в разделе поставщика первой группы или прямо в # work. Для новых папок нажми «Обновить»." : "Создай заказ у этого поставщика или обнови его папки." : object ? "Создай заказ в этом объекте или обнови его папки." : "Открой папку заказа в дереве слева и нажми «Добавить в список заказов».";
@@ -4500,6 +4513,7 @@ function renderOrders({ force = false } = {}) {
     button.textContent = button.textContent.replace(/ [↕↑↓]$/, "") + (selected ? direction === 1 ? " ↑" : " ↓" : " ↕");
   });
   renderOrderTodoDialog();
+  focusOrderMarker(focusedEye, "focus");
   focusOrderMarker(focusedFlag, "flag");
   focusOrderMarker(focusedBluePlus, "bluePlus");
   focusOrderMarker(focusedDollar, "dollar");
@@ -5405,6 +5419,8 @@ $("ordersTableBody").addEventListener("click", (event) => {
   }
   const deadlineButton = event.target.closest("[data-order-deadline]");
   if (deadlineButton) { run(() => toggleOrderDeadline(deadlineButton)); return; }
+  const focusButton = event.target.closest("[data-order-focus]");
+  if (focusButton) { run(() => toggleOrderMarker(focusButton, "focus")); return; }
   const plusButton = event.target.closest("[data-order-blue-plus]");
   if (plusButton) { run(() => toggleOrderMarker(plusButton, "bluePlus")); return; }
   const dollarButton = event.target.closest("[data-order-dollar]");

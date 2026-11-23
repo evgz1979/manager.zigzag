@@ -96,3 +96,33 @@ class OrderFlagTests(unittest.TestCase):
         saved = self.store.save({**flagged, "note": "Новая заметка", "amount": "100", "costs": "20", "paid": "50"})
         self.assertTrue(saved["is_flagged"])
         self.assertTrue(saved["is_favorite"])
+
+    def test_focus_marker_round_trip_is_shared_without_touching_other_marks_or_sort_date(self):
+        object_orders.ObjectOrders(self.store).refresh("Клиент/Объект")
+        before = self.order
+        self.assertIs(before["is_out_of_focus"], False)
+        self.root.rename(self.base / "offline")
+
+        def post(record, enabled):
+            payload = self.payload(record, is_out_of_focus=enabled)
+            status, _, body = self.http("/api/order-focus", "POST", json.dumps(payload))
+            return status, json.loads(body)
+
+        status, dimmed = post(before, True)
+        self.assertEqual(status, 200)
+        self.assertIs(dimmed["is_out_of_focus"], True)
+        self.assertEqual(dimmed["revision"], before["revision"] + 1)
+        for field in before.keys() - {"is_out_of_focus", "revision", "extra_blocks"}:
+            self.assertEqual(dimmed[field], before[field], field)
+        for route in ("/api/orders", self.url("/api/object-orders", "Клиент/Объект")):
+            listed = json.loads(self.http(route)[2])["orders"]
+            self.assertIs(listed[0]["is_out_of_focus"], True)
+        self.assertEqual(post(before, False)[0], 409)
+        self.assertEqual(post(dimmed, "false")[0], 400)
+        status, restored = post(dimmed, False)
+        self.assertEqual(status, 200)
+        self.assertIs(restored["is_out_of_focus"], False)
+        self.assertEqual(restored["updated"], before["updated"])
+        with self.store.connect() as db:
+            history = db.execute("SELECT data FROM metadata_history WHERE entity='orders' AND identity=?", (before["id"],))
+            self.assertTrue(any(json.loads(json.loads(row[0])["extra_blocks"]).get(document.OUT_OF_FOCUS_BLOCK) == "Да" for row in history))

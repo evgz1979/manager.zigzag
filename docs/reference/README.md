@@ -8,7 +8,7 @@
 
 ## Python
 
-70 файлов; 1011 именованных объявлений.
+70 файлов; 1014 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
@@ -51,12 +51,12 @@
 | [order_calendar.py](python/order_calendar.md) | 31 |
 | [order_creation.py](python/order_creation.md) | 6 |
 | [order_deadlines.py](python/order_deadlines.md) | 12 |
-| [order_document.py](python/order_document.md) | 35 |
+| [order_document.py](python/order_document.md) | 37 |
 | [order_folders.py](python/order_folders.md) | 10 |
 | [order_links.py](python/order_links.md) | 18 |
 | [order_nas_archive.py](python/order_nas_archive.md) | 11 |
 | [order_todos.py](python/order_todos.md) | 9 |
-| [orders.py](python/orders.md) | 44 |
+| [orders.py](python/orders.md) | 45 |
 | [plotter.py](python/plotter.md) | 8 |
 | [reconciliations.py](python/reconciliations.md) | 19 |
 | [recovery_backup.py](python/recovery_backup.md) | 10 |

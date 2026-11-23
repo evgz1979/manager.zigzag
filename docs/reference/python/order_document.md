@@ -344,6 +344,29 @@ False
 {'да': True, 'нет': False}.get(value.strip().casefold()) if isinstance(value, str) else None
 ```
 
+<a id="symbol-read_out_of_focus"></a>
+
+## read_out_of_focus
+
+[order_document.py](../../../order_document.py) · `function`.
+
+```python
+def read_out_of_focus(blocks):
+```
+
+Читает отметку «Вне фокуса внимания».
+
+Отсутствие означает обычную строку, неизвестный формат возвращает None.
+
+Непосредственные вызовы: `isinstance`, `{'да': True, 'нет': False}.get`, `value.strip().casefold`, `value.strip`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+False
+{'да': True, 'нет': False}.get(value.strip().casefold()) if isinstance(value, str) else None
+```
+
 <a id="symbol-read_purchases"></a>
 
 ## read_purchases
@@ -718,6 +741,30 @@ def write_flag(blocks, value):
 
 ```python
 {**blocks, FLAG_BLOCK: 'Да' if value else 'Нет'}
+```
+
+<a id="symbol-write_out_of_focus"></a>
+
+## write_out_of_focus
+
+[order_document.py](../../../order_document.py) · `function`.
+
+```python
+def write_out_of_focus(blocks, value):
+```
+
+Записывает состояние фокуса внимания, сохраняя остальные блоки заказа.
+
+Принимает строгое логическое значение и сохраняет блок неизвестного формата.
+
+Непосредственные вызовы: `type`, `ValueError`, `read_out_of_focus`.
+
+Явные исключения: `ValueError`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+{**blocks, OUT_OF_FOCUS_BLOCK: 'Да' if value else 'Нет'}
 ```
 
 <a id="symbol-write_purchase_done"></a>
