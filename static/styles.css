@@ -1422,9 +1422,12 @@ h2 { font-size: 13px; font-weight: 600; }
 }
 .invoice-dialog-actions { padding: 12px 20px; border-top: 1px solid light-dark(#e8ebef, #394741); background: light-dark(#fafbfc, #222831); flex-wrap: wrap; }
 .invoice-dialog-actions > span { font-size: 11px; color: light-dark(#7a8390, #a5b3ac); flex: 1; min-width: 140px; }
-.invoice-dialog-actions button { font-size: 12px; padding: 8px 10px; }
+.invoice-dialog-actions :is(button, a) { font-size: 12px; padding: 8px 10px; }
+.invoice-editor-buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: inherit; max-width: 100%; margin-inline-start: auto; }
+.invoice-editor-buttons a:hover { background: var(--hover); }
 @media (max-width: 700px) {
   .invoice-dialog { width: calc(100vw - 12px); max-height: calc(100dvh - 12px); }
+  #invoiceForm > .invoice-dialog-actions { padding-inline: 12px; gap: 8px; }
   .invoice-meta { grid-template-columns: 1fr 1fr; }
   .invoice-buyer { grid-template-columns: 1fr 1fr; }
   .invoice-buyer > label:first-child { grid-column: 1 / -1; }

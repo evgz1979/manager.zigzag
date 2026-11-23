@@ -6,6 +6,7 @@ import subprocess
 import uuid
 import unittest
 from unittest.mock import patch
+from urllib.parse import quote
 
 import invoices
 import test_server as fixtures
@@ -371,7 +372,12 @@ class InvoiceTests(unittest.TestCase):
         status, headers, body = self.http(self.url("/api/invoice-pdf", self.path) + "&id=" + row["id"])
         self.assertEqual(status, 200)
         self.assertEqual(headers["Content-Type"], "application/pdf")
+        self.assertTrue(headers["Content-Disposition"].startswith("inline;"))
         self.assertTrue(body.startswith(b"%PDF-"))
+        status, headers, downloaded = self.http(self.url("/api/invoice-pdf", self.path, id=row["id"], download=1))
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["Content-Disposition"], "attachment; filename*=UTF-8''" + quote(issued["filename"]))
+        self.assertEqual(downloaded, body)
         status, _, _ = self.http(self.url("/api/invoice-pdf", "Клиент") + "&id=" + row["id"])
         self.assertEqual(status, 400)
         self.assertTrue(issued["sync_pending"])

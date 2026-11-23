@@ -236,11 +236,11 @@ function controls()
 
 Обновляет доступность действий открытого редактора в модуле счетов и планов платежей.
 
-Разрешает правку содержимого обоих состояний; номер, дата и вид выпуска закреплены.
+Закрепляет номер, дату и вид выпуска; для скачивания предлагает сохранённый PDF.
 
-Непосредственные вызовы: `$("invoiceForm").querySelectorAll`, `$`, `updateItemMoves`, `InvoiceProducts.setEditable`, `Boolean`.
+Непосредственные вызовы: `$("invoiceForm").querySelectorAll`, `$`, `updateItemMoves`, `InvoiceProducts.setEditable`, `Boolean`, `pdfUrl`, `download.removeAttribute`.
 
-Прямые присваивания полям/свойствам: `input.disabled`, `$(id).disabled`, `$("saveInvoice").hidden`, `$("issueInvoice").textContent`, `$("issueInvoice").disabled`, `$("previewInvoice").textContent`, `$("invoiceDraftHint").textContent`.
+Прямые присваивания полям/свойствам: `input.disabled`, `$(id).disabled`, `$("saveInvoice").hidden`, `$("issueInvoice").textContent`, `$("issueInvoice").disabled`, `$("previewInvoice").textContent`, `download.hidden`, `download.href`, `$("invoiceDraftHint").textContent`.
 
 <a id="symbol-create"></a>
 
@@ -554,12 +554,12 @@ function paintInvoiceComment(form, record)
 [static/invoices.js](../../../static/invoices.js) · `ArrowFunctionExpression`.
 
 ```javascript
-const pdfUrl = (record, preview = false) =>
+const pdfUrl = (record, { preview = false, download = false } = {}) =>
 ```
 
-Собирает URL запроса с безопасным кодированием параметров.
+Собирает URL просмотра, предпросмотра или скачивания счёта.
 
-Использует `/api/invoice-preview`, `/api/invoice-pdf`.
+Передаёт путь и UUID счёта; при скачивании сервер задаёт имя файла.
 
 Непосредственные вызовы: `apiUrl`.
 
@@ -723,12 +723,16 @@ function renderInvoiceList(records)
       const edit = issued && state.folder?.order?.registered === true ? invoiceAction(record, 'edit-button', 'Редактировать', 'edit') : '';
       const pdf = external ? invoiceAction(record, 'view', 'Открыть PDF', 'file') : issued ?
         '<a class="icon-button invoice-action" href="' + escapeHtml(pdfUrl(record)) + '" target="_blank" rel="noopener" title="Открыть PDF" aria-label="' + escapeHtml('Открыть PDF · ' + label) + '">' + icon('file') + '</a>' : '';
+      const download = issued ?
+        '<a class="icon-button invoice-action" data-invoice-download="' + record.id + '" href="' +
+        escapeHtml(pdfUrl(record, { download: true })) + '" download title="Скачать PDF" aria-label="' +
+        escapeHtml('Скачать PDF · ' + label) + '">' + icon('download') + '</a>' : '';
       const copy = external ? '' : invoiceAction(record, 'copy', 'На основе', 'copy');
       const actions = '<div class="invoice-row-tools">' + schedule + InvoiceDocuments.button(record) +
-        (typeof ReconciliationUI === 'undefined' ? '' : ReconciliationUI.button(record)) + edit + pdf + copy +
+        (typeof ReconciliationUI === 'undefined' ? '' : ReconciliationUI.button(record)) + edit + pdf + download + copy +
         invoiceAction(record, 'remove', 'В корзину', 'trash') + '</div>';
       return '<div class="invoice-row" data-invoice-row="' + record.id + '"><div class="invoice-row-content invoice-row-with-comment">' + top + (plans ? '<div class="invoice-linked-plans">' + plans + '</div>' : '') + InvoiceDocuments.markup(record) + '</div><div class="invoice-row-actions">' + (external ? '' : '<strong>' + cash(record.data.total) + '</strong>') + status + actions + '</div></div>';
-    }).join`, `rows.map`, `focusInvoiceStatus`, `[...$("invoiceList").querySelectorAll('[data-invoice-plan]')].find((button) => button.dataset.invoicePlan === focusedPlan)?.focus`, `[...$("invoiceList").querySelectorAll('[data-invoice-plan]')].find`, `$("invoiceList").querySelectorAll`, `[...$("invoiceList").querySelectorAll('[data-invoice-schedule]')].find((button) => button.dataset.invoiceSchedule === focusedSchedule)?.focus`, `[...$("invoiceList").querySelectorAll('[data-invoice-schedule]')].find`, `focusInvoiceEdit`, `[...$("invoiceList").querySelectorAll('[data-invoice-reconciliation]')].find(button => button.dataset.invoiceReconciliation === focusedReconciliation)?.focus`, `[...$("invoiceList").querySelectorAll('[data-invoice-reconciliation]')].find`, `InvoiceDocuments.restoreFocus`, `records.map`, `paintInvoiceComment`, `byId.get`, `input.focus`, `input.setSelectionRange`, `commentSelection.slice`.
+    }).join`, `rows.map`, `focusInvoiceStatus`, `[...$("invoiceList").querySelectorAll('[data-invoice-plan]')].find((button) => button.dataset.invoicePlan === focusedPlan)?.focus`, `[...$("invoiceList").querySelectorAll('[data-invoice-plan]')].find`, `$("invoiceList").querySelectorAll`, `[...$("invoiceList").querySelectorAll('[data-invoice-schedule]')].find((button) => button.dataset.invoiceSchedule === focusedSchedule)?.focus`, `[...$("invoiceList").querySelectorAll('[data-invoice-schedule]')].find`, `focusInvoiceEdit`, `$("invoiceList").querySelector('[data-invoice-download="' + CSS.escape(focusedDownload) + '"]')?.focus`, `$("invoiceList").querySelector`, `CSS.escape`, `[...$("invoiceList").querySelectorAll('[data-invoice-reconciliation]')].find(button => button.dataset.invoiceReconciliation === focusedReconciliation)?.focus`, `[...$("invoiceList").querySelectorAll('[data-invoice-reconciliation]')].find`, `InvoiceDocuments.restoreFocus`, `records.map`, `paintInvoiceComment`, `byId.get`, `input.focus`, `input.setSelectionRange`, `commentSelection.slice`.
 
 Прямые присваивания полям/свойствам: `$("invoiceCount").textContent`, `$("invoiceList").innerHTML`, `$("invoiceList").invoiceRecords`, `input.scrollTop`.
 
@@ -898,9 +902,9 @@ function show(record, returnFocus = null)
 
 Открывает прежний редактор счёта из карточки заказа или общего списка.
 
-Для общего списка сохраняет ключ возврата фокуса; поля и автосохранение используют путь самого счёта.
+Сохраняет ключ возврата фокуса и путь счёта; каталог открывается с фильтром «Без группы».
 
-Непосредственные вызовы: `clearItemDrag`, `$`, `Object.entries`, `record.data.items.map(itemMarkup).join`, `record.data.items.map`, `JSON.stringify`, `collect`, `message`, `controls`, `totals`, `$("invoiceDialog").showModal`, `$("invoiceBuyer").focus`, `InvoiceProducts.load().catch`, `InvoiceProducts.load`.
+Непосредственные вызовы: `clearItemDrag`, `$`, `Object.entries`, `record.data.items.map(itemMarkup).join`, `record.data.items.map`, `JSON.stringify`, `collect`, `message`, `controls`, `totals`, `$("invoiceDialog").showModal`, `$("invoiceBuyer").focus`, `InvoiceProducts.load({ resetGroup: true }).catch`, `InvoiceProducts.load`.
 
 Прямые присваивания полям/свойствам: `$("invoiceTitle").textContent`, `$("invoiceOrderPath").textContent`, `$(id).value`, `$("invoiceItems").innerHTML`, `editor.saved`.
 

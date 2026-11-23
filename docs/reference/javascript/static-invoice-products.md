@@ -66,7 +66,7 @@ function formControls()
 function groups(select, all = false)
 ```
 
-Строит варианты плоских групп, сохраняя выбранное значение, включая пустую группу.
+Строит варианты плоских групп, выбирая «Без группы», если прежний вариант исчез.
 
 Используется только при явной загрузке и сохранении; опрос счетов select не перестраивает.
 
@@ -115,16 +115,16 @@ function init(callback, identity)
 [static/invoice-products.js](../../../static/invoice-products.js) · `FunctionDeclaration`.
 
 ```javascript
-async function load()
+async function load({ resetGroup = false } = {})
 ```
 
 Загружает последнюю версию общего каталога при открытии окна или явном обновлении.
 
-Ответ прежней загрузки игнорируется; поля счёта и открытого товара не заменяются.
+При открытии сразу выбирает «Без группы»; обновление сохраняет выбор, устаревший ответ игнорируется.
 
-Непосредственные вызовы: `el`, `api`, `groups`, `render`.
+Непосредственные вызовы: `el`, `render`, `api`, `groups`.
 
-Прямые присваивания полям/свойствам: `el('invoiceProductsState').textContent`, `el('newInvoiceProduct').disabled`, `el('newInvoiceProductGroup').disabled`.
+Прямые присваивания полям/свойствам: `group.value`, `el('invoiceProductsState').textContent`, `el('newInvoiceProduct').disabled`, `el('newInvoiceProductGroup').disabled`.
 
 <a id="symbol-open"></a>
 

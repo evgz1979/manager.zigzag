@@ -131,7 +131,27 @@ async function check() {
   const displayed = [...element('invoiceProductsList').markup.matchAll(/data-product-add="([^"]*)"/g)].map(match => match[1]);
   assert.deepEqual(displayed, [originalOrder[2], originalOrder[3], originalOrder[1], originalOrder[0]], 'Russian natural name order with stable equal names');
   assert.deepEqual(catalog.products.map(item => item.id), originalOrder, 'Sorting never rewrites storage order');
-  assert.equal(writes.length, 5, 'Sorting is read-only');
-  console.log('Invoice products: HTTP create/edit/copy, confirmed deletion and stable Russian name sorting passed.');
+
+  const groupSelect = element('invoiceProductGroup'), list = element('invoiceProductsList');
+  assert.equal(groupSelect.value, source.group_id, 'Refreshing preserves a manually selected group');
+  const opening = products.load({ resetGroup: true });
+  assert.equal(groupSelect.value, '', 'Opening resets the filter before the catalog responds');
+  assert.equal(list.markup, '', 'The previous group disappears immediately');
+  await opening;
+  assert.equal(list.markup, '', 'No ungrouped products means an empty list');
+
+  const ungrouped = { id: generator(), group_id: '', name: 'Без категории', unit: 'шт', price: '10' };
+  catalog.products.push(ungrouped);
+  groupSelect.value = '*';
+  await products.load();
+  assert.equal(groupSelect.value, '*', 'Refreshing preserves All groups');
+  assert.match(list.markup, new RegExp(originalOrder[0]));
+  assert.match(list.markup, new RegExp(ungrouped.id));
+  await products.load({ resetGroup: true });
+  assert.equal(groupSelect.value, '');
+  assert.doesNotMatch(list.markup, new RegExp(originalOrder[0]));
+  assert.match(list.markup, new RegExp(ungrouped.id));
+  assert.equal(writes.length, 5, 'Sorting and group selection are read-only');
+  console.log('Invoice products: HTTP create/edit/copy, confirmed deletion, name sorting and initial group passed.');
 }
 check().catch(error => { console.error(error); process.exitCode = 1; });

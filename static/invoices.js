@@ -31,9 +31,10 @@
   // Форматирует денежное значение для соответствующего компонента.
   // Использует `Intl.NumberFormat`.
   const cash = (cents) => new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(cents / 100);
-  // Собирает URL запроса с безопасным кодированием параметров.
-  // Использует `/api/invoice-preview`, `/api/invoice-pdf`.
-  const pdfUrl = (record, preview = false) => apiUrl(preview ? "/api/invoice-preview" : "/api/invoice-pdf", record.path, { id: record.id });
+  // Собирает URL просмотра, предпросмотра или скачивания счёта.
+  // Передаёт путь и UUID счёта; при скачивании сервер задаёт имя файла.
+  const pdfUrl = (record, { preview = false, download = false } = {}) =>
+    apiUrl(preview ? "/api/invoice-preview" : "/api/invoice-pdf", record.path, { id: record.id, ...(download ? { download: "1" } : {}) });
   // Показывает сообщение пользователю и предусмотренное действие отмены.
   // Использует `$`, `$("invoiceEditorState").classList.toggle`.
   const message = (text, error = false) => {
@@ -220,6 +221,7 @@
     const focusedPlan = document.activeElement?.dataset.invoicePlan;
     const focusedSchedule = document.activeElement?.dataset.invoiceSchedule;
     const focusedEdit = document.activeElement?.dataset.invoiceEditButton;
+    const focusedDownload = picker?.dataset.invoiceDownload;
     const focusedReconciliation = document.activeElement?.dataset.invoiceReconciliation;
     const focusedStatus = picker?.dataset.invoiceStatus;
     const sources = new Map(records.filter((record) => ['issued', 'external'].includes(record.state)).map((record) => [record.id, record]));
@@ -262,9 +264,13 @@
       const edit = issued && state.folder?.order?.registered === true ? invoiceAction(record, 'edit-button', 'Редактировать', 'edit') : '';
       const pdf = external ? invoiceAction(record, 'view', 'Открыть PDF', 'file') : issued ?
         '<a class="icon-button invoice-action" href="' + escapeHtml(pdfUrl(record)) + '" target="_blank" rel="noopener" title="Открыть PDF" aria-label="' + escapeHtml('Открыть PDF · ' + label) + '">' + icon('file') + '</a>' : '';
+      const download = issued ?
+        '<a class="icon-button invoice-action" data-invoice-download="' + record.id + '" href="' +
+        escapeHtml(pdfUrl(record, { download: true })) + '" download title="Скачать PDF" aria-label="' +
+        escapeHtml('Скачать PDF · ' + label) + '">' + icon('download') + '</a>' : '';
       const copy = external ? '' : invoiceAction(record, 'copy', 'На основе', 'copy');
       const actions = '<div class="invoice-row-tools">' + schedule + InvoiceDocuments.button(record) +
-        (typeof ReconciliationUI === 'undefined' ? '' : ReconciliationUI.button(record)) + edit + pdf + copy +
+        (typeof ReconciliationUI === 'undefined' ? '' : ReconciliationUI.button(record)) + edit + pdf + download + copy +
         invoiceAction(record, 'remove', 'В корзину', 'trash') + '</div>';
       return '<div class="invoice-row" data-invoice-row="' + record.id + '"><div class="invoice-row-content invoice-row-with-comment">' + top + (plans ? '<div class="invoice-linked-plans">' + plans + '</div>' : '') + InvoiceDocuments.markup(record) + '</div><div class="invoice-row-actions">' + (external ? '' : '<strong>' + cash(record.data.total) + '</strong>') + status + actions + '</div></div>';
     }).join("");
@@ -275,6 +281,7 @@
       if (focusedPlan && document.activeElement === document.body) [...$("invoiceList").querySelectorAll('[data-invoice-plan]')].find((button) => button.dataset.invoicePlan === focusedPlan)?.focus({ preventScroll: true });
       if (focusedSchedule && document.activeElement === document.body) [...$("invoiceList").querySelectorAll('[data-invoice-schedule]')].find((button) => button.dataset.invoiceSchedule === focusedSchedule)?.focus({ preventScroll: true });
       if (focusedEdit && document.activeElement === document.body) focusInvoiceEdit(focusedEdit);
+      if (focusedDownload && document.activeElement === document.body) $("invoiceList").querySelector('[data-invoice-download="' + CSS.escape(focusedDownload) + '"]')?.focus({ preventScroll: true });
       if (focusedReconciliation && document.activeElement === document.body) [...$("invoiceList").querySelectorAll('[data-invoice-reconciliation]')].find(button => button.dataset.invoiceReconciliation === focusedReconciliation)?.focus({ preventScroll: true });
       InvoiceDocuments.restoreFocus(documentFocus);
     }
@@ -753,7 +760,7 @@
   }
 
   // Обновляет доступность действий открытого редактора в модуле счетов и планов платежей.
-  // Разрешает правку содержимого обоих состояний; номер, дата и вид выпуска закреплены.
+  // Закрепляет номер, дату и вид выпуска; для скачивания предлагает сохранённый PDF.
   function controls() {
     if (!editor) return;
     const issued = editor.record.state === "issued";
@@ -767,11 +774,15 @@
     $("issueInvoice").textContent = issued ? "Обновить PDF" : "Выпустить PDF";
     $("issueInvoice").disabled = Boolean(editor.saving || editor.issuing || (issued && !editor.dirty));
     $("previewInvoice").textContent = issued && !editor.dirty ? "Открыть PDF ↗" : "Предпросмотр ↗";
+    const download = $("downloadInvoice");
+    download.hidden = !issued;
+    if (issued) download.href = pdfUrl(editor.record, { download: true });
+    else download.removeAttribute("href");
     $("invoiceDraftHint").textContent = issued ? "Правки вступят в силу после обновления PDF" : "Черновик сохраняется автоматически · одна страница";
   }
 
   // Открывает прежний редактор счёта из карточки заказа или общего списка.
-  // Для общего списка сохраняет ключ возврата фокуса; поля и автосохранение используют путь самого счёта.
+  // Сохраняет ключ возврата фокуса и путь счёта; каталог открывается с фильтром «Без группы».
   function show(record, returnFocus = null) {
     ++invoiceOpening;
     clearItemDrag();
@@ -785,7 +796,7 @@
     controls(); totals();
     if (!$("invoiceDialog").open) $("invoiceDialog").showModal();
     $("invoiceBuyer").focus();
-    InvoiceProducts.load().catch(() => {});
+    InvoiceProducts.load({ resetGroup: true }).catch(() => {});
   }
 
   // Сохраняет данные открытой формы с ожидаемой версией.
@@ -1070,7 +1081,7 @@
         const response = issued ? await fetch("/api/invoice-preview", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ path: record.path, id: record.id, revision: record.revision, data: collect() }),
-        }) : await fetch(pdfUrl(record, true));
+        }) : await fetch(pdfUrl(record, { preview: true }));
         if (!response.ok) { const data = await response.json(); throw new Error(data.error); }
         const url = URL.createObjectURL(await response.blob());
         if (tab) tab.location = url;

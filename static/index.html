@@ -12,6 +12,7 @@
     <svg class="icon-definitions" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <symbol id="icon-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10H3Z"/></symbol>
       <symbol id="icon-file" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6Z"/><path d="M14 3v5h4M9 12h6M9 16h6"/></symbol>
+      <symbol id="icon-download" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 16v4h16v-4"/></symbol>
       <symbol id="icon-chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
       <symbol id="icon-flag" viewBox="0 0 24 24"><path d="M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0Z"/><path d="M5 3v18" fill="none"/></symbol>
       <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
@@ -312,7 +313,7 @@
           <aside id="invoiceProducts" class="invoice-products" aria-labelledby="invoiceProductsTitle">
             <div class="invoice-products-heading"><h3 id="invoiceProductsTitle">Товары</h3><button id="refreshInvoiceProducts" class="icon-button" type="button" aria-label="Обновить товары" title="Обновить товары">↻</button></div>
             <input id="invoiceProductsSearch" type="search" placeholder="Найти товар…" aria-label="Найти товар" autocomplete="off">
-            <div class="invoice-product-group-picker"><label>Группа<select id="invoiceProductGroup"><option value="*">Все группы</option></select></label><button id="editInvoiceProductGroup" class="icon-button" type="button" aria-label="Изменить группу" title="Изменить группу" disabled>✎</button></div>
+            <div class="invoice-product-group-picker"><label>Группа<select id="invoiceProductGroup"><option value="">Без группы</option></select></label><button id="editInvoiceProductGroup" class="icon-button" type="button" aria-label="Изменить группу" title="Изменить группу" disabled>✎</button></div>
             <div class="invoice-products-actions"><button id="newInvoiceProductGroup" class="secondary-button" type="button">+ Группа</button><button id="newInvoiceProduct" class="secondary-button" type="button">+ Товар</button></div>
             <p id="invoiceProductsState" class="invoice-state" role="status"></p><div id="invoiceProductsList" class="invoice-products-list"></div>
           </aside>
@@ -330,7 +331,15 @@
           <p id="invoiceEditorState" class="invoice-state" role="status"></p>
           </div>
         </div>
-        <footer class="invoice-dialog-actions"><span id="invoiceDraftHint">Черновик в базе · PDF на одной странице</span><button id="saveInvoice" class="secondary-button" type="submit">Сохранить черновик</button><button id="previewInvoice" class="secondary-button" type="button">Предпросмотр</button><button id="issueInvoice" class="primary-button" type="button">Выпустить PDF</button></footer>
+        <footer class="invoice-dialog-actions">
+          <span id="invoiceDraftHint">Черновик в базе · PDF на одной странице</span>
+          <div class="invoice-editor-buttons">
+            <button id="saveInvoice" class="secondary-button" type="submit">Сохранить черновик</button>
+            <button id="previewInvoice" class="secondary-button" type="button">Предпросмотр</button>
+            <a id="downloadInvoice" class="secondary-button" download hidden>Скачать PDF</a>
+            <button id="issueInvoice" class="primary-button" type="button">Выпустить PDF</button>
+          </div>
+        </footer>
       </form>
     </dialog>
     <dialog id="invoiceProductDialog" class="confirm-dialog create-order-dialog" aria-labelledby="invoiceProductTitle">

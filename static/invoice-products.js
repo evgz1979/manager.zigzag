@@ -18,13 +18,13 @@ const InvoiceProducts = (() => {
     if (!response.ok) throw new Error(data.error || 'Не удалось сохранить каталог');
     return data;
   }
-  // Строит варианты плоских групп, сохраняя выбранное значение, включая пустую группу.
+  // Строит варианты плоских групп, выбирая «Без группы», если прежний вариант исчез.
   // Используется только при явной загрузке и сохранении; опрос счетов select не перестраивает.
   function groups(select, all = false) {
     const selected = select.value;
     select.innerHTML = (all ? '<option value="*">Все группы</option>' : '') + '<option value="">Без группы</option>' +
       catalog.groups.map(group => '<option value="' + group.id + '">' + html(group.name) + '</option>').join('');
-    if ([...select.options].some(option => option.value === selected)) select.value = selected;
+    select.value = [...select.options].some(option => option.value === selected) ? selected : '';
   }
   // Показывает товары выбранной группы и поиска без изменения строк счёта.
   // Названия сортируются естественно по-русски А–Я; равные сохраняют порядок каталога, цена и действия в одной строке.
@@ -51,14 +51,19 @@ const InvoiceProducts = (() => {
     el('deleteInvoiceProduct').disabled = saving;
   }
   // Загружает последнюю версию общего каталога при открытии окна или явном обновлении.
-  // Ответ прежней загрузки игнорируется; поля счёта и открытого товара не заменяются.
-  async function load() {
+  // При открытии сразу выбирает «Без группы»; обновление сохраняет выбор, устаревший ответ игнорируется.
+  async function load({ resetGroup = false } = {}) {
     const version = ++loading;
+    const group = el('invoiceProductGroup');
+    if (resetGroup) {
+      group.value = '';
+      render();
+    }
     el('invoiceProductsState').textContent = 'Загрузка товаров…';
     try {
       const data = await api();
       if (version !== loading) return;
-      catalog = data; groups(el('invoiceProductGroup'), true); render();
+      catalog = data; groups(group, true); render();
       el('newInvoiceProduct').disabled = false; el('newInvoiceProductGroup').disabled = false;
     } catch (error) {
       if (version === loading) { el('invoiceProductsState').textContent = error.message; throw error; }
