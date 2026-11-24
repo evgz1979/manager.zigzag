@@ -4418,12 +4418,15 @@ function formatOrderListMoney(value) {
   return value == null ? "-" : orderListMoneyFormat.format(value / 100);
 }
 
-// Собирает содержимое ячейки «Деньги» в порядке суммы заказа и оплаты.
-// Возвращает пустую строку, если оба поля отсутствуют, и показывает сохранённый ноль числом.
-function renderOrderListMoney(amount, paid) {
+// Показывает сумму за вычетом оплаты и остаток на отдельной строке.
+// При пустой оплате остаток равен сумме заказа, выделяется только ненулевое число.
+function renderOrderListMoney({ amount, paid, debt }) {
   if (amount == null && paid == null) return "";
-  return '<span class="order-money-amount">' + formatOrderListMoney(amount) +
-    '</span> / <span class="order-money-paid">' + formatOrderListMoney(paid) + '</span>';
+  const balance = paid == null ? amount : debt;
+  const balanceText = formatOrderListMoney(balance);
+  const balanceValue = balance ? '<strong class="order-money-balance-value">' + balanceText + '</strong>' : balanceText;
+  return '<span class="order-money-calculation">' + formatOrderListMoney(amount) + ' − ' + formatOrderListMoney(paid ?? 0) + '</span>' +
+    '<span class="order-money-balance">Остаток = ' + balanceValue + '</span>';
 }
 
 // Перестраивает строки текущего списка из локальных данных.
@@ -4477,7 +4480,7 @@ function renderOrders({ force = false } = {}) {
     (order.is_out_of_focus === true && order.registered !== false ? ' data-order-out-of-focus' : '') + '><td class="order-focus-column">' + renderOrderMarkerButton(order, "focus") + '</td>' +
     '<td class="order-blue-plus-column">' + renderOrderMarkerButton(order, "bluePlus") + '</td><td class="order-dollar-column">' + renderOrderMarkerButton(order, "dollar") + '</td><td class="order-flag-column">' + renderOrderMarkerButton(order, "flag") + '</td><td class="order-favorite-column">' + renderOrderFavoriteButton(order) + '</td>' + (object ? '<td class="order-related-column">' + renderOrderRelatedButton(order) + '</td>' : '') + '<td class="order-todo-column">' + renderOrderTodoButton(order) + '</td><td class="order-todo-column">' + renderOrderPurchaseButton(order) + '</td><td class="order-client-column">' + renderOrderLocationLink(order.client, order.client_path, true) + '</td><td class="order-object-column">' + renderOrderLocationLink(order.object, order.object_path) + '</td><td><button class="order-row-link" data-order="' + escapeHtml(order.path) + '">' + escapeHtml(order.title) + '</button>' + (order.registered === false ? '<span class="order-unregistered-label">Не добавлен</span>' : '') + '<span class="order-row-path">' + escapeHtml(order.path) + '</span>' + (object ? renderCompactOrderLinks(order) : '') + '</td>' +
     '<td class="order-comment-column">' + renderOrderComment(order) + '</td>' +
-    (home ? '<td class="order-money">' + renderOrderListMoney(order.amount, order.paid) + '</td>' : '') +
+    (home ? '<td class="order-money">' + renderOrderListMoney(order) + '</td>' : '') +
     '<td class="order-deadline-column">' + renderOrderDeadlines(order, { options: deadlineOptions }) + '</td><td>' + renderOrderProductionStatus(order) + '</td>' +
     '<td class="order-updated">' + (order.updated ? formatDate(order.updated) : '—') + (order.sync_pending ? '<span class="sync-pending" title="' + escapeHtml(order.sync_error || "Ожидает выгрузки в папку") + '">' + (order.sync_error ? "В очереди · автоповтор" : "Ожидает выгрузки") + '</span>' : '<span class="sync-complete">' + (order.storage === 'database' ? 'В базе' : 'Выгружено') + '</span>') + '</td></tr>').join("")).join("");
   for (const row of $("ordersTableBody").querySelectorAll("[data-order-out-of-focus]")) {

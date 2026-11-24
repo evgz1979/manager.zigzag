@@ -1107,8 +1107,9 @@ h2 { font-size: 13px; font-weight: 600; }
 .danger-button { padding: 9px 13px; border-color: #9b5146; background: #9b5146; color: white; }
 .danger-button:hover:not(:disabled) { background: #86463c; }
 .order-money { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.order-money-amount { color: var(--success); font-weight: 700; }
-.order-money-paid { color: var(--danger); font-weight: 400; }
+.order-money-calculation { color: var(--muted); }
+.order-money-balance { display: block; }
+.order-money-balance-value { color: var(--success); }
 .negative { color: light-dark(#a25d49, #f3a595); }
 .order-updated { font-size: 10px; white-space: nowrap; color: var(--muted); }
 .sync-pending, .sync-complete { display: block; margin-top: 2px; font-size: 9px; }
