@@ -24,6 +24,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from zoneinfo import ZoneInfo
 import calendar_events
+import calendar_stickers
 import caldav
 import telegram_calendar
 import calendar_delivery
@@ -1031,7 +1032,7 @@ def inactive_paths():
     return client_activity_store().inactive_paths() | object_activity_store().inactive_paths()
 
 
-# Собирает главную сводку заказов, событий, планов и задач из SQLite.
+# Собирает главную сводку заказов, календаря и задач из SQLite.
 # Формирует возвращаемое значение из проверенного локального состояния.
 def listed_orders():
     store = order_store()
@@ -1041,6 +1042,7 @@ def listed_orders():
     return {"orders": [order for order in visible if not work_orders.in_work(order["path"]) and not work_orders.archived(order)],
             "calendar_supplier_orders": [order for order in visible if order["work_supplier"]],
             "calendar_events": calendar_events.CalendarEvents(store).list(),
+            "calendar_stickers": calendar_stickers.listed(store),
             "client_colors": client_colors.catalog(store),
             "calendar_invoice_plans": invoice_store().calendar_plans([order for order in visible if not work_orders.in_work(order['path'])]),
             "favorites": [order for order in visible if order["is_favorite"] is True and not work_orders.archived(order)],
@@ -1853,6 +1855,8 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(MobileBridge(order_store()).status(), head=head)
             elif parsed.path == "/api/calendar-event":
                 self.send_json(calendar_events.CalendarEvents(order_store()).get(query.get("id", [""])[0]), head=head)
+            elif parsed.path == "/api/calendar-sticker":
+                self.send_json(calendar_stickers.read(order_store(), query.get("id", [""])[0]), head=head)
             elif parsed.path == "/api/folder-note":
                 record = folder_note_store().get(relative)
                 if not record:
@@ -2484,6 +2488,9 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 return
             elif route == "/api/calendar-event":
                 self.send_json(calendar_events.CalendarEvents(order_store()).save(payload))
+                return
+            elif route == "/api/calendar-sticker":
+                self.send_json(calendar_stickers.save(order_store(), payload))
                 return
             elif route in ('/api/calendar-event-remove', '/api/calendar-event-restore'):
                 self.send_json(calendar_events.CalendarEvents(order_store()).set_deleted(payload, route.endswith('-remove')))

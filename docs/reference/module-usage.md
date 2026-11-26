@@ -7,8 +7,9 @@
 | [caldav.py](python/caldav.md) | `remote_access.py`, `server.py` | 1 | Нет |
 | [caldav_events.py](python/caldav_events.md) | `caldav.py` | 1 | Нет |
 | [calendar_delivery.py](python/calendar_delivery.md) | `calendar_todos.py`, `server.py` | 1 | Нет |
-| [calendar_events.py](python/calendar_events.md) | `server.py` | 5 | Нет |
+| [calendar_events.py](python/calendar_events.md) | `calendar_stickers.py`, `server.py` | 5 | Нет |
 | [calendar_layout.py](python/calendar_layout.md) | `order_calendar.py`, `orders.py` | 1 | Нет |
+| [calendar_stickers.py](python/calendar_stickers.md) | `server.py` | 0 | Нет |
 | [calendar_todos.py](python/calendar_todos.md) | `server.py`, `telegram_calendar.py` | 3 | Нет |
 | [catalog_groups.py](python/catalog_groups.md) | `folder_structure.py`, `orders.py`, `server.py` | 0 | Нет |
 | [client_activity.py](python/client_activity.md) | `hidden_orders.py`, `object_activity.py`, `server.py`, `supplier_purchases.py` | 2 | Нет |
@@ -33,7 +34,7 @@
 | [invoice_documents.py](python/invoice_documents.md) | `invoices.py`, `server.py` | 2 | Нет |
 | [invoice_preferences.py](python/invoice_preferences.md) | `invoices.py`, `server.py` | 1 | Нет |
 | [invoices.py](python/invoices.md) | `invoice_discovery.py`, `invoice_documents.py`, `invoice_preferences.py`, `server.py` | 13 | Нет |
-| [local_metadata.py](python/local_metadata.md) | `calendar_events.py`, `calendar_layout.py`, `catalog_groups.py`, `client_colors.py`, `folder_notes.py`, `invoices.py`, `nas_archive.py`, `object_orders.py`, `order_calendar.py`, `order_creation.py`, `order_deadlines.py`, `orders.py`, `plotter.py`, `reconciliations.py`, `server.py`, `supplier_purchases.py`, `telegram_calendar_commands.py`, `telegram_inbox.py`, `weekly_events_migration.py`, `work_orders.py` | 9 | Нет |
+| [local_metadata.py](python/local_metadata.md) | `calendar_events.py`, `calendar_layout.py`, `calendar_stickers.py`, `catalog_groups.py`, `client_colors.py`, `folder_notes.py`, `invoices.py`, `nas_archive.py`, `object_orders.py`, `order_calendar.py`, `order_creation.py`, `order_deadlines.py`, `orders.py`, `plotter.py`, `reconciliations.py`, `server.py`, `supplier_purchases.py`, `telegram_calendar_commands.py`, `telegram_inbox.py`, `weekly_events_migration.py`, `work_orders.py` | 9 | Нет |
 | [mobile_sync.py](python/mobile_sync.md) | `orders.py`, `server.py` | 2 | Нет |
 | [nas_archive.py](python/nas_archive.md) | `order_nas_archive.py`, `server.py` | 1 | Нет |
 | [native_renderers.py](python/native_renderers.md) | `calendar_delivery.py`, `icloud_access.py`, `image_reports.py`, `invoices.py`, `server.py`, `thumbnail_cache.py` | 3 | Нет |
@@ -41,7 +42,7 @@
 | [object_move.py](python/object_move.md) | `order_nas_archive.py`, `server.py` | 1 | Нет |
 | [object_orders.py](python/object_orders.md) | `server.py`, `work_order_list.py` | 7 | Нет |
 | [object_years.py](python/object_years.md) | `server.py` | 1 | Нет |
-| [order_calendar.py](python/order_calendar.md) | `caldav_events.py`, `calendar_events.py`, `invoices.py`, `order_deadlines.py`, `orders.py`, `weekly_events_migration.py` | 9 | Нет |
+| [order_calendar.py](python/order_calendar.md) | `caldav_events.py`, `calendar_events.py`, `calendar_stickers.py`, `invoices.py`, `order_deadlines.py`, `orders.py`, `weekly_events_migration.py` | 9 | Нет |
 | [order_creation.py](python/order_creation.md) | `order_folders.py`, `server.py` | 3 | Нет |
 | [order_deadlines.py](python/order_deadlines.md) | `caldav_events.py`, `object_orders.py`, `order_calendar.py`, `orders.py`, `server.py` | 5 | Нет |
 | [order_document.py](python/order_document.md) | `client_activity.py`, `file_comments.py`, `file_trash.py`, `folder_notes.py`, `local_metadata.py`, `mobile_sync.py`, `object_orders.py`, `order_todos.py`, `orders.py`, `reconciliations.py`, `scripts/archive_order_duplicate.py`, `scripts/rebind_order.py`, `server.py`, `supplier_purchases.py` | 11 | Нет |
@@ -49,7 +50,7 @@
 | [order_links.py](python/order_links.md) | `orders.py`, `server.py` | 1 | Нет |
 | [order_nas_archive.py](python/order_nas_archive.md) | `server.py` | 1 | Нет |
 | [order_todos.py](python/order_todos.md) | `event_trash.py`, `folder_rename.py`, `object_move.py`, `object_orders.py`, `object_years.py`, `order_nas_archive.py`, `server.py` | 6 | Нет |
-| [orders.py](python/orders.md) | `caldav.py`, `calendar_events.py`, `event_trash.py`, `folder_rename.py`, `invoice_discovery.py`, `invoice_documents.py`, `invoices.py`, `object_move.py`, `object_years.py`, `order_links.py`, `order_nas_archive.py`, `server.py` | 30 | Нет |
+| [orders.py](python/orders.md) | `caldav.py`, `calendar_events.py`, `calendar_stickers.py`, `event_trash.py`, `folder_rename.py`, `invoice_discovery.py`, `invoice_documents.py`, `invoices.py`, `object_move.py`, `object_years.py`, `order_links.py`, `order_nas_archive.py`, `server.py` | 30 | Нет |
 | [plotter.py](python/plotter.md) | `server.py` | 1 | Нет |
 | [reconciliations.py](python/reconciliations.md) | `order_creation.py`, `orders.py`, `server.py` | 1 | Нет |
 | [recovery_backup.py](python/recovery_backup.md) | `local_metadata.py`, `server.py` | 1 | Да |

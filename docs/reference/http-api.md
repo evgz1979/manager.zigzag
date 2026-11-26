@@ -526,6 +526,22 @@ self.send_json(calendar_events.CalendarEvents(order_store()).get(query.get('id',
 
 Вызовы ветки: `calendar_events.CalendarEvents(order_store()).get`, `calendar_events.CalendarEvents`, `order_store`.
 
+## GET / HEAD /api/calendar-sticker
+
+[ManagerHandler.handle_get](python/server.md#symbol-ManagerHandler.handle_get).
+
+Условие: `parsed.path == '/api/calendar-sticker'`.
+
+Ключи query, читаемые в ветке: `id`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json(calendar_stickers.read(order_store(), query.get('id', [''])[0]), head=head)
+```
+
+Вызовы ветки: `calendar_stickers.read`, `order_store`.
+
 ## GET / HEAD /api/folder-note
 
 [ManagerHandler.handle_get](python/server.md#symbol-ManagerHandler.handle_get).
@@ -1930,6 +1946,20 @@ self.send_json(calendar_events.CalendarEvents(order_store()).save(payload))
 ```
 
 Вызовы ветки: `calendar_events.CalendarEvents(order_store()).save`, `calendar_events.CalendarEvents`, `order_store`.
+
+## POST /api/calendar-sticker
+
+[ManagerHandler.do_POST](python/server.md#symbol-ManagerHandler.do_POST).
+
+Условие: `route == '/api/calendar-sticker'`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json(calendar_stickers.save(order_store(), payload))
+```
+
+Вызовы ветки: `calendar_stickers.save`, `order_store`.
 
 ## POST /api/calendar-event-remove
 

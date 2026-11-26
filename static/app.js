@@ -2714,9 +2714,10 @@ function mountOrderList() {
 }
 
 // Перечитывает серверную сводку и обновляет текущие представления заказов.
-// Использует `/api/orders`, `/api/work-orders`, `/api/object-orders`.
+// Использует `/api/orders`, `/api/work-orders`, `/api/object-orders`; защищает стикеры от запоздалого ответа опроса.
 async function loadOrders() {
   const version = ++state.ordersRequest;
+  const stickerWrites = CalendarStickers.writeVersion();
   const objectPath = isFolderOrderList() ? state.folder.path : null;
   const work = isWorkOrderList();
   let result;
@@ -2750,6 +2751,7 @@ async function loadOrders() {
   state.orders = result.orders;
   state.calendarSupplierOrders = result.calendar_supplier_orders || [];
   state.calendarEvents = result.calendar_events || [];
+  CalendarStickers.update(result.calendar_stickers, stickerWrites);
   state.calendarInvoicePlans = result.calendar_invoice_plans || [];
   state.calendarPlansLoaded = true;
   state.calendarPlansError = "";
@@ -3991,7 +3993,7 @@ function applyCalendarInvoicePlan(saved) {
   });
 }
 
-// Собирает UUID и версию свободного события для частичного запроса.
+// Генерирует UUID для свободных записей календаря, в том числе стикеров.
 // Использует `crypto.getRandomValues`, `Uint8Array`, `[...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join`.
 function freeCalendarIdentity() {
   const bytes = crypto.getRandomValues(new Uint8Array(16));

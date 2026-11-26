@@ -57,6 +57,17 @@ CREATE TABLE IF NOT EXISTS calendar_events (
         comment TEXT NOT NULL DEFAULT '')
 ```
 
+## calendar_stickers.py
+
+[schema](python/calendar_stickers.md#symbol-schema)
+
+```sql
+CREATE TABLE IF NOT EXISTS calendar_stickers (
+        id TEXT PRIMARY KEY, version INTEGER NOT NULL, revision INTEGER NOT NULL,
+        week TEXT NOT NULL, x INTEGER NOT NULL, y INTEGER NOT NULL, text TEXT NOT NULL,
+        deleted INTEGER NOT NULL DEFAULT 0, updated REAL NOT NULL)
+```
+
 ## client_activity.py
 
 [ClientActivity.schema](python/client_activity.md#symbol-ClientActivity.schema)

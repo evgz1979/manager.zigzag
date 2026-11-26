@@ -135,11 +135,17 @@ Apple Calendar читает изменения через свойства ко�
 
 Для доходов/расходов пункт «Сообщил» вызывает `toggleCalendarEventFlag('notified')` → `/api/invoice-plan-calendar-notified` → `InvoiceStore.save_plan_calendar_notified`. Частичная транзакция проверяет UUID/revision и строгий boolean, пишет invoice_history и `_calendar_notified`, фиксирует контракт отката. `applyCalendarInvoicePlan` принимает подтверждённую версию; `renderInvoicePlans` показывает `calendar-notified` и доступную подпись «Сообщил». Неизвестный формат блокирует пункт, ошибка не повторяет запрос. Общий DOM-рендер и CSS сохраняют жёлтый фон в PNG, включая перенос слева и сочетание с серым текстом выполнения/неактуальности; отправка в Telegram сама отметку не включает.
 
-`calendarRange` возвращает явный список ключей недель: текущая/будущие непрерывны, прошлые без открытых видимых дел пропускаются. Навигация и сохранение периода используют эти ключи, поэтому промежутки прошлого не возвращаются из-за более раннего открытого события. Переключатель «Старые» возвращает непрерывное прошлое и строки закрытых/снятых событий без изменения SQLite; опрос сохраняет режим.
+[calendarRange](reference/javascript/static-home-calendar.md#symbol-calendarRange) возвращает явные ключи недель. Текущая и будущие недели непрерывны. В обычном режиме от прошедших недель остаются те, у которых есть видимые открытые события, планы или стикеры. Навигация по этим ключам пропускает пустые промежутки. Переключатель «Старые» возвращает непрерывное прошлое и строки закрытых и снятых событий, а опрос сохраняет режим.
 
 Подписи дней закреплены по вертикали внутри общего окна календаря. На экранах до 1000px окно прокручивает подписи и сетку вместе по горизонтали. [fitViewport](reference/javascript/static-home-calendar.md#symbol-fitViewport) учитывает высоту подписей и полосы прокрутки, чтобы под ними помещались две недели. [createSnapshot](reference/javascript/static-home-calendar.md#symbol-createSnapshot) копирует подписи и недели в полноширинный снимок.
 
 Неделя определяется понедельником Москвы. JavaScript использует UTC-объект как контейнер гражданской даты; это не перенос делового дня в часовой пояс компьютера. [Подробный разбор дат](language/javascript.md).
+
+## Стикеры календаря
+
+[render](reference/javascript/static-calendar-stickers.md#symbol-render) переиспользует редактор каждого UUID и размещает его над нужной неделей. Кнопка добавления вычисляет центр видимой области с учётом горизонтальной прокрутки. [followPointer](reference/javascript/static-calendar-stickers.md#symbol-followPointer) перемещает листок при захваченном указателе и прокручивает сетку у края. При отпускании [move](reference/javascript/static-calendar-stickers.md#symbol-move) вычисляет неделю и доли центра по её границам.
+
+[save](reference/javascript/static-calendar-stickers.md#symbol-save) сериализует записи одного листка и передаёт в [серверное сохранение](reference/python/calendar_stickers.md#symbol-save) актуальный черновик с UUID и ожидаемой ревизией. [update](reference/javascript/static-calendar-stickers.md#symbol-update) пропускает устаревшие ответы опроса и сохраняет местный черновик до ответа сервера. [createSnapshot](reference/javascript/static-home-calendar.md#symbol-createSnapshot) убирает листки из клона сетки.
 
 ## Общий PNG и `/calendar`
 

@@ -94,6 +94,15 @@
         ]
       },
       {
+        "path": "calendar_stickers.py",
+        "symbols": [
+          {"name": "listed", "type": "function", "anchor": "symbol-listed"},
+          {"name": "read", "type": "function", "anchor": "symbol-read"},
+          {"name": "save", "type": "function", "anchor": "symbol-save"},
+          {"name": "schema", "type": "function", "anchor": "symbol-schema"}
+        ]
+      },
+      {
         "path": "calendar_todos.py",
         "symbols": [
           {"name": "digest", "type": "function", "anchor": "symbol-digest"},
@@ -1685,6 +1694,31 @@
           {"name": "capture.ignoreElements", "type": "ArrowFunctionExpression", "anchor": "symbol-capture.ignoreElements"},
           {"name": "capture.onclone", "type": "ArrowFunctionExpression", "anchor": "symbol-capture.onclone"},
           {"name": "loadRenderer", "type": "FunctionDeclaration", "anchor": "symbol-loadRenderer"}
+        ]
+      },
+      {
+        "path": "static/calendar-stickers.js",
+        "symbols": [
+          {"name": "accept", "type": "FunctionDeclaration", "anchor": "symbol-accept"},
+          {"name": "controls", "type": "FunctionDeclaration", "anchor": "symbol-controls"},
+          {"name": "create", "type": "FunctionDeclaration", "anchor": "symbol-create"},
+          {"name": "dirty", "type": "FunctionDeclaration", "anchor": "symbol-dirty"},
+          {"name": "dragPointer", "type": "FunctionDeclaration", "anchor": "symbol-dragPointer"},
+          {"name": "endDrag", "type": "FunctionDeclaration", "anchor": "symbol-endDrag"},
+          {"name": "followPointer", "type": "FunctionDeclaration", "anchor": "symbol-followPointer"},
+          {"name": "followPointer.speed", "type": "ArrowFunctionExpression", "anchor": "symbol-followPointer.speed"},
+          {"name": "move", "type": "FunctionDeclaration", "anchor": "symbol-move"},
+          {"name": "position", "type": "FunctionDeclaration", "anchor": "symbol-position"},
+          {"name": "position.ratio", "type": "ArrowFunctionExpression", "anchor": "symbol-position.ratio"},
+          {"name": "queueSave", "type": "FunctionDeclaration", "anchor": "symbol-queueSave"},
+          {"name": "recover", "type": "FunctionDeclaration", "anchor": "symbol-recover"},
+          {"name": "remove", "type": "FunctionDeclaration", "anchor": "symbol-remove"},
+          {"name": "render", "type": "FunctionDeclaration", "anchor": "symbol-render"},
+          {"name": "save", "type": "FunctionDeclaration", "anchor": "symbol-save"},
+          {"name": "startDrag", "type": "FunctionDeclaration", "anchor": "symbol-startDrag"},
+          {"name": "update", "type": "FunctionDeclaration", "anchor": "symbol-update"},
+          {"name": "weeks", "type": "FunctionDeclaration", "anchor": "symbol-weeks"},
+          {"name": "writeVersion", "type": "FunctionDeclaration", "anchor": "symbol-writeVersion"}
         ]
       },
       {

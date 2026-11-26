@@ -1197,7 +1197,7 @@ const formatSize = (bytes) =>
 function freeCalendarIdentity()
 ```
 
-Собирает UUID и версию свободного события для частичного запроса.
+Генерирует UUID для свободных записей календаря, в том числе стикеров.
 
 Использует `crypto.getRandomValues`, `Uint8Array`, `[...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join`.
 
@@ -1499,9 +1499,9 @@ async function loadOrders()
 
 Перечитывает серверную сводку и обновляет текущие представления заказов.
 
-Использует `/api/orders`, `/api/work-orders`, `/api/object-orders`.
+Использует `/api/orders`, `/api/work-orders`, `/api/object-orders`; защищает стикеры от запоздалого ответа опроса.
 
-Непосредственные вызовы: `isFolderOrderList`, `isWorkOrderList`, `request`, `renderMoneyOverview`, `apiUrl`, `JSON.stringify`, `(object.archived_paths || []).map`, `renderSubfolders`, `ClientBadge.replace`, `applyDeadlineHighlights`, `result.orders.filter`, `renderSupplierSchedule`, `renderFavoriteOrders`, `hasOrderList`, `renderOrders`, `renderCardDeadlines`, `[...(result.orders || []), ...(result.favorites || [])].find`, `renderOrderCardLinks`.
+Непосредственные вызовы: `CalendarStickers.writeVersion`, `isFolderOrderList`, `isWorkOrderList`, `request`, `renderMoneyOverview`, `apiUrl`, `JSON.stringify`, `(object.archived_paths || []).map`, `renderSubfolders`, `ClientBadge.replace`, `CalendarStickers.update`, `applyDeadlineHighlights`, `result.orders.filter`, `renderSupplierSchedule`, `renderFavoriteOrders`, `hasOrderList`, `renderOrders`, `renderCardDeadlines`, `[...(result.orders || []), ...(result.favorites || [])].find`, `renderOrderCardLinks`.
 
 Прямые присваивания полям/свойствам: `state.ordersRequest`, `state.calendarPlansError`, `state.objectOrders`, `state.objectOrdersError`, `state.objectRemovedPaths`, `state.workOrderGroups`, `state.workArchivedOrders`, `state.workArchivedPaths`, `state.orders`, `state.calendarSupplierOrders`, `state.calendarEvents`, `state.calendarInvoicePlans`, `state.calendarPlansLoaded`, `state.deadlineWeekOptions`, `state.favoriteOrders`, `state.unregistrations`, `state.scan`, `state.storage`.
 

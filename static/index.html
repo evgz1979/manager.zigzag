@@ -67,7 +67,7 @@
         <div id="homeSyncSlot" class="home-sync-slot" hidden></div>
         <section id="ordersWorkspace" class="orders-workspace" aria-label="Все заказы" hidden>
           <section id="homeCalendar" class="home-calendar" aria-label="Календарь" hidden>
-            <header class="calendar-heading"><h2 id="calendarTitle"></h2><span class="calendar-draft">Нажми на ячейку заказа или «+» под заказами</span><div class="calendar-navigation"><button id="calendarTelegram" type="button" aria-label="Отправить общий календарь в Telegram">В Telegram</button><label class="calendar-history-toggle" title="Показать старые недели, включая выполненные и неактуальные записи"><input id="calendarHistory" type="checkbox" role="switch" aria-label="Старые недели" aria-controls="calendarWeeks"><span>Старые</span></label><button id="calendarEarlier" type="button" aria-label="Предыдущая видимая неделя">⌃</button><button id="calendarToday" type="button">Сегодня</button><button id="calendarLater" type="button" aria-label="Следующая видимая неделя">⌄</button></div></header>
+            <header class="calendar-heading"><h2 id="calendarTitle"></h2><span class="calendar-draft">Нажми на ячейку заказа или «+» под заказами</span><div class="calendar-navigation"><button id="calendarAddSticker" type="button" disabled>+ Стикер</button><button id="calendarTelegram" type="button" aria-label="Отправить общий календарь в Telegram">В Telegram</button><label class="calendar-history-toggle" title="Показать старые недели, включая выполненные и неактуальные записи"><input id="calendarHistory" type="checkbox" role="switch" aria-label="Старые недели" aria-controls="calendarWeeks"><span>Старые</span></label><button id="calendarEarlier" type="button" aria-label="Предыдущая видимая неделя">⌃</button><button id="calendarToday" type="button">Сегодня</button><button id="calendarLater" type="button" aria-label="Следующая видимая неделя">⌄</button></div></header>
             <div id="calendarViewport" class="calendar-viewport" tabindex="0" role="region" aria-label="Две недели календаря">
               <div id="calendarWeekdays" class="calendar-weekdays" aria-hidden="true"><span class="calendar-orders-heading">Заказы</span><span>На неделю</span><span>пн</span><span>вт</span><span>ср</span><span>чт</span><span>пт</span><span class="weekend">сб</span><span class="weekend calendar-sunday">вс</span></div>
               <div id="calendarWeeks" class="calendar-weeks"></div>
@@ -673,6 +673,7 @@
     <script src="/spreadsheet-preview.js"></script>
     <script src="/client-badge.js"></script>
     <script src="/home-calendar.js"></script>
+    <script src="/calendar-stickers.js"></script>
     <script src="/money-overview.js"></script>
     <script src="/navigation.js"></script>
     <script src="/settings.js"></script>

@@ -29,12 +29,12 @@ const activeOrderDays = (order) =>
 [static/home-calendar.js](../../../static/home-calendar.js) · `FunctionDeclaration`.
 
 ```javascript
-function calendarRange(now = new Date(), calendarOrders = [], freeEvents = [], plans = [], history = false)
+function calendarRange(now = new Date(), calendarOrders = [], freeEvents = [], plans = [], history = false, stickerWeeks = [])
 ```
 
-Выбирает недели календаря; прошлые без открытых событий доступны только в истории.
+Выбирает недели календаря с учётом событий, планов и стикеров.
 
-Текущая и будущие недели непрерывны; пустые промежутки прошлого пропускаются.
+Текущая и будущие недели непрерывны; прошлые без видимых записей доступны в истории.
 
 Непосредственные вызовы: `moscowDate`, `monday`, `dateKey`, `Set`, `shiftDays`, `visibleOrderWeeks`, `include`, `["day", "week"].includes`, `pendingRecord`, `[...past].sort`, `weeks.push`.
 
@@ -84,9 +84,9 @@ function createSnapshot(now = new Date())
 
 Создаёт отдельный DOM календаря для рендера общего PNG.
 
-Исключает строки прошлой истории и их пустые заголовки, сохраняя группировку и подписи.
+Исключает стикеры, строки прошлой истории и их пустые заголовки.
 
-Непосредственные вызовы: `snapshotRange`, `document.createElement`, `snapshot.setAttribute`, `fullDate.format`, `snapshot.append`, `get("homeCalendar").querySelector(".calendar-weekdays").cloneNode`, `get("homeCalendar").querySelector`, `get`, `dateKey`, `shiftDays`, `[...get("calendarWeeks").children].find`, `Error`, `row.cloneNode`, `Set`, `orders.filter(order => visibleOrderWeeks(order, moscowDate(now)).includes(key)).map`, `orders.filter`, `clone.querySelectorAll`, `visible.has`, `item.remove`, `heading.remove`, `snapshot.querySelectorAll`, `element.removeAttribute`.
+Непосредственные вызовы: `snapshotRange`, `document.createElement`, `snapshot.setAttribute`, `fullDate.format`, `snapshot.append`, `get("homeCalendar").querySelector(".calendar-weekdays").cloneNode`, `get("homeCalendar").querySelector`, `get`, `dateKey`, `shiftDays`, `[...get("calendarWeeks").children].find`, `Error`, `row.cloneNode`, `clone.querySelectorAll`, `sticker.remove`, `Set`, `orders.filter(order => visibleOrderWeeks(order, moscowDate(now)).includes(key)).map`, `orders.filter`, `visible.has`, `item.remove`, `heading.remove`, `snapshot.querySelectorAll`, `element.removeAttribute`.
 
 Прямые присваивания полям/свойствам: `snapshot.className`, `snapshot.inert`, `title.textContent`.
 
@@ -404,7 +404,7 @@ function show(nextOrders, nextEvents, nextInvoicePlans, now = new Date())
 
 Подключает обработчики событий к существующим элементам компонента.
 
-Непосредственные вызовы: `Array.isArray`, `nextOrders.filter`, `calendarRange`, `dateKey`, `range.weeks.join`, `nextRange.weeks.join`, `get`, `weekIndex`, `Date`, `Map`, `[...weeks.children].map`, `weeks.contains`, `Set`, `retained.has`, `row.remove`, `existing.get`, `document.createElement`, `orderCell.append`, `carryoverHeader`, `list.setAttribute`, `fullDate.format`, `shiftDays`, `spacer.setAttribute`, `free.append`, `cell.append`, `content.append`, `row.append`, `weekNumber`, `weekLabel.setAttribute`, `weekCell.append`, `planHeader`, `label.setAttribute`, `String`, `date.getUTCDate`, `row.querySelectorAll`, `label.classList.toggle`, `label.removeAttribute`, `weeks.insertBefore`, `viewport.focus`, `measureWeeks`, `scrollToWeek`, `Math.max`, `Math.min`, `maxScroll`, `updateHeading`, `renderWeekOrders`, `renderFreeEvents`, `renderInvoicePlans`, `get("calendarToday").addEventListener`, `get("calendarEarlier").addEventListener`, `get("calendarLater").addEventListener`, `history.addEventListener`, `viewport.addEventListener`, `ResizeObserver`, `observer.observe`.
+Непосредственные вызовы: `Array.isArray`, `nextOrders.filter`, `calendarRange`, `stickers?.weeks`, `dateKey`, `range.weeks.join`, `nextRange.weeks.join`, `get`, `weekIndex`, `Date`, `Map`, `[...weeks.children].map`, `weeks.contains`, `Set`, `retained.has`, `row.remove`, `existing.get`, `document.createElement`, `orderCell.append`, `carryoverHeader`, `list.setAttribute`, `fullDate.format`, `shiftDays`, `spacer.setAttribute`, `free.append`, `cell.append`, `content.append`, `row.append`, `weekNumber`, `weekLabel.setAttribute`, `weekCell.append`, `planHeader`, `label.setAttribute`, `String`, `date.getUTCDate`, `row.querySelectorAll`, `label.classList.toggle`, `label.removeAttribute`, `weeks.insertBefore`, `viewport.focus`, `measureWeeks`, `scrollToWeek`, `Math.max`, `Math.min`, `maxScroll`, `updateHeading`, `renderWeekOrders`, `renderFreeEvents`, `renderInvoicePlans`, `stickers?.render`, `get("calendarToday").addEventListener`, `get("calendarEarlier").addEventListener`, `get("calendarLater").addEventListener`, `history.addEventListener`, `viewport.addEventListener`, `ResizeObserver`, `observer.observe`.
 
 Прямые присваивания полям/свойствам: `row.className`, `row.dataset.week`, `orderCell.className`, `orderCell.style.gridArea`, `content.className`, `list.className`, `free.className`, `spacer.className`, `cell.className`, `add.type`, `add.className`, `add.dataset.calendarEvent`, `add.dataset.calendarFree`, `add.textContent`, `weekCell.className`, `weekCell.style.gridArea`, `weekLabel.className`, `weekLabel.textContent`, `cell.style.gridArea`, `label.dateTime`, `label.textContent`, `viewport.scrollTop`.
 

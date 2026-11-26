@@ -80,9 +80,9 @@ const HomeCalendar = (() => {
   // Проверяет отсутствие явных отметок выполнения и неактуальности свободной записи/плана.
   // Поддерживает SQLite 0/1 и JSON boolean; неизвестные значения не скрывают запись.
   const pendingRecord = (event) => ![true, 1].includes(event.is_completed) && ![true, 1].includes(event.is_inactive);
-  // Выбирает недели календаря; прошлые без открытых событий доступны только в истории.
-  // Текущая и будущие недели непрерывны; пустые промежутки прошлого пропускаются.
-  function calendarRange(now = new Date(), calendarOrders = [], freeEvents = [], plans = [], history = false) {
+  // Выбирает недели календаря с учётом событий, планов и стикеров.
+  // Текущая и будущие недели непрерывны; прошлые без видимых записей доступны в истории.
+  function calendarRange(now = new Date(), calendarOrders = [], freeEvents = [], plans = [], history = false, stickerWeeks = []) {
     const today = moscowDate(now);
     const current = monday(today), currentKey = dateKey(current), past = new Set();
     let start = current, end = shiftDays(start, VISIBLE_WEEKS * 7 - 1);
@@ -106,6 +106,7 @@ const HomeCalendar = (() => {
       if (!event.deleted && ["day", "week"].includes(event.period || "day") &&
           (history || event.date >= currentKey || pendingRecord(event))) include(event.date, event.period);
     }
+    for (const week of stickerWeeks) include(week, "week");
     const weeks = history ? [] : [...past].sort();
     for (let week = history ? start : current; week <= end; week = shiftDays(week, 7)) weeks.push(dateKey(week));
     return { today, from: start, through: end, start, end, weeks };
@@ -587,7 +588,8 @@ const HomeCalendar = (() => {
     if (Array.isArray(nextOrders)) orders = nextOrders.filter(order => !order.work_supplier);
     if (Array.isArray(nextEvents)) events = nextEvents;
     if (Array.isArray(nextInvoicePlans)) invoicePlans = nextInvoicePlans;
-    const nextRange = calendarRange(now, orders, events, invoicePlans, showHistory);
+    const stickers = typeof CalendarStickers === "undefined" ? null : CalendarStickers;
+    const nextRange = calendarRange(now, orders, events, invoicePlans, showHistory, stickers?.weeks());
     if (builtFor !== dateKey(nextRange.today) || !range || range.weeks.join() !== nextRange.weeks.join()) {
       const viewport = get("calendarViewport"), index = weekIndex(viewport.scrollTop);
       const visibleWeek = range ? new Date(range.weeks[index] + "T00:00:00Z") : nextRange.today;
@@ -669,6 +671,7 @@ const HomeCalendar = (() => {
     renderWeekOrders();
     renderFreeEvents();
     renderInvoicePlans();
+    stickers?.render();
     if (initialized) return;
     initialized = true;
     const viewport = get("calendarViewport");
@@ -683,7 +686,7 @@ const HomeCalendar = (() => {
     });
     viewport.addEventListener("scroll", () => { if (!frame) frame = requestAnimationFrame(updateHeading); }, { passive: true });
     viewport.addEventListener("keydown", (event) => {
-      if (event.key === "Home" || event.key === "End") {
+      if (event.target === viewport && (event.key === "Home" || event.key === "End")) {
         event.preventDefault();
         scrollToIndex(event.key === "Home" ? 0 : weekTops.length - VISIBLE_WEEKS);
       }
@@ -703,7 +706,7 @@ const HomeCalendar = (() => {
     return { start, end, count: hasPrevious ? 3 : 2 };
   }
   // Создаёт отдельный DOM календаря для рендера общего PNG.
-  // Исключает строки прошлой истории и их пустые заголовки, сохраняя группировку и подписи.
+  // Исключает стикеры, строки прошлой истории и их пустые заголовки.
   function createSnapshot(now = new Date()) {
     const { start, end, count } = snapshotRange(now);
     const snapshot = document.createElement("section");
@@ -718,6 +721,7 @@ const HomeCalendar = (() => {
       const row = [...get("calendarWeeks").children].find((item) => item.dataset.week === key);
       if (!row) throw new Error("Обнови календарь перед отправкой нужных недель");
       const clone = row.cloneNode(true);
+      for (const sticker of clone.querySelectorAll(".calendar-sticker")) sticker.remove();
       const visible = new Set(orders.filter(order => visibleOrderWeeks(order, moscowDate(now)).includes(key)).map(order => JSON.stringify([order.id, order.path])));
       for (const item of clone.querySelectorAll(".calendar-order-row")) if (!visible.has(item.dataset.orderKey)) item.remove();
       for (const heading of clone.querySelectorAll(".calendar-orders-list > .calendar-order-group")) {
