@@ -219,7 +219,7 @@ def read_plan(root, token, *, reader=None, database=None):
     return session, plan
 
 
-# Проверяет завершённые сеансы перед переносом объекта и обновляет их автономный рецепт.
+# Проверяет завершённые сеансы перед переименованием или переносом папки и обновляет их автономный рецепт.
 # Исходный план и журнал сохраняются побайтно, а файлы остаются в корзине.
 def prepare_relocation(root, database, sessions, source):
     from icloud_access import read_bytes

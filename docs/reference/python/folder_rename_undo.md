@@ -22,9 +22,9 @@ def check(db, source, destination, session=None, *, file_trash_paths=False):
 
 Проверяет предпосылки безопасного выполнения операции.
 
-Работает с таблицами orders, mobile_operations.
+Работает с таблицами orders, invoices, mobile_operations.
 
-Непосредственные вызовы: `metadata_paths`, `table`, `db.execute`, `any`, `inside`, `json.loads`, `ValueError`, `json.loads(row[0]).get`.
+Непосредственные вызовы: `metadata_paths`, `table`, `any`, `inside`, `db.execute`, `ValueError`, `json.loads`, `json.loads(row[0]).get`.
 
 Явные исключения: `ValueError`.
 
@@ -102,7 +102,7 @@ def remap_file_trash(db, source, destination, *, apply=False):
 
 Находит записи корзины, затронутые переносом, и проверяет их состояние.
 
-Файл в общей корзине остаётся на месте, копия счёта внутри объекта переносится вместе с ним.
+Файл в общей корзине остаётся на месте, копия счёта переезжает вместе с папкой, в которой хранится.
 
 Непосредственные вызовы: `table`, `set`, `destination.casefold`, `db.execute`, `inside`, `old.casefold`, `stored.casefold`, `ValueError`, `remap`, `db.execute('SELECT 1 FROM metadata_file_moves WHERE session=? AND source=?', (session, new)).fetchone`, `rows.append`, `sessions.add`.
 

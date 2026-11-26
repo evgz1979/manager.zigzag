@@ -19,7 +19,7 @@
 | [event_relevance.py](python/event_relevance.md) | `folder_notes.py`, `server.py`, `sketches.py` | 1 | Нет |
 | [event_trash.py](python/event_trash.md) | `server.py` | 1 | Нет |
 | [file_comments.py](python/file_comments.md) | `catalog_groups.py`, `folder_notes.py`, `invoice_discovery.py`, `invoices.py`, `local_metadata.py`, `mobile_sync.py`, `server.py`, `telegram_inbox.py` | 3 | Нет |
-| [file_trash.py](python/file_trash.md) | `file_uploads.py`, `invoice_discovery.py`, `invoices.py`, `object_move.py`, `order_nas_archive.py`, `plotter.py`, `server.py` | 3 | Да |
+| [file_trash.py](python/file_trash.md) | `file_uploads.py`, `folder_rename.py`, `invoice_discovery.py`, `invoices.py`, `object_move.py`, `order_nas_archive.py`, `plotter.py`, `server.py` | 3 | Да |
 | [file_uploads.py](python/file_uploads.md) | `plotter.py`, `server.py` | 4 | Нет |
 | [folder_layout.py](python/folder_layout.md) | `event_folders.py`, `event_trash.py`, `file_uploads.py`, `folder_rename.py`, `image_reports.py`, `invoices.py`, `local_metadata.py`, `object_move.py`, `object_years.py`, `order_creation.py`, `order_folders.py`, `order_nas_archive.py`, `recovery_backup.py`, `scripts/archive_order_duplicate.py`, `scripts/rebind_glass_notes.py`, `scripts/rebind_order.py` | 8 | Да |
 | [folder_notes.py](python/folder_notes.md) | `event_folders.py`, `event_trash.py`, `file_uploads.py`, `folder_rename.py`, `object_move.py`, `object_years.py`, `order_nas_archive.py`, `order_todos.py`, `orders.py`, `scripts/rebind_glass_notes.py`, `server.py` | 4 | Нет |

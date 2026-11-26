@@ -65,7 +65,7 @@ def metadata_paths(db, source, destination, *, apply=False, file_trash_paths=Fal
 
 
 # Находит записи корзины, затронутые переносом, и проверяет их состояние.
-# Файл в общей корзине остаётся на месте, копия счёта внутри объекта переносится вместе с ним.
+# Файл в общей корзине остаётся на месте, копия счёта переезжает вместе с папкой, в которой хранится.
 def remap_file_trash(db, source, destination, *, apply=False):
     if not table(db, "metadata_file_moves"):
         return set()
@@ -78,7 +78,7 @@ def remap_file_trash(db, source, destination, *, apply=False):
         if not (inside(old, source) or inside(stored, source)):
             continue
         if state not in ("trashed", "restored"):
-            raise ValueError("Перенос файла в корзину или обратно прерван: " + old + ". Заверши его в корзине и повтори перенос объекта")
+            raise ValueError("Перенос файла в корзину или обратно прерван: " + old + ". Заверши его в корзине и повтори операцию")
         new = remap(old, source, destination)
         new_stored = remap(stored, source, destination)
         if new != old and db.execute("SELECT 1 FROM metadata_file_moves WHERE session=? AND source=?", (session, new)).fetchone():
@@ -93,9 +93,12 @@ def remap_file_trash(db, source, destination, *, apply=False):
 
 
 # Проверяет предпосылки безопасного выполнения операции.
-# Работает с таблицами orders, mobile_operations.
+# Работает с таблицами orders, invoices, mobile_operations.
 def check(db, source, destination, session=None, *, file_trash_paths=False):
     metadata_paths(db,source,destination,file_trash_paths=file_trash_paths)
+    if file_trash_paths and table(db, "invoices") and any(inside(path, source) for (path,) in db.execute(
+            "SELECT path FROM invoices WHERE json_extract(data,'$._trash.state')='pending'")):
+        raise ValueError("Дождись переноса счёта в корзину")
     for name in ("event_renames", "folder_renames"):
         if table(db, name):
             for other, mappings in db.execute(f"SELECT session,mappings FROM {name} WHERE state='pending'"):

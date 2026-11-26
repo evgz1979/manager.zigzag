@@ -9,6 +9,7 @@ import sqlite3
 import unicodedata
 
 import event_folder_undo
+import file_trash
 import folder_layout as layout
 import folder_notes
 import folder_rename_undo as restore
@@ -66,13 +67,12 @@ def name(value):
 
 
 # Переименовывает объект без перезаписи существующего назначения.
-# Работает с таблицами orders, folder_renames.
+# Проверяет сеансы корзины перед переносом и обновляет пути восстановления вместе с папкой.
 def rename(store, payload):
     root = store.root.resolve()
     # The handler also holds file-comments, print and folder-card locks, in the
     # same order as normal writers. Workers cannot export an old path mid-move.
     with LOCK, REFRESH_LOCK, orders.SYNC_LOCK, folder_notes.SYNC_LOCK, store.connect() as db:
-        db.execute("BEGIN IMMEDIATE")
         view = preview(store, payload.get("path"))
         if view["revision"] != payload.get("revision"):
             raise FolderRenameConflict("Папка изменилась после открытия формы. Обнови её перед переименованием")
@@ -83,7 +83,12 @@ def rename(store, payload):
         destination = (Path(source).parent / new_name).as_posix()
         if not available(destination) or layout.exists(root / destination):
             raise FolderRenameConflict("Это имя уже занято или недоступно. Данные не перезаписаны")
-        return relocate(store, db, view, destination)
+        trash_source, trash_destination = (unicodedata.normalize("NFC", path) for path in (source, destination))
+        sessions = restore.remap_file_trash(db, trash_source, trash_destination)
+        if sessions:
+            file_trash.prepare_relocation(root, store.database, sessions, trash_source)
+        db.execute("BEGIN IMMEDIATE")
+        return relocate(store, db, view, destination, details={"file_trash_paths": True})
 
 
 # Переносит папку и согласует пути SQLite с файловым журналом и снимком базы.

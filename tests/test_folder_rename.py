@@ -10,6 +10,7 @@ from unittest.mock import patch
 import folder_rename
 import folder_rename_undo
 from event_folder_undo import EventRenamePending
+import test_external_invoices as external
 import test_server as fixtures
 
 manager = fixtures.manager
@@ -194,6 +195,84 @@ class FolderRenameTests(unittest.TestCase):
         self.assertEqual(status, 200, body)
         self.assertEqual(len(store.list()), 1)
         self.assertEqual(store.list()[0]["id"], order["id"])
+
+    def test_http_rename_keeps_trashed_files_and_restores_them_to_current_paths(self):
+        manager.DATABASE_ONLY = True
+        store = manager.order_store()
+        parent = "Клиент/2026-00-00 - Заказ"
+        source, destination = parent + "/Фото", parent + "/Иллюстрации"
+        old, new, sibling = source + "/план.cdr", destination + "/план.cdr", parent + "/другой.txt"
+        self.file(old, b"plan")
+        self.file(sibling, b"sibling")
+        metadata = manager.metadata_store()
+        metadata.put("comment", old, {"comment": "Чертёж"}, "missing")
+        trash = manager.file_trash
+        files = trash.preview(self.root, parent, [old, sibling])["files"]
+        deleted = trash.remove(self.root, parent, files, True, store.database)
+        self.assertFalse(deleted["error"], deleted)
+        session = trash.session_path(self.root, deleted["session"])
+        plan_path = session / ".plan.json"
+        plan_bytes = plan_path.read_bytes()
+        stored = self.root / json.loads(plan_bytes)["operations"][0]["destination"]
+        helper = session / ".restore.py"
+        helper.write_text("# Старый рецепт без перепривязки путей\n", encoding="utf-8")
+
+        with patch.object(manager, "schedule_order_sync"), patch.object(manager, "schedule_todo_refresh"):
+            payload = {**folder_rename.preview(store, source), "name": "Иллюстрации"}
+            status, _, body = self.http("/api/folder-rename", "POST", json.dumps(payload))
+        self.assertEqual(status, 200, body)
+        self.assertEqual(json.loads(body)["path"], destination)
+        self.assertFalse((self.root / new).exists())
+        self.assertEqual(stored.read_bytes(), b"plan")
+        self.assertEqual(plan_path.read_bytes(), plan_bytes)
+        self.assertEqual(trash.list_sessions(self.root)[0]["files"], [new, sibling])
+        restored = subprocess.run([sys.executable, str(helper)], check=True, capture_output=True)
+        self.assertFalse(json.loads(restored.stdout)["error"], restored.stdout)
+        self.assertEqual((self.root / new).read_bytes(), b"plan")
+        self.assertEqual((self.root / sibling).read_bytes(), b"sibling")
+        self.assertEqual(metadata.get("comment", new)["comment"], "Чертёж")
+        self.assertFalse((self.root / old).exists())
+
+    def test_undo_rename_rebinds_file_still_in_trash(self):
+        manager.DATABASE_ONLY = True
+        store = manager.order_store()
+        source = "Клиент/2026-00-00 - Заказ/Фото"
+        path = source + "/план.cdr"
+        self.file(path, b"plan")
+        store.add(Path(source).parent.as_posix(), {"status": "new"})
+        trash = manager.file_trash
+        files = trash.preview(self.root, source, [path])["files"]
+        deleted = trash.remove(self.root, source, files, True, store.database)
+        self.assertFalse(deleted["error"], deleted)
+        moved = self.rename(source, "Иллюстрации")
+        session = self.root / moved["journal"]
+        subprocess.run([sys.executable, str(session / ".restore.py"), str(session), "--apply"], check=True, capture_output=True)
+        self.assertEqual(trash.list_sessions(self.root)[0]["files"], [path])
+        self.assertFalse((self.root / path).exists())
+        restored = trash.restore(self.root, deleted["session"], database=store.database)
+        self.assertFalse(restored["error"], restored)
+        self.assertEqual((self.root / path).read_bytes(), b"plan")
+
+    def test_rename_waits_for_invoice_trash_and_preserves_completed_trash(self):
+        manager.DATABASE_ONLY = True
+        source = "Клиент/2026-00-00 - Заказ"
+        manager.order_store().add(source, {"status": "new"})
+        invoices = manager.invoice_store()
+        fixture = external.ExternalInvoiceTests()
+        record = invoices.upload(fixture.payload(path=source))
+        invoices.sync()
+        record = invoices.get(source, record["id"])
+        deleted = invoices.remove({**record, "confirmed": True})
+        with self.assertRaisesRegex(ValueError, "Дождись переноса счёта в корзину"):
+            self.rename(source, "2026-00-00 - Новое")
+        self.assertTrue((self.root / source).is_dir())
+        invoices.sync()
+        destination = self.rename(source, "2026-00-00 - Новое")["path"]
+        trashed, = invoices.list(destination, trashed=True)
+        self.assertEqual(trashed["trash"]["token"], deleted["trash"]["token"])
+        restored = invoices.restore(trashed)
+        self.assertEqual(restored["id"], record["id"])
+        self.assertEqual((self.root / restored["pdf_path"]).read_bytes(), fixture.pdf)
 
     def test_supplier_order_and_ordinary_event_can_be_renamed(self):
         source = "# work/# glass/2026-10-20 - Поставщик"

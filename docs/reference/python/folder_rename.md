@@ -6,7 +6,7 @@
 
 Rename one opened folder and all its SQLite paths, without duplicating orders.
 
-Импорты Python, включая локальные: `contextlib`, `event_folder_undo`, `folder_layout`, `folder_notes`, `folder_rename_undo`, `folder_structure`, `hashlib`, `json`, `order_folders`, `order_todos`, `orders`, `os`, `pathlib`, `shutil`, `sqlite3`, `unicodedata`.
+Импорты Python, включая локальные: `contextlib`, `event_folder_undo`, `file_trash`, `folder_layout`, `folder_notes`, `folder_rename_undo`, `folder_structure`, `hashlib`, `json`, `order_folders`, `order_todos`, `orders`, `os`, `pathlib`, `shutil`, `sqlite3`, `unicodedata`.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
@@ -129,16 +129,16 @@ def rename(store, payload):
 
 Переименовывает объект без перезаписи существующего назначения.
 
-Работает с таблицами orders, folder_renames.
+Проверяет сеансы корзины перед переносом и обновляет пути восстановления вместе с папкой.
 
-Непосредственные вызовы: `store.root.resolve`, `store.connect`, `db.execute`, `preview`, `payload.get`, `FolderRenameConflict`, `name`, `unicodedata.normalize`, `Path`, `ValueError`, `(Path(source).parent / new_name).as_posix`, `available`, `layout.exists`, `relocate`.
+Непосредственные вызовы: `store.root.resolve`, `store.connect`, `preview`, `payload.get`, `FolderRenameConflict`, `name`, `unicodedata.normalize`, `Path`, `ValueError`, `(Path(source).parent / new_name).as_posix`, `available`, `layout.exists`, `restore.remap_file_trash`, `file_trash.prepare_relocation`, `db.execute`, `relocate`.
 
 Явные исключения: `FolderRenameConflict`, `ValueError`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-relocate(store, db, view, destination)
+relocate(store, db, view, destination, details={'file_trash_paths': True})
 ```
 
 <a id="symbol-target"></a>
