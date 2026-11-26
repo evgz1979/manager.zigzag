@@ -329,6 +329,8 @@ h1 { font-size: clamp(22px, 2.5vw, 32px); line-height: 1.23; letter-spacing: -.8
 .folder-summary { color: var(--muted); font-size: 12px; margin-top: 9px; }
 .secondary-button, .primary-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 34px; padding: 7px 11px; font-size: 12px; white-space: nowrap; text-decoration: none; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--text); }
 .secondary-button svg { width: 16px; height: 16px; }
+#openNasArchive { background: light-dark(#d0eaff, #223e55); border-color: light-dark(#9fcdf1, #426883); color: light-dark(#204e71, #d5efff); }
+#openNasArchive:hover:not(:disabled) { background: light-dark(#bce0ff, #2b4d68); }
 .primary-button { background: var(--accent-solid); color: #fff; border-color: var(--accent-solid); }
 .primary-button:hover:not(:disabled) { background: #206454; }
 .order-details { border: 1px solid var(--line); border-radius: 8px; margin-bottom: 23px; background: var(--surface-subtle); }
