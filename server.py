@@ -70,7 +70,8 @@ import work_orders
 from work_order_list import WorkOrderList
 import supplier_purchases
 from file_comments import FileCommentConflict
-from folder_structure import folder_role, is_catalog_group, client_name, is_etc_year, is_print_section, in_payroll, in_reconciliations
+from folder_structure import folder_role, is_catalog_group, client_name, is_catalog_year, is_print_section, in_payroll, in_reconciliations
+import catalog_groups
 import reconciliations
 from folder_structure import can_compose_order, client_path, in_freza, is_freza_task
 import client_colors
@@ -1249,7 +1250,7 @@ def freza_preview_target(relative):
 
 
 # Собирает представление папки и разрешённые файлы её роли.
-# Год «02 - etc» показывает подпапки без обхода файлов; в заказе клиента добавляет переключатели и блоки материалов.
+# Год в группе годов показывает подпапки без обхода файлов; заказ клиента получает блоки материалов.
 def read_folder(relative="", show_inactive=False):
     target = safe_path(relative)
     if not target.is_dir():
@@ -1270,9 +1271,9 @@ def read_folder(relative="", show_inactive=False):
     print_view = is_print_section(relative)
     freza_section = in_freza(relative) and len(Path(relative).parts) == 2
     freza_task = is_freza_task(relative)
-    etc_year = is_etc_year(relative)
+    catalog_year = is_catalog_year(DATA_ROOT, relative)
     files_scope = "folder" if freza_task else "events" if status["folderKind"] == "order" or status.get("order") else (
-        "subfolders" if not print_view and (etc_year or status["folderKind"] in {"client", "object", "catalog_group", "supplier_root", "work_root", "moneys_root", "work_section", "moneys_section", "reconciliations_root", "reconciliation", "bills_root"}) else "folder")
+        "subfolders" if not print_view and (catalog_year or status["folderKind"] in {"client", "object", "catalog_group", "supplier_root", "work_root", "moneys_root", "work_section", "moneys_section", "reconciliations_root", "reconciliation", "bills_root"}) else "folder")
     if files_scope == "subfolders" and plotter.is_cutter(target.name):
         files_scope = "plotter"
     hide_files = files_scope != "folder"
@@ -1462,10 +1463,11 @@ def read_folder(relative="", show_inactive=False):
             "upload": file_uploads.options(DATA_ROOT,relative) if files_scope=="folder" and file_uploads.available(DATA_ROOT,relative) else None,
             "newFileName": next_print_name(target) if print_view else "",
             "canCreateObjectFolder": status["folderKind"]=="client",
+            "canCreateClientFolder": status["folderKind"] == "root" or (status["catalogGroup"] or {}).get("type") == "clients",
             "canGroupOrdersByYear": status["folderKind"]=="object",
             "canMoveObject": object_move.available(relative_path(target), status["folderKind"]),
             "canCreateOrderFolder": not print_view and (status["folderKind"] in {"object", "supplier_root", "work_root", "work_section", "moneys_section", "reconciliations_root"} or (status["folderKind"]=="year" and order_folders.year_container(DATA_ROOT,relative))),
-            "orderFolderTitleOnly": etc_year,
+            "orderFolderTitleOnly": catalog_year,
             "canCreateEventFolder": status["folderKind"] == "order" and not freza_task,
             "canRenameFolder": folder_rename.available(relative_path(target)),
             "canDeleteEvent": event_trash.available(relative_path(target)),
@@ -2297,11 +2299,26 @@ class ManagerHandler(BaseHTTPRequestHandler):
                 self.send_json(order_folders.service_folders(order_store(), payload.get("path"), payload))
                 schedule_todo_refresh(payload["path"])
                 return
+            elif route in {"/api/catalog-group-type", "/api/client-folder-create"}:
+                origin = self.headers.get("Origin")
+                if (self.headers.get_content_type() != "application/json"
+                        or (origin and urllib.parse.urlsplit(origin).netloc != self.headers.get("Host"))):
+                    self.send_json({"error": "Используй страницу Менеджера для работы с группами"}, 403)
+                    return
+                store = order_store()
+                with order_folders.LOCK:
+                    if route == "/api/catalog-group-type":
+                        guard_database(store.database, payload.get("path"), include_children=True)
+                        self.send_json(catalog_groups.save(store, payload))
+                    else:
+                        self.send_json(order_folders.create_client(store, payload.get("path"), payload.get("title")), 201)
+                return
             elif route == "/api/order-folder-create":
                 store = order_store()
                 guard_database(store.database, payload.get("path", ""), include_children=True)
                 try:
-                    created = order_folders.create(DATA_ROOT, payload.get("path"), payload.get("date"), payload.get("title"), store=store)
+                    with order_folders.LOCK:
+                        created = order_folders.create(DATA_ROOT, payload.get("path"), payload.get("date"), payload.get("title"), store=store)
                 finally:
                     METADATA_REFRESH.set()
                 self.send_json(created, 201)

@@ -50,6 +50,22 @@ class FolderRenameTests(unittest.TestCase):
         store = manager.order_store()
         return folder_rename.rename(store, {**folder_rename.preview(store, source), "name": name})
 
+    def test_catalog_group_rename_keeps_year_rules_and_registered_order(self):
+        manager.DATABASE_ONLY = True
+        store = manager.order_store()
+        source, destination = "07 - Мелкие заказы", "09 - Мелкие заказы"
+        suffix = "/2026/Ремонт вывески"
+        self.folder(source + suffix)
+        setting = manager.catalog_groups.save(store, {"path": source, "type": "years", "revision": "missing"})
+        card = store.add(source + suffix, {"title": "Ремонт вывески"})
+        self.rename(source, destination)
+        moved = manager.catalog_groups.get(self.root, destination)
+        self.assertEqual(moved["type"], "years")
+        self.assertEqual(moved["revision"].split(":")[0], setting["revision"].split(":")[0])
+        self.assertEqual(manager.catalog_groups.get(self.root, source)["type"], "")
+        self.assertTrue(manager.read_folder(destination + "/2026")["orderFolderTitleOnly"])
+        self.assertEqual(manager.read_folder(destination + suffix)["order"]["id"], card["id"])
+
     def test_rename_order_preserves_identity_all_pending_data_comments_and_single_registration(self):
         store, source, order, note = self.populated()
         before = {path.relative_to(self.root / source).as_posix(): path.read_bytes()

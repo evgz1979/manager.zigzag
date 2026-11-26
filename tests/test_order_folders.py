@@ -85,12 +85,15 @@ class OrderFolderTests(unittest.TestCase):
         listed = manager.listed_orders()['orders']
         self.assertFalse(any(item['path'].startswith(('# work/', '#work/')) for item in listed))
 
-    def test_etc_year_creates_orders_by_title_and_lists_folders_without_walking_files(self):
+    def test_catalog_year_creates_orders_by_title_and_lists_folders_without_walking_files(self):
         manager.DATABASE_ONLY = True
-        year = '02 - etc/2027'
+        group = '07 - Мелкие работы'
+        year = group + '/2027'
         existing = ['001 - Номер', '2027-01-02 - Дата', 'Ремонт вывески']
         for name in existing:
             self.file(f'{year}/{name}/Монтаж/Фото.jpg', b'photo')
+        self.assertFalse(manager.read_folder(year)['orderFolderTitleOnly'])
+        manager.catalog_groups.save(manager.order_store(), {'path': group, 'type': 'years', 'revision': 'missing'})
         with patch.object(manager.os, 'walk', side_effect=AssertionError('Do not walk orders from the year page')):
             view = manager.read_folder(year)
         self.assertEqual((view['folderKind'], view['filesScope'], view['files']), ('year', 'subfolders', []))
@@ -111,7 +114,7 @@ class OrderFolderTests(unittest.TestCase):
             status, _, body = self.http(endpoint, 'POST', json.dumps(payload))
             self.assertEqual(status, 201, body)
             self.assertEqual(self.http(endpoint, 'POST', json.dumps(payload))[0], 409)
-            for parent, invalid_title in ((year, '# Служебная'), (year, '..'), ('02 - etc', 'Мимо года'), (path, 'Вложенный заказ')):
+            for parent, invalid_title in ((year, '# Служебная'), (year, '..'), (group, 'Мимо года'), (path, 'Вложенный заказ')):
                 self.assertEqual(self.http(endpoint, 'POST', json.dumps({'path': parent, 'title': invalid_title}))[0], 400)
         self.assertEqual(json.loads(body)['path'], path)
         self.assertEqual({item.name for item in (self.root / path).iterdir()}, {'# bills', '# cdr'})

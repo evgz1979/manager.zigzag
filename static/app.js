@@ -430,6 +430,39 @@ function renderTree() {
   renderFavoriteOrders();
 }
 
+// Сохраняет первый выбор типа на странице открытой группы.
+// При конфликте показывает уже заданный тип, сохраняя ввод в заметке.
+async function saveCatalogGroup() {
+  const folder = state.folder;
+  const record = folder?.catalogGroup;
+  const select = $("catalogGroupType");
+  if (!record || record.type || folder.savingCatalogGroupType || !select.value) return;
+  const type = select.value;
+  let label = select.selectedOptions[0].textContent;
+  let saved;
+  folder.savingCatalogGroupType = true;
+  select.disabled = $("submitCatalogGroupType").disabled = true;
+  try {
+    saved = await request("/api/catalog-group-type", { path: folder.path, type, revision: record.revision });
+    notify("Тип группы сохранён");
+  } catch (error) {
+    if (error.status === 409 && state.folder === folder) {
+      const current = await request(folderUrl(folder.path));
+      saved = current.catalogGroup;
+      label = current.folderKindLabel;
+    }
+    throw error;
+  } finally {
+    folder.savingCatalogGroupType = false;
+    if (saved) {
+      folder.catalogGroup = saved;
+      folder.folderKindLabel = label;
+      folder.canCreateClientFolder = saved.type === "clients";
+    }
+    if (state.folder === folder) renderFolder(true);
+  }
+}
+
 // Возвращает клавиатурный фокус в нужный узел дерева.
 // Обращается к DOM текущего документа или переданного контейнера.
 function focusTree(path) {
@@ -1179,6 +1212,11 @@ function renderFolder(preserveForm = false) {
   renderOrderCardLinks();
   const clientLabel = folder.frezaSection || folder.frezaTask ? "ФРЕЗЕРОВКА" : printView ? "ШИРОКОФОРМАТНАЯ ПРОДУКЦИЯ" : service ? "СЛУЖЕБНАЯ ПАПКА" : folder.folderKindLabel && folder.folderKind !== "order" ? folder.folderKindLabel : folder.client || folder.name;
   $("clientLabel").innerHTML = ClientBadge.markup(clientLabel, clientLabel === folder.client ? folder.client_path : "");
+  const chooseGroupType = folder.catalogGroup?.type === "";
+  $("clientLabel").hidden = chooseGroupType;
+  $("catalogGroupTypeForm").hidden = !chooseGroupType;
+  if (!preserveForm) $("catalogGroupType").value = "";
+  $("catalogGroupType").disabled = $("submitCatalogGroupType").disabled = Boolean(folder.savingCatalogGroupType);
   $("editClientColor").hidden = folder.folderKind !== "client";
   $("folderSummary").textContent = folder.frezaSection ? printCountLabel(folder.directories.filter((item) => !item.name.startsWith("#")).length) + " · превью и файлы" : printView ? printCountLabel(folder.fileCount) + " · название, ссылка и описание" : folder.filesLoading ? "Карточка из локальной базы · подпапки загружаются…" : folder.filesUnavailable ? "Карточка из локальной базы · папка сейчас недоступна" : folder.frezaTask ? "Файлов: " + folder.fileCount + " · " + formatSize(folder.totalSize) + " · добавляй файлы прямо в задание" : folder.filesScope === "events" ? folder.folderCount + " папок · файлы доступны в событиях" : folder.filesScope === "subfolders" ? folder.folderCount + " папок" : folder.path
     ? folder.fileCount + " файлов · " + folder.folderCount + " папок · " + formatSize(folder.totalSize)
@@ -1206,7 +1244,8 @@ function renderFolder(preserveForm = false) {
   $("archiveOrderButton").hidden = Boolean(folder.order) || !folder.orderWasRegistered || !folder.canManageServiceFolders;
   $("addOrderButton").textContent = isWorkOrderPath(folder.path) ? "+ Добавить в производство" : "+ Добавить в список заказов";
   $("removeOrderButton").textContent = isWorkOrderPath(folder.path) ? "Убрать из производства" : "Убрать из списка заказов";
-  $("createObjectFolderButton").hidden = folder.canCreateObjectFolder !== true;
+  $("createObjectFolderButton").hidden = !folder.canCreateObjectFolder && !folder.canCreateClientFolder;
+  $("createObjectFolderButton").textContent = folder.canCreateClientFolder ? "+ Создать клиента" : "+ Создать объект";
   $("groupObjectYearsButton").hidden = folder.canGroupOrdersByYear !== true;
   $("createOrderFolderButton").hidden = folder.canCreateOrderFolder !== true;
   $("createOrderFolderButton").textContent = folder.folderKind === 'reconciliations_root' ? '+ Создать сверку' : folder.frezaSection ? "+ Новое задание" : folder.folderKind === "moneys_section" ? "+ Создать запись" : ["supplier_root", "work_section"].includes(folder.folderKind) ? "+ Создать заказ поставщику" : "+ Создать заказ";
@@ -2108,30 +2147,37 @@ function renderNewOrderName() {
   $("newOrderFolderName").textContent = $("newOrderDateField").hidden ? title : date + " - " + title;
 }
 
-// Открывает форму создания объекта в выбранном клиенте.
+// Открывает общую форму создания клиента или объекта в подходящем контейнере.
 // Использует `$`, `$("createObjectFolderDialog").showModal`, `$("newObjectTitle").focus`.
 function openCreateObject() {
-  if (!state.folder?.canCreateObjectFolder) return;
+  const client = state.folder?.canCreateClientFolder;
+  if (!client && !state.folder?.canCreateObjectFolder) return;
+  state.creatingClientFolder = Boolean(client);
   state.newObjectParent=state.folder.path;
-  $("newObjectParent").textContent=state.newObjectParent;
+  $("createObjectTitle").textContent = client ? "Создать клиента" : "Создать объект";
+  $("submitCreateObject").textContent = $("createObjectTitle").textContent;
+  $("newObjectParentLabel").textContent = client ? "Расположение клиента" : "Клиент нового объекта";
+  $("newObjectTitleLabel").textContent = client ? "Имя клиента" : "Название или адрес";
+  $("newObjectParent").textContent = state.newObjectParent || "Корень документов";
   $("newObjectTitle").value="";
   $("newObjectError").hidden=true;
   $("createObjectFolderDialog").showModal();
   $("newObjectTitle").focus();
 }
 
-// Создаёт объект по подтверждённым полям формы.
-// Использует `/api/object-folder-create`.
+// Создаёт клиента или объект по подтверждённым полям общей формы.
+// После успешной записи перечитывает дерево и открывает созданную папку.
 async function createObject() {
   if (state.creatingObject || !$("createObjectFolderForm").reportValidity()) return;
   state.creatingObject=true;
   const controls=["newObjectTitle","submitCreateObject","cancelCreateObject"];
   controls.forEach(id=>$(id).disabled=true);
   $("newObjectError").hidden=true;
+  const client = state.creatingClientFolder;
   let result;
   try {
     await saveCurrentStatus();
-    result=await request("/api/object-folder-create",{path:state.newObjectParent,title:$("newObjectTitle").value});
+    result=await request(client ? "/api/client-folder-create" : "/api/object-folder-create",{path:state.newObjectParent,title:$("newObjectTitle").value});
   } catch(error) {
     $("newObjectError").textContent=error.message;
     $("newObjectError").hidden=false;
@@ -2143,7 +2189,7 @@ async function createObject() {
   $("createObjectFolderDialog").close();
   await reloadClientTrees();
   await navigate(result.path);
-  notify("Объект создан");
+  notify(client ? "Клиент создан" : "Объект создан");
 }
 
 // Открывает предварительный план группировки заказов объекта по годам.
@@ -2197,7 +2243,7 @@ async function groupObjectYears() {
 }
 
 // Открывает форму создания заказа в выбранной папке.
-// В годе «02 - etc» запрашивает только название; иначе предлагает дату по Москве.
+// В году группы годов запрашивает только название; иначе предлагает дату по Москве.
 function openCreateOrderFolder() {
   if (state.folder?.canCreateOrderFolder !== true) return;
   state.newOrderParent = state.folder.path;
@@ -4578,6 +4624,8 @@ async function showOrders({ history = true } = {}) {
   $("orderFolderName").hidden = true;
   $("orderPageFavorite").hidden = true;
   $("clientLabel").textContent = "ЗИГЗАГ · ОБЩИЙ СПИСОК";
+  $("clientLabel").hidden = false;
+  $("catalogGroupTypeForm").hidden = true;
   $("editClientColor").hidden = true;
   $("scanState").textContent = "";
   $("homeButton").setAttribute("aria-current", "page");
@@ -5070,6 +5118,10 @@ $("folderTree").addEventListener("click", (event) => {
     await navigate(path);
     if (!state.treeQuery && state.nodes.get(path)?.hasChildren && !state.expanded.has(path)) await toggleFolder(path, true);
   });
+});
+$("catalogGroupTypeForm").addEventListener("submit", (event) => {
+  event.preventDefault();
+  run(saveCatalogGroup);
 });
 $("folderTree").addEventListener("keydown", (event) => {
   const row = event.target.closest(".tree-row");

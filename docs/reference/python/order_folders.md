@@ -58,9 +58,9 @@ def create(root, relative, order_date, title, *, store=None):
 
 Создаёт папку заказа или сверки и при наличии базы регистрирует карточку.
 
-В годе «02 - etc» имя равно названию; для сверки и зарплаты планирует только основную папку.
+В группе годов имя равно названию; для сверки и зарплаты планирует только основную папку.
 
-Непосредственные вызовы: `Path(root).resolve`, `Path`, `store.root.resolve`, `ValueError`, `isinstance`, `any`, `part.startswith`, `is_print_section`, `layout.safe_path`, `layout_scope`, `parent.is_dir`, `FileNotFoundError`, `folder_role`, `year_container`, `is_etc_year`, `re.fullmatch`, `date.fromisoformat`, `YEAR.fullmatch`, `ord`, `unicodedata.normalize`, `title.strip`, `title.startswith`, `len`, `os.fsencode`, `year_groups`, `layout.exists`, `parent.is_symlink`, `parent.relative_to(root).as_posix`, `parent.relative_to`, `OrderFolderConflict`, `destination.relative_to(root).as_posix`, `destination.relative_to`, `layout.Plan`, `str`, `store.database.resolve`, `parent.exists`, `plan.mkdir`, `in_freza`, `in_payroll`, `(Path(path) / service).as_posix`, `layout.identity`, `(root / relative).iterdir`, `summary.insert`, `plan.create_session`, `order_creation.prepare`, `layout.apply`, `order_creation.register`, `layout.save_json`, `order_creation.failed`, `session.relative_to(root).as_posix`, `session.relative_to`, `bool`.
+Непосредственные вызовы: `Path(root).resolve`, `Path`, `store.root.resolve`, `ValueError`, `isinstance`, `any`, `part.startswith`, `is_print_section`, `layout.safe_path`, `layout_scope`, `parent.is_dir`, `FileNotFoundError`, `folder_role`, `year_container`, `is_catalog_year`, `re.fullmatch`, `date.fromisoformat`, `YEAR.fullmatch`, `ord`, `unicodedata.normalize`, `title.strip`, `title.startswith`, `len`, `os.fsencode`, `year_groups`, `layout.exists`, `parent.is_symlink`, `parent.relative_to(root).as_posix`, `parent.relative_to`, `OrderFolderConflict`, `destination.relative_to(root).as_posix`, `destination.relative_to`, `layout.Plan`, `str`, `store.database.resolve`, `parent.exists`, `plan.mkdir`, `in_freza`, `in_payroll`, `(Path(path) / service).as_posix`, `layout.identity`, `(root / relative).iterdir`, `summary.insert`, `plan.create_session`, `order_creation.prepare`, `layout.apply`, `order_creation.register`, `layout.save_json`, `order_creation.failed`, `session.relative_to(root).as_posix`, `session.relative_to`, `bool`.
 
 Явные исключения: `ValueError`, `FileNotFoundError`, `OrderFolderConflict`.
 
@@ -68,6 +68,52 @@ def create(root, relative, order_date, title, *, store=None):
 
 ```python
 {'path': path, 'name': name, 'journal': session.relative_to(root).as_posix(), 'registered': bool(store)}
+```
+
+<a id="symbol-create_client"></a>
+
+## create_client
+
+[order_folders.py](../../../order_folders.py) · `function`.
+
+```python
+def create_client(store, relative, title):
+```
+
+Создаёт пустую папку клиента в корне документов или выбранной группе клиентов.
+
+Использует общий план создания контейнера с журналом и откатом.
+
+Непосредственные вызовы: `create_client_container`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+create_client_container(store.root, relative, title, 'client', database=store.database)
+```
+
+<a id="symbol-create_client_container"></a>
+
+## create_client_container
+
+[order_folders.py](../../../order_folders.py) · `function`.
+
+```python
+def create_client_container(root, relative, title, kind, *, database=None):
+```
+
+Создаёт клиентский контейнер по роли родителя и безопасному имени.
+
+План работает без перезаписи, регистрации заказа и создания служебных папок.
+
+Непосредственные вызовы: `Path(root).resolve`, `Path`, `isinstance`, `any`, `p.startswith`, `ValueError`, `ord`, `unicodedata.normalize`, `title.strip`, `name.startswith`, `len`, `os.fsencode`, `YEAR.fullmatch`, `DATE.match`, `DATE_LIKE.match`, `NUMBER.match`, `is_catalog_group`, `(Path(relative) / name).as_posix`, `guard_database`, `layout.safe_path`, `parent.is_dir`, `folder_role`, `(role['catalogGroup'] or {}).get`, `layout.exists`, `OrderFolderConflict`, `layout.Plan`, `plan.mkdir`, `plan.create_session`, `layout.identity`, `layout.apply`, `layout.save_json`, `session.relative_to(root).as_posix`, `session.relative_to`.
+
+Явные исключения: `ValueError`, `OrderFolderConflict`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+{'path': path, 'name': name, 'journal': session.relative_to(root).as_posix()}
 ```
 
 <a id="symbol-create_object"></a>
@@ -84,14 +130,12 @@ def create_object(root, relative, title):
 
 При недопустимом состоянии возбуждает ValueError, OrderFolderConflict.
 
-Непосредственные вызовы: `Path(root).resolve`, `Path`, `isinstance`, `any`, `p.startswith`, `ValueError`, `ord`, `unicodedata.normalize`, `title.strip`, `name.startswith`, `len`, `os.fsencode`, `YEAR.fullmatch`, `DATE.match`, `DATE_LIKE.match`, `NUMBER.match`, `layout.safe_path`, `parent.is_dir`, `folder_role`, `(Path(relative) / name).as_posix`, `layout.exists`, `OrderFolderConflict`, `layout.Plan`, `plan.mkdir`, `plan.create_session`, `layout.identity`, `layout.apply`, `layout.save_json`, `session.relative_to(root).as_posix`, `session.relative_to`.
-
-Явные исключения: `ValueError`, `OrderFolderConflict`.
+Непосредственные вызовы: `create_client_container`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-{'path': path, 'name': name, 'journal': session.relative_to(root).as_posix()}
+create_client_container(root, relative, title, 'object')
 ```
 
 <a id="symbol-layout_scope"></a>
@@ -197,9 +241,9 @@ def year_container(root, relative):
 
 Распознаёт контейнер года, в котором можно создать заказ.
 
-Год в «02 - etc» задан путём; в объекте проверяет роли папки года и её родителя.
+В группе годов проверяет явный тип; в объекте проверяет роли года и его родителя.
 
-Непосредственные вызовы: `is_etc_year`, `Path`, `bool`, `YEAR.fullmatch`, `folder_role`, `Path(relative).parent.as_posix`.
+Непосредственные вызовы: `is_catalog_year`, `Path`, `bool`, `YEAR.fullmatch`, `folder_role`, `Path(relative).parent.as_posix`.
 
 Выражения возврата (ветки читаются в исходнике):
 

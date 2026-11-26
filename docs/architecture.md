@@ -70,6 +70,7 @@ flowchart TD
 | Заказ | `orders.py`, `order_document.py` | UUID/revision, статусы, суммы, заметка, упорядоченные задачи и разделы заказа, блоки и первоначальный парсинг |
 | Произвольная папка | `folder_notes.py`, `local_metadata.py` | Заметки, To-do, комментарии, актуальность документов `# docs`, импорт, история и публикации |
 | Каталоги | `object_orders.py`, `work_order_list.py`, `hidden_orders.py` | Известные папки и строки списков без регистрации по факту показа |
+| Типы групп | `catalog_groups.py`, `folder_structure.py` | Явный тип корневой числовой группы из SQLite и роль папок внутри неё |
 | Активность | `client_activity.py`, `object_activity.py`, `event_relevance.py` | Разные уровни неактивности; состояние события не заменяет состояние клиента |
 | Задачи | `order_todos.py`, `supplier_purchases.py` | Вложенные задачи и закупки из исходных заказов |
 | Календарь | `order_calendar.py`, `order_deadlines.py`, `calendar_events.py`, `calendar_layout.py` | Сроки, текстовые события, свободные события и независимые отметки |

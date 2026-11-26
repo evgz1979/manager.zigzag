@@ -5,6 +5,8 @@ import unicodedata
 from datetime import date
 from pathlib import Path
 
+import catalog_groups
+
 
 YEAR = re.compile(r"^(?:19|20)\d{2}$")
 DATE = re.compile(r"^(\d{4}|\d{2})[- ._](\d{2})[- ._](\d{2})(?=$|\D)")
@@ -17,7 +19,7 @@ LABELS = {"root": "Корень документов", "client": "Клиент",
           "reconciliations_root": "Сверки", "reconciliation": "Сверка", "reconciliation_contents": "Документы сверки",
           "work_section": "Производственный раздел", "moneys_section": "Финансовый раздел",
           "supplier_root": "Заказы поставщикам · стекло и стеклопакеты",
-          "catalog_group": "Группа клиентов",
+          "catalog_group": "Группа каталогов",
           "group": "Общая группа", "order": "Заказ", "event": "Событие или материалы заказа", "service": "Служебная папка",
           "invalid": "Папка с некорректной датой"}
 
@@ -141,11 +143,13 @@ def is_catalog_group(name):
     return bool(numbered and not (dated(name) or DATE.match(name) or DATE_LIKE.match(name) or YEAR.fullmatch(name)))
 
 
-# Распознаёт год мелких заказов по пути.
-# Принимает только непосредственную папку года внутри корневой «02 - etc».
-def is_etc_year(relative):
+# Распознаёт год мелких заказов по пути и явно заданному типу группы.
+# Принимает только непосредственный год внутри корневой группы годов.
+def is_catalog_year(root, relative, *, db=None):
     parts = Path(relative).parts
-    return len(parts) == 2 and parts[0].casefold() == "02 - etc" and bool(YEAR.fullmatch(parts[1]))
+    if len(parts) != 2 or not YEAR.fullmatch(parts[1]) or not is_catalog_group(parts[0]):
+        return False
+    return catalog_groups.get(root, parts[0], db=db)["type"] == "years"
 
 
 # Определяет клиента с учётом корневой числовой группы.
@@ -199,8 +203,9 @@ def order_location(relative):
 
 # Классифицирует роль папки для выбора доступного интерфейса и операций.
 # Без обхода числовых папок считает неоднозначный путь группой до получения полного ответа.
-def folder_role(root, relative, *, scan_numbered=True):
+def folder_role(root, relative, *, scan_numbered=True, db=None):
     parts = Path(relative).parts
+    catalog_group = None
     if not parts:
         kind = "root"
     elif len(parts) == 1 and is_work_root(parts[0]):
@@ -216,7 +221,8 @@ def folder_role(root, relative, *, scan_numbered=True):
         kind = "service"
     elif len(parts) == 1 and is_catalog_group(parts[0]):
         kind = "catalog_group"
-    elif len(parts) >= 2 and is_etc_year(Path(*parts[:2])):
+        catalog_group = catalog_groups.get(root, parts[0], db=db)
+    elif len(parts) >= 2 and is_catalog_year(root, Path(*parts[:2]), db=db):
         kind = "year" if len(parts) == 2 else "order" if len(parts) == 3 else "event"
     elif len(parts) >= 2 and (is_work_root(parts[0]) or is_moneys_root(parts[0])):
         if is_work_root(parts[0]) and dated(parts[1]):
@@ -266,8 +272,9 @@ def folder_role(root, relative, *, scan_numbered=True):
                 kind = "object"
     print_archive = len(parts) == 3 and is_print_section(Path(*parts[:2]).as_posix())
     allowed = kind == "order" and not print_archive
-    return {"folderKind": kind, "folderKindLabel": LABELS[kind], "canRegisterOrder": allowed,
-            "registrationHint": "Задания печати создаются в отдельном редакторе # print. Прежняя папка сохранена для доступа к данным." if print_archive else "" if allowed else LABELS[kind] + " — не заказ. Выберите папку конкретного заказа по дате или номеру."}
+    label = catalog_groups.LABELS.get(catalog_group["type"], LABELS[kind]) if catalog_group else LABELS[kind]
+    return {"folderKind": kind, "folderKindLabel": label, "canRegisterOrder": allowed, "catalogGroup": catalog_group,
+            "registrationHint": "Задания печати создаются в отдельном редакторе # print. Прежняя папка сохранена для доступа к данным." if print_archive else "" if allowed else label + " — не заказ. Выберите папку конкретного заказа по дате или номеру."}
 
 
 # Проверяет доступность закрепления строк в папке заказа.

@@ -6,7 +6,7 @@
 
 Recognize folder roles from names and immediate children, without reading cards.
 
-Импорты Python, включая локальные: `datetime`, `os`, `pathlib`, `re`, `unicodedata`.
+Импорты Python, включая локальные: `catalog_groups`, `datetime`, `os`, `pathlib`, `re`, `unicodedata`.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
@@ -110,19 +110,19 @@ True
 [folder_structure.py](../../../folder_structure.py) · `function`.
 
 ```python
-def folder_role(root, relative, *, scan_numbered=True):
+def folder_role(root, relative, *, scan_numbered=True, db=None):
 ```
 
 Классифицирует роль папки для выбора доступного интерфейса и операций.
 
 Без обхода числовых папок считает неоднозначный путь группой до получения полного ответа.
 
-Непосредственные вызовы: `Path`, `len`, `is_work_root`, `is_moneys_root`, `in_bills`, `parts[2].startswith`, `parts[2][1:].strip().casefold`, `parts[2][1:].strip`, `in_reconciliations`, `is_service_folder`, `is_catalog_group`, `is_etc_year`, `dated`, `is_supplier_root`, `supplier_prefix`, `grouped_client`, `enumerate`, `DATE.match`, `DATE_LIKE.match`, `YEAR.fullmatch`, `NUMBER.match`, `Path(root).joinpath`, `os.scandir`, `entry.is_dir`, `entry.name.startswith`, `entry.is_symlink`, `any`, `child.startswith`, `re.match`, `is_print_section`, `Path(*parts[:2]).as_posix`.
+Непосредственные вызовы: `Path`, `len`, `is_work_root`, `is_moneys_root`, `in_bills`, `parts[2].startswith`, `parts[2][1:].strip().casefold`, `parts[2][1:].strip`, `in_reconciliations`, `is_service_folder`, `is_catalog_group`, `catalog_groups.get`, `is_catalog_year`, `dated`, `is_supplier_root`, `supplier_prefix`, `grouped_client`, `enumerate`, `DATE.match`, `DATE_LIKE.match`, `YEAR.fullmatch`, `NUMBER.match`, `Path(root).joinpath`, `os.scandir`, `entry.is_dir`, `entry.name.startswith`, `entry.is_symlink`, `any`, `child.startswith`, `re.match`, `is_print_section`, `Path(*parts[:2]).as_posix`, `catalog_groups.LABELS.get`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-{'folderKind': kind, 'folderKindLabel': LABELS[kind], 'canRegisterOrder': allowed, 'registrationHint': 'Задания печати создаются в отдельном редакторе # print. Прежняя папка сохранена для доступа к данным.' if print_archive else '' if allowed else LABELS[kind] + ' — не заказ. Выберите папку конкретного заказа по дате или номеру.'}
+{'folderKind': kind, 'folderKindLabel': label, 'canRegisterOrder': allowed, 'catalogGroup': catalog_group, 'registrationHint': 'Задания печати создаются в отдельном редакторе # print. Прежняя папка сохранена для доступа к данным.' if print_archive else '' if allowed else label + ' — не заказ. Выберите папку конкретного заказа по дате или номеру.'}
 ```
 
 <a id="symbol-grouped_client"></a>
@@ -259,26 +259,27 @@ def is_catalog_group(name):
 bool(numbered and (not (dated(name) or DATE.match(name) or DATE_LIKE.match(name) or YEAR.fullmatch(name))))
 ```
 
-<a id="symbol-is_etc_year"></a>
+<a id="symbol-is_catalog_year"></a>
 
-## is_etc_year
+## is_catalog_year
 
 [folder_structure.py](../../../folder_structure.py) · `function`.
 
 ```python
-def is_etc_year(relative):
+def is_catalog_year(root, relative, *, db=None):
 ```
 
-Распознаёт год мелких заказов по пути.
+Распознаёт год мелких заказов по пути и явно заданному типу группы.
 
-Принимает только непосредственную папку года внутри корневой «02 - etc».
+Принимает только непосредственный год внутри корневой группы годов.
 
-Непосредственные вызовы: `Path`, `len`, `parts[0].casefold`, `bool`, `YEAR.fullmatch`.
+Непосредственные вызовы: `Path`, `len`, `YEAR.fullmatch`, `is_catalog_group`, `catalog_groups.get`.
 
 Выражения возврата (ветки читаются в исходнике):
 
 ```python
-len(parts) == 2 and parts[0].casefold() == '02 - etc' and bool(YEAR.fullmatch(parts[1]))
+False
+catalog_groups.get(root, parts[0], db=db)['type'] == 'years'
 ```
 
 <a id="symbol-is_freza_task"></a>

@@ -101,6 +101,15 @@
         ]
       },
       {
+        "path": "catalog_groups.py",
+        "symbols": [
+          {"name": "bind", "type": "function", "anchor": "symbol-bind"},
+          {"name": "get", "type": "function", "anchor": "symbol-get"},
+          {"name": "read", "type": "function", "anchor": "symbol-read"},
+          {"name": "save", "type": "function", "anchor": "symbol-save"}
+        ]
+      },
+      {
         "path": "client_activity.py",
         "symbols": [
           {"name": "ClientActivity", "type": "class", "anchor": "symbol-ClientActivity"},
@@ -319,7 +328,7 @@
           {"name": "in_payroll", "type": "function", "anchor": "symbol-in_payroll"},
           {"name": "in_reconciliations", "type": "function", "anchor": "symbol-in_reconciliations"},
           {"name": "is_catalog_group", "type": "function", "anchor": "symbol-is_catalog_group"},
-          {"name": "is_etc_year", "type": "function", "anchor": "symbol-is_etc_year"},
+          {"name": "is_catalog_year", "type": "function", "anchor": "symbol-is_catalog_year"},
           {"name": "is_freza_task", "type": "function", "anchor": "symbol-is_freza_task"},
           {"name": "is_moneys_root", "type": "function", "anchor": "symbol-is_moneys_root"},
           {"name": "is_print_section", "type": "function", "anchor": "symbol-is_print_section"},
@@ -721,6 +730,8 @@
           {"name": "OrderFolderConflict", "type": "class", "anchor": "symbol-OrderFolderConflict"},
           {"name": "can_manage_service_folders", "type": "function", "anchor": "symbol-can_manage_service_folders"},
           {"name": "create", "type": "function", "anchor": "symbol-create"},
+          {"name": "create_client", "type": "function", "anchor": "symbol-create_client"},
+          {"name": "create_client_container", "type": "function", "anchor": "symbol-create_client_container"},
           {"name": "create_object", "type": "function", "anchor": "symbol-create_object"},
           {"name": "layout_scope", "type": "function", "anchor": "symbol-layout_scope"},
           {"name": "service_folder_state", "type": "function", "anchor": "symbol-service_folder_state"},
@@ -1597,6 +1608,7 @@
           {"name": "rubles", "type": "ArrowFunctionExpression", "anchor": "symbol-rubles"},
           {"name": "run", "type": "FunctionDeclaration", "anchor": "symbol-run"},
           {"name": "saveCalendarEvent", "type": "FunctionDeclaration", "anchor": "symbol-saveCalendarEvent"},
+          {"name": "saveCatalogGroup", "type": "FunctionDeclaration", "anchor": "symbol-saveCatalogGroup"},
           {"name": "saveClientActivity", "type": "FunctionDeclaration", "anchor": "symbol-saveClientActivity"},
           {"name": "saveClientColor", "type": "FunctionDeclaration", "anchor": "symbol-saveClientColor"},
           {"name": "saveCurrentPrintTask", "type": "FunctionDeclaration", "anchor": "symbol-saveCurrentPrintTask"},

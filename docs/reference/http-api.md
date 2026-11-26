@@ -1502,6 +1502,42 @@ self.send_json(order_folders.service_folders(order_store(), payload.get('path'),
 
 Вызовы ветки: `self.headers.get`, `self.headers.get_content_type`, `urllib.parse.urlsplit`, `order_folders.service_folders`, `order_store`, `schedule_todo_refresh`.
 
+## POST /api/catalog-group-type
+
+[ManagerHandler.do_POST](python/server.md#symbol-ManagerHandler.do_POST).
+
+Условие: `route in {'/api/catalog-group-type', '/api/client-folder-create'}`.
+
+Ключи payload, читаемые в ветке: `path`, `title`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json({'error': 'Используй страницу Менеджера для работы с группами'}, 403)
+self.send_json(catalog_groups.save(store, payload))
+self.send_json(order_folders.create_client(store, payload.get('path'), payload.get('title')), 201)
+```
+
+Вызовы ветки: `self.headers.get`, `self.headers.get_content_type`, `urllib.parse.urlsplit`, `order_store`, `guard_database`, `catalog_groups.save`, `order_folders.create_client`.
+
+## POST /api/client-folder-create
+
+[ManagerHandler.do_POST](python/server.md#symbol-ManagerHandler.do_POST).
+
+Условие: `route in {'/api/catalog-group-type', '/api/client-folder-create'}`.
+
+Ключи payload, читаемые в ветке: `path`, `title`.
+
+Выражения JSON-ответа (значения раскрываются в вызываемом методе):
+
+```python
+self.send_json({'error': 'Используй страницу Менеджера для работы с группами'}, 403)
+self.send_json(catalog_groups.save(store, payload))
+self.send_json(order_folders.create_client(store, payload.get('path'), payload.get('title')), 201)
+```
+
+Вызовы ветки: `self.headers.get`, `self.headers.get_content_type`, `urllib.parse.urlsplit`, `order_store`, `guard_database`, `catalog_groups.save`, `order_folders.create_client`.
+
 ## POST /api/object-folder-create
 
 [ManagerHandler.do_POST](python/server.md#symbol-ManagerHandler.do_POST).

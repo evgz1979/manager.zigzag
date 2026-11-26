@@ -651,9 +651,9 @@ async function createImageReport()
 async function createObject()
 ```
 
-Создаёт объект по подтверждённым полям формы.
+Создаёт клиента или объект по подтверждённым полям общей формы.
 
-Использует `/api/object-folder-create`.
+После успешной записи перечитывает дерево и открывает созданную папку.
 
 Непосредственные вызовы: `$("createObjectFolderForm").reportValidity`, `$`, `controls.forEach`, `saveCurrentStatus`, `request`, `$("createObjectFolderDialog").close`, `reloadClientTrees`, `navigate`, `notify`.
 
@@ -1747,13 +1747,13 @@ async function openCreateEventFolder()
 function openCreateObject()
 ```
 
-Открывает форму создания объекта в выбранном клиенте.
+Открывает общую форму создания клиента или объекта в подходящем контейнере.
 
 Использует `$`, `$("createObjectFolderDialog").showModal`, `$("newObjectTitle").focus`.
 
-Непосредственные вызовы: `$`, `$("createObjectFolderDialog").showModal`, `$("newObjectTitle").focus`.
+Непосредственные вызовы: `Boolean`, `$`, `$("createObjectFolderDialog").showModal`, `$("newObjectTitle").focus`.
 
-Прямые присваивания полям/свойствам: `state.newObjectParent`, `$("newObjectParent").textContent`, `$("newObjectTitle").value`, `$("newObjectError").hidden`.
+Прямые присваивания полям/свойствам: `state.creatingClientFolder`, `state.newObjectParent`, `$("createObjectTitle").textContent`, `$("submitCreateObject").textContent`, `$("newObjectParentLabel").textContent`, `$("newObjectTitleLabel").textContent`, `$("newObjectParent").textContent`, `$("newObjectTitle").value`, `$("newObjectError").hidden`.
 
 <a id="symbol-openCreateOrderFolder"></a>
 
@@ -1767,7 +1767,7 @@ function openCreateOrderFolder()
 
 Открывает форму создания заказа в выбранной папке.
 
-В годе «02 - etc» запрашивает только название; иначе предлагает дату по Москве.
+В году группы годов запрашивает только название; иначе предлагает дату по Москве.
 
 Непосредственные вызовы: `Boolean`, `["supplier_root", "work_section"].includes`, `$`, `Object.fromEntries`, `new Intl.DateTimeFormat("ru-RU", { timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()).map`, `new Intl.DateTimeFormat("ru-RU", { timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts`, `Intl.DateTimeFormat`, `Date`, `renderNewOrderName`, `$("createOrderFolderDialog").showModal`, `$("newOrderTitle").focus`.
 
@@ -2978,7 +2978,7 @@ function renderFolder(preserveForm = false)
     '<button data-path="' + escapeHtml(part.path) + '"' + (index === folder.breadcrumbs.length - 1 ? ' aria-current="page"' : "") + ">" +
     ClientBadge.markup(part.name, part.path && part.path.normalize("NFC") === folder.client_path?.normalize("NFC") ? part.path : "") + "</button>").join`, `folder.breadcrumbs.map`, `renderOrderHeading`, `renderServiceFolderControls`, `updateNasArchive`, `renderOrderCardLinks`, `ClientBadge.markup`, `printCountLabel`, `folder.directories.filter`, `formatSize`, `foldersAnchor.before`, `renderSubfolders`, `renderSketches`, `renderOrderFileFolders`, `renderDescendantTodos`, `$("statusForm").classList.toggle`, `["supplier_root", "work_section"].includes`, `renderPurchases`, `(card[key] / 100).toFixed`, `renderOrderCalculated`, `renderExportState`, `Object.entries(supplierStatusLabels).map(([key, label]) => '<option value="' + key + '">' + label + '</option>').join`, `Object.entries(supplierStatusLabels).map`, `Object.entries`, `resizeOrderNote`, `renderStatus`, `$("todoList").classList.contains`, `renderTodos`, `warnings.push`, `warnings.join`, `["events", "subfolders"].includes`, `renderUpload`, `renderPrintList`, `new URLSearchParams(location.search).get`, `URLSearchParams`, `printFiles().find`, `printFiles`, `run`, `renderFiles`, `$("files").replaceChildren`, `renderCardDeadlines`, `mountOrderList`, `isFolderOrderList`, `renderOrders`.
 
-Прямые присваивания полям/свойствам: `$("orderFinanceOverview").hidden`, `$("purchasePanel").hidden`, `$("orderOverview").hidden`, `$("todoPanel").hidden`, `$("orderTasksColumn").hidden`, `$("breadcrumbs").innerHTML`, `$("clientLabel").innerHTML`, `$("editClientColor").hidden`, `$("folderSummary").textContent`, `$("orderDetails").hidden`, `$("folderDetailsTitle").textContent`, `$("statusLabel").hidden`, `$("orderStatusFields").hidden`, `$("supplierStatusLabel").hidden`, `$("supplierStatusLabel").firstChild.textContent`, `$("orderTitleLabel").hidden`, `$("orderTitleLabel").firstChild.textContent`, `$("reconciliationClientLabel").hidden`, `$("financialFields").hidden`, `$("orderNote").placeholder`, `$("removeOrderButton").hidden`, `$("archiveOrderButton").hidden`, `$("addOrderButton").textContent`, `$("removeOrderButton").textContent`, `$("createObjectFolderButton").hidden`, `$("groupObjectYearsButton").hidden`, `$("createOrderFolderButton").hidden`, `$("createOrderFolderButton").textContent`, `$("createEventFolderButton").hidden`, `$("renameFolderButton").hidden`, `$("moveObjectButton").hidden`, `$("deleteEventButton").hidden`, `$("openEventTrash").hidden`, `folder.todo_items`, `folder.purchase_items`, `$("todoNewText").value`, `$("purchaseNewText").value`, `$("orderDetails").open`, `$("orderTitleInput").value`, `$("reconciliationClient").value`, `$(field).value`, `$("addOrderButton").hidden`, `$("statusSelect").value`, `$("supplierStatusSelect").innerHTML`, `$("supplierStatusSelect").value`, `$("supplierStatusSelect").disabled`, `$("supplierStatusSelect").title`, `$("financialStatusSelect").value`, `$("orderNote").value`, `$("loadOrderFilesButton").hidden`, `$("notice").hidden`, `$("notice").textContent`, `$("fileSearch").value`, `$("filesSection").hidden`, `$("uploadDropZone").hidden`, `$("printWorkspace").hidden`, `state.printQuery`, `$("printTaskSearch").value`, `$("printEditorForm").hidden`, `$("printEditorEmpty").hidden`, `$("printEditorEmpty").textContent`.
+Прямые присваивания полям/свойствам: `$("orderFinanceOverview").hidden`, `$("purchasePanel").hidden`, `$("orderOverview").hidden`, `$("todoPanel").hidden`, `$("orderTasksColumn").hidden`, `$("breadcrumbs").innerHTML`, `$("clientLabel").innerHTML`, `$("clientLabel").hidden`, `$("catalogGroupTypeForm").hidden`, `$("catalogGroupType").value`, `$("catalogGroupType").disabled`, `$("submitCatalogGroupType").disabled`, `$("editClientColor").hidden`, `$("folderSummary").textContent`, `$("orderDetails").hidden`, `$("folderDetailsTitle").textContent`, `$("statusLabel").hidden`, `$("orderStatusFields").hidden`, `$("supplierStatusLabel").hidden`, `$("supplierStatusLabel").firstChild.textContent`, `$("orderTitleLabel").hidden`, `$("orderTitleLabel").firstChild.textContent`, `$("reconciliationClientLabel").hidden`, `$("financialFields").hidden`, `$("orderNote").placeholder`, `$("removeOrderButton").hidden`, `$("archiveOrderButton").hidden`, `$("addOrderButton").textContent`, `$("removeOrderButton").textContent`, `$("createObjectFolderButton").hidden`, `$("createObjectFolderButton").textContent`, `$("groupObjectYearsButton").hidden`, `$("createOrderFolderButton").hidden`, `$("createOrderFolderButton").textContent`, `$("createEventFolderButton").hidden`, `$("renameFolderButton").hidden`, `$("moveObjectButton").hidden`, `$("deleteEventButton").hidden`, `$("openEventTrash").hidden`, `folder.todo_items`, `folder.purchase_items`, `$("todoNewText").value`, `$("purchaseNewText").value`, `$("orderDetails").open`, `$("orderTitleInput").value`, `$("reconciliationClient").value`, `$(field).value`, `$("addOrderButton").hidden`, `$("statusSelect").value`, `$("supplierStatusSelect").innerHTML`, `$("supplierStatusSelect").value`, `$("supplierStatusSelect").disabled`, `$("supplierStatusSelect").title`, `$("financialStatusSelect").value`, `$("orderNote").value`, `$("loadOrderFilesButton").hidden`, `$("notice").hidden`, `$("notice").textContent`, `$("fileSearch").value`, `$("filesSection").hidden`, `$("uploadDropZone").hidden`, `$("printWorkspace").hidden`, `state.printQuery`, `$("printTaskSearch").value`, `$("printEditorForm").hidden`, `$("printEditorEmpty").hidden`, `$("printEditorEmpty").textContent`.
 
 <a id="symbol-renderFolderRename"></a>
 
@@ -4074,6 +4074,24 @@ async function saveCalendarEvent()
 
 Прямые присваивания полям/свойствам: `$("calendarEventState").textContent`, `edit.saving`, `state.ordersRequest`, `edit.conflict`.
 
+<a id="symbol-saveCatalogGroup"></a>
+
+## saveCatalogGroup
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+async function saveCatalogGroup()
+```
+
+Сохраняет первый выбор типа на странице открытой группы.
+
+При конфликте показывает уже заданный тип, сохраняя ввод в заметке.
+
+Непосредственные вызовы: `$`, `request`, `notify`, `folderUrl`, `renderFolder`.
+
+Прямые присваивания полям/свойствам: `folder.savingCatalogGroupType`, `select.disabled`, `$("submitCatalogGroupType").disabled`, `folder.catalogGroup`, `folder.folderKindLabel`, `folder.canCreateClientFolder`.
+
 <a id="symbol-saveClientActivity"></a>
 
 ## saveClientActivity
@@ -4425,7 +4443,7 @@ async function showOrders({ history = true } = {})
 
 Непосредственные вызовы: `closeTodoColorMenu`, `closeCalendarTodoPreview`, `$`, `$("orderTodoDialog").close`, `closePreview`, `saveCurrentPrintTask`, `saveCurrentStatus`, `state.folderRequest?.abort`, `mountOrderList`, `state.selectedFiles.clear`, `$("homeButton").setAttribute`, `document.querySelector(".content-pane").setAttribute`, `document.querySelector`, `window.history.pushState`, `renderTree`, `renderOrders`, `document.dispatchEvent`, `Event`, `loadOrders`.
 
-Прямые присваивания полям/свойствам: `state.navigation`, `state.view`, `state.folder`, `state.imageReport`, `state.printTask`, `state.selected`, `$("folderView").hidden`, `$("ordersWorkspace").hidden`, `$("openFolderButton").hidden`, `$("addOrderButton").hidden`, `$("removeOrderButton").hidden`, `$("archiveOrderButton").hidden`, `$("createObjectFolderButton").hidden`, `$("groupObjectYearsButton").hidden`, `$("createOrderFolderButton").hidden`, `$("createEventFolderButton").hidden`, `$("renameFolderButton").hidden`, `$("moveObjectButton").hidden`, `$("deleteEventButton").hidden`, `$("openEventTrash").hidden`, `$("notice").hidden`, `$("loadOrderFilesButton").hidden`, `$("breadcrumbs").innerHTML`, `$("workSupplierName").hidden`, `$("folderTitleText").textContent`, `$("orderFolderName").hidden`, `$("orderPageFavorite").hidden`, `$("clientLabel").textContent`, `$("editClientColor").hidden`, `$("scanState").textContent`.
+Прямые присваивания полям/свойствам: `state.navigation`, `state.view`, `state.folder`, `state.imageReport`, `state.printTask`, `state.selected`, `$("folderView").hidden`, `$("ordersWorkspace").hidden`, `$("openFolderButton").hidden`, `$("addOrderButton").hidden`, `$("removeOrderButton").hidden`, `$("archiveOrderButton").hidden`, `$("createObjectFolderButton").hidden`, `$("groupObjectYearsButton").hidden`, `$("createOrderFolderButton").hidden`, `$("createEventFolderButton").hidden`, `$("renameFolderButton").hidden`, `$("moveObjectButton").hidden`, `$("deleteEventButton").hidden`, `$("openEventTrash").hidden`, `$("notice").hidden`, `$("loadOrderFilesButton").hidden`, `$("breadcrumbs").innerHTML`, `$("workSupplierName").hidden`, `$("folderTitleText").textContent`, `$("orderFolderName").hidden`, `$("orderPageFavorite").hidden`, `$("clientLabel").textContent`, `$("clientLabel").hidden`, `$("catalogGroupTypeForm").hidden`, `$("editClientColor").hidden`, `$("scanState").textContent`.
 
 <a id="symbol-showPdfPages"></a>
 

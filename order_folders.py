@@ -10,7 +10,7 @@ from pathlib import Path
 
 import folder_layout as layout
 from event_folder_undo import guard_database
-from folder_structure import client_path, folder_role, section_prefix, is_etc_year, is_print_section, in_freza, in_payroll, YEAR, DATE, DATE_LIKE, NUMBER
+from folder_structure import client_path, folder_role, section_prefix, is_catalog_group, is_catalog_year, is_print_section, in_freza, in_payroll, YEAR, DATE, DATE_LIKE, NUMBER
 
 LOCK = threading.RLock()
 SERVICE_FOLDERS = ("bills", "cdr", "docs", "freza", "cutter", "pvc", "alum")
@@ -119,9 +119,9 @@ def layout_scope(relative):
 
 
 # Распознаёт контейнер года, в котором можно создать заказ.
-# Год в «02 - etc» задан путём; в объекте проверяет роли папки года и её родителя.
+# В группе годов проверяет явный тип; в объекте проверяет роли года и его родителя.
 def year_container(root, relative):
-    if is_etc_year(relative):
+    if is_catalog_year(root, relative):
         return True
     parts = Path(relative).parts
     return bool(parts and YEAR.fullmatch(parts[-1]) and folder_role(root,relative)["folderKind"]=="year"
@@ -140,24 +140,53 @@ def year_groups(root, relative):
 # Создаёт объект клиента после проверки имени и отсутствия назначения.
 # При недопустимом состоянии возбуждает ValueError, OrderFolderConflict.
 def create_object(root, relative, title):
+    return create_client_container(root, relative, title, "object")
+
+
+# Создаёт пустую папку клиента в корне документов или выбранной группе клиентов.
+# Использует общий план создания контейнера с журналом и откатом.
+def create_client(store, relative, title):
+    return create_client_container(store.root, relative, title, "client", database=store.database)
+
+
+# Создаёт клиентский контейнер по роли родителя и безопасному имени.
+# План работает без перезаписи, регистрации заказа и создания служебных папок.
+def create_client_container(root, relative, title, kind, *, database=None):
     root = Path(root).resolve()
-    if not isinstance(relative,str) or not Path(relative).parts or any(p.startswith('.') for p in Path(relative).parts):
-        raise ValueError("Выбери клиента")
+    client = kind == "client"
+    at_root = client and relative == ""
+    entity = "клиента" if client else "объекта"
+    choose_parent = "Выбери корень документов или группу клиентов" if client else "Выбери клиента"
+    if not isinstance(relative, str) or (not at_root and not Path(relative).parts) or any(p.startswith('.') for p in Path(relative).parts):
+        raise ValueError(choose_parent)
     if not isinstance(title,str) or any(c in '/\\:' or ord(c)<32 or ord(c)==127 for c in title):
-        raise ValueError("Укажи название объекта в одну строку без /, \\ и :")
+        raise ValueError(f"Укажи название {entity} в одну строку без /, \\ и :")
     name = unicodedata.normalize('NFC',title.strip())
     if not name or name.startswith(('.','#')) or len(os.fsencode(name))>255 or YEAR.fullmatch(name) or DATE.match(name) or DATE_LIKE.match(name) or NUMBER.match(name):
-        raise ValueError("Укажи название или адрес объекта без даты и числового префикса")
+        raise ValueError(f"Укажи название {entity} без даты и числового префикса")
+    if client and is_catalog_group(name):
+        raise ValueError("Укажи имя клиента без числового префикса")
     with LOCK:
-        parent = layout.safe_path(root,relative,[Path(relative).parts[0]])
-        if not parent.is_dir() or folder_role(root,relative)["folderKind"]!="client":
-            raise ValueError("Создать объект можно только в клиенте")
-        path = (Path(relative)/name).as_posix()
+        path = (Path(relative) / name).as_posix()
+        roots = [Path(path).parts[0]]
+        if database is not None:
+            guard_database(database, path, include_children=True)
+        parent = root if at_root else layout.safe_path(root, relative, roots)
+        if not parent.is_dir():
+            raise ValueError(choose_parent)
+        role = folder_role(root, relative)
+        if client and not at_root:
+            if (role["catalogGroup"] or {}).get("type") != "clients":
+                raise ValueError(choose_parent)
+        elif not client and role["folderKind"] != "client":
+            raise ValueError(choose_parent)
         if layout.exists(root/path):
-            raise OrderFolderConflict("Объект или файл с таким именем уже существует")
-        plan = layout.Plan(root,[Path(relative).parts[0]])
+            raise OrderFolderConflict("Папка или файл с таким именем уже существует")
+        plan = layout.Plan(root, roots)
         plan.mkdir(path)
-        session = plan.create_session(["Создать объект клиента из интерфейса"],{"parent":relative,"identity":layout.identity(parent)})
+        if not plan.operations:
+            raise OrderFolderConflict("Папка или файл с таким именем уже существует")
+        session = plan.create_session([f"Создать папку {entity} из интерфейса"],{"parent":relative,"identity":layout.identity(parent)})
         try:
             layout.apply(session)
         except FileExistsError as error:
@@ -167,7 +196,7 @@ def create_object(root, relative, title):
 
 
 # Создаёт папку заказа или сверки и при наличии базы регистрирует карточку.
-# В годе «02 - etc» имя равно названию; для сверки и зарплаты планирует только основную папку.
+# В группе годов имя равно названию; для сверки и зарплаты планирует только основную папку.
 def create(root, relative, order_date, title, *, store=None):
     root = Path(root).resolve()
     if store and store.root.resolve() != root:
@@ -181,9 +210,9 @@ def create(root, relative, order_date, title, *, store=None):
         raise FileNotFoundError("Папка объекта недоступна")
     role = folder_role(root, relative)["folderKind"]
     in_year = year_container(root,relative) if role=="year" else False
-    title_only = is_etc_year(relative)
+    title_only = is_catalog_year(root, relative)
     if role not in {"object", "supplier_root", "work_root", "work_section", "moneys_section", "reconciliations_root"} and not in_year:
-        raise ValueError("Выберите объект, папку года в 02 - etc, # work или раздел внутри # work / # moneys")
+        raise ValueError("Выберите объект, папку года в группе годов, # work или раздел внутри # work / # moneys")
     if not title_only:
         if not isinstance(order_date, str) or not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", order_date):
             raise ValueError("Укажите дату в формате ГГГГ-ММ-ДД")

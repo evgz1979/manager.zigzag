@@ -69,11 +69,15 @@ sequenceDiagram
 
 [toggleOrderMarker](reference/javascript/static-app.md#symbol-toggleOrderMarker) передаёт отметку «Вне фокуса внимания» в `POST /api/order-focus`. [OrderStore.save_out_of_focus](reference/python/orders.md#symbol-OrderStore.save_out_of_focus) использует общую транзакцию частичной записи по UUID и revision. [renderOrders](reference/javascript/static-app.md#symbol-renderOrders) приглушает все ячейки строки после глаза и задаёт им `inert`. Если при обновлении фокус клавиатуры был внутри такой строки, он переходит на глаз.
 
+## Первый выбор типа числовой группы
+
+На странице новой числовой группы [saveCatalogGroup](reference/javascript/static-app.md#symbol-saveCatalogGroup) передаёт первый выбор типа по POST `/api/catalog-group-type`. [save](reference/python/catalog_groups.md#symbol-save) фиксирует его с токеном `missing` в SQLite. При конфликте браузер перечитывает страницу группы и показывает уже сохранённый тип.
+
 ## Создание заказа
 
 [createOrderFolder](reference/javascript/static-app.md#symbol-createOrderFolder) отправляет заполненную форму. [create](reference/python/order_folders.md#symbol-create) проверяет клиентскую область, контейнер года и предлагаемое имя. [prepare](reference/python/order_creation.md#symbol-prepare) фиксирует намерение с UUID до завершения набора файловых действий.
 
-[is_etc_year](reference/python/folder_structure.md#symbol-is_etc_year) определяет год непосредственно в `02 - etc`. [read_folder](reference/python/server.md#symbol-read_folder) отдаёт его список подпапок без обхода файлов и включает форму только с названием. [folder_role](reference/python/folder_structure.md#symbol-folder_role) распознаёт непосредственную рабочую подпапку такого года как заказ. Файловый план использует название без префикса даты, а регистрация проходит по общим правилам.
+[is_catalog_year](reference/python/folder_structure.md#symbol-is_catalog_year) проверяет год и сохранённый тип его корневой группы. [read_folder](reference/python/server.md#symbol-read_folder) отдаёт список подпапок без обхода файлов и включает форму только с названием. [folder_role](reference/python/folder_structure.md#symbol-folder_role) распознаёт непосредственную рабочую подпапку такого года как заказ. Файловый план использует название без префикса даты, а регистрация проходит по общим правилам.
 
 Файловый план создаёт папку заказа и пустые `# bills`/`# cdr`; затем регистрация связывает путь и тот же UUID с записью SQLite. После сбоя [recover](reference/python/order_creation.md#symbol-recover) и [retry_one](reference/python/order_creation.md#symbol-retry_one) могут завершить только собственные шаги, владение которыми доказывается журналом. Похожее название чужой папки не считается доказательством.
 

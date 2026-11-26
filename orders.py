@@ -14,6 +14,7 @@ import order_calendar
 import calendar_layout
 import order_links
 import work_orders
+import catalog_groups
 from order_document import money, MAX_MONEY
 from folder_structure import folder_role, is_service_folder, client_name, client_path, order_location, in_reconciliations, can_compose_order
 from event_folder_undo import assert_unlocked, guard_database
@@ -40,6 +41,7 @@ class OrderStore:
         # Changing the configured document root must never mix separate registers.
         key = hashlib.sha256(str(root).encode()).hexdigest()[:16]
         self.database = Path(data_dir) / f"orders-{key}.sqlite3"
+        catalog_groups.bind(self.root, self.database)
         self.labels = labels
 
     # Открывает соединение SQLite и управляет его временем жизни.

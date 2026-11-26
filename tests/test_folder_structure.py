@@ -15,6 +15,51 @@ class FolderStructureTests(unittest.TestCase):
     http = fixtures.ManagerTests.http
     url = fixtures.ManagerTests.url
 
+    def test_catalog_type_is_explicit_versioned_and_enables_client_creation(self):
+        manager.DATABASE_ONLY = True
+        group = '01 - Рабочие клиенты'
+        self.folder(group + '/Существующий клиент')
+        self.folder('02 - etc/2026')
+        headers = {'Content-Type': 'application/json'}
+        client_route = '/api/client-folder-create'
+        type_route = '/api/catalog-group-type'
+        choice = {'path': group, 'type': 'clients', 'revision': 'missing'}
+        client = {'path': group, 'title': '  Вусал (Бауманская)  '}
+        self.assertNotIn('catalogGroup', manager.read_tree()['groups'][0])
+        group_page = manager.read_folder(group)
+        self.assertEqual(group_page['catalogGroup']['type'], '')
+        self.assertFalse(group_page['canCreateClientFolder'])
+        self.assertEqual(self.http(client_route, 'POST', json.dumps(client), headers)[0], 400)
+        status, _, body = self.http(type_route, 'POST', json.dumps(choice), headers)
+        self.assertEqual(status, 200, body)
+        record = json.loads(body)
+        self.assertEqual(manager.read_folder(group)['catalogGroup'], record)
+        self.assertNotIn('catalogGroup', manager.read_tree(query='Существующий')['groups'][0])
+        self.assertEqual(self.http(type_route, 'POST', json.dumps({**choice, 'type': 'years'}), headers)[0], 409)
+        self.assertTrue(manager.read_folder(group)['canCreateClientFolder'])
+        status, _, body = self.http(client_route, 'POST', json.dumps(client), headers)
+        self.assertEqual(status, 201, body)
+        result = json.loads(body)
+        self.assertEqual(result['path'], group + '/Вусал (Бауманская)')
+        self.assertEqual(list((self.root / result['path']).iterdir()), [])
+        self.assertTrue((self.root / result['journal'] / '.folder-layout.py').is_file())
+        self.assertIsNone(manager.order_store().get(result['path']))
+        self.assertTrue(manager.read_folder(result['path'])['canCreateObjectFolder'])
+        self.assertEqual(self.http(client_route, 'POST', json.dumps(client), headers)[0], 409)
+        self.assertTrue(manager.read_folder()['canCreateClientFolder'])
+        root_client = {**client, 'path': ''}
+        status, _, body = self.http(client_route, 'POST', json.dumps(root_client), headers)
+        self.assertEqual(status, 201, body)
+        self.assertEqual(json.loads(body)['path'], 'Вусал (Бауманская)')
+        self.assertIn('Вусал (Бауманская)', [node['name'] for node in manager.read_tree()['children']])
+        self.assertEqual(self.http(client_route, 'POST', json.dumps({**root_client, 'title': '1 - Группа'}), headers)[0], 400)
+        self.assertFalse(manager.read_folder('02 - etc/2026')['orderFolderTitleOnly'])
+        status, _, body = self.http(type_route, 'POST', json.dumps({**record, 'path': group, 'type': 'years'}), headers)
+        self.assertEqual(status, 409, body)
+        self.assertEqual(manager.read_folder(group)['catalogGroup'], record)
+        self.assertEqual(manager.read_folder(group)['folderKindLabel'], 'Группа клиентов')
+        self.assertTrue((self.root / result['path']).is_dir())
+
     def test_clients_objects_year_groups_and_common_orders_are_distinct(self):
         paths = {
             "Клиент": "client", "Клиент/Адрес": "object", "Клиент/Адрес/2026": "year",

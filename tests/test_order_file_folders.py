@@ -75,6 +75,8 @@ class OrderFileFolderTests(unittest.TestCase):
         self.folder(grouped)
         self.assertTrue(manager.read_folder(grouped)['canManageServiceFolders'])
         self.assertEqual(self.http(self.url(route, grouped))[0], 200)
+        self.folder('02 - etc')
+        manager.catalog_groups.save(manager.order_store(), {'path': '02 - etc', 'type': 'years', 'revision': 'missing'})
         for path in ('Клиент', self.order + '/Фото', '# glass/2026-11-19 - Заказ',
                      '# work/2026-11-19 - Заказ', '# work/# glass/2026-11-19 - Заказ',
                      '02 - etc/2026/Заказ', '# moneys/# Зп/2026-11-19 - Запись'):

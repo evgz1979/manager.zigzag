@@ -6,7 +6,7 @@
 
 SQLite order register with partial revisions, legacy imports and export compatibility.
 
-Импорты Python, включая локальные: `calendar_layout`, `contextlib`, `event_folder_undo`, `folder_notes`, `folder_structure`, `hashlib`, `json`, `local_metadata`, `mobile_sync`, `order_calendar`, `order_deadlines`, `order_document`, `order_links`, `os`, `pathlib`, `reconciliations`, `sqlite3`, `supplier_purchases`, `threading`, `time`, `uuid`, `work_orders`.
+Импорты Python, включая локальные: `calendar_layout`, `catalog_groups`, `contextlib`, `event_folder_undo`, `folder_notes`, `folder_structure`, `hashlib`, `json`, `local_metadata`, `mobile_sync`, `order_calendar`, `order_deadlines`, `order_document`, `order_links`, `os`, `pathlib`, `reconciliations`, `sqlite3`, `supplier_purchases`, `threading`, `time`, `uuid`, `work_orders`.
 
 Непосредственные вызовы извлечены из синтаксиса. Динамический dispatch, вызываемые callbacks и побочные эффекты вложенных функций могут находиться в других объявлениях. Комментарии описывают назначение, тело исходника остаётся точным контрактом.
 
@@ -52,7 +52,7 @@ def __init__(self, root, data_dir, labels, *, database_only=True):
 
 Состояние и зависимости сохраняются в полях self для последующих операций.
 
-Непосредственные вызовы: `Path`, `hashlib.sha256(str(root).encode()).hexdigest`, `hashlib.sha256`, `str(root).encode`, `str`.
+Непосредственные вызовы: `Path`, `hashlib.sha256(str(root).encode()).hexdigest`, `hashlib.sha256`, `str(root).encode`, `str`, `catalog_groups.bind`.
 
 Прямые присваивания полям/свойствам: `self.root`, `self.database_only`, `self.database`, `self.labels`.
 
