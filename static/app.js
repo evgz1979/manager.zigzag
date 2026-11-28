@@ -1196,12 +1196,20 @@ function renderFolder(preserveForm = false) {
   const workCard = isWorkOrderPath(folder.path) || supplierCard;
   const hasTodo = Boolean(folder.path) && (Boolean(reconciliation) || !noteOnly || Boolean(folder.eventFolder));
   const showFinance = hasDescendantTodos(folder) && !workCard;
+  const showDeadlines = hasCardDeadlines(folder);
+  const weeklyPlan = hasTodo && usesTodoWeekLayout(folder);
   $("orderFinanceOverview").hidden = !showFinance || !folder.order;
   $("purchasePanel").hidden = !showFinance;
   $("orderOverview").hidden = !folder.path || folder.folderKind === "work_root" || (printView && !folder.eventFolder);
-  $("orderOverview").classList.toggle("with-todos", hasTodo);
+  $("orderOverview").classList.toggle("with-todos", hasTodo || showDeadlines);
   $("todoPanel").hidden = !hasTodo;
-  $("orderTasksColumn").hidden = !hasTodo && !showFinance && !folder.purchaseSupplierPath;
+  $("orderTasksColumn").hidden = !hasTodo && !showDeadlines && !folder.purchaseSupplierPath;
+  $("orderPlanning").hidden = !hasTodo && !showDeadlines;
+  $("orderPlanning").classList.toggle("with-weekly-plan", weeklyPlan);
+  $("orderDeadlineComments").hidden = weeklyPlan;
+  const commentStatus = $("deadlineCommentStatus");
+  const commentAnchor = weeklyPlan ? $("todoList") : $("orderDeadlineComments");
+  if (commentAnchor.nextElementSibling !== commentStatus) commentAnchor.after(commentStatus);
   $("breadcrumbs").innerHTML = folder.breadcrumbs.map((part, index) =>
     (index ? '<span class="breadcrumb-divider">/</span>' : "") +
     '<button data-path="' + escapeHtml(part.path) + '"' + (index === folder.breadcrumbs.length - 1 ? ' aria-current="page"' : "") + ">" +
@@ -1572,7 +1580,7 @@ function applyRemotePurchaseUpdate(folder, order) {
 }
 
 // Показывает собственные задачи текущей карточки.
-// В заказе и сверке добавляет булавки и ручки перестановки, в заказе также показывает кнопки копирования.
+// В заказе и сверке добавляет булавки и ручки, в недельном плане вставляет заголовки через редактор сроков.
 function renderTodos() {
   const folder = state.folder, items = folder.todo_items, list = $("todoList");
   const composition = Boolean(folder.todoComposition);
@@ -1581,19 +1589,18 @@ function renderTodos() {
   if (list.contains(state.todoColorMenu?.trigger)) closeTodoColorMenu();
   clearTodoDrag();
   const editable = Array.isArray(items);
+  const locked = usesTodoWeekLayout(folder) && folder.order.todo_week_layout === null;
   $("todoTitle").textContent = composition ? "Состав " + card + " и туду" : "To-do";
   list.classList.toggle("order-composition", composition);
   $("todoLegacy").hidden = editable;
   $("todoLegacyText").textContent = editable ? "" : (folder.order?.extra_blocks || folder.extra_blocks || {})["Задачи"] || "";
   $("copyTodoRows").hidden = !canCopy;
   $("copyTodoRows").disabled = editable ? !items.length : !$("todoLegacyText").textContent;
-  $("todoAddForm").hidden = !editable;
-  $("todoEmpty").hidden = !editable || Boolean(items.length);
+  $("todoAddForm").hidden = !editable || locked;
+  $("todoEmpty").hidden = !editable || locked || Boolean(items.length);
   $("todoEmpty").textContent = composition ? "Добавь задачу или раздел " + card + "." : folder.folderNote ? "Добавьте, что нужно сделать в этой папке." : "Добавьте, что нужно сделать по заказу.";
   renderTodoCount(items);
-  const handle = !composition ? '' : '<button class="icon-button row-drag-handle todo-drag-handle" type="button" ' +
-    'aria-label="Переместить строку" aria-keyshortcuts="ArrowUp ArrowDown" title="Перетащить строку" ' +
-    (items?.length > 1 ? 'draggable="true"' : 'disabled') + '></button>';
+  const handle = composition ? todoDragHandle("строку") : "";
   list.innerHTML = editable ? items.map((item, index) => '<div class="todo-row' + (item.done ? ' done' : '') + (item.pinned ? ' todo-pinned' : '') +
     '" data-todo-index="' + index + '"' + todoColorAttribute(item) + '>' + handle +
     '<input class="todo-check" type="checkbox" aria-label="Выполнено: ' + escapeHtml(item.text) + '"' + (item.done ? ' checked' : '') + (item.pinned ? ' disabled' : '') + '>' +
@@ -1605,6 +1612,19 @@ function renderTodos() {
       '<button class="icon-button todo-pin" type="button" aria-pressed="' + Boolean(item.pinned) +
       '" aria-label="Закрепить как раздел" title="' + (item.pinned ? 'Открепить раздел' : 'Закрепить как раздел') + '">' + icon("pin") + '</button></span>' : '') +
     renderTodoRowActions(item, "Удалить задачу: ") + '</div>').join("") : "";
+  if (locked) for (const control of list.querySelectorAll(".todo-row input, .todo-pin, .todo-row-actions button")) control.disabled = true;
+  if (usesTodoWeekLayout(folder)) renderDeadlineComments(folder);
+  else for (const button of list.querySelectorAll(".row-drag-handle")) {
+    button.disabled = items.length < 2;
+    button.draggable = !button.disabled;
+  }
+}
+
+// Строит общую ручку перестановки задачи или недели.
+// Доступность и draggable устанавливаются по числу видимых строк.
+function todoDragHandle(label) {
+  return '<button class="icon-button row-drag-handle todo-drag-handle" type="button" aria-label="Переместить ' +
+    label + '" aria-keyshortcuts="ArrowUp ArrowDown" title="Перетащить ' + label + '"></button>';
 }
 
 // Показывает выполненные задачи и их общее количество.
@@ -2498,6 +2518,7 @@ async function saveCurrentStatus() {
   if (!state.dirty || !state.folder) return;
   const folder = state.folder;
   const values = currentOrderValues();
+  const todoWeekLayout = folder.todoWeekLayout;
   const status = values.status, note = values.note;
   $("saveStatusButton").disabled = true;
   $("saveStatusButton").textContent = "Сохраняю…";
@@ -2507,7 +2528,7 @@ async function saveCurrentStatus() {
     ? { path: folder.path, revision: folderNote.revision, ...values }
     : noteOnly
     ? { path: folder.path, note }
-    : folder.order ? { path: folder.path, revision: folder.order.revision, ...values }
+    : folder.order ? { path: folder.path, id: folder.order.id, revision: folder.order.revision, ...values }
       : { path: folder.path, status, financial_status: values.financial_status, note, ...(values.todo_items ? { todo_items: values.todo_items } : {}),
         ...(values.purchase_items ? { purchase_items: values.purchase_items } : {}) });
   renderStatus();
@@ -2520,6 +2541,7 @@ async function saveCurrentStatus() {
     if (folder.reconciliation) folder.reconciliation = saved;
     if (folderNote) { folder.folderNote = saved; if (saved.card) folder.draftCard = saved.card; }
     state.dirty = JSON.stringify(currentOrderValues()) !== JSON.stringify(values);
+    if (!state.dirty && folder.todoWeekLayout === todoWeekLayout) delete folder.todoWeekLayout;
     renderExportState();
     renderOrderHeading();
     renderStatus();
@@ -2544,6 +2566,8 @@ function currentOrderValues() {
   return { status: $("statusSelect").value, financial_status: $("financialStatusSelect").value, note: $("orderNote").value, title: $("orderTitleInput").value,
     ...(state.folder?.order && Object.hasOwn(state.folder.order, "supplier_status") && state.folder.order.supplier_status !== null ? { supplier_status: $("supplierStatusSelect").value } : {}),
     ...(Array.isArray(state.folder?.todo_items) ? { todo_items: state.folder.todo_items.map((item) => ({ ...item })) } : {}),
+    ...(usesTodoWeekLayout(state.folder) && Array.isArray(state.folder.todo_items) &&
+      (state.folder.todoWeekLayout || state.folder.order.todo_week_layout?.length) ? { todo_week_layout: todoWeekRows(state.folder) } : {}),
     ...(!isWorkOrderPath(state.folder?.path) && hasDescendantTodos(state.folder) && Array.isArray(state.folder?.purchase_items) ? { purchase_items: state.folder.purchase_items.map((item) => ({ ...item, suppliers: [...(item.suppliers || [])] })) } : {}),
     amount: $("orderAmount").value, costs: $("orderCosts").value, paid: $("orderPaid").value };
 }
@@ -3041,11 +3065,23 @@ function deadlineWeekDates(week) {
   return dateLabel(week) + " — " + dateLabel(end.toISOString().slice(0, 10));
 }
 
+// Проверяет, доступен ли блок сроков у открытой карточки.
+// Сохраняет прежнюю область сроков у зарегистрированных заказов и поставщиков.
+function hasCardDeadlines(folder) {
+  return Boolean(folder?.order && (!isWorkOrderPath(folder.path) || folder.order.work_supplier));
+}
+
+// Определяет, входят ли недельные заголовки в собственный список задач.
+// У сверки, событий и папок без сроков остаётся отдельный редактор задач.
+function usesTodoWeekLayout(folder) {
+  return Boolean(folder?.todoComposition && hasCardDeadlines(folder));
+}
+
 // Показывает недели срока в карточке с раскрытием прошлых периодов.
-// Обращается к DOM текущего документа или переданного контейнера.
+// Переиспользует недельные редакторы внутри общего плана при обновлении сетки сроков.
 function renderCardDeadlines() {
   const folder = state.folder, order = folder?.order, panel = $("orderCardDeadlines");
-  panel.hidden = !order || (isWorkOrderPath(folder.path) && !order.work_supplier);
+  panel.hidden = !hasCardDeadlines(folder);
   if (panel.hidden) return;
   const unknown = order.deadline_weeks === null;
   const disabled = unknown || Boolean(folder.deadlineConflict) || orderRowSaving(order.path) || Boolean(state.saving);
@@ -3069,55 +3105,112 @@ function renderCardDeadlines() {
   renderDeadlineComments(folder);
 }
 
-// Показывает редакторы общих недельных событий заказа.
-// Обращается к DOM текущего документа или переданного контейнера.
+// Собирает недели с отметкой, событием или открытым черновиком.
+// Заголовки без этих признаков остаются в плане, пока под ними есть задачи.
+function todoWeekRows(folder, weeks = new Set([...(folder.order.deadline_weeks || []),
+  ...Object.keys(folder.order.calendar_week_events || {}), ...(folder.deadlineCommentDrafts?.keys() || [])])) {
+  const plan = folder.todoWeekLayout ?? folder.order.todo_week_layout;
+  const tasks = Array.from((folder.todo_items || []).keys());
+  if (!plan?.length) return [...[...weeks].sort(), null, ...tasks];
+  const shownWeeks = new Set(weeks);
+  let week = null, taskCount = 0;
+  for (const row of plan) {
+    if (typeof row === "number") {
+      if (row < tasks.length && week) shownWeeks.add(week);
+      taskCount++;
+    } else week = row;
+  }
+  const rows = plan.filter(row => row === null || (typeof row === "number" ? row < tasks.length : shownWeeks.has(row)));
+  const present = new Set(rows);
+  const newWeeks = [...weeks].filter(key => !present.has(key)).sort();
+  rows.splice(rows.findIndex(row => typeof row !== "number"), 0, ...newWeeks);
+  return [...rows, ...tasks.slice(taskCount)];
+}
+
+// Показывает общие недельные события вперемешку с задачами или в отдельном списке сроков.
+// Переиспользует редакторы недель и строки задач, сохраняя введённый текст и фокус.
 function renderDeadlineComments(folder) {
   const order = folder.order, comments = order.calendar_week_events || {}, unknown = order.calendar_week_events === null;
   const drafts = folder.deadlineCommentDrafts ||= new Map();
-  const container = $("orderDeadlineComments"), scope = order.id + "|" + folder.path;
-  if (container.dataset.scope !== scope) { container.replaceChildren(); container.dataset.scope = scope; }
+  const mixed = usesTodoWeekLayout(folder);
+  const container = mixed ? $("todoList") : $("orderDeadlineComments");
+  if (!mixed && container.dataset.scope !== order.id) { container.replaceChildren(); container.dataset.scope = order.id; }
   const selected = new Set(order.deadline_weeks || []);
   for (const [week, draft] of drafts) {
     if (!selected.has(week) && !comments[week] && !draft.dirty && !draft.saving && !draft.error &&
         document.activeElement?.dataset.deadlineComment !== week) drafts.delete(week);
   }
   const weeks = new Set([...(order.deadline_weeks || []), ...Object.keys(comments), ...drafts.keys()]);
-  const rows = new Map([...container.children].map((row) => [row.dataset.weekCommentRow, row]));
-  for (const [week, row] of rows) if (!weeks.has(week)) row.remove();
+  const layout = mixed ? todoWeekRows(folder, weeks) : [...weeks].sort();
+  const hasWeeks = layout.some(row => typeof row === "string");
+  const rows = new Map([...container.children].map(row => [row.hasAttribute("data-todo-unplanned") ? null :
+    row.dataset.weekCommentRow ?? Number(row.dataset.todoIndex), row]));
+  const visible = new Set(layout.filter(row => row !== null || hasWeeks));
+  for (const [key, row] of rows) if (!visible.has(key)) row.remove();
   let before = container.firstElementChild;
-  for (const week of [...weeks].sort()) {
-    let draft = drafts.get(week);
-    if (!draft) { draft = { value: comments[week] || "", saved: comments[week] || "", dirty: false, saving: false, error: "" }; drafts.set(week, draft); }
-    if (!draft.dirty && !draft.saving) draft.value = draft.saved = comments[week] || "";
-    const info = deadlineWeekInfo(week);
-    let row = rows.get(week);
-    if (!row) {
-      row = document.createElement("div");
-      row.className = "deadline-comment-row";
-      row.dataset.weekCommentRow = week;
-      row.innerHTML = '<span class="deadline-week deadline-comment-week" role="img" aria-label="Неделя ' + info.number +
-        '" style="--deadline-month-hue:' + info.hue + '">' + info.number + '</span><input type="text" maxlength="1000" autocomplete="off" data-deadline-comment="' +
-        week + '" placeholder="Событие на неделю" aria-label="Событие на неделю ' + info.number + ' · ' + info.label + '">';
+  let scheduled = false;
+  for (const key of visible) {
+    let row = rows.get(key);
+    if (typeof key === "string") {
+      row = deadlineCommentRow(row, key, folder, selected, mixed);
+      scheduled = true;
+    } else if (key === null) {
+      scheduled = false;
+      if (!row) {
+        row = document.createElement("div");
+        row.className = "todo-unplanned";
+        row.dataset.todoUnplanned = "";
+        row.textContent = "Без недели";
+      }
+    } else {
+      if (!row) continue;
+      row.classList.toggle("todo-planned-task", scheduled);
     }
-    const unselected = Array.isArray(order.deadline_weeks) && !selected.has(week);
-    row.classList.toggle("deadline-comment-unselected", unselected);
-    row.title = info.label + (unselected ? " · Отметка недели снята" : "");
-    const input = row.querySelector("input");
-    input.setAttribute("aria-label", "Событие на неделю " + info.number + " · " + info.label + (unselected ? " · Отметка недели снята" : ""));
-    if (input.value !== draft.value) input.value = draft.value;
-    input.title = draft.value;
-    input.disabled = unknown;
-    input.readOnly = Boolean(folder.deadlineConflict);
-    input.setAttribute("aria-invalid", draft.error ? "true" : "false");
     if (row !== before) container.insertBefore(row, before);
     before = row.nextElementSibling;
   }
+  const unknownLayout = mixed && order.todo_week_layout === null;
+  if (mixed) for (const button of container.querySelectorAll(".row-drag-handle")) {
+    button.disabled = unknownLayout || !Array.isArray(folder.todo_items) || visible.size < 2;
+    button.draggable = !button.disabled;
+  }
   const values = [...drafts.values()], error = values.find((draft) => draft.error)?.error;
-  $("orderDeadlineCommentsState").textContent = unknown ? "Неизвестный формат недельных событий сохранён без изменений" : error ||
-    (values.some((draft) => draft.saving) ? "Сохраняю события…" : values.some((draft) => draft.dirty) ? "Есть несохранённые события" :
-      weeks.size ? "Недельные события сохранены" : "Отметь неделю, чтобы добавить событие");
+  const message = unknown ? "Неизвестный формат недельных событий сохранён без изменений" : error ||
+    (values.some(draft => draft.saving) ? "Сохраняю события…" : values.some(draft => draft.dirty) ? "Есть несохранённые события" :
+      unknownLayout ? "Неизвестный порядок недель и задач сохранён без изменений" : "");
+  $("orderDeadlineCommentsState").textContent = message;
+  $("deadlineCommentStatus").hidden = !message;
   $("retryDeadlineComments").hidden = !error || unknown || Boolean(folder.deadlineConflict);
   $("retryDeadlineComments").disabled = Boolean(folder.deadlineCommentFlush);
+}
+
+// Создаёт или обновляет строку конкретной недели по дате понедельника.
+// Текст берётся из локального черновика и сохраняется как общее событие календаря.
+function deadlineCommentRow(row, week, folder, selected, mixed) {
+  const order = folder.order, saved = order.calendar_week_events?.[week] || "", info = deadlineWeekInfo(week);
+  const drafts = folder.deadlineCommentDrafts;
+  if (!drafts.has(week)) drafts.set(week, { value: saved, saved, dirty: false, saving: false, error: "" });
+  const draft = drafts.get(week);
+  if (!draft.dirty && !draft.saving) draft.value = draft.saved = saved;
+  if (!row) {
+    row = document.createElement("div");
+    row.className = "deadline-comment-row";
+    row.dataset.weekCommentRow = week;
+    row.innerHTML = (mixed ? todoDragHandle("неделю " + info.number) : "") +
+      '<span class="deadline-week deadline-comment-week" style="--deadline-month-hue:' + info.hue + '" title="' + info.label + '">' +
+      info.number + '</span><input type="text" maxlength="1000" autocomplete="off" data-deadline-comment="' + week + '" placeholder="Комментарий к неделе">';
+  }
+  const unselected = Array.isArray(order.deadline_weeks) && !selected.has(week);
+  row.classList.toggle("deadline-comment-unselected", unselected);
+  row.title = info.label + (unselected ? " · Неделя не отмечена в сроках" : "");
+  const input = row.querySelector("input");
+  input.setAttribute("aria-label", "Комментарий к неделе " + info.number + " · " + row.title);
+  if (input.value !== draft.value) input.value = draft.value;
+  input.title = draft.value;
+  input.disabled = order.calendar_week_events === null;
+  input.readOnly = Boolean(folder.deadlineConflict);
+  input.setAttribute("aria-invalid", draft.error ? "true" : "false");
+  return row;
 }
 
 // Проверяет наличие несохранённых недельных текстов карточки.
@@ -5693,14 +5786,20 @@ $("orderCardDeadlineList").addEventListener("click", (event) => {
 });
 $("orderCardDeadlineEarlier").addEventListener("click", () => expandCardDeadlineWeeks(-1));
 $("orderCardDeadlineLater").addEventListener("click", () => expandCardDeadlineWeeks(1));
-$("orderDeadlineComments").addEventListener("input", deadlineCommentInput);
-$("orderDeadlineComments").addEventListener("compositionend", deadlineCommentInput);
-$("orderDeadlineComments").addEventListener("focusout", (event) => {
-  if (event.target.closest("[data-deadline-comment]")) run(() => flushDeadlineComments());
-});
-$("orderDeadlineComments").addEventListener("keydown", (event) => {
-  if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); run(() => flushDeadlineComments()); }
-});
+for (const id of ["orderDeadlineComments", "todoList"]) {
+  const editor = $(id);
+  editor.addEventListener("input", deadlineCommentInput);
+  editor.addEventListener("compositionend", deadlineCommentInput);
+  editor.addEventListener("focusout", (event) => {
+    if (event.target.matches("[data-deadline-comment]")) run(() => flushDeadlineComments());
+  });
+  editor.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.isComposing && event.target.matches("[data-deadline-comment]")) {
+      event.preventDefault();
+      run(() => flushDeadlineComments());
+    }
+  });
+}
 $("retryDeadlineComments").addEventListener("click", () => run(() => flushDeadlineComments()));
 $("createOrderFolderButton").addEventListener("click", openCreateOrderFolder);
 $("createObjectFolderButton").addEventListener("click",openCreateObject);
@@ -5804,14 +5903,19 @@ for (const type of ["pointerdown", "focusin"]) {
 window.addEventListener("resize", () => closeTodoColorMenu(true));
 window.addEventListener("scroll", () => closeTodoColorMenu(true), true);
 window.addEventListener("blur", () => closeTodoColorMenu());
-const clearTodoDrag = bindRowReorder($("todoList"), "[data-todo-index]", "application/x-manager-todo-row", () => {
+const clearTodoDrag = bindRowReorder($("todoList"), "[data-todo-index], [data-week-comment-row], [data-todo-unplanned]", "application/x-manager-todo-row", () => {
   closeTodoColorMenu();
-  const items = state.folder.todo_items;
-  state.folder.todo_items = [...$("todoList").children].map((row, index) => {
-    const item = items[Number(row.dataset.todoIndex)];
+  const folder = state.folder, items = [];
+  const layout = [...$("todoList").children].map(row => {
+    if (row.dataset.weekCommentRow) return row.dataset.weekCommentRow;
+    if (row.hasAttribute("data-todo-unplanned")) return null;
+    items.push(folder.todo_items[Number(row.dataset.todoIndex)]);
+    const index = items.length - 1;
     row.dataset.todoIndex = index;
-    return item;
+    return index;
   });
+  folder.todo_items = items;
+  if (layout.includes(null)) folder.todoWeekLayout = layout;
   saveTodosSoon();
 });
 $("copyTodoRows").addEventListener("click", () => {
@@ -5821,8 +5925,19 @@ $("copyTodoRows").addEventListener("click", () => {
 $("todoAddForm").addEventListener("submit", (event) => {
   event.preventDefault();
   const text = $("todoNewText").value.trim();
-  if (!text || !Array.isArray(state.folder?.todo_items)) return;
-  state.folder.todo_items.push({ text, done: false });
+  const folder = state.folder, items = folder?.todo_items;
+  if (!text || !Array.isArray(items)) return;
+  let index = items.length;
+  if (usesTodoWeekLayout(folder) && (folder.todoWeekLayout || folder.order.todo_week_layout?.length)) {
+    const layout = todoWeekRows(folder);
+    let insert = layout.indexOf(null) + 1;
+    while (Number.isInteger(layout[insert])) insert++;
+    index = layout.slice(insert).find(Number.isInteger) ?? items.length;
+    layout.splice(insert, 0, index);
+    let nextIndex = 0;
+    folder.todoWeekLayout = layout.map(row => Number.isInteger(row) ? nextIndex++ : row);
+  }
+  items.splice(index, 0, { text, done: false });
   $("todoNewText").value = "";
   renderTodos(); saveTodosSoon(); $("todoNewText").focus();
 });
@@ -5872,6 +5987,11 @@ $("todoList").addEventListener("click", (event) => {
     renderTodoCount(items);
     saveTodosSoon();
   } else if (event.target.closest(".todo-delete")) {
+    const folder = state.folder;
+    if (usesTodoWeekLayout(folder) && (folder.todoWeekLayout || folder.order.todo_week_layout?.length)) {
+      folder.todoWeekLayout = todoWeekRows(folder).filter(row => row !== index).map(row =>
+        Number.isInteger(row) && row > index ? row - 1 : row);
+    }
     items.splice(index, 1);
     renderTodos(); saveTodosSoon();
   }

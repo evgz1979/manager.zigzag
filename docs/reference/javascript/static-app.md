@@ -691,7 +691,7 @@ function currentOrderValues()
 
 Использует `$`, `state.folder.todo_items.map`, `Array.isArray`.
 
-Непосредственные вызовы: `$`, `state.folder.todo_items.map`, `Array.isArray`, `Object.hasOwn`, `isWorkOrderPath`, `hasDescendantTodos`, `state.folder.purchase_items.map`.
+Непосредственные вызовы: `$`, `state.folder.todo_items.map`, `Array.isArray`, `Object.hasOwn`, `usesTodoWeekLayout`, `todoWeekRows`, `isWorkOrderPath`, `hasDescendantTodos`, `state.folder.purchase_items.map`.
 
 <a id="symbol-deadlineCommentInput"></a>
 
@@ -710,6 +710,24 @@ function deadlineCommentInput(event)
 Непосредственные вызовы: `event.target.closest`, `folder?.deadlineCommentDrafts?.get`, `clearTimeout`, `renderDeadlineComments`, `setTimeout`.
 
 Прямые присваивания полям/свойствам: `draft.value`, `draft.dirty`, `draft.error`, `folder.deadlineCommentTimer`.
+
+<a id="symbol-deadlineCommentRow"></a>
+
+## deadlineCommentRow
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function deadlineCommentRow(row, week, folder, selected, mixed)
+```
+
+Создаёт или обновляет строку конкретной недели по дате понедельника.
+
+Текст берётся из локального черновика и сохраняется как общее событие календаря.
+
+Непосредственные вызовы: `deadlineWeekInfo`, `drafts.has`, `drafts.set`, `drafts.get`, `document.createElement`, `todoDragHandle`, `Array.isArray`, `selected.has`, `row.classList.toggle`, `row.querySelector`, `input.setAttribute`, `Boolean`.
+
+Прямые присваивания полям/свойствам: `draft.value`, `draft.saved`, `row.className`, `row.dataset.weekCommentRow`, `row.innerHTML`, `row.title`, `input.value`, `input.title`, `input.disabled`, `input.readOnly`.
 
 <a id="symbol-deadlineHighlightClass"></a>
 
@@ -1238,6 +1256,22 @@ const moved=path=>
 Использует `state.objectYears.mappings.find`, `path.slice`.
 
 Непосредственные вызовы: `state.objectYears.mappings.find`, `path.slice`.
+
+<a id="symbol-hasCardDeadlines"></a>
+
+## hasCardDeadlines
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function hasCardDeadlines(folder)
+```
+
+Проверяет, доступен ли блок сроков у открытой карточки.
+
+Сохраняет прежнюю область сроков у зарегистрированных заказов и поставщиков.
+
+Непосредственные вызовы: `Boolean`, `isWorkOrderPath`.
 
 <a id="symbol-hasDescendantTodos"></a>
 
@@ -2701,9 +2735,9 @@ function renderCardDeadlines()
 
 Показывает недели срока в карточке с раскрытием прошлых периодов.
 
-Обращается к DOM текущего документа или переданного контейнера.
+Переиспользует недельные редакторы внутри общего плана при обновлении сетки сроков.
 
-Непосредственные вызовы: `$`, `isWorkOrderPath`, `Boolean`, `orderRowSaving`, `Set`, `visible.add`, `Object.keys`, `shiftDeadlineWeek`, `[...visible].sort().map`, `[...visible].sort`, `renderDeadlineMonthLegend`, `renderOrderDeadlines`, `document.activeElement?.hasAttribute`, `$("orderCardDeadlineList").querySelector("[data-order-calendar-compact]")?.focus`, `$("orderCardDeadlineList").querySelector`, `options.at`, `state.deadlineSaving.has`, `renderDeadlineComments`.
+Непосредственные вызовы: `$`, `hasCardDeadlines`, `Boolean`, `orderRowSaving`, `Set`, `visible.add`, `Object.keys`, `shiftDeadlineWeek`, `[...visible].sort().map`, `[...visible].sort`, `renderDeadlineMonthLegend`, `renderOrderDeadlines`, `document.activeElement?.hasAttribute`, `$("orderCardDeadlineList").querySelector("[data-order-calendar-compact]")?.focus`, `$("orderCardDeadlineList").querySelector`, `options.at`, `state.deadlineSaving.has`, `renderDeadlineComments`.
 
 Прямые присваивания полям/свойствам: `panel.hidden`, `folder.deadlineVisibleWeeks`, `$("orderCardDeadlineList").innerHTML`, `$("orderCardDeadlineEarlier").disabled`, `$("orderCardDeadlineLater").disabled`, `$("orderCardDeadlineState").textContent`.
 
@@ -2771,13 +2805,13 @@ function renderCompactOrderLinks(order)
 function renderDeadlineComments(folder)
 ```
 
-Показывает редакторы общих недельных событий заказа.
+Показывает общие недельные события вперемешку с задачами или в отдельном списке сроков.
 
-Обращается к DOM текущего документа или переданного контейнера.
+Переиспользует редакторы недель и строки задач, сохраняя введённый текст и фокус.
 
-Непосредственные вызовы: `Map`, `$`, `container.replaceChildren`, `Set`, `selected.has`, `drafts.delete`, `Object.keys`, `drafts.keys`, `[...container.children].map`, `weeks.has`, `row.remove`, `[...weeks].sort`, `drafts.get`, `drafts.set`, `deadlineWeekInfo`, `rows.get`, `document.createElement`, `Array.isArray`, `row.classList.toggle`, `row.querySelector`, `input.setAttribute`, `Boolean`, `container.insertBefore`, `drafts.values`, `values.find`, `values.some`.
+Непосредственные вызовы: `Map`, `usesTodoWeekLayout`, `$`, `container.replaceChildren`, `Set`, `selected.has`, `drafts.delete`, `Object.keys`, `drafts.keys`, `todoWeekRows`, `[...weeks].sort`, `layout.some`, `[...container.children].map`, `layout.filter`, `visible.has`, `row.remove`, `rows.get`, `deadlineCommentRow`, `document.createElement`, `row.classList.toggle`, `container.insertBefore`, `container.querySelectorAll`, `Array.isArray`, `drafts.values`, `values.find`, `values.some`, `Boolean`.
 
-Прямые присваивания полям/свойствам: `folder.deadlineCommentDrafts`, `container.dataset.scope`, `draft.value`, `draft.saved`, `row.className`, `row.dataset.weekCommentRow`, `row.innerHTML`, `row.title`, `input.value`, `input.title`, `input.disabled`, `input.readOnly`, `$("orderDeadlineCommentsState").textContent`, `$("retryDeadlineComments").hidden`, `$("retryDeadlineComments").disabled`.
+Прямые присваивания полям/свойствам: `folder.deadlineCommentDrafts`, `container.dataset.scope`, `row.className`, `row.dataset.todoUnplanned`, `row.textContent`, `button.disabled`, `button.draggable`, `$("orderDeadlineCommentsState").textContent`, `$("deadlineCommentStatus").hidden`, `$("retryDeadlineComments").hidden`, `$("retryDeadlineComments").disabled`.
 
 <a id="symbol-renderDeadlineMonthLegend"></a>
 
@@ -2973,12 +3007,12 @@ function renderFolder(preserveForm = false)
 
 Использует `renderMoneyOverview`, `document.dispatchEvent`, `CustomEvent`.
 
-Непосредственные вызовы: `renderMoneyOverview`, `document.dispatchEvent`, `CustomEvent`, `renderClientActivity`, `Boolean`, `Object.hasOwn`, `isWorkOrderPath`, `hasDescendantTodos`, `$`, `$("orderOverview").classList.toggle`, `folder.breadcrumbs.map((part, index) =>
+Непосредственные вызовы: `renderMoneyOverview`, `document.dispatchEvent`, `CustomEvent`, `renderClientActivity`, `Boolean`, `Object.hasOwn`, `isWorkOrderPath`, `hasDescendantTodos`, `hasCardDeadlines`, `usesTodoWeekLayout`, `$`, `$("orderOverview").classList.toggle`, `$("orderPlanning").classList.toggle`, `commentAnchor.after`, `folder.breadcrumbs.map((part, index) =>
     (index ? '<span class="breadcrumb-divider">/</span>' : "") +
     '<button data-path="' + escapeHtml(part.path) + '"' + (index === folder.breadcrumbs.length - 1 ? ' aria-current="page"' : "") + ">" +
     ClientBadge.markup(part.name, part.path && part.path.normalize("NFC") === folder.client_path?.normalize("NFC") ? part.path : "") + "</button>").join`, `folder.breadcrumbs.map`, `renderOrderHeading`, `renderServiceFolderControls`, `updateNasArchive`, `renderOrderCardLinks`, `ClientBadge.markup`, `printCountLabel`, `folder.directories.filter`, `formatSize`, `foldersAnchor.before`, `renderSubfolders`, `renderSketches`, `renderOrderFileFolders`, `renderDescendantTodos`, `$("statusForm").classList.toggle`, `["supplier_root", "work_section"].includes`, `renderPurchases`, `(card[key] / 100).toFixed`, `renderOrderCalculated`, `renderExportState`, `Object.entries(supplierStatusLabels).map(([key, label]) => '<option value="' + key + '">' + label + '</option>').join`, `Object.entries(supplierStatusLabels).map`, `Object.entries`, `resizeOrderNote`, `renderStatus`, `$("todoList").classList.contains`, `renderTodos`, `warnings.push`, `warnings.join`, `["events", "subfolders"].includes`, `renderUpload`, `renderPrintList`, `new URLSearchParams(location.search).get`, `URLSearchParams`, `printFiles().find`, `printFiles`, `run`, `renderFiles`, `$("files").replaceChildren`, `renderCardDeadlines`, `mountOrderList`, `isFolderOrderList`, `renderOrders`.
 
-Прямые присваивания полям/свойствам: `$("orderFinanceOverview").hidden`, `$("purchasePanel").hidden`, `$("orderOverview").hidden`, `$("todoPanel").hidden`, `$("orderTasksColumn").hidden`, `$("breadcrumbs").innerHTML`, `$("clientLabel").innerHTML`, `$("clientLabel").hidden`, `$("catalogGroupTypeForm").hidden`, `$("catalogGroupType").value`, `$("catalogGroupType").disabled`, `$("submitCatalogGroupType").disabled`, `$("editClientColor").hidden`, `$("folderSummary").textContent`, `$("orderDetails").hidden`, `$("folderDetailsTitle").textContent`, `$("statusLabel").hidden`, `$("orderStatusFields").hidden`, `$("supplierStatusLabel").hidden`, `$("supplierStatusLabel").firstChild.textContent`, `$("orderTitleLabel").hidden`, `$("orderTitleLabel").firstChild.textContent`, `$("reconciliationClientLabel").hidden`, `$("financialFields").hidden`, `$("orderNote").placeholder`, `$("removeOrderButton").hidden`, `$("archiveOrderButton").hidden`, `$("addOrderButton").textContent`, `$("removeOrderButton").textContent`, `$("createObjectFolderButton").hidden`, `$("createObjectFolderButton").textContent`, `$("groupObjectYearsButton").hidden`, `$("createOrderFolderButton").hidden`, `$("createOrderFolderButton").textContent`, `$("createEventFolderButton").hidden`, `$("renameFolderButton").hidden`, `$("moveObjectButton").hidden`, `$("deleteEventButton").hidden`, `$("openEventTrash").hidden`, `folder.todo_items`, `folder.purchase_items`, `$("todoNewText").value`, `$("purchaseNewText").value`, `$("orderDetails").open`, `$("orderTitleInput").value`, `$("reconciliationClient").value`, `$(field).value`, `$("addOrderButton").hidden`, `$("statusSelect").value`, `$("supplierStatusSelect").innerHTML`, `$("supplierStatusSelect").value`, `$("supplierStatusSelect").disabled`, `$("supplierStatusSelect").title`, `$("financialStatusSelect").value`, `$("orderNote").value`, `$("loadOrderFilesButton").hidden`, `$("notice").hidden`, `$("notice").textContent`, `$("fileSearch").value`, `$("filesSection").hidden`, `$("uploadDropZone").hidden`, `$("printWorkspace").hidden`, `state.printQuery`, `$("printTaskSearch").value`, `$("printEditorForm").hidden`, `$("printEditorEmpty").hidden`, `$("printEditorEmpty").textContent`.
+Прямые присваивания полям/свойствам: `$("orderFinanceOverview").hidden`, `$("purchasePanel").hidden`, `$("orderOverview").hidden`, `$("todoPanel").hidden`, `$("orderTasksColumn").hidden`, `$("orderPlanning").hidden`, `$("orderDeadlineComments").hidden`, `$("breadcrumbs").innerHTML`, `$("clientLabel").innerHTML`, `$("clientLabel").hidden`, `$("catalogGroupTypeForm").hidden`, `$("catalogGroupType").value`, `$("catalogGroupType").disabled`, `$("submitCatalogGroupType").disabled`, `$("editClientColor").hidden`, `$("folderSummary").textContent`, `$("orderDetails").hidden`, `$("folderDetailsTitle").textContent`, `$("statusLabel").hidden`, `$("orderStatusFields").hidden`, `$("supplierStatusLabel").hidden`, `$("supplierStatusLabel").firstChild.textContent`, `$("orderTitleLabel").hidden`, `$("orderTitleLabel").firstChild.textContent`, `$("reconciliationClientLabel").hidden`, `$("financialFields").hidden`, `$("orderNote").placeholder`, `$("removeOrderButton").hidden`, `$("archiveOrderButton").hidden`, `$("addOrderButton").textContent`, `$("removeOrderButton").textContent`, `$("createObjectFolderButton").hidden`, `$("createObjectFolderButton").textContent`, `$("groupObjectYearsButton").hidden`, `$("createOrderFolderButton").hidden`, `$("createOrderFolderButton").textContent`, `$("createEventFolderButton").hidden`, `$("renameFolderButton").hidden`, `$("moveObjectButton").hidden`, `$("deleteEventButton").hidden`, `$("openEventTrash").hidden`, `folder.todo_items`, `folder.purchase_items`, `$("todoNewText").value`, `$("purchaseNewText").value`, `$("orderDetails").open`, `$("orderTitleInput").value`, `$("reconciliationClient").value`, `$(field).value`, `$("addOrderButton").hidden`, `$("statusSelect").value`, `$("supplierStatusSelect").innerHTML`, `$("supplierStatusSelect").value`, `$("supplierStatusSelect").disabled`, `$("supplierStatusSelect").title`, `$("financialStatusSelect").value`, `$("orderNote").value`, `$("loadOrderFilesButton").hidden`, `$("notice").hidden`, `$("notice").textContent`, `$("fileSearch").value`, `$("filesSection").hidden`, `$("uploadDropZone").hidden`, `$("printWorkspace").hidden`, `state.printQuery`, `$("printTaskSearch").value`, `$("printEditorForm").hidden`, `$("printEditorEmpty").hidden`, `$("printEditorEmpty").textContent`.
 
 <a id="symbol-renderFolderRename"></a>
 
@@ -3775,9 +3809,9 @@ function renderTodos()
 
 Показывает собственные задачи текущей карточки.
 
-В заказе и сверке добавляет булавки и ручки перестановки, в заказе также показывает кнопки копирования.
+В заказе и сверке добавляет булавки и ручки, в недельном плане вставляет заголовки через редактор сроков.
 
-Непосредственные вызовы: `$`, `Boolean`, `list.contains`, `closeTodoColorMenu`, `clearTodoDrag`, `Array.isArray`, `list.classList.toggle`, `renderTodoCount`, `items.map((item, index) => '<div class="todo-row' + (item.done ? ' done' : '') + (item.pinned ? ' todo-pinned' : '') +
+Непосредственные вызовы: `$`, `Boolean`, `list.contains`, `closeTodoColorMenu`, `clearTodoDrag`, `Array.isArray`, `usesTodoWeekLayout`, `list.classList.toggle`, `renderTodoCount`, `todoDragHandle`, `items.map((item, index) => '<div class="todo-row' + (item.done ? ' done' : '') + (item.pinned ? ' todo-pinned' : '') +
     '" data-todo-index="' + index + '"' + todoColorAttribute(item) + '>' + handle +
     '<input class="todo-check" type="checkbox" aria-label="Выполнено: ' + escapeHtml(item.text) + '"' + (item.done ? ' checked' : '') + (item.pinned ? ' disabled' : '') + '>' +
     '<input class="todo-text" type="text" maxlength="1000" aria-label="Текст задачи" value="' + escapeHtml(item.text) + '"' +
@@ -3787,9 +3821,9 @@ function renderTodos()
         escapeHtml(item.text) + '">' + icon("copy") + '</button>' : '') +
       '<button class="icon-button todo-pin" type="button" aria-pressed="' + Boolean(item.pinned) +
       '" aria-label="Закрепить как раздел" title="' + (item.pinned ? 'Открепить раздел' : 'Закрепить как раздел') + '">' + icon("pin") + '</button></span>' : '') +
-    renderTodoRowActions(item, "Удалить задачу: ") + '</div>').join`, `items.map`.
+    renderTodoRowActions(item, "Удалить задачу: ") + '</div>').join`, `items.map`, `list.querySelectorAll`, `renderDeadlineComments`.
 
-Прямые присваивания полям/свойствам: `$("todoTitle").textContent`, `$("todoLegacy").hidden`, `$("todoLegacyText").textContent`, `$("copyTodoRows").hidden`, `$("copyTodoRows").disabled`, `$("todoAddForm").hidden`, `$("todoEmpty").hidden`, `$("todoEmpty").textContent`, `list.innerHTML`.
+Прямые присваивания полям/свойствам: `$("todoTitle").textContent`, `$("todoLegacy").hidden`, `$("todoLegacyText").textContent`, `$("copyTodoRows").hidden`, `$("copyTodoRows").disabled`, `$("todoAddForm").hidden`, `$("todoEmpty").hidden`, `$("todoEmpty").textContent`, `list.innerHTML`, `control.disabled`, `button.disabled`, `button.draggable`.
 
 <a id="symbol-renderTree"></a>
 
@@ -4601,6 +4635,37 @@ function todoColorOptions(color)
     '<button class="todo-color-option" type="button" role="menuitemradio" tabindex="-1" data-todo-swatch="' + key + '" title="' + label +
     '" aria-label="' + label + '" aria-checked="' + (key === selected) + '"><span class="todo-color-dot" aria-hidden="true"></span></button>').join`, `Object.entries(todoColorLabels).map`, `Object.entries`.
 
+<a id="symbol-todoDragHandle"></a>
+
+## todoDragHandle
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function todoDragHandle(label)
+```
+
+Строит общую ручку перестановки задачи или недели.
+
+Доступность и draggable устанавливаются по числу видимых строк.
+
+<a id="symbol-todoWeekRows"></a>
+
+## todoWeekRows
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function todoWeekRows(folder, weeks = new Set([...(folder.order.deadline_weeks || []),
+  ...Object.keys(folder.order.calendar_week_events || {}), ...(folder.deadlineCommentDrafts?.keys() || [])]))
+```
+
+Собирает недели с отметкой, событием или открытым черновиком.
+
+Заголовки без этих признаков остаются в плане, пока под ними есть задачи.
+
+Непосредственные вызовы: `Array.from`, `(folder.todo_items || []).keys`, `[...weeks].sort`, `Set`, `shownWeeks.add`, `plan.filter`, `[...weeks].filter(key => !present.has(key)).sort`, `[...weeks].filter`, `rows.splice`, `rows.findIndex`, `tasks.slice`.
+
 <a id="symbol-toggleCalendarCompact"></a>
 
 ## toggleCalendarCompact
@@ -4908,3 +4973,19 @@ async function uploadFiles(files)
 Непосредственные вызовы: `notify`, `$`, `renderUpload`, `Error`, `formatSize`, `job.results.push`, `sendUpload`, `files.slice`, `job.results.some`, `refreshUploadedFiles(job).catch`, `refreshUploadedFiles`.
 
 Прямые присваивания полям/свойствам: `state.upload`, `$("uploadDetails").open`, `job.index`, `job.filename`, `job.size`, `job.sent`, `job.busy`.
+
+<a id="symbol-usesTodoWeekLayout"></a>
+
+## usesTodoWeekLayout
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function usesTodoWeekLayout(folder)
+```
+
+Определяет, входят ли недельные заголовки в собственный список задач.
+
+У сверки, событий и папок без сроков остаётся отдельный редактор задач.
+
+Непосредственные вызовы: `Boolean`, `hasCardDeadlines`.

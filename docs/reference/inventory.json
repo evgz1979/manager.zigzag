@@ -683,12 +683,15 @@
           {"name": "read_comments", "type": "function", "anchor": "symbol-read_comments"},
           {"name": "read_highlights", "type": "function", "anchor": "symbol-read_highlights"},
           {"name": "read_legacy_comments", "type": "function", "anchor": "symbol-read_legacy_comments"},
+          {"name": "read_todo_week_layout", "type": "function", "anchor": "symbol-read_todo_week_layout"},
           {"name": "validate_comment", "type": "function", "anchor": "symbol-validate_comment"},
           {"name": "validate_highlights", "type": "function", "anchor": "symbol-validate_highlights"},
+          {"name": "validate_todo_week_layout", "type": "function", "anchor": "symbol-validate_todo_week_layout"},
           {"name": "validate_week", "type": "function", "anchor": "symbol-validate_week"},
           {"name": "week_options", "type": "function", "anchor": "symbol-week_options"},
           {"name": "write", "type": "function", "anchor": "symbol-write"},
-          {"name": "write_comment", "type": "function", "anchor": "symbol-write_comment"}
+          {"name": "write_comment", "type": "function", "anchor": "symbol-write_comment"},
+          {"name": "write_todo_week_layout", "type": "function", "anchor": "symbol-write_todo_week_layout"}
         ]
       },
       {
@@ -1432,6 +1435,7 @@
           {"name": "createOrderFolder", "type": "FunctionDeclaration", "anchor": "symbol-createOrderFolder"},
           {"name": "currentOrderValues", "type": "FunctionDeclaration", "anchor": "symbol-currentOrderValues"},
           {"name": "deadlineCommentInput", "type": "FunctionDeclaration", "anchor": "symbol-deadlineCommentInput"},
+          {"name": "deadlineCommentRow", "type": "FunctionDeclaration", "anchor": "symbol-deadlineCommentRow"},
           {"name": "deadlineHighlightClass", "type": "FunctionDeclaration", "anchor": "symbol-deadlineHighlightClass"},
           {"name": "deadlineWeekDates", "type": "FunctionDeclaration", "anchor": "symbol-deadlineWeekDates"},
           {"name": "deadlineWeekDates.dateLabel", "type": "ArrowFunctionExpression", "anchor": "symbol-deadlineWeekDates.dateLabel"},
@@ -1462,6 +1466,7 @@
           {"name": "freeCalendarIdentity", "type": "FunctionDeclaration", "anchor": "symbol-freeCalendarIdentity"},
           {"name": "groupObjectYears", "type": "FunctionDeclaration", "anchor": "symbol-groupObjectYears"},
           {"name": "groupObjectYears.moved", "type": "ArrowFunctionExpression", "anchor": "symbol-groupObjectYears.moved"},
+          {"name": "hasCardDeadlines", "type": "FunctionDeclaration", "anchor": "symbol-hasCardDeadlines"},
           {"name": "hasDescendantTodos", "type": "FunctionDeclaration", "anchor": "symbol-hasDescendantTodos"},
           {"name": "hasOrderList", "type": "FunctionDeclaration", "anchor": "symbol-hasOrderList"},
           {"name": "hasPendingDeadlineComments", "type": "FunctionDeclaration", "anchor": "symbol-hasPendingDeadlineComments"},
@@ -1646,6 +1651,8 @@
           {"name": "submitFolderRename", "type": "FunctionDeclaration", "anchor": "symbol-submitFolderRename"},
           {"name": "todoColorAttribute", "type": "FunctionDeclaration", "anchor": "symbol-todoColorAttribute"},
           {"name": "todoColorOptions", "type": "FunctionDeclaration", "anchor": "symbol-todoColorOptions"},
+          {"name": "todoDragHandle", "type": "FunctionDeclaration", "anchor": "symbol-todoDragHandle"},
+          {"name": "todoWeekRows", "type": "FunctionDeclaration", "anchor": "symbol-todoWeekRows"},
           {"name": "toggleCalendarCompact", "type": "FunctionDeclaration", "anchor": "symbol-toggleCalendarCompact"},
           {"name": "toggleCalendarEventFlag", "type": "FunctionDeclaration", "anchor": "symbol-toggleCalendarEventFlag"},
           {"name": "toggleFolder", "type": "FunctionDeclaration", "anchor": "symbol-toggleFolder"},
@@ -1662,7 +1669,8 @@
           {"name": "updateFolderActivity", "type": "FunctionDeclaration", "anchor": "symbol-updateFolderActivity"},
           {"name": "updateNasArchive", "type": "FunctionDeclaration", "anchor": "symbol-updateNasArchive"},
           {"name": "updatePurchaseSupplierButtons", "type": "FunctionDeclaration", "anchor": "symbol-updatePurchaseSupplierButtons"},
-          {"name": "uploadFiles", "type": "FunctionDeclaration", "anchor": "symbol-uploadFiles"}
+          {"name": "uploadFiles", "type": "FunctionDeclaration", "anchor": "symbol-uploadFiles"},
+          {"name": "usesTodoWeekLayout", "type": "FunctionDeclaration", "anchor": "symbol-usesTodoWeekLayout"}
         ]
       },
       {

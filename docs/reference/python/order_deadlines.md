@@ -143,6 +143,30 @@ None
 comments
 ```
 
+<a id="symbol-read_todo_week_layout"></a>
+
+## read_todo_week_layout
+
+[order_deadlines.py](../../../order_deadlines.py) · `function`.
+
+```python
+def read_todo_week_layout(blocks):
+```
+
+Читает сохранённый порядок строк независимо от комментариев и отметок сроков.
+
+Отсутствующий блок даёт пустой список, неизвестный формат — None.
+
+Непосредственные вызовы: `json.loads`, `isinstance`, `set`, `type`, `validate_todo_week_layout`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+[]
+data['rows']
+None
+```
+
 <a id="symbol-validate_comment"></a>
 
 ## validate_comment
@@ -189,6 +213,30 @@ def validate_highlights(weeks):
 
 ```python
 parsed
+```
+
+<a id="symbol-validate_todo_week_layout"></a>
+
+## validate_todo_week_layout
+
+[order_deadlines.py](../../../order_deadlines.py) · `function`.
+
+```python
+def validate_todo_week_layout(rows):
+```
+
+Проверяет последовательность заголовков и индексов задач в карточке.
+
+Понедельники уникальны, null отмечает «Без недели», индексы идут подряд от нуля.
+
+Непосредственные вызовы: `isinstance`, `len`, `ValueError`, `set`, `type`, `validate_week`, `seen.add`.
+
+Явные исключения: `ValueError`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+index
 ```
 
 <a id="symbol-validate_week"></a>
@@ -282,4 +330,29 @@ def write_comment(blocks, week, comment):
 ```python
 order_calendar.clear_week_comment(blocks, week)
 order_calendar.write(blocks, week, comment, 'week')
+```
+
+<a id="symbol-write_todo_week_layout"></a>
+
+## write_todo_week_layout
+
+[order_deadlines.py](../../../order_deadlines.py) · `function`.
+
+```python
+def write_todo_week_layout(blocks, rows, task_count):
+```
+
+Сохраняет порядок вместе со списком задач, не меняя сроки и события календаря.
+
+Проверяет охват всех задач и не заменяет неизвестный формат.
+
+Непосредственные вызовы: `read_todo_week_layout`, `ValueError`, `validate_todo_week_layout`, `any`, `isinstance`, `blocks.items`, `json.dumps`.
+
+Явные исключения: `ValueError`.
+
+Выражения возврата (ветки читаются в исходнике):
+
+```python
+{key: value for (key, value) in blocks.items() if key != TODO_LAYOUT_BLOCK}
+{**blocks, TODO_LAYOUT_BLOCK: json.dumps({'version': 1, 'rows': rows})}
 ```

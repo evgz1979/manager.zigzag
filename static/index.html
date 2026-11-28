@@ -111,12 +111,13 @@
           <p id="orderExportState" class="order-export-state" role="status"></p>
         </div><button id="saveStatusButton" class="primary-button" type="submit">Сохранить</button></form>
         </details>
-        <section id="orderCardDeadlines" class="order-card-deadlines" aria-label="Все сроки заказа" hidden>
-          <h3>Сроки</h3><div class="order-card-deadline-layout"><div>
-            <div id="orderCardDeadlineList" class="order-card-deadline-list"></div>
-            <div class="order-card-deadline-navigation"><button id="orderCardDeadlineEarlier" class="secondary-button" type="button">← Раньше</button><button id="orderCardDeadlineLater" class="secondary-button" type="button">Позже →</button></div>
-            <p id="orderCardDeadlineState" class="order-card-deadline-state" role="status"></p>
-          </div><div><div id="orderDeadlineComments" class="deadline-comments" aria-label="События на неделю"></div><p id="orderDeadlineCommentsState" class="order-card-deadline-state" role="status"></p><button id="retryDeadlineComments" class="secondary-button" type="button" hidden>Повторить сохранение</button></div></div>
+        <section id="purchasePanel" class="todo-panel purchase-panel" aria-label="Формирование закупок/затрат">
+          <header class="todo-heading"><h2>Формирование закупок/затрат</h2><span id="purchaseCount"></span></header>
+          <div id="purchaseList" class="todo-list"></div>
+          <p id="purchaseEmpty" class="todo-empty">Добавь, что нужно закупить или заказать.</p>
+          <div id="purchaseLegacy" class="todo-legacy" hidden><p>В разделе «Закупки и затраты» уже есть записи:</p><pre id="purchaseLegacyText"></pre></div>
+          <form id="purchaseAddForm" class="todo-add-form"><input id="purchaseNewText" type="text" maxlength="1000" placeholder="Новая закупка или затрата…" aria-label="Новая закупка или затрата" autocomplete="off" required><button class="primary-button" type="submit">Добавить</button></form>
+          <p id="purchaseSaveState" class="todo-save-state" role="status"></p>
         </section>
         <div id="orderFinanceOverview" class="order-finance-overview" hidden>
         <section id="invoiceSection" class="invoice-section" aria-label="Счета заказа" hidden>
@@ -133,6 +134,15 @@
           <header class="todo-heading"><h2>To-do · закупки из заказов <span id="supplierPurchasesCount" class="count-badge"></span></h2><button id="refreshSupplierPurchases" class="secondary-button" type="button">Обновить</button></header>
           <label class="supplier-purchases-completed"><input id="supplierPurchasesShowDone" type="checkbox">Показать выполненные</label>
           <div id="supplierPurchasesList"></div><p id="supplierPurchasesState" class="todo-save-state" role="status"></p>
+        </section>
+        <div id="orderPlanning" class="order-planning" hidden>
+        <section id="orderCardDeadlines" class="order-card-deadlines" aria-label="Все сроки заказа" hidden>
+          <h2>Сроки</h2>
+          <div id="orderCardDeadlineList" class="order-card-deadline-list"></div>
+          <div class="order-card-deadline-navigation"><button id="orderCardDeadlineEarlier" class="secondary-button" type="button">← Раньше</button><button id="orderCardDeadlineLater" class="secondary-button" type="button">Позже →</button></div>
+          <p id="orderCardDeadlineState" class="order-card-deadline-state" role="status"></p>
+          <div id="orderDeadlineComments" class="deadline-comments" aria-label="События на неделю"></div>
+          <div id="deadlineCommentStatus" hidden><p id="orderDeadlineCommentsState" class="order-card-deadline-state" role="status"></p><button id="retryDeadlineComments" class="secondary-button" type="button" hidden>Повторить сохранение</button></div>
         </section>
         <section id="todoPanel" class="todo-panel" aria-labelledby="todoTitle" hidden>
           <header class="todo-heading">
@@ -152,14 +162,7 @@
             <p id="descendantTodoState" class="todo-save-state" role="status"></p>
           </section>
         </section>
-        <section id="purchasePanel" class="todo-panel purchase-panel" aria-label="Формирование закупок/затрат">
-          <header class="todo-heading"><h2>Формирование закупок/затрат</h2><span id="purchaseCount"></span></header>
-          <div id="purchaseList" class="todo-list"></div>
-          <p id="purchaseEmpty" class="todo-empty">Добавь, что нужно закупить или заказать.</p>
-          <div id="purchaseLegacy" class="todo-legacy" hidden><p>В разделе «Закупки и затраты» уже есть записи:</p><pre id="purchaseLegacyText"></pre></div>
-          <form id="purchaseAddForm" class="todo-add-form"><input id="purchaseNewText" type="text" maxlength="1000" placeholder="Новая закупка или затрата…" aria-label="Новая закупка или затрата" autocomplete="off" required><button class="primary-button" type="submit">Добавить</button></form>
-          <p id="purchaseSaveState" class="todo-save-state" role="status"></p>
-        </section>
+        </div>
         </div>
         </div>
         <section id="workLinksSection" class="work-links-section" aria-label="Связанные заказы поставщиков" hidden>

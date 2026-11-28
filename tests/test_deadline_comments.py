@@ -67,6 +67,34 @@ class DeadlineCommentApiTests(unittest.TestCase):
         return {"path": self.path, "id": record["id"], "revision": record["revision"],
                 "week": "2026-10-19", "comment": "Монтаж двери", **changes}
 
+    def test_mixed_week_layout_saves_atomically_and_keeps_calendar_dates(self):
+        first, second = "2026-10-19", "2026-10-26"
+        record = self.store.save_deadline_comment(self.payload())
+        record = self.store.save_deadline_comment(self.payload(record, week=second, comment="Сдача"))
+        tasks = [{"text": "Монтаж", "done": False}, {"text": "Позвонить", "done": True}, {"text": "Закупка", "done": False, "pinned": True}]
+        rows = [second, 0, first, 1, None, 2]
+        url = self.url("/api/order", self.path)
+        self.assertEqual(json.loads(self.http(url)[2])["todo_week_layout"], [])
+        payload = {**record, "todo_items": tasks, "todo_week_layout": rows, "amount": "100", "costs": "20", "paid": "50"}
+        with patch.object(manager, "schedule_order_sync"):
+            for invalid in ([second, 0, first, 2, None], [second, 0, None, second, 1, 2], ["2026-10-20", 0, None, 1, 2]):
+                self.assertEqual(self.http("/api/order-save", "POST", json.dumps({**payload, "todo_week_layout": invalid}))[0], 400)
+            self.assertEqual(self.http("/api/order-save", "POST", json.dumps({**payload, "id": "другой"}))[0], 409)
+            self.assertEqual(self.store.get(self.path), record)
+            status, _, body = self.http("/api/order-save", "POST", json.dumps(payload))
+            self.assertEqual(status, 200, body)
+            self.assertEqual(self.http("/api/order-save", "POST", json.dumps(payload))[0], 409)
+        saved = json.loads(self.http(url)[2])
+        self.assertEqual(saved["todo_week_layout"], rows)
+        self.assertEqual(saved["todo_items"], tasks)
+        self.assertEqual(saved["deadline_weeks"], [first])
+        self.assertEqual(saved["calendar_week_events"], {first: "Монтаж двери", second: "Сдача"})
+        cleared = self.store.save_deadline_comment(self.payload(saved, week=second, comment=""))
+        self.assertEqual(cleared["todo_week_layout"], rows)
+        with self.store.connect() as db:
+            history = [json.loads(row[0]) for row in db.execute("SELECT data FROM metadata_history WHERE identity=?", (record["id"],))]
+        self.assertTrue(any(order_deadlines.read_todo_week_layout(json.loads(item["extra_blocks"])) == rows for item in history))
+
     def test_comments_survive_unmark_restart_and_card_save_without_cloud_reads(self):
         self.root.rename(self.base / "offline")
         with patch.object(manager, "schedule_order_sync"), \

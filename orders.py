@@ -138,6 +138,7 @@ class OrderStore:
         result["primary_related_orders"] = order_links.primary_items(db, result["path"], result["primary_related_order_ids"])
         result["can_link_orders"] = bool(order_links.scope(result["path"]))
         result["deadline_weeks"] = order_deadlines.read(result["extra_blocks"])
+        result["todo_week_layout"] = order_deadlines.read_todo_week_layout(result["extra_blocks"])
         result["calendar_compact"] = calendar_layout.read_compact(result["extra_blocks"])
         result["calendar_events"] = order_calendar.read(result["extra_blocks"])
         result["calendar_inactive"] = order_calendar.read_inactive(result["extra_blocks"])
@@ -245,11 +246,13 @@ class OrderStore:
         revision = payload.get("revision")
         if type(revision) is not int:
             raise ValueError("Не указана версия заказа. Откройте заказ заново.")
+        week_layout = payload.get("todo_week_layout")
+        write_week_layout = week_layout is not None and week_layout != []
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
             assert_unlocked(db, relative)
-            current = db.execute("SELECT extra_blocks FROM orders WHERE path=? AND revision=? AND registered=1", (relative, revision)).fetchone()
-            if current is None:
+            current = db.execute("SELECT id,extra_blocks FROM orders WHERE path=? AND revision=? AND registered=1", (relative, revision)).fetchone()
+            if current is None or (write_week_layout and payload.get("id") != current["id"]):
                 raise OrderConflict("Заказ изменён в другой вкладке. Откройте его заново перед сохранением.")
             blocks = json.loads(current["extra_blocks"])
             if "supplier_status" in payload:
@@ -260,8 +263,16 @@ class OrderStore:
                 from supplier_purchases import write_assignments
                 blocks = write_assignments(db, blocks, payload["purchase_items"])
             if "todo_items" in payload:
+                previous_todos = document.read_todos(blocks)
                 blocks = document.write_todos(blocks, payload["todo_items"],
                                              can_pin=lambda: can_compose_order(self.root, relative))
+                todos = document.read_todos(blocks)
+                if write_week_layout:
+                    if not can_compose_order(self.root, relative, scan_numbered=False) or (work_orders.in_work(relative) and not work_orders.supplier_name(relative)):
+                        raise ValueError("Недельный план доступен в карточке заказа со сроками")
+                    blocks = order_deadlines.write_todo_week_layout(blocks, week_layout, len(todos))
+                elif order_deadlines.TODO_LAYOUT_BLOCK in blocks and previous_todos != todos:
+                    raise OrderConflict("Список задач связан с планом по неделям. Обнови карточку перед сохранением.")
                 # Update phone identities in this same transaction, including an
                 # empty list. A deletion/re-add between syncs must get a new ID.
                 if db.execute("SELECT 1 FROM sqlite_master WHERE name='mobile_tasks'").fetchone():
@@ -269,8 +280,10 @@ class OrderStore:
                     row = db.execute("SELECT id FROM orders WHERE path=?", (relative,)).fetchone()
                     previous = db.execute("SELECT items FROM mobile_tasks WHERE order_id=?", (row["id"],)).fetchone()
                     if previous:
-                        items = reconcile_tasks(json.loads(previous[0]), document.read_todos(blocks))
+                        items = reconcile_tasks(json.loads(previous[0]), todos)
                         db.execute("UPDATE mobile_tasks SET items=? WHERE order_id=?", (json.dumps(items, ensure_ascii=False), row["id"]))
+            elif write_week_layout:
+                raise ValueError("Сохрани порядок недель вместе со списком задач")
             result = db.execute("""UPDATE orders SET title=?,status=?,financial_status=COALESCE(?,financial_status),note=?,amount=?,costs=?,paid=?,
                 extra_blocks=?,revision=revision+1,updated=?,sync_error='' WHERE path=? AND revision=? AND registered=1""",
                 (title.strip(), status, financial_status, note, *values, json.dumps(blocks, ensure_ascii=False), time.time(), relative, revision))

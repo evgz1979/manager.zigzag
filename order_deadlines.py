@@ -10,6 +10,7 @@ from local_metadata import audit, schema
 
 BLOCK = "Сроки"
 COMMENTS_BLOCK = "Комментарии к срокам"
+TODO_LAYOUT_BLOCK = "Порядок недель и задач"
 MOSCOW = ZoneInfo("Europe/Moscow")
 HIGHLIGHT_KIND = "deadline_highlights"
 DEFAULT_HIGHLIGHTS = tuple((date(2026, 12, 14) + timedelta(weeks=index)).isoformat() for index in range(7))
@@ -128,6 +129,55 @@ def write(blocks, week, selected):
     if len(weeks) > 5200:
         raise ValueError("Сохранено слишком много недель сроков")
     return {**blocks, BLOCK: json.dumps({"version": 1, "weeks": sorted(weeks)}, ensure_ascii=False)}
+
+
+# Проверяет последовательность заголовков и индексов задач в карточке.
+# Понедельники уникальны, null отмечает «Без недели», индексы идут подряд от нуля.
+def validate_todo_week_layout(rows):
+    if not isinstance(rows, list) or len(rows) > 10801:
+        raise ValueError("Некорректный порядок недель и задач")
+    seen = set()
+    index = 0
+    for row in rows:
+        if type(row) is int:
+            if row != index or index >= 200:
+                raise ValueError("Порядок недель не соответствует списку задач")
+            index += 1
+        else:
+            key = None if row is None else validate_week(row)
+            if key in seen:
+                raise ValueError("Заголовок недели указан дважды")
+            seen.add(key)
+    if None not in seen:
+        raise ValueError("Добавь раздел «Без недели»")
+    return index
+
+
+# Читает сохранённый порядок строк независимо от комментариев и отметок сроков.
+# Отсутствующий блок даёт пустой список, неизвестный формат — None.
+def read_todo_week_layout(blocks):
+    if TODO_LAYOUT_BLOCK not in blocks:
+        return []
+    try:
+        data = json.loads(blocks[TODO_LAYOUT_BLOCK])
+        if isinstance(data, dict) and set(data) == {"version", "rows"} and type(data["version"]) is int and data["version"] == 1:
+            validate_todo_week_layout(data["rows"])
+            return data["rows"]
+    except (ValueError, TypeError):
+        pass
+    return None
+
+
+# Сохраняет порядок вместе со списком задач, не меняя сроки и события календаря.
+# Проверяет охват всех задач и не заменяет неизвестный формат.
+def write_todo_week_layout(blocks, rows, task_count):
+    if read_todo_week_layout(blocks) is None:
+        raise ValueError("Неизвестный порядок недель и задач сохранён без изменений")
+    if validate_todo_week_layout(rows) != task_count:
+        raise ValueError("Порядок недель не соответствует списку задач")
+    if not any(isinstance(row, str) for row in rows):
+        return {key: value for key, value in blocks.items() if key != TODO_LAYOUT_BLOCK}
+    return {**blocks, TODO_LAYOUT_BLOCK: json.dumps({"version": 1, "rows": rows})}
 
 
 # Читает прежний отдельный блок недельных комментариев для совместимости.
