@@ -8,7 +8,7 @@
 
 ## Python
 
-72 файлов; 1027 именованных объявлений.
+72 файлов; 1028 именованных объявлений.
 
 | Модуль | Объявлений |
 | --- | ---: |
@@ -18,7 +18,7 @@
 | [calendar_events.py](python/calendar_events.md) | 19 |
 | [calendar_layout.py](python/calendar_layout.md) | 3 |
 | [calendar_stickers.py](python/calendar_stickers.md) | 4 |
-| [calendar_todos.py](python/calendar_todos.md) | 2 |
+| [calendar_todos.py](python/calendar_todos.md) | 3 |
 | [catalog_groups.py](python/catalog_groups.md) | 4 |
 | [client_activity.py](python/client_activity.md) | 21 |
 | [client_colors.py](python/client_colors.md) | 6 |

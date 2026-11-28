@@ -3,8 +3,29 @@ from datetime import date, timedelta
 from calendar_delivery import order_visible
 
 
+# Отбирает собственные задачи на неделю события по исходным индексам карточки.
+# Включает задачи без недели, а для добавленных в конец строк учитывает последний видимый заголовок.
+def week_group_items(order, group, week):
+    items = group.get('items')
+    layout, own_items = order.get('todo_week_layout'), order.get('todo_items')
+    if group.get('path') != order['path'] or items is None or not layout or not isinstance(own_items, list):
+        return items
+    active_weeks = set(order.get('deadline_weeks') or []) | set(order.get('calendar_week_events') or {})
+    assignments = {}
+    task_week = trailing_week = None
+    for row in layout:
+        if type(row) is int:
+            if row < len(own_items):
+                assignments[row] = trailing_week = task_week
+        else:
+            task_week = row
+            if row is None or row in active_weeks:
+                trailing_week = row
+    return [item for index, item in enumerate(own_items) if assignments.get(index, trailing_week) in (None, week)]
+
+
 # Собирает отмеченные события сетки и расписания поставщиков за период PNG.
-# Включает актуальные задачи заказов и не меняет входную сводку.
+# Для каждого события включает актуальные задачи на его неделю и задачи без недели.
 def digest(snapshot, start, through=None):
     first = date.fromisoformat(start)
     last = date.fromisoformat(through) if through else first + timedelta(days=13)
@@ -51,6 +72,7 @@ def digest(snapshot, start, through=None):
     sections = [f'☷ Смотри ту-ду · {first:%d.%m.%Y} — {last:%d.%m.%Y}']
     for day, period, order, text, flags in sorted(events, key=lambda item: (item[0], item[1] != 'week', item[2]['title'], item[2]['path'], item[3])):
         value = date.fromisoformat(day)
+        week = (value - timedelta(days=value.weekday())).isoformat()
         when = f'Неделя {value:%d.%m} — {value + timedelta(days=6):%d.%m}' if period == 'week' else f'{value:%d.%m.%Y}'
         title = ' · '.join(filter(None, [order['work_supplier'], order['title']] if order.get('work_supplier') else [order['title'], order.get('client'), order.get('object')]))
         lines = [f'{when} · {text}', title]
@@ -58,12 +80,12 @@ def digest(snapshot, start, through=None):
             lines.append(' · '.join(flags))
         found = False
         for group in order.get('todo_groups', []):
-            items = group.get('items')
+            items = week_group_items(order, group, week)
             if items is None:
                 lines += [group['label'] + ':', 'Задачи в прежнем формате — открой папку в менеджере.']
                 found = True
             else:
-                pending = [item['text'] for item in items if item.get('done') is False]
+                pending = [item['text'] for item in items if item.get('done') is False and not item.get('pinned')]
                 if pending:
                     lines += [group['label'] + ':', *['○ ' + text for text in pending]]
                     found = True

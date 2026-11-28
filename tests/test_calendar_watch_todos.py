@@ -26,7 +26,9 @@ class CalendarWatchTodosTests(unittest.TestCase):
         for path in [self.path, '# work/# glass/2026-10-25 - Поставщику']:
             self.folder(path)
             order = self.order if path == self.path else store.add(path, {})
-            order = store.save({**order, 'todo_items': [{'text': 'Задача ' + path, 'done': False}, {'text': 'Выполнено', 'done': True}]})
+            order = store.save({**order, 'todo_week_layout': ['2026-10-26', 0, 1, '2026-11-02', 2, None, 3],
+                                'todo_items': [{'text': 'Задача ' + path, 'done': False}, {'text': 'Выполнено', 'done': True},
+                                               {'text': 'Другая неделя', 'done': False}, {'text': 'Без недели', 'done': False}]})
             event = store.save_calendar_event(self.payload(order, text='Замер ' + path))
             store.save_calendar_watch_todos(self.payload(event, is_watch_todos=True))
         before = store.list()
@@ -35,12 +37,20 @@ class CalendarWatchTodosTests(unittest.TestCase):
             self.assertEqual(image, telegram_fixtures.PNG)
             self.assertIn('Задача ' + self.path, todo_text)
             self.assertIn('Задача # work/# glass/', todo_text)
+            self.assertEqual(todo_text.count('○ Без недели'), 2)
+            self.assertNotIn('Другая неделя', todo_text)
             self.assertNotIn('○ Выполнено', todo_text)
             return {'ok': True, 'todo_messages': 1}
         with patch.object(fixtures.manager.telegram_calendar, 'send', side_effect=sent) as send, patch.object(fixtures.manager.telegram_calendar, 'current_week', return_value=date(2026, 10, 26)), patch('icloud_access.read_bytes', side_effect=AssertionError('No cloud reads')):
             code, _, body = self.http('/api/calendar-telegram?start=2026-10-26', 'POST', telegram_fixtures.PNG, {'Content-Type': 'image/png', 'X-Manager-Calendar': '1'})
         self.assertEqual(code, 200, body)
         send.assert_called_once()
+        manager = fixtures.manager
+        with patch.object(manager.calendar_delivery, 'period', return_value=('2026-10-26', '2026-11-08')), \
+                patch.object(manager.calendar_delivery, 'render', return_value=telegram_fixtures.PNG), \
+                patch.object(manager.telegram_calendar, 'send') as command_send:
+            manager.send_calendar_command()
+        self.assertEqual(command_send.call_args.kwargs['todo_text'], send.call_args.kwargs['todo_text'])
         self.assertEqual(store.list(), before)
 
     def test_selected_event_lifecycle_preserves_other_fields_and_history(self):
@@ -134,6 +144,41 @@ class CalendarTodoDigestTests(unittest.TestCase):
             self.assertNotIn(excluded, text)
         self.assertEqual(snapshot, original)
         self.assertEqual(text.count('Купить <ручки> 😀'), 3)
+
+    def test_digest_filters_each_event_by_its_own_week(self):
+        first, second = '2026-10-26', '2026-11-02'
+        path = 'Клиент/Заказ'
+        items = [
+            {'text': 'Задача первой недели', 'done': False}, {'text': 'Готовая задача', 'done': True},
+            {'text': 'Задача второй недели', 'done': False}, {'text': 'Закреплённый раздел', 'done': False, 'pinned': True},
+            {'text': 'Свободная задача', 'done': False},
+        ]
+        order = {'path': path, 'title': 'Окна', 'deadline_weeks': [first, second],
+                 'calendar_events': {'2026-11-01': 'Воскресный замер'}, 'calendar_week_events': {second: 'Монтаж на неделе'},
+                 'calendar_watch_todos': {'day': ['2026-11-01'], 'week': [second]}, 'todo_items': items,
+                 'todo_week_layout': [first, 0, 1, second, 2, 3, None, 4],
+                 'todo_groups': [{'path': path, 'label': 'Заказ', 'items': [items[0], items[2], items[4]]},
+                                 {'path': path + '/Замер', 'label': 'Замер', 'items': [{'text': 'Задача папки', 'done': False}]}]}
+        supplier_path = '# work/# glass/Заказ'
+        supplier = {**order, 'path': supplier_path, 'work_supplier': 'glass', 'calendar_week_events': {second: 'Срок поставщика'},
+                    'calendar_watch_todos': {'week': [second]}, 'todo_groups': [{**order['todo_groups'][0], 'path': supplier_path}]}
+        snapshot = {'orders': [order], 'calendar_supplier_orders': [supplier], 'calendar_invoice_plans': [
+            {'path': path, 'date': '2026-11-06', 'period': 'day', 'is_watch_todos': True, 'text': 'Счёт'}]}
+        original = copy.deepcopy(snapshot)
+        text = calendar_todos.digest(snapshot, first)
+        sections = text.split('\n\n')[1:]
+        self.assertEqual(len(sections), 4)
+        for section in sections:
+            with self.subTest(section=section.splitlines()[0]):
+                first_week = 'Воскресный замер' in section
+                self.assertIn('Задача первой недели' if first_week else 'Задача второй недели', section)
+                self.assertNotIn('Задача второй недели' if first_week else 'Задача первой недели', section)
+                self.assertIn('Свободная задача', section)
+                self.assertNotIn('Готовая задача', section)
+                self.assertNotIn('Закреплённый раздел', section)
+                if 'Срок поставщика' not in section:
+                    self.assertIn('Замер:\n○ Задача папки', section)
+        self.assertEqual(snapshot, original)
 
     def test_empty_digest_and_lossless_unicode_chunking(self):
         self.assertEqual(calendar_todos.digest({}, '2026-10-26'), '')

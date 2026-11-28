@@ -106,7 +106,8 @@
         "path": "calendar_todos.py",
         "symbols": [
           {"name": "digest", "type": "function", "anchor": "symbol-digest"},
-          {"name": "message_parts", "type": "function", "anchor": "symbol-message_parts"}
+          {"name": "message_parts", "type": "function", "anchor": "symbol-message_parts"},
+          {"name": "week_group_items", "type": "function", "anchor": "symbol-week_group_items"}
         ]
       },
       {
