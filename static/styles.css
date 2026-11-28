@@ -758,13 +758,12 @@ h2 { font-size: 13px; font-weight: 600; }
   display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden;
   border: 1px solid #d7ae48; border-radius: 5px 5px 11px 5px;
   background: #ffe580; color: #3b2d0d; color-scheme: only light;
-  box-shadow: 0 3px 6px #37261330, 0 9px 18px #0002;
 }
 .calendar-sticker.is-expanded { --sticker-height: 108px; }
 .calendar-week:first-child > .calendar-sticker { top: max(0px, var(--sticker-top)); }
 .calendar-week:last-child > .calendar-sticker { top: min(var(--sticker-top), calc(100% - var(--sticker-height))); }
 .calendar-sticker:focus-within { z-index: 4; }
-.calendar-sticker.is-dragging { z-index: 5; box-shadow: 0 5px 14px #37261355, 0 12px 24px #0003; }
+.calendar-sticker.is-dragging { z-index: 5; }
 .calendar-sticker-header { display: flex; padding: 0 3px; background: #ffda66; }
 .calendar-sticker-header button { display: grid; place-items: center; height: 15px; padding: 0 5px; border: 0; border-radius: 3px; background: transparent; color: #5f4416; }
 .calendar-sticker-header button:hover:not(:disabled) { background: #5f44161a; }
