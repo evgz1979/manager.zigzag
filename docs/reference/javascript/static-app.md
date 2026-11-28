@@ -2733,11 +2733,11 @@ function renderCalendarTodoPreview()
 
 Показывает задачи для недели календаря, сводку избранного либо комментарий свободного события.
 
-Использует дату строки и сохраняет прокрутку и фокус при опросе.
+Видимый заголовок есть только в избранном, прокрутка и фокус сохраняются при опросе.
 
-Непосредственные вызовы: `anchor.closest`, `state.calendarEvents.find`, `state.favoriteOrders.find`, `state.calendarSupplierOrders.find`, `findListOrder`, `record.comment.trim`, `closeCalendarTodoPreview`, `anchor.getBoundingClientRect`, `(favorites || $(sidebar ? "supplierSchedule" : "calendarViewport")).getBoundingClientRect`, `$`, `$("calendarWeekdays").getBoundingClientRect`, `Math.max`, `Math.min`, `host.append`, `preview.classList.toggle`, `Boolean`, `orderTodoSummary`, `$("closeCalendarTodoPreview").setAttribute`, `renderOrderTodos`, `body.classList.toggle`, `body.setAttribute`, `body.contains`, `([...body.querySelectorAll('[data-order]')].find((link) => link.dataset.order === path) || body).focus`, `[...body.querySelectorAll('[data-order]')].find`, `body.querySelectorAll`, `positionCalendarTodoPreview`.
+Непосредственные вызовы: `anchor.closest`, `state.calendarEvents.find`, `state.favoriteOrders.find`, `state.calendarSupplierOrders.find`, `findListOrder`, `record.comment.trim`, `closeCalendarTodoPreview`, `anchor.getBoundingClientRect`, `(favorites || $(sidebar ? "supplierSchedule" : "calendarViewport")).getBoundingClientRect`, `$`, `$("calendarWeekdays").getBoundingClientRect`, `Math.max`, `Math.min`, `host.append`, `Boolean`, `preview.classList.toggle`, `orderTodoSummary`, `$("closeCalendarTodoPreview").setAttribute`, `renderOrderTodos`, `body.classList.toggle`, `body.setAttribute`, `body.contains`, `([...body.querySelectorAll('[data-order]')].find((link) => link.dataset.order === path) || body).focus`, `[...body.querySelectorAll('[data-order]')].find`, `body.querySelectorAll`, `positionCalendarTodoPreview`.
 
-Прямые присваивания полям/свойствам: `$("calendarTodoPreviewLabels").hidden`, `$("calendarTodoPreviewHeading").textContent`, `$("calendarTodoPreviewTitle").textContent`, `$("calendarTodoPreviewCount").hidden`, `$("calendarTodoPreviewCount").textContent`, `$("calendarTodoPreviewFooter").hidden`, `body.textContent`, `body.innerHTML`, `calendarTodoPreview.markup`, `body.scrollTop`.
+Прямые присваивания полям/свойствам: `$("calendarTodoPreviewLabels").hidden`, `$("calendarTodoPreviewTitle").textContent`, `$("calendarTodoPreviewCount").textContent`, `$("calendarTodoPreviewFooter").hidden`, `body.textContent`, `body.innerHTML`, `calendarTodoPreview.markup`, `body.scrollTop`.
 
 <a id="symbol-renderCardDeadlines"></a>
 

@@ -1528,9 +1528,9 @@ h2 { font-size: 13px; font-weight: 600; }
 .calendar-todo-preview h2 { margin: 0; font-size: 13px; }
 .calendar-todo-preview header p { margin: 6px 0 0; font-size: 12px; overflow-wrap: anywhere; }
 .calendar-todo-preview-body { min-height: 0; max-height: min(340px, 50dvh); margin-top: 12px; overflow: auto; overscroll-behavior: contain; }
-.calendar-todo-preview-week > header { position: absolute; inset-block-start: 8px; inset-inline-end: 8px; }
-.calendar-todo-preview-week .calendar-todo-preview-body { margin: 0; margin-inline-end: 26px; }
-.calendar-todo-preview-week .order-todo-group > ul:first-child { margin-top: 0; }
+.calendar-todo-preview-compact > header { position: absolute; inset-block-start: 8px; inset-inline-end: 8px; }
+.calendar-todo-preview-compact .calendar-todo-preview-body { margin: 0; margin-inline-end: 26px; }
+.calendar-todo-preview-compact .order-todo-group > ul:first-child { margin-top: 0; }
 .calendar-comment-preview-body { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.6; user-select: text; }
 .calendar-todo-preview footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; font-size: 10px; color: var(--muted); }
 .calendar-todo-preview footer button { font-size: 11px; padding: 6px 9px; }

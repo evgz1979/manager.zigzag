@@ -3904,7 +3904,7 @@ function positionCalendarTodoPreview() {
 }
 
 // Показывает задачи для недели календаря, сводку избранного либо комментарий свободного события.
-// Использует дату строки и сохраняет прокрутку и фокус при опросе.
+// Видимый заголовок есть только в избранном, прокрутка и фокус сохраняются при опросе.
 function renderCalendarTodoPreview() {
   const anchor = calendarTodoPreview.anchor;
   if (!anchor) return;
@@ -3923,13 +3923,12 @@ function renderCalendarTodoPreview() {
   if (preview.parentElement !== host) host.append(preview);
   const forWeek = !commentId && !favorites;
   const week = forWeek ? anchor.closest(".calendar-week")?.dataset.week || anchor.dataset.calendarDate : undefined;
-  $("calendarTodoPreviewLabels").hidden = forWeek;
-  preview.classList.toggle("calendar-todo-preview-week", forWeek);
-  $("calendarTodoPreviewHeading").textContent = commentId ? "Комментарий" : "Смотри ту-ду";
-  $("calendarTodoPreviewTitle").textContent = commentId ? record.text : record.title;
-  $("calendarTodoPreviewCount").hidden = Boolean(commentId);
+  const showLabels = Boolean(favorites) && !commentId;
+  $("calendarTodoPreviewLabels").hidden = !showLabels;
+  preview.classList.toggle("calendar-todo-preview-compact", !showLabels);
+  $("calendarTodoPreviewTitle").textContent = commentId ? "Комментарий события" : record.title;
   const loading = favorites && !record.todo_groups;
-  $("calendarTodoPreviewCount").textContent = commentId || loading ? "" : orderTodoSummary(record).count;
+  $("calendarTodoPreviewCount").textContent = showLabels && !loading ? orderTodoSummary(record).count : "";
   $("calendarTodoPreviewFooter").hidden = Boolean(commentId);
   $("closeCalendarTodoPreview").setAttribute("aria-label", commentId ? "Закрыть комментарий" : "Закрыть To-do");
   const markup = commentId ? record.comment : loading ? '<p class="order-todo-empty">Задачи загружаются…</p>' : renderOrderTodos(record, week);
