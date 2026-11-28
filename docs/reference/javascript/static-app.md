@@ -306,6 +306,22 @@ function calendarSlotOrder(slot)
 
 Непосредственные вызовы: `slot.closest`, `state.calendarSupplierOrders.find`, `findListOrder`.
 
+<a id="symbol-calendarWeekTodoGroups"></a>
+
+## calendarWeekTodoGroups
+
+[static/app.js](../../../static/app.js) · `FunctionDeclaration`.
+
+```javascript
+function calendarWeekTodoGroups(order, groups, week)
+```
+
+Отбирает собственные задачи на неделю события и задачи без недели.
+
+Использует исходные индексы карточки до исключения выполненных задач и разделов; вложенные группы возвращает целиком.
+
+Непосредственные вызовы: `Array.isArray`, `todoWeekRows`, `items.push`, `groups.flatMap`.
+
 <a id="symbol-cancelCalendarTodoPreviewSwitch"></a>
 
 ## cancelCalendarTodoPreviewSwitch
@@ -2715,13 +2731,13 @@ function renderCalendarEventControls()
 function renderCalendarTodoPreview()
 ```
 
-Показывает актуальные задачи заказа либо комментарий свободного события.
+Показывает задачи для недели календаря, сводку избранного либо комментарий свободного события.
 
-Комментарий выводит через textContent с переносами строк; опрос сохраняет прокрутку и фокус.
+Использует дату строки и сохраняет прокрутку и фокус при опросе.
 
-Непосредственные вызовы: `anchor.closest`, `state.calendarEvents.find`, `state.favoriteOrders.find`, `state.calendarSupplierOrders.find`, `findListOrder`, `record.comment.trim`, `closeCalendarTodoPreview`, `anchor.getBoundingClientRect`, `(favorites || $(sidebar ? "supplierSchedule" : "calendarViewport")).getBoundingClientRect`, `$`, `$("calendarWeekdays").getBoundingClientRect`, `Math.max`, `Math.min`, `host.append`, `Boolean`, `orderTodoSummary`, `$("closeCalendarTodoPreview").setAttribute`, `renderOrderTodos`, `body.classList.toggle`, `body.setAttribute`, `body.contains`, `([...body.querySelectorAll('[data-order]')].find((link) => link.dataset.order === path) || body).focus`, `[...body.querySelectorAll('[data-order]')].find`, `body.querySelectorAll`, `positionCalendarTodoPreview`.
+Непосредственные вызовы: `anchor.closest`, `state.calendarEvents.find`, `state.favoriteOrders.find`, `state.calendarSupplierOrders.find`, `findListOrder`, `record.comment.trim`, `closeCalendarTodoPreview`, `anchor.getBoundingClientRect`, `(favorites || $(sidebar ? "supplierSchedule" : "calendarViewport")).getBoundingClientRect`, `$`, `$("calendarWeekdays").getBoundingClientRect`, `Math.max`, `Math.min`, `host.append`, `preview.classList.toggle`, `Boolean`, `orderTodoSummary`, `$("closeCalendarTodoPreview").setAttribute`, `renderOrderTodos`, `body.classList.toggle`, `body.setAttribute`, `body.contains`, `([...body.querySelectorAll('[data-order]')].find((link) => link.dataset.order === path) || body).focus`, `[...body.querySelectorAll('[data-order]')].find`, `body.querySelectorAll`, `positionCalendarTodoPreview`.
 
-Прямые присваивания полям/свойствам: `$("calendarTodoPreviewHeading").textContent`, `$("calendarTodoPreviewTitle").textContent`, `$("calendarTodoPreviewCount").hidden`, `$("calendarTodoPreviewCount").textContent`, `$("calendarTodoPreviewFooter").hidden`, `body.textContent`, `body.innerHTML`, `calendarTodoPreview.markup`, `body.scrollTop`.
+Прямые присваивания полям/свойствам: `$("calendarTodoPreviewLabels").hidden`, `$("calendarTodoPreviewHeading").textContent`, `$("calendarTodoPreviewTitle").textContent`, `$("calendarTodoPreviewCount").hidden`, `$("calendarTodoPreviewCount").textContent`, `$("calendarTodoPreviewFooter").hidden`, `body.textContent`, `body.innerHTML`, `calendarTodoPreview.markup`, `body.scrollTop`.
 
 <a id="symbol-renderCardDeadlines"></a>
 
@@ -2846,7 +2862,7 @@ function renderDescendantTodos()
 Использует `$`, `hasDescendantTodos`, `groups.some`.
 
 Непосредственные вызовы: `$`, `hasDescendantTodos`, `groups.some`, `Boolean`, `groups.map((group) => ({ ...group, items: group.items?.filter((item) => folder.showCompletedTodos || !item.done) ?? null }))
-    .filter`, `groups.map`, `groups.reduce`, `visible.map(renderOrderTodoGroup).join`, `visible.map`, `list.contains`, `[...list.querySelectorAll("[data-order]")].find(button => button.dataset.order === path)?.focus`, `[...list.querySelectorAll("[data-order]")].find`, `list.querySelectorAll`, `orderTodoSummary`.
+    .filter`, `groups.map`, `groups.reduce`, `visible.map(group => renderOrderTodoGroup(group)).join`, `visible.map`, `list.contains`, `[...list.querySelectorAll("[data-order]")].find(button => button.dataset.order === path)?.focus`, `[...list.querySelectorAll("[data-order]")].find`, `list.querySelectorAll`, `orderTodoSummary`.
 
 Прямые присваивания полям/свойствам: `$("descendantTodos").hidden`, `$("descendantCompletedLabel").hidden`, `$("descendantCompleted").checked`, `$("descendantTodoCount").textContent`, `list.innerHTML`, `list.scrollTop`, `folder.descendantTodoMarkup`, `$("descendantTodoState").textContent`.
 
@@ -3479,12 +3495,12 @@ function renderOrderTodoDialog()
 [static/app.js](../../../static/app.js) · `FunctionDeclaration`.
 
 ```javascript
-function renderOrderTodoGroup(group)
+function renderOrderTodoGroup(group, showLabel = true)
 ```
 
-Строит группу задач с переходом к исходной папке.
+Строит группу задач с необязательной ссылкой на исходную папку.
 
-Использует `escapeHtml`, `group.items.map`.
+Без заголовка показывает сразу задачи и состояние группы.
 
 Непосредственные вызовы: `escapeHtml`, `group.items.map((item) => '<li' + (item.done ? ' class="done"' : '') + todoColorAttribute(item) + '><span aria-hidden="true">' + (item.done ? '✓' : '○') + '</span><span class="visually-hidden">' + (item.done ? 'Выполнено: ' : 'Нужно сделать: ') + '</span><span class="order-todo-text">' + escapeHtml(item.text) + '</span></li>').join`, `group.items.map`.
 
@@ -3495,14 +3511,14 @@ function renderOrderTodoGroup(group)
 [static/app.js](../../../static/app.js) · `FunctionDeclaration`.
 
 ```javascript
-function renderOrderTodos(order)
+function renderOrderTodos(order, week)
 ```
 
 Показывает собственные и вложенные задачи выбранного заказа.
 
-Использует `orderTodoSummary`, `groups.map(renderOrderTodoGroup).join`, `groups.map`.
+В календаре ограничивает собственные задачи неделей события и убирает их заголовок.
 
-Непосредственные вызовы: `orderTodoSummary`, `groups.map(renderOrderTodoGroup).join`, `groups.map`, `escapeHtml`.
+Непосредственные вызовы: `orderTodoSummary`, `calendarWeekTodoGroups`, `visible.map(group => renderOrderTodoGroup(group, !week || group.path !== order.path)).join`, `visible.map`, `escapeHtml`.
 
 <a id="symbol-renderOrders"></a>
 

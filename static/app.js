@@ -1654,7 +1654,7 @@ function renderDescendantTodos() {
   const visible = groups.map((group) => ({ ...group, items: group.items?.filter((item) => folder.showCompletedTodos || !item.done) ?? null }))
     .filter((group) => group.items === null || group.items.length);
   $("descendantTodoCount").textContent = groups.reduce((total, group) => total + (group.items || []).filter((item) => !item.done).length, 0);
-  const markup = visible.length ? visible.map(renderOrderTodoGroup).join("") : '<p class="order-todo-empty">' + (summary ? "Во вложенных папках актуальных задач нет." : "Загружаю задачи вложенных папок…") + '</p>';
+  const markup = visible.length ? visible.map(group => renderOrderTodoGroup(group)).join("") : '<p class="order-todo-empty">' + (summary ? "Во вложенных папках актуальных задач нет." : "Загружаю задачи вложенных папок…") + '</p>';
   if (folder.descendantTodoMarkup !== markup) {
     const list = $("descendantTodoList"), scroll = list.scrollTop;
     const path = list.contains(document.activeElement) ? document.activeElement.dataset.order : null;
@@ -2851,22 +2851,40 @@ function renderOrderPurchases(order) {
   return '<div class="order-todos" aria-label="Актуальные закупки заказа">' + contents + sync + '</div>';
 }
 
-// Строит группу задач с переходом к исходной папке.
-// Использует `escapeHtml`, `group.items.map`.
-function renderOrderTodoGroup(group) {
+// Строит группу задач с необязательной ссылкой на исходную папку.
+// Без заголовка показывает сразу задачи и состояние группы.
+function renderOrderTodoGroup(group, showLabel = true) {
   return '<section class="order-todo-group">' +
-    '<button class="order-todo-folder" data-order="' + escapeHtml(group.path) + '" title="' + escapeHtml(group.path) + '">' + escapeHtml(group.label) + '</button>' +
+    (showLabel ? '<button class="order-todo-folder" data-order="' + escapeHtml(group.path) + '" title="' + escapeHtml(group.path) + '">' + escapeHtml(group.label) + '</button>' : '') +
       (group.items === null ? '<small class="order-todo-state">Прежние записи задач — просмотрите в папке</small>' :
         '<ul>' + group.items.map((item) => '<li' + (item.done ? ' class="done"' : '') + todoColorAttribute(item) + '><span aria-hidden="true">' + (item.done ? '✓' : '○') + '</span><span class="visually-hidden">' + (item.done ? 'Выполнено: ' : 'Нужно сделать: ') + '</span><span class="order-todo-text">' + escapeHtml(item.text) + '</span></li>').join("") + '</ul>') +
       (group.sync_pending ? '<small class="order-todo-state">' + escapeHtml(group.sync_error ? "Сохранено в базе · выгрузка: " + group.sync_error : "Сохранено в базе · ожидает выгрузки") + '</small>' : "") + '</section>';
 }
 
+// Отбирает собственные задачи на неделю события и задачи без недели.
+// Использует исходные индексы карточки до исключения выполненных задач и разделов; вложенные группы возвращает целиком.
+function calendarWeekTodoGroups(order, groups, week) {
+  if (!order.todo_week_layout?.length || !Array.isArray(order.todo_items)) return groups;
+  const items = [];
+  let assignedWeek = null;
+  for (const row of todoWeekRows({ order, todo_items: order.todo_items })) {
+    if (typeof row !== "number") {
+      assignedWeek = row;
+      continue;
+    }
+    const item = order.todo_items[row];
+    if ((!assignedWeek || assignedWeek === week) && !item.done && !item.pinned) items.push(item);
+  }
+  return groups.flatMap(group => group.path !== order.path || group.items === null ? [group] : items.length ? [{ ...group, items }] : []);
+}
+
 // Показывает собственные и вложенные задачи выбранного заказа.
-// Использует `orderTodoSummary`, `groups.map(renderOrderTodoGroup).join`, `groups.map`.
-function renderOrderTodos(order) {
+// В календаре ограничивает собственные задачи неделей события и убирает их заголовок.
+function renderOrderTodos(order, week) {
   const { groups, warning } = orderTodoSummary(order);
+  const visible = week ? calendarWeekTodoGroups(order, groups, week) : groups;
   return '<div class="order-todos" aria-label="To-do заказа и вложенных папок">' +
-    (groups.length ? groups.map(renderOrderTodoGroup).join("") : '<p class="order-todo-empty">Актуальных задач нет.</p>') +
+    (visible.length ? visible.map(group => renderOrderTodoGroup(group, !week || group.path !== order.path)).join("") : '<p class="order-todo-empty">Актуальных задач нет.</p>') +
     (warning ? '<small class="order-todo-state">' + escapeHtml(warning) + '</small>' : '') + '</div>';
 }
 
@@ -3885,8 +3903,8 @@ function positionCalendarTodoPreview() {
   preview.style.top = Math.max(8, Math.min(below + bounds.height <= innerHeight - 8 ? below : box.top - bounds.height, innerHeight - bounds.height - 8)) + "px";
 }
 
-// Показывает актуальные задачи заказа либо комментарий свободного события.
-// Комментарий выводит через textContent с переносами строк; опрос сохраняет прокрутку и фокус.
+// Показывает задачи для недели календаря, сводку избранного либо комментарий свободного события.
+// Использует дату строки и сохраняет прокрутку и фокус при опросе.
 function renderCalendarTodoPreview() {
   const anchor = calendarTodoPreview.anchor;
   if (!anchor) return;
@@ -3903,6 +3921,10 @@ function renderCalendarTodoPreview() {
       box.right <= Math.max(0, viewport.left) || box.left >= Math.min(innerWidth, viewport.right)) { closeCalendarTodoPreview(); return; }
   const preview = $("calendarTodoPreview"), host = sidebar || document.body;
   if (preview.parentElement !== host) host.append(preview);
+  const forWeek = !commentId && !favorites;
+  const week = forWeek ? anchor.closest(".calendar-week")?.dataset.week || anchor.dataset.calendarDate : undefined;
+  $("calendarTodoPreviewLabels").hidden = forWeek;
+  preview.classList.toggle("calendar-todo-preview-week", forWeek);
   $("calendarTodoPreviewHeading").textContent = commentId ? "Комментарий" : "Смотри ту-ду";
   $("calendarTodoPreviewTitle").textContent = commentId ? record.text : record.title;
   $("calendarTodoPreviewCount").hidden = Boolean(commentId);
@@ -3910,7 +3932,7 @@ function renderCalendarTodoPreview() {
   $("calendarTodoPreviewCount").textContent = commentId || loading ? "" : orderTodoSummary(record).count;
   $("calendarTodoPreviewFooter").hidden = Boolean(commentId);
   $("closeCalendarTodoPreview").setAttribute("aria-label", commentId ? "Закрыть комментарий" : "Закрыть To-do");
-  const markup = commentId ? record.comment : loading ? '<p class="order-todo-empty">Задачи загружаются…</p>' : renderOrderTodos(record);
+  const markup = commentId ? record.comment : loading ? '<p class="order-todo-empty">Задачи загружаются…</p>' : renderOrderTodos(record, week);
   const body = $("calendarTodoPreviewBody");
   const signature = (commentId ? "comment:" : "todos:") + markup;
   body.classList.toggle("calendar-comment-preview-body", Boolean(commentId));

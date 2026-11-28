@@ -1412,6 +1412,7 @@
           {"name": "bindTodoColorMenu.open", "type": "FunctionDeclaration", "anchor": "symbol-bindTodoColorMenu.open"},
           {"name": "calendarEventEntries", "type": "FunctionDeclaration", "anchor": "symbol-calendarEventEntries"},
           {"name": "calendarSlotOrder", "type": "FunctionDeclaration", "anchor": "symbol-calendarSlotOrder"},
+          {"name": "calendarWeekTodoGroups", "type": "FunctionDeclaration", "anchor": "symbol-calendarWeekTodoGroups"},
           {"name": "cancelCalendarTodoPreviewSwitch", "type": "FunctionDeclaration", "anchor": "symbol-cancelCalendarTodoPreviewSwitch"},
           {"name": "changeOrderDeadline", "type": "FunctionDeclaration", "anchor": "symbol-changeOrderDeadline"},
           {"name": "changeOrderProductionStatus", "type": "FunctionDeclaration", "anchor": "symbol-changeOrderProductionStatus"},

@@ -175,4 +175,30 @@ function fixture(comment = false) {
   f.context.openCalendarTodoPreview(f.second, true);
   assert.equal(f.popup.hidden, false, 'explicit action reopens a dismissed comment');
 }
+
+{
+  const context = vm.createContext({ escapeHtml: String, todoColorAttribute: () => '' });
+  const summary = source.slice(source.indexOf('function orderTodoSummary('), source.indexOf('// Строит кнопку количества актуальных задач'));
+  const groups = source.slice(source.indexOf('function renderOrderTodoGroup('), source.indexOf('// Обновляет открытое окно задач'));
+  const layout = source.slice(source.indexOf('function todoWeekRows('), source.indexOf('// Показывает общие недельные события'));
+  vm.runInContext(summary + layout + groups, context);
+  const first = '2026-11-23', second = '2026-11-30', path = 'Client/Order';
+  const items = [
+    { text: 'First week', done: false }, { text: 'Completed', done: true },
+    { text: 'Second week', done: false }, { text: 'Pinned heading', pinned: true, done: false },
+    { text: 'Unscheduled', done: false },
+  ];
+  const own = { path, label: 'Заказ', items: items.filter(item => !item.done && !item.pinned) };
+  const folder = { path: path + '/Event', label: 'Event folder', items: [{ text: 'Nested task', done: false }] };
+  const order = { path, todo_items: items, todo_groups: [own, folder], todo_week_layout: [first, 0, 1, second, 2, 3, null, 4] };
+  const firstWeek = context.renderOrderTodos(order, first);
+  assert.match(firstWeek, /First week.*Unscheduled.*Event folder.*Nested task/);
+  assert.doesNotMatch(firstWeek, /Second week|Completed|Pinned heading|>Заказ</);
+  const secondWeek = context.renderOrderTodos(order, second);
+  assert.match(secondWeek, /Second week.*Unscheduled.*Nested task/);
+  assert.doesNotMatch(secondWeek, /First week|Completed|Pinned heading/);
+  assert.doesNotMatch(context.renderOrderTodos(order, '2026-12-07'), /First week|Second week/);
+  assert.match(context.renderOrderTodos(order), />Заказ<.*First week.*Second week/);
+  assert.match(context.renderOrderTodos({ ...order, todo_week_layout: [] }, first), /First week.*Second week.*Unscheduled/);
+}
 console.log('Calendar To-do and comment hover regression checks passed');
