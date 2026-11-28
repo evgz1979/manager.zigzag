@@ -63,11 +63,12 @@ const CalendarStickers = (() => {
   // Обновляет кнопки листка с учётом сохранения, удаления и ошибки.
   // Ошибка доступна через подсказку кнопки, повторное действие запускает редактор.
   function controls(entry) {
-    const { element, editor, grip, dismiss, retry, draft, pending, failure } = entry;
+    const { element, editor, grip, resize, dismiss, retry, draft, pending, failure } = entry;
     element.classList.toggle("is-saving", Boolean(pending));
     element.setAttribute("aria-busy", String(Boolean(pending)));
     editor.readOnly = draft.deleted;
     grip.disabled = draft.deleted;
+    resize.disabled = draft.deleted;
     dismiss.disabled = draft.deleted;
     retry.hidden = !failure;
     retry.disabled = Boolean(pending);
@@ -137,7 +138,7 @@ const CalendarStickers = (() => {
     }
   }
 
-  // Выбирает неделю по вертикальной координате центра листка.
+  // Выбирает неделю по вертикальной координате центра компактного листка.
   // За пределами сетки ближайшая крайняя неделя получает координату 0 или 10000.
   function position(x, y) {
     const rows = [...calendar.children];
@@ -147,6 +148,12 @@ const CalendarStickers = (() => {
     // Ограничивает результат границами выбранной недели.
     const ratio = (value, size) => Math.round(Math.min(1, Math.max(0, value / size)) * 10000);
     return { row, week: row.dataset.week, x: ratio(x - box.left, box.width), y: ratio(y - box.top, box.height) };
+  }
+
+  // Возвращает расстояние от верхнего края листка до точки его привязки.
+  // Использует высоту компактного листка для обоих размеров.
+  function anchorOffset(element) {
+    return parseFloat(getComputedStyle(element).getPropertyValue("--sticker-compact-height")) / 2;
   }
 
   // Сохраняет новое положение после перетаскивания или нажатия стрелки.
@@ -213,13 +220,13 @@ const CalendarStickers = (() => {
     entry.element.style.removeProperty("left");
     entry.element.style.removeProperty("top");
     if (commit && frame) {
-      move(entry, x - offsetX + entry.element.offsetWidth / 2, y - offsetY + entry.element.offsetHeight / 2);
+      move(entry, x - offsetX + entry.element.offsetWidth / 2, y - offsetY + anchorOffset(entry.element));
     }
     viewport.classList.remove("is-dragging-sticker");
   }
 
-  // Создаёт редактор листка и подключает ввод, ручку и удаление.
-  // Элемент сохраняет идентичность при опросе и при переносе в другую неделю.
+  // Создаёт редактор листка с ручкой, переключателем высоты и удалением.
+  // Переиспользуемый DOM-узел сохраняет выбранную высоту при опросе и переносе.
   function create(entry) {
     const element = document.createElement("div");
     element.className = "calendar-sticker";
@@ -229,11 +236,14 @@ const CalendarStickers = (() => {
     element.innerHTML = `<div class="calendar-sticker-header">
       <button class="calendar-sticker-grip" type="button" aria-label="Переместить стикер" title="Перетащи или нажимай клавиши со стрелками" aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight">⠿</button>
       <button class="calendar-sticker-retry" type="button" hidden></button>
+      <button class="calendar-sticker-resize" type="button" aria-expanded="false" aria-label="Развернуть стикер" title="Развернуть стикер"></button>
       <button class="calendar-sticker-remove" type="button" aria-label="Удалить стикер" title="Удалить стикер">×</button>
       </div><textarea class="calendar-sticker-editor" aria-label="Текст стикера" placeholder="Напиши заметку…" maxlength="2000" spellcheck="true"></textarea>`;
-    const [grip, retry, dismiss] = element.querySelectorAll("button");
+    const [grip, retry, resize, dismiss] = element.querySelectorAll("button");
     const editor = element.querySelector("textarea");
-    Object.assign(entry, { element, grip, retry, dismiss, editor });
+    editor.id = "calendarStickerText-" + entry.draft.id;
+    resize.setAttribute("aria-controls", editor.id);
+    Object.assign(entry, { element, grip, retry, resize, dismiss, editor });
     grip.addEventListener("pointerdown", event => startDrag(entry, event));
     grip.addEventListener("pointermove", dragPointer);
     for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) {
@@ -245,12 +255,19 @@ const CalendarStickers = (() => {
       if (!direction || drag) return;
       event.preventDefault();
       const box = element.getBoundingClientRect();
-      move(entry, box.left + box.width / 2 + 20 * direction[0], box.top + box.height / 2 + 20 * direction[1]);
+      move(entry, box.left + box.width / 2 + 20 * direction[0], box.top + anchorOffset(element) + 20 * direction[1]);
       element.scrollIntoView({ block: "nearest", inline: "nearest" });
     });
     editor.addEventListener("input", () => { entry.draft.text = editor.value; queueSave(entry); });
     editor.addEventListener("blur", () => { void save(entry); });
     retry.addEventListener("click", () => recover(entry));
+    resize.addEventListener("click", () => {
+      const expanded = element.classList.toggle("is-expanded");
+      const label = expanded ? "Свернуть стикер" : "Развернуть стикер";
+      resize.setAttribute("aria-expanded", String(expanded));
+      resize.setAttribute("aria-label", label);
+      resize.title = label;
+    });
     dismiss.addEventListener("click", () => {
       if (entry.draft.text.trim() && !window.confirm("Удалить этот стикер?")) return;
       entry.draft.deleted = true;
@@ -260,7 +277,7 @@ const CalendarStickers = (() => {
   }
 
   // Раскладывает листки поверх нужных недель и оставляет фокус при переносе.
-  // Доли задают центр листка; соседние недели могут лежать под одним листком.
+  // Доли задают центр компактного листка для обоих размеров.
   function render() {
     const rows = new Map([...calendar.children].map(row => [row.dataset.week, row]));
     for (const entry of entries.values()) {

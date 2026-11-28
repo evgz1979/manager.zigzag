@@ -749,8 +749,9 @@ h2 { font-size: 13px; font-weight: 600; }
 .calendar-viewport.is-dragging-sticker { scroll-snap-type: none; }
 .calendar-sticker {
   --sticker-width: 164px;
-  --sticker-height: 108px;
-  --sticker-top: calc(var(--sticker-y) * 100% - var(--sticker-height) / 2);
+  --sticker-compact-height: 62.5px;
+  --sticker-height: var(--sticker-compact-height);
+  --sticker-top: calc(var(--sticker-y) * 100% - var(--sticker-compact-height) / 2);
   position: absolute; z-index: 3; box-sizing: border-box;
   left: clamp(0px, calc(var(--sticker-x) * 100% - var(--sticker-width) / 2), calc(100% - var(--sticker-width)));
   top: var(--sticker-top); width: var(--sticker-width); height: var(--sticker-height);
@@ -759,6 +760,7 @@ h2 { font-size: 13px; font-weight: 600; }
   background: #ffe580; color: #3b2d0d; color-scheme: only light;
   box-shadow: 0 3px 6px #37261330, 0 9px 18px #0002;
 }
+.calendar-sticker.is-expanded { --sticker-height: 108px; }
 .calendar-week:first-child > .calendar-sticker { top: max(0px, var(--sticker-top)); }
 .calendar-week:last-child > .calendar-sticker { top: min(var(--sticker-top), calc(100% - var(--sticker-height))); }
 .calendar-sticker:focus-within { z-index: 4; }
@@ -769,6 +771,9 @@ h2 { font-size: 13px; font-weight: 600; }
 .calendar-sticker-header button:focus-visible, .calendar-sticker-editor:focus-visible { outline: 2px solid #805914; outline-offset: -2px; }
 .calendar-sticker-header .calendar-sticker-grip { flex: 1; cursor: grab; touch-action: none; user-select: none; font-size: 10px; line-height: 1; }
 .calendar-sticker.is-dragging .calendar-sticker-grip { cursor: grabbing; }
+.calendar-sticker-resize { min-width: 24px; }
+.calendar-sticker-resize::before { content: ""; width: 5px; height: 5px; border: solid currentColor; border-width: 0 1px 1px 0; transform: translateY(-1px) rotate(45deg); }
+.calendar-sticker-resize[aria-expanded="true"]::before { transform: translateY(1px) rotate(225deg); }
 .calendar-sticker-remove { min-width: 28px; font-size: 13px; line-height: 1; }
 .calendar-sticker-retry { font-size: 10px; line-height: 1; font-weight: 600; }
 .calendar-sticker-header .calendar-sticker-retry { color: #842c13; }

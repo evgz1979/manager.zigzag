@@ -24,6 +24,22 @@ function accept(entry, record, replaceDraft)
 
 Прямые присваивания полям/свойствам: `entry.saved`, `entry.draft`.
 
+<a id="symbol-anchorOffset"></a>
+
+## anchorOffset
+
+[static/calendar-stickers.js](../../../static/calendar-stickers.js) · `FunctionDeclaration`.
+
+```javascript
+function anchorOffset(element)
+```
+
+Возвращает расстояние от верхнего края листка до точки его привязки.
+
+Использует высоту компактного листка для обоих размеров.
+
+Непосредственные вызовы: `parseFloat`, `getComputedStyle(element).getPropertyValue`, `getComputedStyle`.
+
 <a id="symbol-controls"></a>
 
 ## controls
@@ -40,7 +56,7 @@ function controls(entry)
 
 Непосредственные вызовы: `element.classList.toggle`, `Boolean`, `element.setAttribute`, `String`.
 
-Прямые присваивания полям/свойствам: `editor.readOnly`, `grip.disabled`, `dismiss.disabled`, `retry.hidden`, `retry.disabled`, `retry.textContent`, `retry.title`.
+Прямые присваивания полям/свойствам: `editor.readOnly`, `grip.disabled`, `resize.disabled`, `dismiss.disabled`, `retry.hidden`, `retry.disabled`, `retry.textContent`, `retry.title`.
 
 <a id="symbol-create"></a>
 
@@ -52,13 +68,13 @@ function controls(entry)
 function create(entry)
 ```
 
-Создаёт редактор листка и подключает ввод, ручку и удаление.
+Создаёт редактор листка с ручкой, переключателем высоты и удалением.
 
-Элемент сохраняет идентичность при опросе и при переносе в другую неделю.
+Переиспользуемый DOM-узел сохраняет выбранную высоту при опросе и переносе.
 
-Непосредственные вызовы: `document.createElement`, `element.setAttribute`, `element.querySelectorAll`, `element.querySelector`, `Object.assign`, `grip.addEventListener`, `editor.addEventListener`, `retry.addEventListener`, `dismiss.addEventListener`.
+Непосредственные вызовы: `document.createElement`, `element.setAttribute`, `element.querySelectorAll`, `element.querySelector`, `resize.setAttribute`, `Object.assign`, `grip.addEventListener`, `editor.addEventListener`, `retry.addEventListener`, `resize.addEventListener`, `dismiss.addEventListener`.
 
-Прямые присваивания полям/свойствам: `element.className`, `element.dataset.stickerId`, `element.innerHTML`.
+Прямые присваивания полям/свойствам: `element.className`, `element.dataset.stickerId`, `element.innerHTML`, `editor.id`.
 
 <a id="symbol-dirty"></a>
 
@@ -108,7 +124,7 @@ function endDrag(commit)
 
 Отменённый захват или Escape возвращает листок в исходную точку.
 
-Непосредственные вызовы: `cancelAnimationFrame`, `entry.grip.hasPointerCapture`, `entry.grip.releasePointerCapture`, `entry.element.classList.remove`, `entry.element.style.removeProperty`, `move`, `viewport.classList.remove`.
+Непосредственные вызовы: `cancelAnimationFrame`, `entry.grip.hasPointerCapture`, `entry.grip.releasePointerCapture`, `entry.element.classList.remove`, `entry.element.style.removeProperty`, `move`, `anchorOffset`, `viewport.classList.remove`.
 
 <a id="symbol-followPointer"></a>
 
@@ -168,7 +184,7 @@ function move(entry, x, y)
 function position(x, y)
 ```
 
-Выбирает неделю по вертикальной координате центра листка.
+Выбирает неделю по вертикальной координате центра компактного листка.
 
 За пределами сетки ближайшая крайняя неделя получает координату 0 или 10000.
 
@@ -254,7 +270,7 @@ function render()
 
 Раскладывает листки поверх нужных недель и оставляет фокус при переносе.
 
-Доли задают центр листка; соседние недели могут лежать под одним листком.
+Доли задают центр компактного листка для обоих размеров.
 
 Непосредственные вызовы: `Map`, `[...calendar.children].map`, `entries.values`, `rows.get`, `create`, `element.style.setProperty`, `controls`, `element.contains`, `row.append`, `focus?.focus`.
 

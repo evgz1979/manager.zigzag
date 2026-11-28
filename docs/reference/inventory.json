@@ -1700,6 +1700,7 @@
         "path": "static/calendar-stickers.js",
         "symbols": [
           {"name": "accept", "type": "FunctionDeclaration", "anchor": "symbol-accept"},
+          {"name": "anchorOffset", "type": "FunctionDeclaration", "anchor": "symbol-anchorOffset"},
           {"name": "controls", "type": "FunctionDeclaration", "anchor": "symbol-controls"},
           {"name": "create", "type": "FunctionDeclaration", "anchor": "symbol-create"},
           {"name": "dirty", "type": "FunctionDeclaration", "anchor": "symbol-dirty"},
